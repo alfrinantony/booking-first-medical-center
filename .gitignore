@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment files (secrets — never commit)
+.env*
+!.env.example
+
+# Next.js build output
+.next/
+out/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.tsbuildinfo
+next-env.d.ts

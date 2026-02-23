@@ -1,0 +1,561 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { ClientsStore, Client } from '@/lib/clients-store';
+import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2 } from 'lucide-react';
+
+/* ── Form shape ── */
+interface EditForm {
+    firstName: string; middleName: string; lastName: string;
+    mobile: string; whatsapp: string; email: string;
+    gender: string; dateOfBirth: string; clientClass: string;
+    civilStatus: string; nationality: string; passportNo: string;
+    emiratesIdNumber: string; emiratesIdIssueDate: string; emiratesIdExpiryDate: string;
+    idFrontBase64: string; idFrontName: string;
+    idBackBase64: string; idBackName: string;
+    firstNameArabic: string; lastNameArabic: string;
+    religion: string; profession: string; country: string;
+    citizenship: string; emirates: string; race: string;
+    residentType: string; poBox: string; city: string;
+    ethnicGroup: string; language: string; address: string; remark: string;
+    emergencyContactPerson: string; emergencyRelationship: string;
+    emergencyTelephone: string; emergencyWorkMobile: string;
+}
+
+const emptyForm: EditForm = {
+    firstName: '', middleName: '', lastName: '',
+    mobile: '', whatsapp: '', email: '',
+    gender: '', dateOfBirth: '', clientClass: '', civilStatus: '',
+    nationality: '', passportNo: '',
+    emiratesIdNumber: '', emiratesIdIssueDate: '', emiratesIdExpiryDate: '',
+    idFrontBase64: '', idFrontName: '', idBackBase64: '', idBackName: '',
+    firstNameArabic: '', lastNameArabic: '',
+    religion: '', profession: '', country: '', citizenship: '',
+    emirates: '', race: '', residentType: '', poBox: '', city: '',
+    ethnicGroup: '', language: '', address: '', remark: '',
+    emergencyContactPerson: '', emergencyRelationship: '',
+    emergencyTelephone: '', emergencyWorkMobile: '',
+};
+
+/* ── Dropdown options ── */
+const NATIONALITIES = [
+    'Afghan', 'Albanian', 'Algerian', 'American', 'Argentinian', 'Australian', 'Bahraini', 'Bangladeshi',
+    'Belgian', 'Brazilian', 'British', 'Canadian', 'Chinese', 'Colombian', 'Cuban', 'Dutch', 'Egyptian',
+    'Emirati', 'Ethiopian', 'Filipino', 'Finnish', 'French', 'Georgian', 'German', 'Ghanaian', 'Greek',
+    'Indian', 'Indonesian', 'Iranian', 'Iraqi', 'Irish', 'Italian', 'Japanese', 'Jordanian', 'Kenyan',
+    'Korean', 'Kuwaiti', 'Lebanese', 'Libyan', 'Malaysian', 'Mexican', 'Moroccan', 'Nepalese', 'New Zealander',
+    'Nigerian', 'Norwegian', 'Omani', 'Pakistani', 'Palestinian', 'Peruvian', 'Polish', 'Portuguese',
+    'Qatari', 'Romanian', 'Russian', 'Saudi', 'Serbian', 'Singaporean', 'Somali', 'South African',
+    'Spanish', 'Sri Lankan', 'Sudanese', 'Swedish', 'Swiss', 'Syrian', 'Thai', 'Tunisian', 'Turkish',
+    'Ugandan', 'Ukrainian', 'Uzbek', 'Venezuelan', 'Vietnamese', 'Yemeni', 'Other',
+];
+const CIVIL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed', 'Separated'];
+const RELIGIONS = ['Islam', 'Christianity', 'Hinduism', 'Buddhism', 'Sikhism', 'Judaism', 'Other', 'Prefer not to say'];
+const EMIRATES = ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Umm Al Quwain', 'Ras Al Khaimah', 'Fujairah'];
+const UAE_CITIES = ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Umm Al Quwain', 'Ras Al Khaimah', 'Fujairah', 'Al Ain', 'Al Dhafra', 'Khor Fakkan', 'Kalba', 'Dibba Al Fujairah', 'Dibba Al Hisn', 'Hatta', 'Madinat Zayed', 'Ruwais', 'Jebel Ali', 'Other'];
+const RESIDENT_TYPES = ['UAE Citizen', 'Resident', 'International Patient'];
+const CLIENT_CLASSES = ['VIP', 'Regular', 'Insurance', 'Corporate', 'Staff'];
+const RELATIONSHIPS = ['Spouse', 'Parent', 'Sibling', 'Child', 'Friend', 'Colleague', 'Other'];
+const ETHNIC_GROUPS = [
+    'Arab', 'South Asian', 'Southeast Asian', 'East Asian', 'Central Asian',
+    'African', 'European', 'Latin American', 'Persian', 'Turkish', 'Kurdish',
+    'Baloch', 'Berber', 'Malay', 'Pacific Islander', 'Mixed', 'Other',
+];
+const RACES = [
+    'Asian', 'Arab', 'White', 'Black', 'Hispanic', 'Mixed', 'Pacific Islander',
+    'Native American', 'Other', 'Prefer not to say',
+];
+const LANGUAGES = [
+    'Arabic', 'English', 'Hindi', 'Urdu', 'Malayalam', 'Tamil', 'Tagalog', 'Bengali',
+    'Persian', 'French', 'Spanish', 'Portuguese', 'Russian', 'Chinese', 'Japanese',
+    'Korean', 'German', 'Italian', 'Turkish', 'Indonesian', 'Malay', 'Swahili',
+    'Pashto', 'Punjabi', 'Telugu', 'Kannada', 'Sinhala', 'Nepali', 'Thai', 'Vietnamese', 'Other',
+];
+const CITIZENSHIPS = [
+    'Afghanistan', 'Albania', 'Algeria', 'Argentina', 'Australia', 'Bahrain', 'Bangladesh',
+    'Belgium', 'Brazil', 'Canada', 'China', 'Colombia', 'Cuba', 'Egypt', 'Ethiopia',
+    'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'India', 'Indonesia',
+    'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kenya', 'Korea', 'Kuwait',
+    'Lebanon', 'Libya', 'Malaysia', 'Mexico', 'Morocco', 'Nepal', 'Netherlands', 'New Zealand',
+    'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland',
+    'Portugal', 'Qatar', 'Romania', 'Russia', 'Saudi Arabia', 'Serbia', 'Singapore', 'Somalia',
+    'South Africa', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Switzerland', 'Syria', 'Thailand',
+    'Tunisia', 'Turkey', 'UAE', 'Uganda', 'Ukraine', 'United Kingdom', 'United States',
+    'Uzbekistan', 'Venezuela', 'Vietnam', 'Yemen', 'Other',
+];
+
+export default function ClientsPage() {
+    const [clients, setClients] = useState<Client[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
+    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+    const [targetClientId, setTargetClientId] = useState<string>('');
+
+    // Edit / Register State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingClient, setEditingClient] = useState<Client | null>(null);
+    const [editForm, setEditForm] = useState<EditForm>({ ...emptyForm });
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [readingEid, setReadingEid] = useState(false);
+    const [eidDemoWarning, setEidDemoWarning] = useState(false);
+
+    const refreshClients = () => setClients(ClientsStore.getAll());
+    useEffect(() => { refreshClients(); }, []);
+
+    const filteredClients = clients.filter(c =>
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.phone?.includes(searchQuery) ||
+        c.mobile?.includes(searchQuery) ||
+        c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.emiratesIdNumber?.includes(searchQuery) ||
+        c.passportNo?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const toggleSelection = (id: string) => {
+        const s = new Set(selectedClientIds);
+        s.has(id) ? s.delete(id) : s.add(id);
+        setSelectedClientIds(s);
+    };
+
+    const handleMergeClick = () => { if (selectedClientIds.size < 2) return; setTargetClientId(Array.from(selectedClientIds)[0]); setIsMergeModalOpen(true); };
+
+    const confirmMerge = () => {
+        const ids = Array.from(selectedClientIds);
+        ids.filter(id => id !== targetClientId).forEach(src => ClientsStore.merge(targetClientId, src));
+        setSelectedClientIds(new Set()); setIsMergeModalOpen(false); refreshClients(); alert('Clients merged successfully!');
+    };
+
+    const handleEditClick = (client: Client, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingClient(client); setIsRegistering(false);
+        const np = client.name.split(' ');
+        setEditForm({
+            firstName: client.firstName || np[0] || '',
+            middleName: client.middleName || '',
+            lastName: client.lastName || np.slice(1).join(' ') || '',
+            mobile: client.mobile || client.phone || '',
+            whatsapp: client.whatsapp || '',
+            email: client.email || '',
+            gender: client.gender || '',
+            dateOfBirth: client.dateOfBirth || '',
+            clientClass: client.clientClass || '',
+            civilStatus: client.civilStatus || '',
+            nationality: client.nationality || '',
+            passportNo: client.passportNo || '',
+            emiratesIdNumber: client.emiratesIdNumber || '',
+            emiratesIdIssueDate: client.emiratesIdIssueDate || '',
+            emiratesIdExpiryDate: client.emiratesIdExpiryDate || '',
+            idFrontBase64: client.idFrontBase64 || '',
+            idFrontName: client.idFrontName || '',
+            idBackBase64: client.idBackBase64 || '',
+            idBackName: client.idBackName || '',
+            firstNameArabic: client.firstNameArabic || '',
+            lastNameArabic: client.lastNameArabic || '',
+            religion: client.religion || '',
+            profession: client.profession || '',
+            country: client.country || '',
+            citizenship: client.citizenship || '',
+            emirates: client.emirates || '',
+            race: client.race || '',
+            residentType: client.residentType || '',
+            poBox: client.poBox || '',
+            city: client.city || '',
+            ethnicGroup: client.ethnicGroup || '',
+            language: client.language || '',
+            address: client.address || '',
+            remark: client.remark || '',
+            emergencyContactPerson: client.emergencyContactPerson || '',
+            emergencyRelationship: client.emergencyRelationship || '',
+            emergencyTelephone: client.emergencyTelephone || '',
+            emergencyWorkMobile: client.emergencyWorkMobile || '',
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const openRegister = () => { setEditingClient(null); setIsRegistering(true); setEditForm({ ...emptyForm }); setIsEditModalOpen(true); };
+
+    const handleReadEmiratesId = async () => {
+        setReadingEid(true);
+        setEidDemoWarning(false);
+        try {
+            const res = await fetch('/api/admin/emirates-id/read');
+            const data = await res.json();
+            if (data.success && data.formFields) {
+                const ff = data.formFields as Record<string, string>;
+                setEditingClient(null);
+                setIsRegistering(true);
+                setEditForm(prev => ({
+                    ...emptyForm,
+                    firstName: ff.firstName || prev.firstName,
+                    middleName: ff.middleName || prev.middleName,
+                    lastName: ff.lastName || prev.lastName,
+                    firstNameArabic: ff.firstNameArabic || prev.firstNameArabic,
+                    lastNameArabic: ff.lastNameArabic || prev.lastNameArabic,
+                    emiratesIdNumber: ff.emiratesIdNumber || prev.emiratesIdNumber,
+                    emiratesIdIssueDate: ff.emiratesIdIssueDate || prev.emiratesIdIssueDate,
+                    emiratesIdExpiryDate: ff.emiratesIdExpiryDate || prev.emiratesIdExpiryDate,
+                    dateOfBirth: ff.dateOfBirth || prev.dateOfBirth,
+                    gender: ff.gender || prev.gender,
+                    nationality: ff.nationality || prev.nationality,
+                    profession: ff.profession || prev.profession,
+                }));
+                if (data.isDemo) setEidDemoWarning(true);
+                setIsEditModalOpen(true);
+            } else {
+                alert(data.error || 'Failed to read Emirates ID card.');
+            }
+        } catch {
+            alert('Could not connect to Emirates ID reader service.');
+        } finally {
+            setReadingEid(false);
+        }
+    };
+
+    const handleFileUpload = (field: 'idFrontBase64' | 'idBackBase64', nameField: 'idFrontName' | 'idBackName', e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 1024 * 1024) { alert('File size must be under 1 MB'); e.target.value = ''; return; }
+        if (!file.type.startsWith('image/') && file.type !== 'application/pdf') { alert('Only image or PDF files are allowed'); e.target.value = ''; return; }
+        const reader = new FileReader();
+        reader.onload = () => setEditForm(prev => ({ ...prev, [field]: reader.result as string, [nameField]: file.name }));
+        reader.readAsDataURL(file);
+    };
+
+    const saveEdit = () => {
+        const fullName = [editForm.firstName, editForm.middleName, editForm.lastName].filter(Boolean).join(' ');
+        if (!fullName) { alert('Please enter at least a first and last name'); return; }
+
+        const updates: Partial<Client> = {
+            name: fullName,
+            firstName: editForm.firstName || undefined,
+            middleName: editForm.middleName || undefined,
+            lastName: editForm.lastName || undefined,
+            mobile: editForm.mobile || undefined,
+            whatsapp: editForm.whatsapp || undefined,
+            email: editForm.email || undefined,
+            gender: (editForm.gender as 'Male' | 'Female') || undefined,
+            dateOfBirth: editForm.dateOfBirth || undefined,
+            clientClass: editForm.clientClass || undefined,
+            civilStatus: editForm.civilStatus || undefined,
+            nationality: editForm.nationality || undefined,
+            passportNo: editForm.passportNo || undefined,
+            emiratesIdNumber: editForm.emiratesIdNumber || undefined,
+            emiratesIdIssueDate: editForm.emiratesIdIssueDate || undefined,
+            emiratesIdExpiryDate: editForm.emiratesIdExpiryDate || undefined,
+            idFrontBase64: editForm.idFrontBase64 || undefined,
+            idFrontName: editForm.idFrontName || undefined,
+            idBackBase64: editForm.idBackBase64 || undefined,
+            idBackName: editForm.idBackName || undefined,
+            firstNameArabic: editForm.firstNameArabic || undefined,
+            lastNameArabic: editForm.lastNameArabic || undefined,
+            religion: editForm.religion || undefined,
+            profession: editForm.profession || undefined,
+            country: editForm.country || undefined,
+            citizenship: editForm.citizenship || undefined,
+            emirates: editForm.emirates || undefined,
+            race: editForm.race || undefined,
+            residentType: editForm.residentType || undefined,
+            poBox: editForm.poBox || undefined,
+            city: editForm.city || undefined,
+            ethnicGroup: editForm.ethnicGroup || undefined,
+            language: editForm.language || undefined,
+            address: editForm.address || undefined,
+            remark: editForm.remark || undefined,
+            emergencyContactPerson: editForm.emergencyContactPerson || undefined,
+            emergencyRelationship: editForm.emergencyRelationship || undefined,
+            emergencyTelephone: editForm.emergencyTelephone || undefined,
+            emergencyWorkMobile: editForm.emergencyWorkMobile || undefined,
+        };
+
+        if (editingClient) ClientsStore.update(editingClient.id, updates);
+        setIsEditModalOpen(false);
+        refreshClients();
+    };
+
+    /* ── Helper: text input ── */
+    const fld = (label: string, key: keyof EditForm, opts?: { type?: string; placeholder?: string; dir?: string; required?: boolean; colSpan?: number }) => (
+        <div className={opts?.colSpan === 2 ? 'col-span-2' : ''}>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{label}{opts?.required && ' *'}</label>
+            <input
+                type={opts?.type || 'text'}
+                dir={opts?.dir}
+                required={opts?.required}
+                placeholder={opts?.placeholder || ''}
+                className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                value={editForm[key]}
+                onChange={e => setEditForm({ ...editForm, [key]: e.target.value })}
+            />
+        </div>
+    );
+
+    /* ── Helper: select input ── */
+    const sel = (label: string, key: keyof EditForm, options: string[], placeholder?: string) => (
+        <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{label}</label>
+            <select className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                value={editForm[key]} onChange={e => setEditForm({ ...editForm, [key]: e.target.value })}>
+                <option value="">{placeholder || `Select ${label}`}</option>
+                {options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+        </div>
+    );
+
+    /* ── Helper: file upload ── */
+    const fileUp = (label: string, base64Key: 'idFrontBase64' | 'idBackBase64', nameKey: 'idFrontName' | 'idBackName') => (
+        <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">{label}</label>
+            {editForm[base64Key] ? (
+                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-750 p-3 rounded-lg">
+                    <FileText className="w-4 h-4 text-green-500" />
+                    <span className="text-xs font-medium flex-1 truncate">{editForm[nameKey]}</span>
+                    <button type="button" onClick={() => setEditForm({ ...editForm, [base64Key]: '', [nameKey]: '' })}
+                        className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                </div>
+            ) : (
+                <input type="file" accept="image/*,.pdf"
+                    className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 dark:file:bg-indigo-900/30 dark:file:text-indigo-400"
+                    onChange={e => handleFileUpload(base64Key, nameKey, e)} />
+            )}
+        </div>
+    );
+
+    /* ── Section header ── */
+    const secHeader = (icon: React.ReactNode, title: string) => (
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-1">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">{icon} {title}</h3>
+        </div>
+    );
+
+    return (
+        <div className="p-6 max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                    <Users className="w-6 h-6 text-indigo-600" /> Client Management
+                </h1>
+                <div className="flex gap-3">
+                    {selectedClientIds.size >= 2 && (
+                        <button onClick={handleMergeClick} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                            <Merge className="w-4 h-4" /> Merge Selected ({selectedClientIds.size})
+                        </button>
+                    )}
+                    <button onClick={handleReadEmiratesId} disabled={readingEid} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-60">
+                        {readingEid ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
+                        {readingEid ? 'Reading...' : 'Read Emirates ID'}
+                    </button>
+                    <button onClick={openRegister} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                        <Plus className="w-4 h-4" /> Register Client
+                    </button>
+                </div>
+            </div>
+
+            {/* Search */}
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+                <div className="relative">
+                    <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                    <input type="text" placeholder="Search by name, phone, email, Emirates ID, or passport..."
+                        className="w-full pl-10 p-2.5 border rounded-lg bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                </div>
+            </div>
+
+            {/* Clients Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 text-sm">
+                        <tr>
+                            <th className="p-4 w-12"><input type="checkbox" disabled /></th>
+                            <th className="p-4">Client Name</th>
+                            <th className="p-4">Emirates ID</th>
+                            <th className="p-4">Contact</th>
+                            <th className="p-4">Nationality</th>
+                            <th className="p-4">Bookings</th>
+                            <th className="p-4">Last Visit</th>
+                            <th className="p-4">Class</th>
+                            <th className="p-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {filteredClients.map(client => (
+                            <tr key={client.id}
+                                className={`hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${selectedClientIds.has(client.id) ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
+                                onClick={() => toggleSelection(client.id)}>
+                                <td className="p-4">
+                                    <input type="checkbox" checked={selectedClientIds.has(client.id)}
+                                        onChange={() => toggleSelection(client.id)} className="w-4 h-4 text-indigo-600 rounded"
+                                        onClick={e => e.stopPropagation()} />
+                                </td>
+                                <td className="p-4">
+                                    <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
+                                    {client.gender && <div className="text-xs text-gray-400">{client.gender}{client.civilStatus ? ` • ${client.civilStatus}` : ''}</div>}
+                                </td>
+                                <td className="p-4 text-sm text-gray-600 dark:text-gray-300 font-mono">{client.emiratesIdNumber || '—'}</td>
+                                <td className="p-4">
+                                    <div className="text-sm text-gray-600 dark:text-gray-300">{client.mobile || client.phone || '—'}</div>
+                                    <div className="text-xs text-gray-400">{client.email || ''}</div>
+                                </td>
+                                <td className="p-4 text-sm text-gray-600 dark:text-gray-300">{client.nationality || '—'}</td>
+                                <td className="p-4">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">{client.totalBookings}</span>
+                                </td>
+                                <td className="p-4 text-sm text-gray-500">{client.lastBookingDate || '-'}</td>
+                                <td className="p-4">
+                                    {client.clientClass ? (
+                                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${client.clientClass === 'VIP' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                            }`}>{client.clientClass}</span>
+                                    ) : <span className="text-xs text-gray-400">—</span>}
+                                </td>
+                                <td className="p-4">
+                                    <button onClick={e => handleEditClick(client, e)} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Edit</button>
+                                </td>
+                            </tr>
+                        ))}
+                        {filteredClients.length === 0 && (
+                            <tr><td colSpan={9} className="p-8 text-center text-gray-500">No clients found matching your search.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* ── Merge Modal ── */}
+            {isMergeModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full shadow-2xl overflow-hidden">
+                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                            <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900 dark:text-white"><Merge className="w-5 h-5 text-indigo-600" /> Merge Duplicate Clients</h2>
+                            <button onClick={() => setIsMergeModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="p-6">
+                            <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 p-4 rounded-lg mb-6 flex items-start gap-3">
+                                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                                <div><h3 className="font-bold text-sm">Action cannot be undone</h3>
+                                    <p className="text-sm mt-1">Merging will combine all bookings into the <strong>Primary Profile</strong>. The other profiles will be removed.</p></div>
+                            </div>
+                            <p className="mb-4 font-medium text-gray-700 dark:text-gray-300">Select the Primary Profile to keep:</p>
+                            <div className="space-y-3">
+                                {Array.from(selectedClientIds).map(id => {
+                                    const client = clients.find(c => c.id === id);
+                                    if (!client) return null;
+                                    const isTarget = targetClientId === id;
+                                    return (
+                                        <div key={id} className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${isTarget ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300'}`}
+                                            onClick={() => setTargetClientId(id)}>
+                                            <div className="flex items-start gap-3">
+                                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center mt-1 ${isTarget ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-400'}`}>
+                                                    {isTarget && <Check className="w-3 h-3" />}
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-gray-900 dark:text-white">{client.name}</div>
+                                                    <div className="text-sm text-gray-500">{client.email || 'No Email'} • {client.mobile || client.phone || 'No Phone'}</div>
+                                                    <div className="text-xs text-indigo-600 mt-1">{client.totalBookings} bookings • Last seen: {client.lastBookingDate}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3">
+                            <button onClick={() => setIsMergeModalOpen(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-200 rounded-lg font-medium">Cancel</button>
+                            <button onClick={confirmMerge} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none">Confirm Merge</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Edit / Register Modal ── */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full shadow-2xl overflow-hidden my-8">
+                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                                {isRegistering ? 'Register New Client' : 'Edit Client Details'}
+                            </h2>
+                            {eidDemoWarning && (
+                                <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+                                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                                    <span><strong>Demo mode:</strong> ICA Toolkit not detected. Form filled with sample data for testing. Install the ICA Toolkit for real card reading.</span>
+                                    <button onClick={() => setEidDemoWarning(false)} className="ml-auto"><X className="w-3.5 h-3.5" /></button>
+                                </div>
+                            )}
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                        </div>
+
+                        <div className="p-6 max-h-[75vh] overflow-y-auto space-y-5">
+                            {/* ── Section 1: Personal Information ── */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    <Users className="w-4 h-4" /> Personal Information
+                                </h3>
+                                <div className="grid grid-cols-3 gap-4">
+                                    {fld('First Name', 'firstName', { required: true, placeholder: 'e.g. Ahmed' })}
+                                    {fld('Middle Name', 'middleName', { placeholder: 'e.g. Mohammed' })}
+                                    {fld('Last Name', 'lastName', { required: true, placeholder: 'e.g. Al Rashid' })}
+                                    {fld('Mobile Number', 'mobile', { type: 'tel', placeholder: '+971 5X XXX XXXX' })}
+                                    {fld('WhatsApp Number', 'whatsapp', { type: 'tel', placeholder: '+971 5X XXX XXXX' })}
+                                    {fld('Email ID', 'email', { type: 'email', placeholder: 'email@example.com' })}
+                                    {sel('Gender', 'gender', ['Male', 'Female'])}
+                                    {fld('Date of Birth', 'dateOfBirth', { type: 'date' })}
+                                    {sel('Class', 'clientClass', CLIENT_CLASSES)}
+                                    {sel('Civil Status', 'civilStatus', CIVIL_STATUSES)}
+                                    {sel('Nationality', 'nationality', NATIONALITIES)}
+                                    {fld('Passport No', 'passportNo', { placeholder: 'e.g. AB1234567' })}
+                                </div>
+                            </div>
+
+                            {/* ── Section 2: Emirates ID ── */}
+                            {secHeader(<CreditCard className="w-4 h-4" />, 'Emirates ID')}
+                            <div className="grid grid-cols-3 gap-4">
+                                {fld('Emirates ID Number', 'emiratesIdNumber', { placeholder: '784-XXXX-XXXXXXX-X' })}
+                                {fld('Issue Date', 'emiratesIdIssueDate', { type: 'date' })}
+                                {fld('Expiry Date', 'emiratesIdExpiryDate', { type: 'date' })}
+                            </div>
+
+                            {/* ── Section 3: Upload ID Copy ── */}
+                            {secHeader(<Upload className="w-4 h-4" />, 'Upload Emirates ID Copy (max 1 MB each)')}
+                            <div className="grid grid-cols-2 gap-4">
+                                {fileUp('Upload Front Page', 'idFrontBase64', 'idFrontName')}
+                                {fileUp('Upload Back Page', 'idBackBase64', 'idBackName')}
+                            </div>
+
+                            {/* ── Section 4: Downloads from UAE ID Card ── */}
+                            {secHeader(<FileText className="w-4 h-4" />, 'Downloads From UAE ID Card')}
+                            <div className="grid grid-cols-3 gap-4">
+                                {fld('First Name in Arabic', 'firstNameArabic', { dir: 'rtl', placeholder: 'الاسم الأول' })}
+                                {fld('Last Name in Arabic', 'lastNameArabic', { dir: 'rtl', placeholder: 'الاسم الأخير' })}
+                                {sel('Religion', 'religion', RELIGIONS)}
+                                {fld('Profession', 'profession', { placeholder: 'e.g. Engineer' })}
+                                {fld('Country', 'country', { placeholder: 'e.g. UAE' })}
+                                {sel('Citizenship', 'citizenship', CITIZENSHIPS)}
+                                {sel('Emirates', 'emirates', EMIRATES)}
+                                {sel('Race', 'race', RACES)}
+                                {sel('Resident Type', 'residentType', RESIDENT_TYPES)}
+                                {fld('PO Box', 'poBox', { placeholder: 'e.g. 12345' })}
+                                {sel('City', 'city', UAE_CITIES)}
+                                {sel('Ethnic Group', 'ethnicGroup', ETHNIC_GROUPS)}
+                                {sel('Language', 'language', LANGUAGES)}
+                                {fld('Address', 'address', { placeholder: 'Full address', colSpan: 2 })}
+                                {fld('Remark', 'remark', { placeholder: 'Any additional notes', colSpan: 2 })}
+                            </div>
+
+                            {/* ── Section 5: Emergency Contact ── */}
+                            {secHeader(<Phone className="w-4 h-4" />, 'Emergency Contact')}
+                            <div className="grid grid-cols-2 gap-4">
+                                {fld('Contact Person', 'emergencyContactPerson', { placeholder: 'Full name' })}
+                                {sel('Relationship', 'emergencyRelationship', RELATIONSHIPS)}
+                                {fld('Telephone', 'emergencyTelephone', { type: 'tel', placeholder: '+971 XX XXX XXXX' })}
+                                {fld('Work / Mobile', 'emergencyWorkMobile', { type: 'tel', placeholder: '+971 5X XXX XXXX' })}
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3">
+                            <button onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-200 rounded-lg font-medium">Cancel</button>
+                            <button onClick={saveEdit} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">{isRegistering ? 'Register Client' : 'Save Changes'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

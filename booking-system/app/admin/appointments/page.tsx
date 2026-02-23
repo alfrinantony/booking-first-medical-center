@@ -1,0 +1,746 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { clinics, Booking, timeSlots, Medicine } from '@/lib/data';
+import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X } from 'lucide-react';
+import { ClientsStore } from '@/lib/clients-store';
+import Link from 'next/link';
+import {
+    format, startOfMonth, endOfMonth, eachDayOfInterval,
+    isSameMonth, isSameDay, isToday,
+    startOfWeek, endOfWeek, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays
+} from 'date-fns';
+
+export default function AdminAppointmentsPage() {
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [medicineCatalog, setMedicineCatalog] = useState<Medicine[]>([]);
+
+    // Filters
+    const [selectedClinicId, setSelectedClinicId] = useState<string>('');
+    const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+    const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Calendar State
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
+
+    // Derived Data
+    const selectedClinic = clinics.find(c => c.id === selectedClinicId);
+    const availableDepts = selectedClinic?.departments || [];
+    const selectedDept = availableDepts.find(d => d.id === selectedDeptId);
+    const availableDoctors = selectedDept?.doctors || [];
+
+    useEffect(() => {
+        // Debounce search
+        const timeoutId = setTimeout(() => {
+            fetchBookings();
+        }, 300);
+        return () => clearTimeout(timeoutId);
+    }, [selectedClinicId, selectedDeptId, selectedDoctorId, searchQuery]);
+
+    useEffect(() => {
+        fetch('/api/admin/medicines').then(r => r.json()).then(data => {
+            if (Array.isArray(data)) setMedicineCatalog(data);
+        }).catch(() => { });
+    }, []);
+
+    const fetchBookings = async () => {
+        setIsLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (selectedClinicId) params.append('clinicId', selectedClinicId);
+            if (selectedDeptId) params.append('deptId', selectedDeptId);
+            if (selectedDoctorId) params.append('doctorId', selectedDoctorId);
+            if (searchQuery) params.append('search', searchQuery);
+
+            const res = await fetch(`/api/admin/bookings?${params.toString()}`);
+            if (res.ok) {
+                const data = await res.json();
+                setBookings(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch bookings', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const getBookingsForDate = (date: Date) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        return bookings.filter(b => b.date === dateStr);
+    };
+
+    const selectedDayBookings = getBookingsForDate(selectedDate);
+
+    // Navigation
+    const handlePrevious = () => {
+        if (viewMode === 'month') setCurrentDate(subMonths(currentDate, 1));
+        if (viewMode === 'week') setCurrentDate(subWeeks(currentDate, 1));
+        if (viewMode === 'day') {
+            const newDate = subDays(currentDate, 1);
+            setCurrentDate(newDate);
+            setSelectedDate(newDate);
+        }
+    };
+
+    const handleNext = () => {
+        if (viewMode === 'month') setCurrentDate(addMonths(currentDate, 1));
+        if (viewMode === 'week') setCurrentDate(addWeeks(currentDate, 1));
+        if (viewMode === 'day') {
+            const newDate = addDays(currentDate, 1);
+            setCurrentDate(newDate);
+            setSelectedDate(newDate);
+        }
+    };
+
+    const handleToday = () => {
+        const now = new Date();
+        setCurrentDate(now);
+        setSelectedDate(now);
+    };
+
+    // Calendar Generation
+    const getDaysToRender = () => {
+        if (viewMode === 'month') {
+            const monthStart = startOfMonth(currentDate);
+            const monthEnd = endOfMonth(currentDate);
+            const start = startOfWeek(monthStart);
+            const end = endOfWeek(monthEnd);
+            return eachDayOfInterval({ start, end });
+        }
+        if (viewMode === 'week') {
+            const start = startOfWeek(currentDate);
+            const end = endOfWeek(currentDate);
+            return eachDayOfInterval({ start, end });
+        }
+        return [currentDate]; // Day view
+    };
+
+    const calendarDays = getDaysToRender();
+
+    // Edit Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+    const [editForm, setEditForm] = useState<{
+        status: Booking['status'];
+        date: string;
+        slot: string;
+        doctorId: string;
+        duration: number;
+    }>({ status: 'booked', date: '', slot: '', doctorId: '', duration: 30 });
+    const [availableToRescheduleSlots, setAvailableToRescheduleSlots] = useState<string[]>([]);
+    const [isLoadingRescheduleSlots, setIsLoadingRescheduleSlots] = useState(false);
+
+    const getNextStatusOptions = (currentStatus: Booking['status']) => {
+        const flow: Record<string, Booking['status'][]> = {
+            'booked': ['confirmed', 'cancelled'],
+            'confirmed': ['arrived', 'cancelled', 'rescheduled'],
+            'rescheduled': ['confirmed', 'cancelled'],
+            'arrived': ['in_service', 'cancelled'],
+            'in_service': ['completed', 'cancelled'],
+            'completed': [], // Terminal state
+            'cancelled': []  // Terminal state
+        };
+        return flow[currentStatus] || [];
+    };
+
+    const handleGenerateReceipt = () => {
+        alert(`Generating Receipt for Booking ID: ${editingBooking?.id}\nPatient: ${editingBooking?.patientName}\nAmount: $${editingBooking?.serviceId ? '100 (Mock)' : '0'}`);
+        // In real app: generate PDF or navigate to receipt page
+    };
+
+    const handleEditClick = (booking: Booking) => {
+        setEditingBooking(booking);
+        setEditForm({
+            status: booking.status,
+            date: booking.date,
+            slot: booking.slot,
+            doctorId: booking.doctorId,
+            duration: booking.duration || 30 // Default if missing
+        });
+        setIsEditModalOpen(true);
+        // Initial fetch for slots if dates are different or just to populate
+        fetchRescheduleSlots(booking.doctorId, booking.date, booking.serviceId);
+    };
+
+    const fetchRescheduleSlots = async (doctorId: string, date: string, serviceId: string) => {
+        setIsLoadingRescheduleSlots(true);
+        try {
+            const res = await fetch(`/api/admin/schedule?doctorId=${doctorId}&date=${date}&serviceId=${serviceId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setAvailableToRescheduleSlots(data.slots || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch slots', error);
+        } finally {
+            setIsLoadingRescheduleSlots(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isEditModalOpen && editingBooking) {
+            fetchRescheduleSlots(editForm.doctorId, editForm.date, editingBooking.serviceId);
+        }
+    }, [editForm.date, editForm.doctorId, editForm.duration, isEditModalOpen]);
+
+    const handleSaveChanges = async () => {
+        if (!editingBooking) return;
+
+        try {
+            const res = await fetch(`/api/bookings/${editingBooking.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: editForm.status,
+                    date: editForm.date,
+                    slot: editForm.slot,
+                    doctorId: editForm.doctorId,
+                    duration: editForm.duration
+                })
+            });
+
+            if (res.ok) {
+                setIsEditModalOpen(false);
+                fetchBookings(); // Refresh list
+            } else {
+                alert('Failed to update booking');
+            }
+        } catch (error) {
+            console.error('Update failed', error);
+            alert('Error updating booking');
+        }
+    };
+
+    // Derived for Edit Modal
+    const availableDocsForEdit = editingBooking ? clinics.find(c => c.id === editingBooking.clinicId)?.departments.find(d => d.id === editingBooking.deptId)?.doctors || [] : [];
+
+    // Quick Client Registration
+    const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
+    const [quickForm, setQuickForm] = useState({ firstName: '', lastName: '', email: '', phone: '', gender: '', dateOfBirth: '' });
+
+    const saveQuickClient = () => {
+        const fullName = `${quickForm.firstName} ${quickForm.lastName}`.trim();
+        if (!fullName) { alert('Please enter first and last name'); return; }
+        // Generate a unique ID
+        const clientId = `client_${Date.now()}`;
+        ClientsStore.update(clientId, {
+            name: fullName,
+            firstName: quickForm.firstName,
+            lastName: quickForm.lastName,
+            email: quickForm.email || undefined,
+            mobile: quickForm.phone || undefined,
+            phone: quickForm.phone || undefined,
+            gender: (quickForm.gender as 'Male' | 'Female') || undefined,
+            dateOfBirth: quickForm.dateOfBirth || undefined,
+        });
+        setIsQuickRegOpen(false);
+        setQuickForm({ firstName: '', lastName: '', email: '', phone: '', gender: '', dateOfBirth: '' });
+        alert(`Client "${fullName}" registered successfully!\nRemaining details can be filled at the clinic.`);
+    };
+
+
+    return (
+        <div className="p-6 h-full flex flex-col relative">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Calendar className="h-6 w-6 text-indigo-600" />
+                    Appointments
+                </h1>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setIsQuickRegOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        New Client
+                    </button>
+                    <Link
+                        href="/admin/appointments/book"
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                    >
+                        <Plus className="w-4 h-4" />
+                        New Appointment
+                    </Link>
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex flex-wrap gap-4 items-end">
+                <div className="flex items-center gap-2 text-gray-500 mb-2 w-full sm:w-auto">
+                    <Filter className="h-4 w-4" />
+                    <span className="text-sm font-medium">Filters</span>
+                </div>
+
+                <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Clinic Branch</label>
+                    <select
+                        className="w-full p-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        value={selectedClinicId}
+                        onChange={(e) => {
+                            setSelectedClinicId(e.target.value);
+                            setSelectedDeptId('');
+                            setSelectedDoctorId('');
+                        }}
+                    >
+                        <option value="">All Branches</option>
+                        {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+
+                <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
+                    <select
+                        className="w-full p-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        value={selectedDeptId}
+                        onChange={(e) => {
+                            setSelectedDeptId(e.target.value);
+                            setSelectedDoctorId('');
+                        }}
+                        disabled={!selectedClinicId}
+                    >
+                        <option value="">All Departments</option>
+                        {availableDepts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                </div>
+
+                <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Doctor</label>
+                    <select
+                        className="w-full p-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        value={selectedDoctorId}
+                        onChange={(e) => setSelectedDoctorId(e.target.value)}
+                        disabled={!selectedDeptId}
+                    >
+                        <option value="">All Doctors</option>
+                        {availableDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                </div>
+
+                <div className="w-full sm:w-auto">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Search Patient</label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Name, Phone or Email"
+                            className="w-full sm:w-64 p-2 pl-8 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        <User className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                {/* View Selector */}
+                <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                    {['month', 'week', 'day'].map((mode) => (
+                        <button
+                            key={mode}
+                            onClick={() => setViewMode(mode as any)}
+                            className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-all ${viewMode === mode
+                                ? 'bg-white dark:bg-gray-800 text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                }`}
+                        >
+                            {mode}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Navigation */}
+                <div className="flex items-center gap-4 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                    <button onClick={handlePrevious} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                        &lt;
+                    </button>
+                    <span className="font-bold min-w-[150px] text-center">
+                        {viewMode === 'day' ? format(currentDate, 'MMMM d, yyyy') : format(currentDate, 'MMMM yyyy')}
+                        {viewMode === 'week' && ` (Week of ${format(startOfWeek(currentDate), 'd')})`}
+                    </span>
+                    <button onClick={handleNext} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                        &gt;
+                    </button>
+                    <button onClick={handleToday} className="text-xs font-medium text-indigo-600 hover:underline ml-2">
+                        Today
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
+                {/* Calendar Grid */}
+                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col overflow-auto">
+
+                    {/* Weekday Headers for Month/Week */}
+                    {viewMode !== 'day' && (
+                        <div className="grid grid-cols-7 gap-2 mb-2 text-center text-sm font-medium text-gray-500">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
+                        </div>
+                    )}
+
+                    <div className={`grid gap-2 flex-1 ${viewMode === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
+                        {calendarDays.map((day) => {
+                            const dayBookings = getBookingsForDate(day);
+                            const isSelected = isSameDay(day, selectedDate);
+                            const isTodayDate = isToday(day);
+                            const isCurrentMonth = isSameMonth(day, currentDate);
+
+                            // Day View Layout
+                            if (viewMode === 'day') {
+                                return (
+                                    <div key={day.toISOString()} className="flex flex-col gap-4">
+                                        {/* Time Slots for Day View */}
+                                        {timeSlots.map(slot => {
+                                            const slotBookings = dayBookings.filter(b => b.slot === slot);
+                                            const isAvailable = slotBookings.length === 0;
+
+                                            return (
+                                                <div key={slot} className="flex gap-4 border-b border-gray-50 dark:border-gray-700 pb-2">
+                                                    <div className="w-24 text-sm text-gray-500 font-medium pt-2 shrink-0">{slot}</div>
+                                                    <div className={`flex-1 min-h-[50px] rounded-lg p-2 border border-dashed transition-all ${isAvailable
+                                                        ? 'bg-gray-50/50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer group'
+                                                        : 'bg-indigo-50/10 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800'
+                                                        }`}>
+                                                        {isAvailable ? (
+                                                            <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                                                                    <Plus className="w-3 h-3" /> Book Slot
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            slotBookings.map(b => (
+                                                                <div key={b.id} className="bg-white dark:bg-gray-800 p-2 rounded shadow-sm text-sm border-l-4 border-indigo-500 mb-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" onClick={() => handleEditClick(b)}>
+                                                                    <div className="flex justify-between items-start">
+                                                                        <span className="font-bold block text-gray-900 dark:text-white">{b.patientName}</span>
+                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                                                            }`}>{b.status}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                                                        <span className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {b.doctorId}</span>
+                                                                        {b.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {b.duration}m</span>}
+                                                                    </div>
+                                                                    {b.selectedMedicineIds && b.selectedMedicineIds.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                                            {b.selectedMedicineIds.map(id => {
+                                                                                const med = medicineCatalog.find(m => m.id === id);
+                                                                                return med ? (
+                                                                                    <span key={id} className="inline-flex items-center gap-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-[10px] px-1.5 py-0.5 rounded-full">
+                                                                                        <Pill className="w-2.5 h-2.5" />
+                                                                                        {med.name}
+                                                                                    </span>
+                                                                                ) : null;
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            }
+
+                            // Month/Week View Layout
+                            return (
+                                <button
+                                    key={day.toISOString()}
+                                    onClick={() => {
+                                        setSelectedDate(day);
+                                        if (viewMode === 'month') {
+                                            // Optional: switch to day view? Or just select.
+                                            // Let's just select for now to show details on side.
+                                        }
+                                    }}
+                                    className={`
+                                        p-2 rounded-lg border transition-all flex flex-col items-center justify-start min-h-[80px]
+                                        ${!isCurrentMonth && viewMode === 'month' ? 'opacity-40 bg-gray-50 dark:bg-gray-900/50' : ''}
+                                        ${isSelected ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-500' : 'border-gray-100 dark:border-gray-700 hover:border-gray-300'}
+                                        ${isTodayDate ? 'bg-gray-50 dark:bg-gray-700/50' : ''}
+                                    `}
+                                >
+                                    <span className={`text-sm font-medium mb-1 ${isTodayDate ? 'text-indigo-600' : ''}`}>
+                                        {format(day, 'd')}
+                                    </span>
+
+                                    {dayBookings.length > 0 && (
+                                        <div className="flex flex-col gap-1 w-full">
+                                            <div className="flex items-center gap-1 justify-center">
+                                                <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full">
+                                                    {dayBookings.length}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-0.5 justify-center flex-wrap px-1">
+                                                {dayBookings.slice(0, 5).map((_, i) => (
+                                                    <div key={i} className="w-1 h-1 rounded-full bg-indigo-500" />
+                                                ))}
+                                                {dayBookings.length > 5 && <div className="w-1 h-1 rounded-full bg-gray-400" />}
+                                            </div>
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Day Details (Side Panel) */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col h-full overflow-hidden">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 border-b pb-2 dark:border-gray-700">
+                        {format(selectedDate, 'EEEE, MMM d')}
+                    </h2>
+
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+                        {selectedDayBookings.length > 0 ? (
+                            selectedDayBookings.map((booking) => (
+                                <div key={booking.id} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-indigo-300 transition-colors">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Clock className="w-4 h-4 text-indigo-500" />
+                                            {booking.slot}
+                                        </div>
+                                        <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                            booking.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                            }`}>
+                                            {booking.status}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mb-1">
+                                        <User className="w-4 h-4" />
+                                        {booking.patientName}
+                                    </div>
+
+                                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex flex-col gap-1">
+                                        <div className="flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" /> Branch: {booking.clinicId}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Stethoscope className="w-3 h-3" /> Dr. {booking.doctorId}
+                                        </div>
+                                        {booking.selectedMedicineIds && booking.selectedMedicineIds.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {booking.selectedMedicineIds.map(id => {
+                                                    const med = medicineCatalog.find(m => m.id === id);
+                                                    return med ? (
+                                                        <span key={id} className="inline-flex items-center gap-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-[10px] px-1.5 py-0.5 rounded-full">
+                                                            <Pill className="w-2.5 h-2.5" />
+                                                            {med.name}
+                                                        </span>
+                                                    ) : null;
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleEditClick(booking)}
+                                        className="mt-2 w-full text-center text-xs text-indigo-600 font-medium hover:underline"
+                                    >
+                                        Edit Booking
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-12 text-gray-500">
+                                <p>No appointments for this day.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Edit Modal */}
+            {isEditModalOpen && editingBooking && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+                        <h2 className="text-xl font-bold mb-4">Edit Appointment</h2>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Patient</label>
+                                <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm">
+                                    {editingBooking.patientName}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Status</label>
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-1 rounded-md text-sm font-bold capitalize ${editForm.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                        editForm.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
+                                        {editForm.status.replace('_', ' ')}
+                                    </span>
+
+                                    {getNextStatusOptions(editForm.status).length > 0 && (
+                                        <select
+                                            className="p-1 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                                            value=""
+                                        >
+                                            <option value="" disabled>Change to...</option>
+                                            {getNextStatusOptions(editForm.status).map(s => (
+                                                <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                                {editForm.status === 'completed' && (
+                                    <button
+                                        onClick={handleGenerateReceipt}
+                                        className="mt-2 text-xs flex items-center gap-1 text-indigo-600 hover:underline"
+                                    >
+                                        <FileText className="w-3 h-3" />
+                                        Generate Receipt
+                                    </button>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Doctor</label>
+                                <select
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    value={editForm.doctorId}
+                                    onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
+                                >
+                                    {availableDocsForEdit.map(doc => (
+                                        <option key={doc.id} value={doc.id}>{doc.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Duration (mins)</label>
+                                <input
+                                    type="number"
+                                    min="15"
+                                    step="15"
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    value={editForm.duration}
+                                    onChange={(e) => setEditForm({ ...editForm, duration: Number(e.target.value) })}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Date</label>
+                                    <input
+                                        type="date"
+                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                        value={editForm.date}
+                                        onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Time Slot</label>
+                                    <select
+                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                        value={editForm.slot}
+                                        onChange={(e) => setEditForm({ ...editForm, slot: e.target.value })}
+                                        disabled={isLoadingRescheduleSlots}
+                                    >
+                                        <option value={editingBooking.slot}>{editingBooking.slot} (Current)</option>
+                                        {availableToRescheduleSlots
+                                            .filter(s => s !== editingBooking.slot) // Don't duplicate current if available
+                                            .map(s => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveChanges}
+                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                            >
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Quick Client Registration Modal */}
+            {isQuickRegOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+                        <div className="flex justify-between items-center mb-5">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <UserPlus className="w-5 h-5 text-emerald-600" /> Quick Client Registration
+                            </h2>
+                            <button onClick={() => setIsQuickRegOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                        </div>
+
+                        <p className="text-xs text-gray-500 mb-4 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">Collect essential info now. Remaining details can be filled at the clinic.</p>
+
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">First Name *</label>
+                                    <input type="text" placeholder="e.g. Ahmed" required
+                                        className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        value={quickForm.firstName} onChange={e => setQuickForm({ ...quickForm, firstName: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Last Name *</label>
+                                    <input type="text" placeholder="e.g. Al Rashid" required
+                                        className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        value={quickForm.lastName} onChange={e => setQuickForm({ ...quickForm, lastName: e.target.value })} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Email ID</label>
+                                <input type="email" placeholder="email@example.com"
+                                    className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    value={quickForm.email} onChange={e => setQuickForm({ ...quickForm, email: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Phone Number</label>
+                                <input type="tel" placeholder="+971 5X XXX XXXX"
+                                    className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    value={quickForm.phone} onChange={e => setQuickForm({ ...quickForm, phone: e.target.value })} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Gender</label>
+                                    <select className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        value={quickForm.gender} onChange={e => setQuickForm({ ...quickForm, gender: e.target.value })}>
+                                        <option value="">Select</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Date of Birth</label>
+                                    <input type="date" className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        value={quickForm.dateOfBirth} onChange={e => setQuickForm({ ...quickForm, dateOfBirth: e.target.value })} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button onClick={() => setIsQuickRegOpen(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md">Cancel</button>
+                            <button onClick={saveQuickClient} className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700">Register Client</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

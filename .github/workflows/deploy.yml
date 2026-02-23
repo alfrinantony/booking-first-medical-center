@@ -1,0 +1,48 @@
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: booking-first-medical-center
+  NODE_VERSION: '20.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: booking-system/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: booking-system
+
+      - name: Build Next.js (standalone)
+        run: npm run build
+        working-directory: booking-system
+        env:
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+
+      - name: Copy static assets to standalone
+        run: |
+          cp -r booking-system/public booking-system/.next/standalone/booking-system/public
+          cp -r booking-system/.next/static booking-system/.next/standalone/booking-system/.next/static
+        shell: bash
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: booking-system/.next/standalone/booking-system

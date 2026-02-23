@@ -1,0 +1,22 @@
+{
+  "name": "livekit-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "LiveKit AI Agent with LiveAvatar for Booking First Medical Center",
+  "scripts": {
+    "dev": "tsx agent.ts dev",
+    "start": "tsc && node dist/agent.js start",
+    "build": "tsc",
+    "download-files": "tsx agent.ts download-files"
+  },
+  "dependencies": {
+    "@livekit/agents": "^1.0.44",
+    "@livekit/agents-plugin-openai": "^1.0.44",
+    "@livekit/agents-plugin-silero": "^1.0.44",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
