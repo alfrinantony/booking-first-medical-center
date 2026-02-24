@@ -28,15 +28,8 @@ export interface AppSettings {
     stripePublishableKey: string;
     stripeSecretKey: string;
 
-    // LiveAvatar (AI Avatar)
-    liveAvatarApiKey: string;
-    liveAvatarAvatarId: string;
-    liveAvatarMode: string;
-
-    // LiveKit (Video)
-    livekitApiKey: string;
-    livekitApiSecret: string;
-    livekitUrl: string;
+    // OpenAI (Whisper STT + GPT)
+    openaiApiKey: string;
 
     // CRM / High Level
     crmApiKey: string;
@@ -74,13 +67,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     stripePublishableKey: '',
     stripeSecretKey: '',
 
-    liveAvatarApiKey: '',
-    liveAvatarAvatarId: '',
-    liveAvatarMode: 'LITE',
-
-    livekitApiKey: '',
-    livekitApiSecret: '',
-    livekitUrl: '',
+    openaiApiKey: '',
 
     crmApiKey: '',
     crmEndpoint: '',

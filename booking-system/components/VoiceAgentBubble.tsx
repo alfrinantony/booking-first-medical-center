@@ -1,18 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-    LiveKitRoom,
-    RoomAudioRenderer,
-    useVoiceAssistant,
-    BarVisualizer,
-    useConnectionState,
-    useLocalParticipant,
-    useDataChannel,
-} from '@livekit/components-react';
-import '@livekit/components-styles';
-import { ConnectionState } from 'livekit-client';
-import { Mic, MicOff, PhoneOff, UserRoundPlus, X, MessageCircle, ChevronDown } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, UserRoundPlus, X, MessageCircle, ChevronDown, Loader2 } from 'lucide-react';
 import {
     bookingVoiceController,
     VOICE_EVENTS,
@@ -21,335 +10,500 @@ import {
 } from '@/lib/booking-voice-controller';
 
 /* ─────────────────────────────────────────────
-   Inner: runs inside <LiveKitRoom> context
-   Handles data channel messages from the AI agent
+   Types
    ───────────────────────────────────────────── */
-function VoiceSession({ onDisconnect, onTransfer }: { onDisconnect: () => void; onTransfer: () => void }) {
-    const { agent, audioTrack, state } = useVoiceAssistant();
-    const connectionState = useConnectionState();
-    const [isMuted, setIsMuted] = useState(false);
-    const { localParticipant } = useLocalParticipant();
-    const currentOptionsRef = useRef<{ id: string; name: string }[]>([]);
-    const currentStepRef = useRef(0);
 
-    // Data channel: receive commands from the AI agent
-    const onDataReceived = useCallback((msg: any) => {
-        try {
-            const payload = typeof msg.payload === 'string' ? msg.payload : new TextDecoder().decode(msg.payload);
-            const data = JSON.parse(payload);
-            console.log('[VoiceAgent] Data received:', data);
+interface ChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+}
 
-            if (data.action) {
-                const options = currentOptionsRef.current;
-                switch (data.action) {
-                    case 'selectClinic':
-                        if (data.name) {
-                            const match = fuzzyMatch(data.name, options);
-                            if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_CLINIC, { id: match.id, name: match.name });
-                        }
-                        break;
-                    case 'selectDept':
-                        if (data.name) {
-                            const match = fuzzyMatch(data.name, options);
-                            if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_DEPT, { id: match.id, name: match.name });
-                        }
-                        break;
-                    case 'selectService':
-                        if (data.name) {
-                            const match = fuzzyMatch(data.name, options);
-                            if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_SERVICE, { id: match.id, name: match.name });
-                        }
-                        break;
-                    case 'selectDoctor':
-                        if (data.name) {
-                            const match = fuzzyMatch(data.name, options);
-                            if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_DOCTOR, { id: match.id, name: match.name });
-                        }
-                        break;
-                    case 'selectDate':
-                        bookingVoiceController.emit(VOICE_EVENTS.SELECT_DATE, { date: data.date });
-                        break;
-                    case 'selectSlot':
-                        bookingVoiceController.emit(VOICE_EVENTS.SELECT_SLOT, { time: data.time });
-                        break;
-                    case 'confirm':
-                        bookingVoiceController.emit(VOICE_EVENTS.CONFIRM, {});
-                        break;
-                    case 'goBack':
-                        bookingVoiceController.emit(VOICE_EVENTS.GO_BACK, {});
-                        break;
-                    case 'transfer':
-                        onTransfer();
-                        break;
-                }
-            }
-        } catch {
-            // Non-JSON messages or parse errors are silently ignored
-        }
-    }, [onTransfer]);
-
-    useDataChannel('booking-commands', onDataReceived);
-
-    // Listen for wizard context updates (options for the current step)
-    useEffect(() => {
-        const unsubOptions = bookingVoiceController.on(WIZARD_EVENTS.OPTIONS, (data: { step: number; items: { id: string; name: string }[] }) => {
-            currentOptionsRef.current = data.items;
-            currentStepRef.current = data.step;
-        });
-        const unsubStep = bookingVoiceController.on(WIZARD_EVENTS.STEP_CHANGED, (data: { step: number }) => {
-            currentStepRef.current = data.step;
-        });
-        return () => { unsubOptions(); unsubStep(); };
-    }, []);
-
-    const toggleMute = useCallback(async () => {
-        if (localParticipant) {
-            await localParticipant.setMicrophoneEnabled(isMuted);
-            setIsMuted(!isMuted);
-        }
-    }, [localParticipant, isMuted]);
-
-    const stateLabel = state === 'speaking' ? 'Speaking...' : state === 'listening' ? 'Listening...' : state === 'thinking' ? 'Thinking...' : 'Connected';
-    const stateDot = state === 'speaking' ? 'bg-green-400' : state === 'listening' ? 'bg-blue-400' : state === 'thinking' ? 'bg-yellow-400' : 'bg-gray-400';
-
-    return (
-        <div className="flex flex-col h-full">
-            {/* Status bar */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/60">
-                <div className={`w-2 h-2 rounded-full animate-pulse ${stateDot}`} />
-                <span className="text-xs text-white/80 font-medium capitalize">{stateLabel}</span>
-                {agent && <span className="ml-auto text-[10px] text-gray-500 uppercase tracking-wider">AI Assistant</span>}
-            </div>
-
-            {/* Visualizer area */}
-            <div className="flex-1 flex items-center justify-center px-4">
-                {audioTrack ? (
-                    <div className="flex flex-col items-center gap-3">
-                        <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center shadow-xl shadow-indigo-500/30">
-                            <BarVisualizer trackRef={audioTrack} className="w-16 h-16" barCount={5} />
-                        </div>
-                        <p className="text-sm text-white/70">{stateLabel}</p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center gap-3">
-                        <div className="w-20 h-20 bg-indigo-600/40 rounded-full flex items-center justify-center animate-pulse">
-                            <Mic className="w-8 h-8 text-white/60" />
-                        </div>
-                        <p className="text-xs text-gray-400">
-                            {connectionState === ConnectionState.Connecting ? 'Connecting...' : 'Waiting for assistant...'}
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-3 px-4 py-3 bg-gray-800/40">
-                <button onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}
-                    className={`p-2.5 rounded-full transition-all ${isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
-                    {isMuted ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white" />}
-                </button>
-
-                <button onClick={onTransfer} title="Transfer to Human"
-                    className="p-2.5 rounded-full bg-amber-600 hover:bg-amber-700 transition-all">
-                    <UserRoundPlus className="w-4 h-4 text-white" />
-                </button>
-
-                <button onClick={onDisconnect} title="End Call"
-                    className="p-2.5 rounded-full bg-red-600 hover:bg-red-700 transition-all">
-                    <PhoneOff className="w-4 h-4 text-white" />
-                </button>
-            </div>
-
-            <RoomAudioRenderer />
-        </div>
-    );
+interface BookingContext {
+    step: number;
+    stepName: string;
+    options: { id: string; name: string }[];
 }
 
 /* ─────────────────────────────────────────────
-   Main: floating bubble + expandable panel
-   AUTO-STARTS session when mounted on booking page
+   VoiceAgentBubble — Main component
+   Uses browser mic → Whisper STT → GPT intent → browser TTS
    ───────────────────────────────────────────── */
+
 export default function VoiceAgentBubble() {
-    const [isOpen, setIsOpen] = useState(true);         // Auto-open
-    const [isSessionActive, setIsSessionActive] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [connectionDetails, setConnectionDetails] = useState<{ token: string; url: string } | null>(null);
-    const [transferStatus, setTransferStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
-    const [isMinimized, setIsMinimized] = useState(false);
-    const autoStarted = useRef(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
+    const [transcript, setTranscript] = useState('');
+    const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
+    const [error, setError] = useState('');
 
-    /* Auto-start session on mount */
-    const startSession = useCallback(async () => {
-        if (isLoading || isSessionActive) return;
-        setIsLoading(true);
-        try {
-            const res = await fetch('/api/livekit/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ context: 'booking-assistant' }),
-            });
-            if (!res.ok) throw new Error('Failed to get token');
-            const data = await res.json();
-            setConnectionDetails({ token: data.token, url: data.url });
-            setIsSessionActive(true);
-        } catch (err) {
-            console.error('[VoiceAgent] Error:', err);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [isLoading, isSessionActive]);
+    // Refs
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const streamRef = useRef<MediaStream | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const animFrameRef = useRef<number>(0);
+    const contextRef = useRef<BookingContext>({ step: 0, stepName: 'Clinic', options: [] });
+    const chatHistoryRef = useRef<ChatMessage[]>([]);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+    const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Auto-start on mount
+    // Auto-scroll chat
     useEffect(() => {
-        if (!autoStarted.current) {
-            autoStarted.current = true;
-            // Small delay to let the page render first
-            const timer = setTimeout(() => startSession(), 1500);
-            return () => clearTimeout(timer);
-        }
-    }, [startSession]);
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatLog]);
 
-    const endSession = useCallback(() => {
-        setIsSessionActive(false);
-        setConnectionDetails(null);
-        setTransferStatus('idle');
+    /* ── Booking voice controller listeners ── */
+    useEffect(() => {
+        const onStepChanged = (data: { step: number; stepName: string }) => {
+            contextRef.current.step = data.step;
+            contextRef.current.stepName = data.stepName;
+        };
+
+        const onOptions = (data: { step: number; items: { id: string; name: string }[] }) => {
+            contextRef.current.options = data.items;
+        };
+
+        const offStep = bookingVoiceController.on(WIZARD_EVENTS.STEP_CHANGED, onStepChanged);
+        const offOpts = bookingVoiceController.on(WIZARD_EVENTS.OPTIONS, onOptions);
+
+        return () => {
+            offStep();
+            offOpts();
+        };
     }, []);
 
-    /* Request transfer to human representative */
-    const handleTransfer = useCallback(async () => {
-        setTransferStatus('sending');
+    /* ── TTS: speak aloud ── */
+    const speak = useCallback((text: string): Promise<void> => {
+        return new Promise((resolve) => {
+            if (!text || typeof window === 'undefined' || !window.speechSynthesis) {
+                resolve();
+                return;
+            }
+
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            // Try to find a good English voice
+            const voices = window.speechSynthesis.getVoices();
+            const preferred = voices.find(v =>
+                v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Female') || v.name.includes('Samantha'))
+            ) || voices.find(v => v.lang.startsWith('en'));
+            if (preferred) utterance.voice = preferred;
+
+            utterance.onstart = () => setIsSpeaking(true);
+            utterance.onend = () => { setIsSpeaking(false); resolve(); };
+            utterance.onerror = () => { setIsSpeaking(false); resolve(); };
+
+            window.speechSynthesis.speak(utterance);
+        });
+    }, []);
+
+    /* ── Process recorded audio ── */
+    const processAudio = useCallback(async (audioBlob: Blob) => {
+        if (audioBlob.size < 1000) return; // Skip tiny recordings (silence)
+
+        setIsProcessing(true);
+        setError('');
+
         try {
-            const res = await fetch('/api/voice-agent/transfer', {
+            // Step 1: Transcribe with Whisper
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.webm');
+
+            const transcribeRes = await fetch('/api/whisper/transcribe', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!transcribeRes.ok) {
+                throw new Error('Transcription failed');
+            }
+
+            const { text } = await transcribeRes.json();
+            if (!text?.trim()) {
+                setIsProcessing(false);
+                return;
+            }
+
+            setTranscript(text);
+            const userMsg: ChatMessage = { role: 'user', content: text };
+            setChatLog(prev => [...prev, userMsg]);
+            chatHistoryRef.current.push(userMsg);
+
+            // Step 2: Get GPT intent + response
+            const chatRes = await fetch('/api/whisper/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    sessionId: 'session-' + Date.now(),
-                    timestamp: new Date().toISOString(),
-                    source: 'booking-page',
+                    transcript: text,
+                    step: contextRef.current.step,
+                    stepName: contextRef.current.stepName,
+                    options: contextRef.current.options,
+                    conversationHistory: chatHistoryRef.current.slice(-6),
                 }),
             });
-            if (res.ok) {
-                setTransferStatus('sent');
-            } else {
-                setTransferStatus('idle');
+
+            if (!chatRes.ok) {
+                throw new Error('Chat processing failed');
             }
-        } catch {
-            setTransferStatus('idle');
+
+            const { action, name, spokenResponse } = await chatRes.json();
+
+            // Add assistant response to chat
+            const assistantMsg: ChatMessage = { role: 'assistant', content: spokenResponse };
+            setChatLog(prev => [...prev, assistantMsg]);
+            chatHistoryRef.current.push(assistantMsg);
+
+            // Step 3: Execute booking action via the event bus
+            if (action && action !== 'none') {
+                executeAction(action, name);
+            }
+
+            // Step 4: Speak the response
+            setIsProcessing(false);
+            await speak(spokenResponse);
+        } catch (err) {
+            console.error('[VoiceAgent] Processing error:', err);
+            setError('Something went wrong. Please try again.');
+            setIsProcessing(false);
+        }
+    }, [speak]);
+
+    /* ── Execute booking action ── */
+    const executeAction = useCallback((action: string, name: string) => {
+        const ctx = contextRef.current;
+
+        switch (action) {
+            case 'selectClinic': {
+                const match = fuzzyMatch(name, ctx.options);
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_CLINIC, { name: match.name });
+                break;
+            }
+            case 'selectDept': {
+                const match = fuzzyMatch(name, ctx.options);
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_DEPT, { name: match.name });
+                break;
+            }
+            case 'selectService': {
+                const match = fuzzyMatch(name, ctx.options);
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_SERVICE, { name: match.name });
+                break;
+            }
+            case 'selectDoctor': {
+                const match = fuzzyMatch(name, ctx.options);
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_DOCTOR, { name: match.name });
+                break;
+            }
+            case 'selectDate':
+                bookingVoiceController.emit(VOICE_EVENTS.SELECT_DATE, { date: name });
+                break;
+            case 'selectSlot':
+                bookingVoiceController.emit(VOICE_EVENTS.SELECT_SLOT, { time: name });
+                break;
+            case 'confirm':
+                bookingVoiceController.emit(VOICE_EVENTS.CONFIRM, {});
+                break;
+            case 'goBack':
+                bookingVoiceController.emit(VOICE_EVENTS.GO_BACK, {});
+                break;
+            case 'transfer':
+                handleTransfer();
+                break;
         }
     }, []);
 
-    const toggle = () => {
-        if (isMinimized) {
-            setIsMinimized(false);
+    /* ── Start/stop mic recording ── */
+    const startListening = useCallback(async () => {
+        try {
+            setError('');
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            streamRef.current = stream;
+
+            // Set up audio analyser for waveform visualization
+            const audioCtx = new AudioContext();
+            const source = audioCtx.createMediaStreamSource(stream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            analyserRef.current = analyser;
+
+            // Start media recorder
+            const recorder = new MediaRecorder(stream, {
+                mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                    ? 'audio/webm;codecs=opus'
+                    : 'audio/webm',
+            });
+
+            audioChunksRef.current = [];
+
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    audioChunksRef.current.push(e.data);
+                }
+            };
+
+            recorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                processAudio(audioBlob);
+            };
+
+            recorder.start(250); // Collect data every 250ms
+            mediaRecorderRef.current = recorder;
+            setIsListening(true);
+            setIsConnected(true);
+
+            // Start waveform visualization
+            drawWaveform();
+        } catch (err) {
+            console.error('[VoiceAgent] Mic access error:', err);
+            setError('Could not access microphone. Please allow microphone access.');
+        }
+    }, [processAudio]);
+
+    const stopListening = useCallback(() => {
+        if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+        }
+
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+        }
+
+        if (animFrameRef.current) {
+            cancelAnimationFrame(animFrameRef.current);
+        }
+
+        analyserRef.current = null;
+        setIsListening(false);
+    }, []);
+
+    /* ── Waveform visualization ── */
+    const drawWaveform = useCallback(() => {
+        const canvas = canvasRef.current;
+        const analyser = analyserRef.current;
+        if (!canvas || !analyser) return;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const draw = () => {
+            animFrameRef.current = requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / bufferLength) * 2.5;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
+
+                const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+                gradient.addColorStop(0, '#6366f1');
+                gradient.addColorStop(1, '#a5b4fc');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+                x += barWidth;
+            }
+        };
+
+        draw();
+    }, []);
+
+    /* ── Disconnect session ── */
+    const disconnect = useCallback(() => {
+        stopListening();
+        window.speechSynthesis?.cancel();
+        setIsConnected(false);
+        setIsOpen(false);
+        setChatLog([]);
+        chatHistoryRef.current = [];
+        setTranscript('');
+        setError('');
+    }, [stopListening]);
+
+    /* ── Transfer to human ── */
+    const handleTransfer = useCallback(async () => {
+        try {
+            await fetch('/api/voice-agent/transfer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: `whisper-${Date.now()}`,
+                    source: 'booking-page',
+                }),
+            });
+            await speak('I\'m transferring you to a human representative. Please hold on.');
+        } catch (err) {
+            console.error('[VoiceAgent] Transfer error:', err);
+        }
+    }, [speak]);
+
+    /* ── Toggle panel ── */
+    const toggle = useCallback(() => {
+        if (!isOpen) {
             setIsOpen(true);
+            // Auto-start greeting on first open
+            if (!isConnected) {
+                setIsConnected(true);
+                const greeting = 'Hello! I\'m your booking assistant. Click the microphone button and tell me how I can help you today.';
+                const msg: ChatMessage = { role: 'assistant', content: greeting };
+                setChatLog([msg]);
+                chatHistoryRef.current = [msg];
+                speak(greeting);
+            }
         } else {
-            setIsMinimized(true);
             setIsOpen(false);
         }
-    };
+    }, [isOpen, isConnected, speak]);
 
+    /* ── Cleanup on unmount ── */
+    useEffect(() => {
+        return () => {
+            disconnect();
+        };
+    }, [disconnect]);
+
+    /* ── Render ── */
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-            {/* ── Expanded panel ── */}
-            {isOpen && !isMinimized && (
-                <div className="w-80 h-[420px] bg-gray-900 rounded-2xl shadow-2xl shadow-black/40 border border-gray-700/50 overflow-hidden flex flex-col">
+        <>
+            {/* Floating bubble */}
+            {!isOpen && (
+                <button
+                    onClick={toggle}
+                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+                    aria-label="Open voice assistant"
+                >
+                    <MessageCircle className="w-6 h-6" />
+                    {/* Pulse ring */}
+                    <span className="absolute inset-0 rounded-full bg-indigo-400 animate-ping opacity-30" />
+                </button>
+            )}
+
+            {/* Expanded panel */}
+            {isOpen && (
+                <div className="fixed bottom-6 right-6 z-50 w-[380px] max-h-[520px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600">
+                    <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white rounded-t-2xl">
                         <div className="flex items-center gap-2">
-                            <MessageCircle className="w-4 h-4 text-white" />
-                            <span className="text-sm font-semibold text-white">Booking Assistant</span>
+                            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-gray-400'}`} />
+                            <span className="font-semibold text-sm">Voice Assistant</span>
+                            {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
                         </div>
                         <div className="flex items-center gap-1">
-                            <button onClick={() => { setIsMinimized(true); setIsOpen(false); }} className="p-1 rounded-full hover:bg-white/20 transition-colors" title="Minimize">
-                                <ChevronDown className="w-4 h-4 text-white" />
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="p-1 hover:bg-indigo-700 rounded"
+                                aria-label="Minimize"
+                            >
+                                <ChevronDown className="w-4 h-4" />
                             </button>
-                            <button onClick={() => { setIsOpen(false); setIsMinimized(true); }} className="p-1 rounded-full hover:bg-white/20 transition-colors" title="Close">
-                                <X className="w-4 h-4 text-white" />
+                            <button
+                                onClick={disconnect}
+                                className="p-1 hover:bg-indigo-700 rounded"
+                                aria-label="Close"
+                            >
+                                <X className="w-4 h-4" />
                             </button>
                         </div>
                     </div>
 
-                    {/* Body */}
-                    <div className="flex-1 flex flex-col">
-                        {isSessionActive && connectionDetails ? (
-                            <>
-                                {/* Transfer status banner */}
-                                {transferStatus === 'sent' && (
-                                    <div className="px-4 py-2 bg-green-600/20 border-b border-green-500/30">
-                                        <p className="text-xs text-green-300 text-center">✓ Transfer requested — a representative will join shortly</p>
-                                    </div>
-                                )}
-                                {transferStatus === 'sending' && (
-                                    <div className="px-4 py-2 bg-amber-600/20 border-b border-amber-500/30">
-                                        <p className="text-xs text-amber-300 text-center animate-pulse">Requesting human representative...</p>
-                                    </div>
-                                )}
-                                <div className="flex-1">
-                                    <LiveKitRoom
-                                        token={connectionDetails.token}
-                                        serverUrl={connectionDetails.url}
-                                        connect={true}
-                                        audio={true}
-                                        video={false}
-                                        onDisconnected={endSession}
-                                        className="w-full h-full"
-                                    >
-                                        <VoiceSession onDisconnect={endSession} onTransfer={handleTransfer} />
-                                    </LiveKitRoom>
-                                </div>
-                            </>
+                    {/* Waveform / Status area */}
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                        {isListening ? (
+                            <canvas
+                                ref={canvasRef}
+                                width={340}
+                                height={50}
+                                className="w-full h-[50px] rounded"
+                            />
                         ) : (
-                            /* Loading state */
-                            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                                <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mb-4 shadow-xl shadow-indigo-500/25 animate-pulse">
-                                    <Mic className="w-8 h-8 text-white" />
-                                </div>
-                                <h3 className="text-lg font-semibold text-white mb-1">
-                                    {isLoading ? 'Connecting...' : 'Voice Assistant'}
-                                </h3>
-                                <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-                                    {isLoading
-                                        ? 'Setting up your voice booking assistant...'
-                                        : 'Your AI assistant will help you complete your booking by voice.'
-                                    }
-                                </p>
-                                {!isLoading && (
-                                    <button
-                                        onClick={startSession}
-                                        className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-500/25"
-                                    >
-                                        Start Voice Chat
-                                    </button>
-                                )}
+                            <div className="text-center text-xs text-gray-500 dark:text-gray-400 py-2">
+                                {isProcessing ? '🧠 Thinking...' :
+                                    isSpeaking ? '🔊 Speaking...' :
+                                        isConnected ? '🎙️ Tap the mic to speak' :
+                                            'Click the mic to start'}
                             </div>
                         )}
                     </div>
+
+                    {/* Chat log */}
+                    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[200px] max-h-[280px]">
+                        {chatLog.map((msg, i) => (
+                            <div
+                                key={i}
+                                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            >
+                                <div
+                                    className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${msg.role === 'user'
+                                        ? 'bg-indigo-600 text-white rounded-br-sm'
+                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
+                                        }`}
+                                >
+                                    {msg.content}
+                                </div>
+                            </div>
+                        ))}
+                        {error && (
+                            <div className="text-xs text-red-500 text-center">{error}</div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Controls */}
+                    <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center gap-3">
+                        <button
+                            onClick={() => handleTransfer()}
+                            className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            title="Transfer to human"
+                        >
+                            <UserRoundPlus className="w-5 h-5" />
+                        </button>
+
+                        <button
+                            onClick={isListening ? stopListening : startListening}
+                            disabled={isProcessing || isSpeaking}
+                            className={`p-4 rounded-full text-white transition-all ${isListening
+                                ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                                : isProcessing || isSpeaking
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-indigo-600 hover:bg-indigo-700'
+                                }`}
+                            title={isListening ? 'Stop recording' : 'Start recording'}
+                        >
+                            {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                        </button>
+
+                        <button
+                            onClick={disconnect}
+                            className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"
+                            title="End session"
+                        >
+                            <PhoneOff className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
             )}
-
-            {/* ── Floating round button ── */}
-            <button
-                onClick={toggle}
-                className={`group w-14 h-14 rounded-full shadow-xl transition-all duration-300 flex items-center justify-center
-                    ${isOpen && !isMinimized
-                        ? 'bg-gray-700 hover:bg-gray-600 shadow-gray-900/40'
-                        : 'bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-indigo-500/40 hover:shadow-indigo-500/60 hover:scale-110'
-                    }
-                    ${isSessionActive && isMinimized ? 'ring-4 ring-green-400/50 ring-offset-2 ring-offset-gray-900' : ''}
-                `}
-                title="Voice Assistant"
-            >
-                {isOpen && !isMinimized ? (
-                    <ChevronDown className="w-6 h-6 text-white" />
-                ) : (
-                    <>
-                        <Mic className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
-                        {isSessionActive && (
-                            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-gray-900 animate-pulse" />
-                        )}
-                    </>
-                )}
-            </button>
-        </div>
+        </>
     );
 }

@@ -148,23 +148,11 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* LiveAvatar */}
+                        {/* OpenAI */}
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">🤖 LiveAvatar (AI Avatar)</h3>
+                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">🧠 OpenAI (Voice Assistant)</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {renderInput('API Key', 'liveAvatarApiKey', 'password')}
-                                {renderInput('Avatar ID', 'liveAvatarAvatarId')}
-                                {renderInput('Mode', 'liveAvatarMode', 'text', 'LITE')}
-                            </div>
-                        </div>
-
-                        {/* LiveKit */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">📹 LiveKit (Video / Real-time)</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {renderInput('API Key', 'livekitApiKey', 'password')}
-                                {renderInput('API Secret', 'livekitApiSecret', 'password')}
-                                {renderInput('Server URL', 'livekitUrl', 'text', 'wss://your-server.livekit.cloud')}
+                                {renderInput('API Key', 'openaiApiKey', 'password')}
                             </div>
                         </div>
 
