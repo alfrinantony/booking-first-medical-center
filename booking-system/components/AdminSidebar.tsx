@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut } from 'lucide-react';
 import { User } from '@/lib/users-store';
 
 export default function AdminSidebar() {
     const pathname = usePathname();
+    const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
 
     useEffect(() => {
@@ -22,8 +23,13 @@ export default function AdminSidebar() {
 
     const canManageStaff = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
 
+    const handleSignOut = () => {
+        sessionStorage.removeItem('adminUser');
+        router.push('/admin/login');
+    };
+
     return (
-        <aside className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-md transform hidden md:translate-x-0 md:block z-30">
+        <aside className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-md transform hidden md:translate-x-0 md:block z-30 flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <h1 className="text-xl font-bold text-indigo-600 dark:text-indigo-400">MedAdmin</h1>
                 <div className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
@@ -253,6 +259,21 @@ export default function AdminSidebar() {
                     </Link>
                 )}
             </nav>
+
+            {/* Sign Out Button */}
+            <div className="mt-auto p-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="px-4 py-2 mb-2">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{user?.name || 'Admin'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.username || ''}</p>
+                </div>
+                <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-lg font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                    <LogOut className="w-5 h-5" />
+                    Sign Out
+                </button>
+            </div>
         </aside>
     );
 }
