@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Azure SWA v2 handles Next.js build output natively
 };
 
 export default nextConfig;
