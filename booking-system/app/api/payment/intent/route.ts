@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    typescript: true,
-});
+// Lazy-init Stripe so the build doesn't crash when the env var is missing
+let _stripe: Stripe | null = null;
+function getStripe() {
+    if (!_stripe) {
+        _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
+    }
+    return _stripe;
+}
 
 export async function POST(req: Request) {
     try {
@@ -17,7 +22,7 @@ export async function POST(req: Request) {
         }
 
         // Create a PaymentIntent with the order amount and currency
-        const paymentIntent = await stripe.paymentIntents.create({
+        const paymentIntent = await getStripe().paymentIntents.create({
             amount: Math.round(amount * 100), // Stripe expects amount in cents
             currency: currency,
             automatic_payment_methods: {
