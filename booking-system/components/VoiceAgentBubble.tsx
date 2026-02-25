@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, UserRoundPlus, X, MessageCircle, ChevronDown, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Mic, MicOff, PhoneOff, UserRoundPlus, X, MessageCircle, ChevronDown, Loader2, Timer } from 'lucide-react';
 import {
     bookingVoiceController,
     VOICE_EVENTS,
     WIZARD_EVENTS,
     fuzzyMatch,
 } from '@/lib/booking-voice-controller';
+import { useAuthStore } from '@/lib/store';
 
 /* ─────────────────────────────────────────────
    Types
@@ -21,7 +23,7 @@ interface ChatMessage {
 interface BookingContext {
     step: number;
     stepName: string;
-    options: { id: string; name: string }[];
+    options: { id: string; name: string; price?: number }[];
 }
 
 /* ─────────────────────────────────────────────
@@ -30,6 +32,8 @@ interface BookingContext {
    ───────────────────────────────────────────── */
 
 export default function VoiceAgentBubble() {
+    const { isAuthenticated, user } = useAuthStore();
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -38,6 +42,13 @@ export default function VoiceAgentBubble() {
     const [transcript, setTranscript] = useState('');
     const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
     const [error, setError] = useState('');
+    const [dailyLimitReached, setDailyLimitReached] = useState(false);
+    const [remainingSeconds, setRemainingSeconds] = useState(300); // 5 minutes = 300s
+
+    const DAILY_LIMIT_SECONDS = 300; // 5 minutes
+    const MAX_RECORDING_SECONDS = 15; // 15 seconds per message
+    const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const recordingStartRef = useRef<number>(0);
 
     // Refs
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -50,6 +61,39 @@ export default function VoiceAgentBubble() {
     const chatHistoryRef = useRef<ChatMessage[]>([]);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const speakRef = useRef<(text: string) => Promise<void>>(() => Promise.resolve());
+    const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+    const continuousModeRef = useRef<boolean>(false);
+    const startListeningRef = useRef<() => void>(() => { });
+    const silenceCheckRef = useRef<number>(0);
+
+    // --- Daily usage tracking ---
+    const getDailyKey = () => {
+        const today = new Date().toISOString().split('T')[0];
+        const userId = user?.phone || 'anonymous';
+        return `voice_usage_${userId}_${today}`;
+    };
+
+    const getUsedSeconds = (): number => {
+        if (typeof window === 'undefined') return 0;
+        return parseInt(localStorage.getItem(getDailyKey()) || '0', 10);
+    };
+
+    const addUsedSeconds = (seconds: number) => {
+        const used = getUsedSeconds() + seconds;
+        localStorage.setItem(getDailyKey(), String(used));
+        const remaining = Math.max(0, DAILY_LIMIT_SECONDS - used);
+        setRemainingSeconds(remaining);
+        if (remaining <= 0) setDailyLimitReached(true);
+    };
+
+    // Initialize remaining time on mount
+    useEffect(() => {
+        const used = getUsedSeconds();
+        const remaining = Math.max(0, DAILY_LIMIT_SECONDS - used);
+        setRemainingSeconds(remaining);
+        if (remaining <= 0) setDailyLimitReached(true);
+    }, [user?.phone]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Auto-scroll chat
     useEffect(() => {
@@ -57,59 +101,127 @@ export default function VoiceAgentBubble() {
     }, [chatLog]);
 
     /* ── Booking voice controller listeners ── */
+    const selectionSourceRef = useRef<'voice' | 'ui'>('ui');
+
     useEffect(() => {
         const onStepChanged = (data: { step: number; stepName: string }) => {
             contextRef.current.step = data.step;
             contextRef.current.stepName = data.stepName;
         };
 
-        const onOptions = (data: { step: number; items: { id: string; name: string }[] }) => {
+        const onOptions = (data: { step: number; items: { id: string; name: string; price?: number }[] }) => {
             contextRef.current.options = data.items;
+        };
+
+        // When any selection is made (by click or voice), acknowledge it
+        const onSelectionMade = (data: { step: number; selected: string }) => {
+            // Only speak if the panel is open and connected
+            if (!isOpen) return;
+
+            const STEP_PROMPTS: Record<number, string> = {
+                0: `Great, you've selected ${data.selected}. Now please choose a department.`,
+                1: `${data.selected} department selected. Please pick a category.`,
+                2: `${data.selected} category. Now choose a service.`,
+                3: `${data.selected} selected. Please choose your doctor.`,
+                4: `Dr. ${data.selected} selected. Now pick a date and time.`,
+                5: `${data.selected} confirmed. Please review your booking and proceed.`,
+            };
+
+            const message = STEP_PROMPTS[data.step] || `${data.selected} selected.`;
+
+            const assistantMsg: ChatMessage = { role: 'assistant', content: message };
+            setChatLog(prev => [...prev, assistantMsg]);
+            chatHistoryRef.current.push(assistantMsg);
+            // Speak, then auto-listen if in continuous mode
+            speakRef.current(message).then(() => {
+                if (continuousModeRef.current) {
+                    setTimeout(() => startListeningRef.current(), 400);
+                }
+            });
         };
 
         const offStep = bookingVoiceController.on(WIZARD_EVENTS.STEP_CHANGED, onStepChanged);
         const offOpts = bookingVoiceController.on(WIZARD_EVENTS.OPTIONS, onOptions);
+        const offSel = bookingVoiceController.on(WIZARD_EVENTS.SELECTION_MADE, onSelectionMade);
 
         return () => {
             offStep();
             offOpts();
+            offSel();
         };
-    }, []);
+    }, [isOpen]);
 
-    /* ── TTS: speak aloud ── */
+    /* ── TTS: speak aloud via OpenAI shimmer ── */
     const speak = useCallback((text: string): Promise<void> => {
-        return new Promise((resolve) => {
-            if (!text || typeof window === 'undefined' || !window.speechSynthesis) {
-                resolve();
-                return;
+        return new Promise(async (resolve) => {
+            if (!text?.trim()) { resolve(); return; }
+
+            setIsSpeaking(true);
+            // Stop any currently playing audio
+            if (currentAudioRef.current) {
+                currentAudioRef.current.pause();
+                currentAudioRef.current = null;
             }
 
-            // Cancel any ongoing speech
-            window.speechSynthesis.cancel();
+            try {
+                // Detect Arabic for fallback voice selection
+                const isArabic = /[\u0600-\u06FF\u0750-\u077F]/.test(text);
 
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
+                const res = await fetch('/api/tts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, lang: isArabic ? 'ar' : 'en' }),
+                });
 
-            // Try to find a good English voice
-            const voices = window.speechSynthesis.getVoices();
-            const preferred = voices.find(v =>
-                v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Female') || v.name.includes('Samantha'))
-            ) || voices.find(v => v.lang.startsWith('en'));
-            if (preferred) utterance.voice = preferred;
+                if (!res.ok) throw new Error('TTS failed');
 
-            utterance.onstart = () => setIsSpeaking(true);
-            utterance.onend = () => { setIsSpeaking(false); resolve(); };
-            utterance.onerror = () => { setIsSpeaking(false); resolve(); };
+                const audioBlob = await res.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                currentAudioRef.current = audio;
 
-            window.speechSynthesis.speak(utterance);
+                audio.onended = () => {
+                    setIsSpeaking(false);
+                    URL.revokeObjectURL(audioUrl);
+                    currentAudioRef.current = null;
+                    resolve();
+                };
+                audio.onerror = () => {
+                    setIsSpeaking(false);
+                    URL.revokeObjectURL(audioUrl);
+                    currentAudioRef.current = null;
+                    resolve();
+                };
+
+                await audio.play();
+            } catch (err) {
+                console.warn('[VoiceAgent] OpenAI TTS failed, falling back to browser TTS', err);
+                // Fallback to browser TTS
+                if (typeof window !== 'undefined' && window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.onend = () => { setIsSpeaking(false); resolve(); };
+                    utterance.onerror = () => { setIsSpeaking(false); resolve(); };
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    setIsSpeaking(false);
+                    resolve();
+                }
+            }
         });
     }, []);
 
     /* ── Process recorded audio ── */
+    // Keep speakRef in sync so event handlers always use the latest speak
+    useEffect(() => { speakRef.current = speak; }, [speak]);
     const processAudio = useCallback(async (audioBlob: Blob) => {
-        if (audioBlob.size < 1000) return; // Skip tiny recordings (silence)
+        if (audioBlob.size < 10000) {
+            // Too short / silence — just re-listen in continuous mode
+            if (continuousModeRef.current) {
+                setTimeout(() => startListeningRef.current(), 300);
+            }
+            return;
+        }
 
         setIsProcessing(true);
         setError('');
@@ -125,12 +237,22 @@ export default function VoiceAgentBubble() {
             });
 
             if (!transcribeRes.ok) {
-                throw new Error('Transcription failed');
+                // In continuous mode, don't show error — just re-listen
+                console.warn('[VoiceAgent] Transcription failed, retrying...');
+                setIsProcessing(false);
+                if (continuousModeRef.current) {
+                    setTimeout(() => startListeningRef.current(), 500);
+                }
+                return;
             }
 
             const { text } = await transcribeRes.json();
             if (!text?.trim()) {
                 setIsProcessing(false);
+                // Empty transcript — re-listen in continuous mode
+                if (continuousModeRef.current) {
+                    setTimeout(() => startListeningRef.current(), 300);
+                }
                 return;
             }
 
@@ -156,7 +278,7 @@ export default function VoiceAgentBubble() {
                 throw new Error('Chat processing failed');
             }
 
-            const { action, name, spokenResponse } = await chatRes.json();
+            const { action, name, page, spokenResponse } = await chatRes.json();
 
             // Add assistant response to chat
             const assistantMsg: ChatMessage = { role: 'assistant', content: spokenResponse };
@@ -165,42 +287,56 @@ export default function VoiceAgentBubble() {
 
             // Step 3: Execute booking action via the event bus
             if (action && action !== 'none') {
-                executeAction(action, name);
+                executeAction(action, name, page);
             }
 
-            // Step 4: Speak the response
+            // Step 4: Speak the response, then auto-listen if continuous
             setIsProcessing(false);
             await speak(spokenResponse);
+
+            // Auto-listen after speaking (continuous conversation)
+            if (continuousModeRef.current) {
+                setTimeout(() => startListeningRef.current(), 400);
+            }
         } catch (err) {
             console.error('[VoiceAgent] Processing error:', err);
             setError('Something went wrong. Please try again.');
             setIsProcessing(false);
+            // Even on error, re-listen in continuous mode
+            if (continuousModeRef.current) {
+                setTimeout(() => startListeningRef.current(), 1000);
+            }
         }
     }, [speak]);
 
     /* ── Execute booking action ── */
-    const executeAction = useCallback((action: string, name: string) => {
+    const executeAction = useCallback((action: string, name: string, page?: string) => {
         const ctx = contextRef.current;
 
         switch (action) {
             case 'selectClinic': {
                 const match = fuzzyMatch(name, ctx.options);
-                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_CLINIC, { name: match.name });
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_CLINIC, { id: match.id, name: match.name });
                 break;
             }
             case 'selectDept': {
                 const match = fuzzyMatch(name, ctx.options);
-                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_DEPT, { name: match.name });
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_DEPT, { id: match.id, name: match.name });
+                break;
+            }
+            case 'selectCategory': {
+                const match = fuzzyMatch(name, ctx.options);
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_CATEGORY, { id: match.id, name: match.name });
                 break;
             }
             case 'selectService': {
                 const match = fuzzyMatch(name, ctx.options);
-                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_SERVICE, { name: match.name });
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_SERVICE, { id: match.id, name: match.name });
                 break;
             }
             case 'selectDoctor': {
                 const match = fuzzyMatch(name, ctx.options);
-                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_DOCTOR, { name: match.name });
+                if (match) bookingVoiceController.emit(VOICE_EVENTS.SELECT_DOCTOR, { id: match.id, name: match.name });
                 break;
             }
             case 'selectDate':
@@ -218,17 +354,57 @@ export default function VoiceAgentBubble() {
             case 'transfer':
                 handleTransfer();
                 break;
+            case 'navigate': {
+                const dest = page === 'booking' ? '/booking' : page === 'dashboard' ? '/customer/dashboard' : null;
+                if (dest) {
+                    setTimeout(() => router.push(dest), 1200); // slight delay so TTS starts first
+                }
+                break;
+            }
+            case 'listBookings': {
+                // Fetch and speak upcoming bookings for the logged-in user
+                if (user?.phone) {
+                    fetch(`/api/bookings/by-patient?phone=${encodeURIComponent(user.phone)}&name=${encodeURIComponent(user.name)}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            const bookings = data.bookings || [];
+                            if (bookings.length === 0) {
+                                speakRef.current('You have no upcoming appointments.');
+                            } else {
+                                const summary = bookings.slice(0, 3).map((b: { date: string; slot: string; status: string }) =>
+                                    `${b.date} at ${b.slot} — status ${b.status}`
+                                ).join('. ');
+                                speakRef.current(`You have ${bookings.length} upcoming appointment${bookings.length > 1 ? 's' : ''}. ${summary}`);
+                            }
+                        })
+                        .catch(() => speakRef.current('I could not retrieve your appointments right now.'));
+                }
+                break;
+            }
+            case 'cancelBooking':
+                // Navigate to dashboard where they can cancel
+                setTimeout(() => router.push('/customer/dashboard'), 1200);
+                break;
+            case 'rescheduleBooking':
+                // Navigate to dashboard where they can reschedule
+                setTimeout(() => router.push('/customer/dashboard'), 1200);
+                break;
         }
-    }, []);
+    }, [router, user]);
 
     /* ── Start/stop mic recording ── */
     const startListening = useCallback(async () => {
+        // Don't start if already listening, processing, speaking, or limit reached
+        if (mediaRecorderRef.current?.state === 'recording' || dailyLimitReached) return;
+
         try {
             setError('');
+            continuousModeRef.current = true;
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
 
-            // Set up audio analyser for waveform visualization
+            // Set up audio analyser for waveform visualization + silence detection
             const audioCtx = new AudioContext();
             const source = audioCtx.createMediaStreamSource(stream);
             const analyser = audioCtx.createAnalyser();
@@ -260,6 +436,42 @@ export default function VoiceAgentBubble() {
             mediaRecorderRef.current = recorder;
             setIsListening(true);
             setIsConnected(true);
+            recordingStartRef.current = Date.now();
+
+            // Auto-stop after MAX_RECORDING_SECONDS (safety cap)
+            recordingTimerRef.current = setTimeout(() => {
+                stopListening(true); // true = keep continuous mode
+            }, MAX_RECORDING_SECONDS * 1000);
+
+            // Silence detection: auto-stop when user goes quiet for 2s
+            const SILENCE_THRESHOLD = 15; // volume level
+            const SILENCE_TIMEOUT = 2000; // 2 seconds of silence
+            let silenceStart: number | null = null;
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            const checkSilence = () => {
+                if (!analyserRef.current || mediaRecorderRef.current?.state !== 'recording') return;
+
+                analyserRef.current.getByteFrequencyData(dataArray);
+                const avg = dataArray.reduce((sum, v) => sum + v, 0) / dataArray.length;
+
+                if (avg < SILENCE_THRESHOLD) {
+                    if (!silenceStart) silenceStart = Date.now();
+                    else if (Date.now() - silenceStart > SILENCE_TIMEOUT) {
+                        // User has been silent long enough — auto-stop and process
+                        stopListening(true);
+                        return;
+                    }
+                } else {
+                    silenceStart = null; // Reset — user is speaking
+                }
+
+                silenceCheckRef.current = requestAnimationFrame(checkSilence);
+            };
+            // Start silence detection after a brief delay (let user start talking)
+            setTimeout(() => {
+                silenceCheckRef.current = requestAnimationFrame(checkSilence);
+            }, 800);
 
             // Start waveform visualization
             drawWaveform();
@@ -267,12 +479,30 @@ export default function VoiceAgentBubble() {
             console.error('[VoiceAgent] Mic access error:', err);
             setError('Could not access microphone. Please allow microphone access.');
         }
-    }, [processAudio]);
+    }, [processAudio, dailyLimitReached]);
 
-    const stopListening = useCallback(() => {
+    const stopListening = useCallback((keepContinuous = false) => {
+        // Track recording duration for daily limit
+        if (recordingStartRef.current > 0) {
+            const elapsed = Math.ceil((Date.now() - recordingStartRef.current) / 1000);
+            addUsedSeconds(elapsed);
+            recordingStartRef.current = 0;
+        }
+
+        if (recordingTimerRef.current) {
+            clearTimeout(recordingTimerRef.current);
+            recordingTimerRef.current = null;
+        }
+
         if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = null;
+        }
+
+        // Cancel silence detection
+        if (silenceCheckRef.current) {
+            cancelAnimationFrame(silenceCheckRef.current);
+            silenceCheckRef.current = 0;
         }
 
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -290,6 +520,11 @@ export default function VoiceAgentBubble() {
 
         analyserRef.current = null;
         setIsListening(false);
+
+        // If manually stopped (not auto-silence), exit continuous mode
+        if (!keepContinuous) {
+            continuousModeRef.current = false;
+        }
     }, []);
 
     /* ── Waveform visualization ── */
@@ -332,8 +567,25 @@ export default function VoiceAgentBubble() {
 
     /* ── Disconnect session ── */
     const disconnect = useCallback(() => {
+        continuousModeRef.current = false;
         stopListening();
         window.speechSynthesis?.cancel();
+
+        // Email the conversation transcript to the clinic (fire-and-forget)
+        if (chatHistoryRef.current.length > 1) {
+            const authState = useAuthStore.getState();
+            fetch('/api/voice-agent/email-transcript', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chatLog: chatHistoryRef.current,
+                    patientName: authState.user?.name || 'Unknown',
+                    patientPhone: authState.user?.phone || 'N/A',
+                    timestamp: new Date().toISOString(),
+                }),
+            }).catch(err => console.warn('[VoiceAgent] Email send failed:', err));
+        }
+
         setIsConnected(false);
         setIsOpen(false);
         setChatLog([]);
@@ -359,18 +611,25 @@ export default function VoiceAgentBubble() {
         }
     }, [speak]);
 
+    // Keep startListeningRef in sync for use in callbacks/event handlers
+    useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
+
     /* ── Toggle panel ── */
     const toggle = useCallback(() => {
         if (!isOpen) {
             setIsOpen(true);
-            // Auto-start greeting on first open
+            // Auto-start greeting on first open, then auto-listen
             if (!isConnected) {
                 setIsConnected(true);
-                const greeting = 'Hello! I\'m your booking assistant. Click the microphone button and tell me how I can help you today.';
+                const greeting = 'Welcome to DubaiFMC! I am your virtual assistant. I can help you book appointments, answer questions about our treatments, or manage your existing bookings. How can I help you today?';
                 const msg: ChatMessage = { role: 'assistant', content: greeting };
                 setChatLog([msg]);
                 chatHistoryRef.current = [msg];
-                speak(greeting);
+                speak(greeting).then(() => {
+                    // Auto-start listening after greeting (continuous mode)
+                    continuousModeRef.current = true;
+                    setTimeout(() => startListeningRef.current(), 400);
+                });
             }
         } else {
             setIsOpen(false);
@@ -385,6 +644,10 @@ export default function VoiceAgentBubble() {
     }, [disconnect]);
 
     /* ── Render ── */
+
+    // Auth gate: don't show bubble at all if not authenticated
+    if (!isAuthenticated) return null;
+
     return (
         <>
             {/* Floating bubble */}
@@ -410,7 +673,12 @@ export default function VoiceAgentBubble() {
                             <span className="font-semibold text-sm">Voice Assistant</span>
                             {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
+                            {/* Remaining time badge */}
+                            <div className="flex items-center gap-1 bg-indigo-700 rounded-full px-2 py-0.5 text-xs">
+                                <Timer className="w-3 h-3" />
+                                <span>{Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')}</span>
+                            </div>
                             <button
                                 onClick={() => setIsOpen(false)}
                                 className="p-1 hover:bg-indigo-700 rounded"
@@ -481,15 +749,15 @@ export default function VoiceAgentBubble() {
                         </button>
 
                         <button
-                            onClick={isListening ? stopListening : startListening}
-                            disabled={isProcessing || isSpeaking}
+                            onClick={isListening ? () => stopListening() : startListening}
+                            disabled={isProcessing || isSpeaking || dailyLimitReached}
                             className={`p-4 rounded-full text-white transition-all ${isListening
                                 ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                                : isProcessing || isSpeaking
+                                : isProcessing || isSpeaking || dailyLimitReached
                                     ? 'bg-gray-400 cursor-not-allowed'
                                     : 'bg-indigo-600 hover:bg-indigo-700'
                                 }`}
-                            title={isListening ? 'Stop recording' : 'Start recording'}
+                            title={dailyLimitReached ? 'Daily limit reached' : isListening ? 'Stop recording' : 'Start recording'}
                         >
                             {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
                         </button>
@@ -502,6 +770,13 @@ export default function VoiceAgentBubble() {
                             <PhoneOff className="w-5 h-5" />
                         </button>
                     </div>
+
+                    {/* Daily limit warning */}
+                    {dailyLimitReached && (
+                        <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs text-center font-medium">
+                            Daily voice limit reached (5 min). Please try again tomorrow.
+                        </div>
+                    )}
                 </div>
             )}
         </>

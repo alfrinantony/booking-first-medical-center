@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         const whisperForm = new FormData();
         whisperForm.append('file', audioFile, 'recording.webm');
         whisperForm.append('model', 'whisper-1');
-        whisperForm.append('language', 'en');
+        // No language param — Whisper auto-detects English and Arabic
 
         const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',

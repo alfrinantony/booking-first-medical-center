@@ -33,12 +33,13 @@ export default function BookingWizard() {
     // Prevent hydration mismatch by not rendering until mounted
     // if (!isMounted) return null; // MOVED TO END OF HOOKS
 
-    // Steps: 0: Clinic, 1: Dept, 2: Service, 3: Doctor, 4: Date/Time, 5: Confirm
+    // Steps: 0: Clinic, 1: Dept, 2: Category, 3: Service, 4: Doctor, 5: Date/Time, 6: Review
     const [step, setStep] = useState(0);
     const [whatsappNumber, setWhatsappNumber] = useState('');
 
     const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
     const [selectedDept, setSelectedDept] = useState<Department | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -197,13 +198,22 @@ export default function BookingWizard() {
         setSelectedClinic(clinic);
         setStep(1);
         // Reset subsequent selections
-        setSelectedDept(null); setSelectedService(null); setSelectedDoctor(null);
+        setSelectedDept(null); setSelectedCategory(null); setSelectedService(null); setSelectedDoctor(null);
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 0, selected: clinic.name });
     };
 
     const handleDeptSelect = (dept: Department) => {
         setSelectedDept(dept);
-        setStep(2);
+        setStep(2); // → Category step
+        setSelectedCategory(null); setSelectedService(null); setSelectedDoctor(null);
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 1, selected: dept.name });
+    };
+
+    const handleCategorySelect = (category: string) => {
+        setSelectedCategory(category);
+        setStep(3); // → Service step
         setSelectedService(null); setSelectedDoctor(null);
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 2, selected: category });
     };
 
     // Screening Questions State
@@ -221,7 +231,7 @@ export default function BookingWizard() {
         if (mode === 'all' && hasLinkedMeds) {
             // Auto-select all linked medicines, skip picker
             setSelectedMedicineIds([...linkedMeds]);
-            setStep(3);
+            setStep(4);
             setSelectedDoctor(null);
         } else if (mode === 'either' && hasLinkedMeds) {
             // Show picker in radio mode
@@ -232,7 +242,7 @@ export default function BookingWizard() {
             setSelectedMedicineIds([]);
             setShowMedicinePicker(true);
         } else {
-            setStep(3);
+            setStep(4);
             setSelectedDoctor(null);
         }
     };
@@ -247,6 +257,7 @@ export default function BookingWizard() {
             setSelectedService(service);
             proceedAfterScreening(service);
         }
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 3, selected: service.name });
     };
 
     const handleMedicineToggle = (medId: string) => {
@@ -268,7 +279,7 @@ export default function BookingWizard() {
 
     const handleMedicineConfirm = () => {
         setShowMedicinePicker(false);
-        setStep(3);
+        setStep(4);
         setSelectedDoctor(null);
     };
 
@@ -290,24 +301,27 @@ export default function BookingWizard() {
         if (selectedService) {
             proceedAfterScreening(selectedService);
         } else {
-            setStep(3);
+            setStep(4);
             setSelectedDoctor(null);
         }
     };
 
     const handleDoctorSelect = (doc: Doctor) => {
         setSelectedDoctor(doc);
-        setStep(4);
+        setStep(5);
         setSelectedDate(null); setSelectedSlot(null);
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 4, selected: doc.name });
     };
 
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date);
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 5, selected: format(date, 'EEEE, MMM d') });
     }
 
     const handleSlotSelect = (slot: string) => {
         setSelectedSlot(slot);
-        setStep(5);
+        setStep(6);
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 5, selected: slot });
     };
 
     /* ── Voice Controller Integration ── */
@@ -315,7 +329,7 @@ export default function BookingWizard() {
     useEffect(() => {
         bookingVoiceController.emit(WIZARD_EVENTS.STEP_CHANGED, { step, stepName: STEP_NAMES[step] || 'Unknown' });
 
-        let items: { id: string; name: string }[] = [];
+        let items: { id: string; name: string; price?: number }[] = [];
         switch (step) {
             case 0: // Clinic selection
                 items = clinics.map(c => ({ id: c.id, name: c.name }));
@@ -323,26 +337,40 @@ export default function BookingWizard() {
             case 1: // Department selection
                 items = clinicDepts.map(d => ({ id: d.id, name: d.name }));
                 break;
-            case 2: // Service selection
-                if (selectedDept) items = selectedDept.services.map(s => ({ id: s.id, name: s.name }));
+            case 2: { // Category selection
+                if (selectedDept) {
+                    const cats = Array.from(new Set(selectedDept.services
+                        .filter(s => !s.allowedGender || s.allowedGender === 'both' || s.allowedGender === user?.gender)
+                        .map(s => s.category || 'General Services')));
+                    items = cats.map(c => ({ id: c, name: c }));
+                }
                 break;
-            case 3: // Doctor selection
+            }
+            case 3: // Service selection (filtered by category) — include price for voice agent
+                if (selectedDept && selectedCategory) {
+                    items = selectedDept.services
+                        .filter(s => (s.category || 'General Services') === selectedCategory)
+                        .filter(s => !s.allowedGender || s.allowedGender === 'both' || s.allowedGender === user?.gender)
+                        .map(s => ({ id: s.id, name: s.name, price: s.price }));
+                }
+                break;
+            case 4: // Doctor selection
                 if (selectedDept) items = selectedDept.doctors.map(d => ({ id: d.id, name: d.name }));
                 break;
-            case 4: // Date/Time
+            case 5: // Date/Time
                 items = availableDates.map(d => ({ id: format(d, 'yyyy-MM-dd'), name: format(d, 'EEEE, MMM d') }));
                 break;
         }
         if (items.length > 0) {
             bookingVoiceController.emit(WIZARD_EVENTS.OPTIONS, { step, items });
         }
-    }, [step, clinicDepts, selectedDept, availableDates]);
+    }, [step, clinicDepts, selectedDept, selectedCategory, availableDates, user?.gender]);
 
     // Emit slot options when available
     useEffect(() => {
-        if (step === 4 && availableSlots.length > 0) {
+        if (step === 5 && availableSlots.length > 0) {
             bookingVoiceController.emit(WIZARD_EVENTS.OPTIONS, {
-                step: 4,
+                step: 5,
                 items: availableSlots.map(s => ({ id: s, name: s })),
             });
         }
@@ -353,25 +381,29 @@ export default function BookingWizard() {
         const unsubs: (() => void)[] = [];
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_CLINIC, (data: { id: string; name: string }) => {
-            const clinic = clinics.find(c => c.id === data.id);
+            const clinic = clinics.find(c => c.id === data.id) || clinics.find(c => c.name.toLowerCase() === data.name?.toLowerCase());
             if (clinic) handleClinicSelect(clinic);
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_DEPT, (data: { id: string; name: string }) => {
-            const dept = clinicDepts.find(d => d.id === data.id);
+            const dept = clinicDepts.find(d => d.id === data.id) || clinicDepts.find(d => d.name.toLowerCase() === data.name?.toLowerCase());
             if (dept) handleDeptSelect(dept);
+        }));
+
+        unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_CATEGORY, (data: { id: string; name: string }) => {
+            if (data.name) handleCategorySelect(data.name);
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_SERVICE, (data: { id: string; name: string }) => {
             if (selectedDept) {
-                const svc = selectedDept.services.find(s => s.id === data.id);
+                const svc = selectedDept.services.find(s => s.id === data.id) || selectedDept.services.find(s => s.name.toLowerCase() === data.name?.toLowerCase());
                 if (svc) handleServiceSelect(svc);
             }
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_DOCTOR, (data: { id: string; name: string }) => {
             if (selectedDept) {
-                const doc = selectedDept.doctors.find(d => d.id === data.id);
+                const doc = selectedDept.doctors.find(d => d.id === data.id) || selectedDept.doctors.find(d => d.name.toLowerCase() === data.name?.toLowerCase());
                 if (doc) handleDoctorSelect(doc);
             }
         }));
@@ -391,7 +423,7 @@ export default function BookingWizard() {
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.CONFIRM, () => {
-            if (step === 5) handleConfirm();
+            if (step === 6) handleConfirm();
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.GO_BACK, () => {
@@ -642,18 +674,31 @@ export default function BookingWizard() {
         return <div className="text-center p-12 text-red-500">System Error: No clinics configured.</div>;
     }
 
+    // Auth gate: show registration/login if not authenticated
+    if (!isAuthenticated) {
+        return (
+            <div className="max-w-lg mx-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow-lg my-12">
+                <div className="text-center mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome to Booking</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Please register or log in to start your appointment booking.</p>
+                </div>
+                <CustomerAuth />
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow-lg my-12">
 
             {/* Progress Bar */}
             <div className="mb-8">
                 <div className="flex justify-between mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {['Clinic', 'Department', 'Service', 'Doctor', 'Time', 'Review'].map((label, idx) => (
+                    {['Clinic', 'Dept', 'Category', 'Service', 'Doctor', 'Time', 'Review'].map((label, idx) => (
                         <span key={idx} className={step >= idx ? 'text-indigo-600 dark:text-indigo-400 font-bold' : ''}>{label}</span>
                     ))}
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                    <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((step + 1) / 6) * 100}%` }}></div>
+                    <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((step + 1) / 7) * 100}%` }}></div>
                 </div>
             </div>
 
@@ -814,70 +859,102 @@ export default function BookingWizard() {
                 )
             }
 
-            {/* Step 2: Select Service */}
+            {/* Step 2: Select Category */}
             {
-                step === 2 && selectedDept && (
-                    <div>
-                        <div className="flex items-center gap-2 mb-6">
-                            <button onClick={() => setStep(1)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
-                            <span className="text-gray-300">/</span>
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Service</h2>
+                step === 2 && selectedDept && (() => {
+                    // Extract unique categories from services, filtered by gender
+                    const genderFiltered = selectedDept.services.filter(svc => {
+                        if (!svc.allowedGender || svc.allowedGender === 'both') return true;
+                        if (user?.gender) return svc.allowedGender === user.gender;
+                        return true;
+                    });
+                    const categoryMap = genderFiltered.reduce((acc, svc) => {
+                        const cat = svc.category || 'General Services';
+                        if (!acc[cat]) acc[cat] = 0;
+                        acc[cat]++;
+                        return acc;
+                    }, {} as Record<string, number>);
+                    const categories = Object.entries(categoryMap);
+
+                    return (
+                        <div>
+                            <div className="flex items-center gap-2 mb-6">
+                                <button onClick={() => setStep(1)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                                <span className="text-gray-300">/</span>
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Category</h2>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {categories.map(([cat, count]) => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => handleCategorySelect(cat)}
+                                        className="p-5 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all text-center group"
+                                    >
+                                        <span className="block font-semibold text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{cat}</span>
+                                        <span className="text-xs text-gray-500 mt-1">{count} Service{count > 1 ? 's' : ''}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="space-y-6">
-                            {Object.entries(
-                                selectedDept.services
-                                    .filter(svc => {
-                                        if (!svc.allowedGender || svc.allowedGender === 'both') return true;
-                                        if (user?.gender) return svc.allowedGender === user.gender;
-                                        return true;
-                                    })
-                                    .reduce((acc, service) => {
-                                        const cat = service.category || 'General Services';
-                                        if (!acc[cat]) acc[cat] = [];
-                                        acc[cat].push(service);
-                                        return acc;
-                                    }, {} as Record<string, Service[]>)
-                            ).map(([category, services]) => (
-                                <div key={category}>
-                                    <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 ml-1">{category}</h3>
-                                    <div className="space-y-3">
-                                        {services.map((svc) => (
-                                            <button
-                                                key={svc.id}
-                                                onClick={() => handleServiceSelect(svc)}
-                                                className="w-full flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-500 transition-all group"
-                                            >
-                                                <div className="text-left">
-                                                    <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
-                                                    <div className="flex gap-2 text-sm text-gray-500">
-                                                        <span>{svc.duration} mins</span>
-                                                        {svc.isTaxable && (
-                                                            <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded font-medium">
-                                                                +VAT
-                                                            </span>
-                                                        )}
-                                                        {svc.followUpDuration && (
-                                                            <span className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded font-medium">
-                                                                Free Follow Up within {svc.followUpDuration}d
-                                                            </span>
-                                                        )}
-                                                        {svc.allowedGender && svc.allowedGender !== 'both' && (
-                                                            <span className="text-indigo-600 font-medium capitalize">({svc.allowedGender} Only)</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-4">
-                                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{svc.price} AED</span>
-                                                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-500" />
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
+                    );
+                })()
+            }
+
+            {/* Step 3: Select Service (filtered by category + gender) */}
+            {
+                step === 3 && selectedDept && selectedCategory && (() => {
+                    const filteredServices = selectedDept.services
+                        .filter(svc => (svc.category || 'General Services') === selectedCategory)
+                        .filter(svc => {
+                            if (!svc.allowedGender || svc.allowedGender === 'both') return true;
+                            if (user?.gender) return svc.allowedGender === user.gender;
+                            return true;
+                        });
+
+                    return (
+                        <div>
+                            <div className="flex items-center gap-2 mb-6">
+                                <button onClick={() => setStep(2)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                                <span className="text-gray-300">/</span>
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Service</h2>
+                                <span className="text-sm text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full ml-2">{selectedCategory}</span>
+                            </div>
+                            <div className="space-y-3">
+                                {filteredServices.map((svc) => (
+                                    <button
+                                        key={svc.id}
+                                        onClick={() => handleServiceSelect(svc)}
+                                        className="w-full flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-500 transition-all group"
+                                    >
+                                        <div className="text-left">
+                                            <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
+                                            <div className="flex gap-2 text-sm text-gray-500">
+                                                <span>{svc.duration} mins</span>
+                                                {svc.isTaxable && (
+                                                    <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded font-medium">
+                                                        +VAT
+                                                    </span>
+                                                )}
+                                                {svc.followUpDuration && (
+                                                    <span className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded font-medium">
+                                                        Free Follow Up within {svc.followUpDuration}d
+                                                    </span>
+                                                )}
+                                                {svc.allowedGender && svc.allowedGender !== 'both' && (
+                                                    <span className="text-indigo-600 font-medium capitalize">({svc.allowedGender} Only)</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <span className="font-bold text-indigo-600 dark:text-indigo-400">{svc.price} AED</span>
+                                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-500" />
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )
+                    );
+                })()
             }
 
             {/* Screening Questions Modal */}
@@ -1056,12 +1133,12 @@ export default function BookingWizard() {
                 })()
             }
 
-            {/* Step 3: Select Doctor */}
+            {/* Step 4: Select Doctor */}
             {
-                step === 3 && selectedDept && (
+                step === 4 && selectedDept && (
                     <div>
                         <div className="flex items-center gap-2 mb-6">
-                            <button onClick={() => setStep(2)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                            <button onClick={() => setStep(3)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
                             <span className="text-gray-300">/</span>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Specialist</h2>
                         </div>
@@ -1088,12 +1165,12 @@ export default function BookingWizard() {
                 )
             }
 
-            {/* Step 4: Select Date & Time */}
+            {/* Step 5: Select Date & Time */}
             {
-                step === 4 && (
+                step === 5 && (
                     <div>
                         <div className="flex items-center gap-2 mb-6">
-                            <button onClick={() => setStep(3)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                            <button onClick={() => setStep(4)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
                             <span className="text-gray-300">/</span>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Schedule Appointment</h2>
                         </div>
@@ -1150,142 +1227,135 @@ export default function BookingWizard() {
                 )
             }
 
-            {/* Step 5: Confirmation & Auth */}
+            {/* Step 6: Review & Confirm */}
             {
-                step === 5 && (
+                step === 6 && (
                     <div>
-                        {!isAuthenticated ? (
-                            <div className="mb-8 p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 animate-in fade-in">
-                                <h2 className="text-xl font-bold mb-4 text-center">Please Log In to Complete Booking</h2>
-                                <CustomerAuth />
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="flex items-center gap-2 mb-6">
+                                <button onClick={() => setStep(5)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                                <span className="text-gray-300">/</span>
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Confirm & Pay</h2>
                             </div>
-                        ) : (
-                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex items-center gap-2 mb-6">
-                                    <button onClick={() => setStep(4)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
-                                    <span className="text-gray-300">/</span>
-                                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Confirm & Pay</h2>
-                                </div>
 
-                                <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
-                                    <h3 className="font-bold text-lg mb-4 border-b pb-2 dark:border-gray-700">Booking Summary</h3>
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <span className="block text-gray-500">Patient</span>
-                                            <span className="font-medium text-gray-900 dark:text-white">{user?.name}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-gray-500">Service</span>
-                                            <span className="font-medium text-gray-900 dark:text-white">{selectedService?.name}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-gray-500">Doctor</span>
-                                            <span className="font-medium text-gray-900 dark:text-white">{selectedDoctor?.name}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-gray-500">Date & Time</span>
-                                            <span className="font-medium text-gray-900 dark:text-white">{selectedDate && format(selectedDate, 'MMM d, yyyy')} at {selectedSlot}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-gray-500">Clinic</span>
-                                            <span className="font-medium">{selectedClinic?.name}</span>
-                                        </div>
-                                        {selectedMedicineIds.length > 0 && (
-                                            <div className="col-span-2">
-                                                <span className="block text-gray-500">Medicines</span>
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {selectedMedicineIds.map(id => {
-                                                        const med = medicineCatalog.find(m => m.id === id);
-                                                        return med ? (
-                                                            <span key={id} className="inline-flex items-center gap-1 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-xs px-2 py-1 rounded-full">
-                                                                <Pill className="w-3 h-3" />
-                                                                {med.name} (+{med.price} AED)
-                                                            </span>
-                                                        ) : null;
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
+                            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
+                                <h3 className="font-bold text-lg mb-4 border-b pb-2 dark:border-gray-700">Booking Summary</h3>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span className="block text-gray-500">Patient</span>
+                                        <span className="font-medium text-gray-900 dark:text-white">{user?.name}</span>
                                     </div>
-                                </div>
-
-                                {/* WhatsApp Number Section */}
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">WhatsApp Number</label>
-                                    <input
-                                        type="tel"
-                                        placeholder="+1234567890"
-                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                        value={whatsappNumber}
-                                        onChange={(e) => setWhatsappNumber(e.target.value)}
-                                    />
-                                </div>
-
-                                {/* Package Redemption Option */}
-                                {applicablePackage && (
-                                    <div className={`p-4 rounded-xl border-2 transition-all cursor-pointer mb-6 flex items-center justify-between ${usePackageSession
-                                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
-                                        : 'border-gray-200 dark:border-gray-700'
-                                        }`}
-                                        onClick={() => setUsePackageSession(!usePackageSession)}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${usePackageSession ? 'border-indigo-600 bg-indigo-600' : 'border-gray-400'}`}>
-                                                {usePackageSession && <Check className="w-4 h-4 text-white" />}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                                    <PackageIcon className="w-4 h-4 text-indigo-600" />
-                                                    Use Package Session
-                                                </h4>
-                                                <p className="text-sm text-gray-500">{applicablePackage.packageName} ({applicablePackage.remainingSessions[selectedService!.id]} sessions remaining)</p>
-                                            </div>
-                                        </div>
-                                        <span className="font-bold text-green-600">FREE</span>
+                                    <div>
+                                        <span className="block text-gray-500">Service</span>
+                                        <span className="font-medium text-gray-900 dark:text-white">{selectedService?.name}</span>
                                     </div>
-                                )}
-
-                                {/* Cost Breakdown */}
-                                {!usePackageSession && (
-                                    <div className="border-t border-gray-100 dark:border-gray-800 pt-4 mb-6 space-y-2">
-                                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                                            <span>Service ({selectedService?.name})</span>
-                                            <span>{basePrice.toFixed(2)} AED</span>
-                                        </div>
-                                        {medicineTotal > 0 && (
-                                            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                                                <span>Medicines ({selectedMedicineIds.length})</span>
-                                                <span>+{medicineTotal.toFixed(2)} AED</span>
-                                            </div>
-                                        )}
-                                        {vatAmount > 0 && (
-                                            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                                                <span>VAT ({selectedClinic?.vatPercentage}%)</span>
-                                                <span>+{vatAmount.toFixed(2)} AED</span>
-                                            </div>
-                                        )}
-                                        {discountAmount > 0 && (
-                                            <div className="flex justify-between text-sm text-green-600">
-                                                <span>Discount</span>
-                                                <span>-{discountAmount.toFixed(2)} AED</span>
-                                            </div>
-                                        )}
-                                        <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700">
-                                            <span className="text-lg font-medium">Total to Pay</span>
-                                            <span className="text-3xl font-bold text-indigo-600">{finalPrice.toFixed(2)} AED</span>
-                                        </div>
+                                    <div>
+                                        <span className="block text-gray-500">Doctor</span>
+                                        <span className="font-medium text-gray-900 dark:text-white">{selectedDoctor?.name}</span>
                                     </div>
-                                )}
+                                    <div>
+                                        <span className="block text-gray-500">Date & Time</span>
+                                        <span className="font-medium text-gray-900 dark:text-white">{selectedDate && format(selectedDate, 'MMM d, yyyy')} at {selectedSlot}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-gray-500">Clinic</span>
+                                        <span className="font-medium">{selectedClinic?.name}</span>
+                                    </div>
+                                    {selectedMedicineIds.length > 0 && (
+                                        <div className="col-span-2">
+                                            <span className="block text-gray-500">Medicines</span>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {selectedMedicineIds.map(id => {
+                                                    const med = medicineCatalog.find(m => m.id === id);
+                                                    return med ? (
+                                                        <span key={id} className="inline-flex items-center gap-1 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-xs px-2 py-1 rounded-full">
+                                                            <Pill className="w-3 h-3" />
+                                                            {med.name} (+{med.price} AED)
+                                                        </span>
+                                                    ) : null;
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
 
-                                <button
-                                    onClick={usePackageSession ? handlePackageConfirm : handleConfirm}
-                                    className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center justify-center gap-2"
+                            {/* WhatsApp Number Section */}
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">WhatsApp Number</label>
+                                <input
+                                    type="tel"
+                                    placeholder="+1234567890"
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    value={whatsappNumber}
+                                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Package Redemption Option */}
+                            {applicablePackage && (
+                                <div className={`p-4 rounded-xl border-2 transition-all cursor-pointer mb-6 flex items-center justify-between ${usePackageSession
+                                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
+                                    : 'border-gray-200 dark:border-gray-700'
+                                    }`}
+                                    onClick={() => setUsePackageSession(!usePackageSession)}
                                 >
-                                    {usePackageSession ? 'Confirm Booking with Package' : 'Proceed to Payment'}
-                                    <ArrowRight className="w-5 h-5" />
-                                </button>
-                            </div>
-                        )}
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${usePackageSession ? 'border-indigo-600 bg-indigo-600' : 'border-gray-400'}`}>
+                                            {usePackageSession && <Check className="w-4 h-4 text-white" />}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                                <PackageIcon className="w-4 h-4 text-indigo-600" />
+                                                Use Package Session
+                                            </h4>
+                                            <p className="text-sm text-gray-500">{applicablePackage.packageName} ({applicablePackage.remainingSessions[selectedService!.id]} sessions remaining)</p>
+                                        </div>
+                                    </div>
+                                    <span className="font-bold text-green-600">FREE</span>
+                                </div>
+                            )}
+
+                            {/* Cost Breakdown */}
+                            {!usePackageSession && (
+                                <div className="border-t border-gray-100 dark:border-gray-800 pt-4 mb-6 space-y-2">
+                                    <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                                        <span>Service ({selectedService?.name})</span>
+                                        <span>{basePrice.toFixed(2)} AED</span>
+                                    </div>
+                                    {medicineTotal > 0 && (
+                                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                                            <span>Medicines ({selectedMedicineIds.length})</span>
+                                            <span>+{medicineTotal.toFixed(2)} AED</span>
+                                        </div>
+                                    )}
+                                    {vatAmount > 0 && (
+                                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                                            <span>VAT ({selectedClinic?.vatPercentage}%)</span>
+                                            <span>+{vatAmount.toFixed(2)} AED</span>
+                                        </div>
+                                    )}
+                                    {discountAmount > 0 && (
+                                        <div className="flex justify-between text-sm text-green-600">
+                                            <span>Discount</span>
+                                            <span>-{discountAmount.toFixed(2)} AED</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700">
+                                        <span className="text-lg font-medium">Total to Pay</span>
+                                        <span className="text-3xl font-bold text-indigo-600">{finalPrice.toFixed(2)} AED</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <button
+                                onClick={usePackageSession ? handlePackageConfirm : handleConfirm}
+                                className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center justify-center gap-2"
+                            >
+                                {usePackageSession ? 'Confirm Booking with Package' : 'Proceed to Payment'}
+                                <ArrowRight className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
                 )}
 

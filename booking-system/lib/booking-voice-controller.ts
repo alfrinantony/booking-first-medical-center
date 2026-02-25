@@ -42,14 +42,19 @@ export const bookingVoiceController = new BookingVoiceEventBus();
 
 // Voice → Wizard: commands to select things
 export const VOICE_EVENTS = {
-    SELECT_CLINIC: 'voice:selectClinic',   // payload: { name: string }
-    SELECT_DEPT: 'voice:selectDept',      // payload: { name: string }
-    SELECT_SERVICE: 'voice:selectService',   // payload: { name: string }
-    SELECT_DOCTOR: 'voice:selectDoctor',    // payload: { name: string }
-    SELECT_DATE: 'voice:selectDate',      // payload: { date: string }  (e.g. "tomorrow", "Tuesday")
-    SELECT_SLOT: 'voice:selectSlot',      // payload: { time: string }  (e.g. "2pm", "10:30 AM")
-    CONFIRM: 'voice:confirm',         // payload: none
-    GO_BACK: 'voice:goBack',          // payload: none
+    SELECT_CLINIC: 'voice:selectClinic',           // payload: { id, name }
+    SELECT_DEPT: 'voice:selectDept',               // payload: { id, name }
+    SELECT_CATEGORY: 'voice:selectCategory',       // payload: { id, name }
+    SELECT_SERVICE: 'voice:selectService',         // payload: { id, name }
+    SELECT_DOCTOR: 'voice:selectDoctor',           // payload: { id, name }
+    SELECT_DATE: 'voice:selectDate',               // payload: { date: string }
+    SELECT_SLOT: 'voice:selectSlot',               // payload: { time: string }
+    CONFIRM: 'voice:confirm',                      // payload: none
+    GO_BACK: 'voice:goBack',                       // payload: none
+    NAVIGATE: 'voice:navigate',                    // payload: { page: 'booking' | 'dashboard' }
+    LIST_BOOKINGS: 'voice:listBookings',           // payload: none
+    CANCEL_BOOKING: 'voice:cancelBooking',         // payload: { bookingId?: string }
+    RESCHEDULE_BOOKING: 'voice:rescheduleBooking', // payload: { bookingId?: string }
 } as const;
 
 // Wizard → Voice: context updates
@@ -105,4 +110,4 @@ export function fuzzyMatch(query: string, options: { id: string; name: string }[
 }
 
 /* ── Step names ── */
-export const STEP_NAMES = ['Clinic', 'Department', 'Service', 'Doctor', 'Date & Time', 'Confirmation'] as const;
+export const STEP_NAMES = ['Clinic', 'Department', 'Category', 'Service', 'Doctor', 'Date & Time', 'Review'] as const;
