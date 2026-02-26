@@ -17,6 +17,10 @@ function PaymentContent() {
     const amountParam = searchParams.get('amount');
     const amount = amountParam ? parseFloat(amountParam) : 0;
     const serviceName = searchParams.get('serviceName') || 'Service';
+    const bookingDate = searchParams.get('bookingDate') || '';
+    const slot = searchParams.get('slot') || '';
+    const doctorName = searchParams.get('doctorName') || '';
+    const clinicName = searchParams.get('clinicName') || '';
 
     const [clientSecret, setClientSecret] = useState("");
 
@@ -48,7 +52,8 @@ function PaymentContent() {
         setIsProcessing(true);
         // Simulate API call/Redirection
         await new Promise(resolve => setTimeout(resolve, 1500));
-        router.push(`/booking/success?method=${paymentMethod}&amount=${totalAmount}&serviceName=${encodeURIComponent(serviceName)}`);
+        const extraParams = `&bookingDate=${encodeURIComponent(bookingDate)}&slot=${encodeURIComponent(slot)}&doctorName=${encodeURIComponent(doctorName)}&clinicName=${encodeURIComponent(clinicName)}`;
+        router.push(`/booking/success?method=${paymentMethod}&amount=${totalAmount}&serviceName=${encodeURIComponent(serviceName)}${extraParams}`);
     };
 
     const appearance = {
@@ -139,7 +144,7 @@ function PaymentContent() {
                 {/* Render Payment UI based on selection */}
                 {paymentMethod === 'card' && clientSecret && (
                     <Elements options={options} stripe={stripePromise}>
-                        <CheckoutForm amount={amount} serviceName={serviceName} />
+                        <CheckoutForm amount={amount} serviceName={serviceName} bookingDate={bookingDate} slot={slot} doctorName={doctorName} clinicName={clinicName} />
                     </Elements>
                 )}
 

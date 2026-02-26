@@ -36,6 +36,12 @@ export default function BookingWizard() {
     // Steps: 0: Clinic, 1: Dept, 2: Category, 3: Service, 4: Doctor, 5: Date/Time, 6: Review
     const [step, setStep] = useState(0);
     const [whatsappNumber, setWhatsappNumber] = useState('');
+    // Referral fields
+    const [referredBy, setReferredBy] = useState<'none' | 'family' | 'friend' | 'employee'>('none');
+    const [referralName, setReferralName] = useState('');
+    const [referralContact, setReferralContact] = useState('');
+    const [referralEmployeeName, setReferralEmployeeName] = useState('');
+    const [referralEmployeeId, setReferralEmployeeId] = useState('');
 
     const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
     const [selectedDept, setSelectedDept] = useState<Department | null>(null);
@@ -466,7 +472,7 @@ export default function BookingWizard() {
     const isFree = followUpStatus?.valid || false;
 
     // Price Calculation
-    const basePrice = selectedService?.price || 0;
+    const basePrice = selectedService?.discountedPrice || selectedService?.regularPrice || selectedService?.price || 0;
     const medicineTotal = selectedMedicineIds.reduce((sum, id) => {
         const med = medicineCatalog.find(m => m.id === id);
         return sum + (med?.price || 0);
@@ -572,18 +578,23 @@ export default function BookingWizard() {
     const handleConfirm = async () => {
         // Proceed to Payment
         // In a real app, save booking state/intent ID here
-        const bookingData = {
+        const bookingData: any = {
             clinicId: selectedClinic?.id,
             deptId: selectedDept?.id,
             serviceId: selectedService?.id,
             doctorId: selectedDoctor?.id,
             date: selectedDate?.toISOString().split('T')[0],
             slot: selectedSlot,
-            patientName: 'John Doe', // Mock patient name for now, or get from Auth context
-            amount: finalPrice, // Use final discounted price
+            patientName: user?.name || 'Guest',
+            amount: finalPrice,
             promoCode: appliedPromo?.code,
             whatsappNumber: whatsappNumber,
-            selectedMedicineIds: selectedMedicineIds.length > 0 ? selectedMedicineIds : undefined
+            selectedMedicineIds: selectedMedicineIds.length > 0 ? selectedMedicineIds : undefined,
+            referredBy: referredBy !== 'none' ? referredBy : undefined,
+            referralName: referralName || undefined,
+            referralContact: referralContact || undefined,
+            referralEmployeeName: referralEmployeeName || undefined,
+            referralEmployeeId: referralEmployeeId || undefined
         };
 
         try {
@@ -602,6 +613,10 @@ export default function BookingWizard() {
             amount: String(finalPrice.toFixed(2)),
             serviceName: selectedService?.name || '',
             bookingId: 'mock-booking-id-' + Date.now(),
+            bookingDate: selectedDate?.toISOString().split('T')[0] || '',
+            slot: selectedSlot || '',
+            doctorName: selectedDoctor?.name || '',
+            clinicName: selectedClinic?.name || '',
             ...(appliedPromo ? { promo: appliedPromo.code } : {})
         }).toString();
 
@@ -631,7 +646,7 @@ export default function BookingWizard() {
 
         const result = useSession(applicablePackage.id, selectedService.id);
         if (result.success) {
-            const bookingData = {
+            const bookingData: any = {
                 clinicId: selectedClinic?.id,
                 deptId: selectedDept?.id,
                 serviceId: selectedService?.id,
@@ -643,7 +658,12 @@ export default function BookingWizard() {
                 amount: 0,
                 paymentMethod: 'Package',
                 packageId: applicablePackage.id,
-                whatsappNumber: whatsappNumber
+                whatsappNumber: whatsappNumber,
+                referredBy: referredBy !== 'none' ? referredBy : undefined,
+                referralName: referralName || undefined,
+                referralContact: referralContact || undefined,
+                referralEmployeeName: referralEmployeeName || undefined,
+                referralEmployeeId: referralEmployeeId || undefined
             };
 
             // Persist booking (Mock)
@@ -928,7 +948,10 @@ export default function BookingWizard() {
                                     >
                                         <div className="text-left">
                                             <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
-                                            <div className="flex gap-2 text-sm text-gray-500">
+                                            {svc.description && (
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>
+                                            )}
+                                            <div className="flex gap-2 text-sm text-gray-500 mt-1">
                                                 <span>{svc.duration} mins</span>
                                                 {svc.isTaxable && (
                                                     <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded font-medium">
@@ -1280,6 +1303,28 @@ export default function BookingWizard() {
                                 </div>
                             </div>
 
+                            {/* Care Instructions */}
+                            {(selectedService?.preCare || selectedService?.postCare) && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    {selectedService?.preCare && (
+                                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                                            <h4 className="font-bold text-blue-800 dark:text-blue-300 text-sm mb-2 flex items-center gap-1.5">
+                                                📋 Pre-Procedure Care
+                                            </h4>
+                                            <p className="text-sm text-blue-700 dark:text-blue-400 whitespace-pre-line">{selectedService.preCare}</p>
+                                        </div>
+                                    )}
+                                    {selectedService?.postCare && (
+                                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                                            <h4 className="font-bold text-green-800 dark:text-green-300 text-sm mb-2 flex items-center gap-1.5">
+                                                ✅ Post-Procedure Care
+                                            </h4>
+                                            <p className="text-sm text-green-700 dark:text-green-400 whitespace-pre-line">{selectedService.postCare}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* WhatsApp Number Section */}
                             <div className="mb-6">
                                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">WhatsApp Number</label>
@@ -1290,6 +1335,63 @@ export default function BookingWizard() {
                                     value={whatsappNumber}
                                     onChange={(e) => setWhatsappNumber(e.target.value)}
                                 />
+                            </div>
+
+                            {/* Referred By Section */}
+                            <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-6">
+                                <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">Referred By</h4>
+                                <select
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 mb-3"
+                                    value={referredBy}
+                                    onChange={(e) => {
+                                        setReferredBy(e.target.value as any);
+                                        setReferralName(''); setReferralContact(''); setReferralEmployeeName(''); setReferralEmployeeId('');
+                                    }}
+                                >
+                                    <option value="none">None / Not Referred</option>
+                                    <option value="family">Family</option>
+                                    <option value="friend">Friend</option>
+                                    <option value="employee">Employee</option>
+                                </select>
+
+                                {referredBy === 'family' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Name *</label>
+                                            <input type="text" required placeholder="Referrer's name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={referralName} onChange={(e) => setReferralName(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Contact Number *</label>
+                                            <input type="tel" required placeholder="+971..." className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={referralContact} onChange={(e) => setReferralContact(e.target.value)} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {referredBy === 'friend' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Name (Optional)</label>
+                                            <input type="text" placeholder="Friend's name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={referralName} onChange={(e) => setReferralName(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Contact (Optional)</label>
+                                            <input type="tel" placeholder="+971..." className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={referralContact} onChange={(e) => setReferralContact(e.target.value)} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {referredBy === 'employee' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Employee Name *</label>
+                                            <input type="text" required placeholder="Employee full name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={referralEmployeeName} onChange={(e) => setReferralEmployeeName(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Employee ID Number *</label>
+                                            <input type="text" required placeholder="ID number" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={referralEmployeeId} onChange={(e) => setReferralEmployeeId(e.target.value)} />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Package Redemption Option */}

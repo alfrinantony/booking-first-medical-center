@@ -47,6 +47,8 @@ export interface Client {
     emergencyRelationship?: string;
     emergencyTelephone?: string;
     emergencyWorkMobile?: string;
+    // Client Grouping
+    connectedPatients?: { patientPhone: string; relationship: string }[];
     // System
     phone?: string; // legacy compat
     bookingIds: string[];

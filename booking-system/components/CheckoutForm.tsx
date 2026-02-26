@@ -8,7 +8,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { StripePaymentElementOptions } from '@stripe/stripe-js';
 
-export default function CheckoutForm({ amount, serviceName }: { amount: number; serviceName: string }) {
+export default function CheckoutForm({ amount, serviceName, bookingDate, slot, doctorName, clinicName }: { amount: number; serviceName: string; bookingDate?: string; slot?: string; doctorName?: string; clinicName?: string }) {
     const stripe = useStripe();
     const elements = useElements();
 
@@ -61,7 +61,7 @@ export default function CheckoutForm({ amount, serviceName }: { amount: number; 
             elements,
             confirmParams: {
                 // Make sure to change this to your payment completion page
-                return_url: `${window.location.origin}/booking/success?serviceName=${encodeURIComponent(serviceName)}&amount=${amount}`,
+                return_url: `${window.location.origin}/booking/success?serviceName=${encodeURIComponent(serviceName)}&amount=${amount}&bookingDate=${encodeURIComponent(bookingDate || '')}&slot=${encodeURIComponent(slot || '')}&doctorName=${encodeURIComponent(doctorName || '')}&clinicName=${encodeURIComponent(clinicName || '')}`,
             },
         });
 

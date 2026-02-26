@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut } from 'lucide-react';
+import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2 } from 'lucide-react';
 import { User } from '@/lib/users-store';
 
 export default function AdminSidebar() {
@@ -68,6 +68,17 @@ export default function AdminSidebar() {
                 >
                     <Users className="w-5 h-5" />
                     Clients
+                </Link>
+
+                <Link
+                    href="/admin/registered-users"
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/admin/registered-users')
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                >
+                    <ShieldCheck className="w-5 h-5" />
+                    Registered Users
                 </Link>
 
                 <Link
@@ -181,6 +192,39 @@ export default function AdminSidebar() {
                 </Link>
 
                 <Link
+                    href="/admin/loyalty"
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/admin/loyalty')
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                >
+                    <Gift className="w-5 h-5" />
+                    Loyalty Points
+                </Link>
+
+                <Link
+                    href="/admin/billing"
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/admin/billing')
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                >
+                    <Receipt className="w-5 h-5" />
+                    Billing
+                </Link>
+
+                <Link
+                    href="/admin/client-grouping"
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/admin/client-grouping')
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                >
+                    <Link2 className="w-5 h-5" />
+                    Client Grouping
+                </Link>
+
+                <Link
                     href="/admin/inbox"
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/admin/inbox')
                         ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
@@ -233,6 +277,17 @@ export default function AdminSidebar() {
                 >
                     <ClipboardList className="w-5 h-5" />
                     Audit Logs
+                </Link>
+
+                <Link
+                    href="/admin/call-agent-summaries"
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/admin/call-agent-summaries')
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                >
+                    <Phone className="w-5 h-5" />
+                    Call Agent Summary
                 </Link>
 
                 <Link

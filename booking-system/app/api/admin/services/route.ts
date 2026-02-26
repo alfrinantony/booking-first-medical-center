@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { clinicId, departmentId, name, price, duration, isTaxable, category, followUpDuration, screeningQuestions, maxMedicines, medicineIds, medicineSelectionMode, consumableIds, addOns } = body;
+        const { clinicId, departmentId, name, price, duration, isTaxable, category, followUpDuration, screeningQuestions, maxMedicines, medicineIds, medicineSelectionMode, consumableIds, addOns, description, preCare, postCare, regularPrice, discountedPrice, threeSessionPackage, sixSessionPackage } = body;
 
         if (!clinicId || !departmentId || !name || !price || !duration) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -24,7 +24,14 @@ export async function POST(request: Request) {
 
         const newService = ServicesStore.addService(clinicId, departmentId, {
             name,
+            description: description || '',
+            preCare: preCare || '',
+            postCare: postCare || '',
             price: Number(price),
+            regularPrice: regularPrice ? Number(regularPrice) : undefined,
+            discountedPrice: discountedPrice ? Number(discountedPrice) : undefined,
+            threeSessionPackage: threeSessionPackage || undefined,
+            sixSessionPackage: sixSessionPackage || undefined,
             duration: Number(duration),
             isTaxable: isTaxable || false,
             category: category || '',

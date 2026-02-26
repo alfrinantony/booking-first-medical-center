@@ -5,10 +5,23 @@ export interface ServiceAddOn {
     price: number;       // additional price in AED
 }
 
+export interface ServicePackageTier {
+    totalCost: number;       // Total cost for the package
+    validity: number;        // Validity in days
+    discountedPrice: number; // Discounted total price for the package
+}
+
 export interface Service {
     id: string;
     name: string;
+    description?: string;
+    preCare?: string;
+    postCare?: string;
     price: number;
+    regularPrice?: number;           // Original price before discount
+    discountedPrice?: number;        // Single-session discounted price
+    threeSessionPackage?: ServicePackageTier; // 3-session package details
+    sixSessionPackage?: ServicePackageTier;   // 6-session package details
     duration: number; // minutes
     allowedDoctorIds?: string[];
     allowedGender?: 'male' | 'female' | 'both';
@@ -244,6 +257,25 @@ export interface BranchContract {
 
 export const initialBranchContracts: BranchContract[] = [];
 
+export interface CallAgentSummary {
+    id: string;
+    customerId: string;
+    customerName: string;
+    customerNumber: string; // Phone number
+    timestamp: string; // ISO datetime of the call
+    callDuration: number; // Duration in seconds
+    summary: string; // Main discussion recap
+    nextSteps?: string; // Follow-up actions
+    branch?: string; // Clinic branch name
+    doctor?: string; // Doctor discussed
+    service?: string; // Service discussed
+    packageDetails?: string; // Package info if applicable
+    offerer?: string; // Person/agent who offered
+    createdAt: string; // Record creation timestamp (ISO)
+}
+
+export const initialCallAgentSummaries: CallAgentSummary[] = [];
+
 export interface PromoCode {
     id: string;
     code: string;
@@ -272,6 +304,12 @@ export interface Booking {
     status: 'booked' | 'confirmed' | 'rescheduled' | 'cancelled' | 'arrived' | 'in_service' | 'completed';
     confirmationStatus?: 'pending' | 'confirmed' | 'cancelled' | 'rescheduled'; // New field
     selectedMedicineIds?: string[]; // Medicines chosen by customer
+    // Referral fields
+    referredBy?: 'none' | 'family' | 'friend' | 'employee';
+    referralName?: string;           // Name of referring family member or friend
+    referralContact?: string;        // Contact number of referring family member or friend
+    referralEmployeeName?: string;   // Employee name (if referred by employee)
+    referralEmployeeId?: string;     // Employee ID number (if referred by employee)
     createdAt: string;
 }
 

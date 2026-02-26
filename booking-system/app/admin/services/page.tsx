@@ -2,12 +2,23 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill } from 'lucide-react';
-import { Clinic, Department, Service, ServiceAddOn, Doctor, Resource, Medicine } from '@/lib/data';
+import { Clinic, Department, Service, ServiceAddOn, ServicePackageTier, Doctor, Resource, Medicine } from '@/lib/data';
 
 interface ServiceFormState {
     departmentId: string;
     name: string;
+    description: string;
+    preCare: string;
+    postCare: string;
     price: string | number;
+    regularPrice: string | number;
+    discountedPrice: string | number;
+    threeSessionTotalCost: string | number;
+    threeSessionValidity: string | number;
+    threeSessionDiscountedPrice: string | number;
+    sixSessionTotalCost: string | number;
+    sixSessionValidity: string | number;
+    sixSessionDiscountedPrice: string | number;
     duration: string | number;
     allowedDoctorIds: string[];
     allowedGender: 'male' | 'female' | 'both';
@@ -34,10 +45,21 @@ export default function ServicesPage() {
 
     // Add Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [newService, setNewService] = useState<ServiceFormState>({
+    const emptyServiceForm: ServiceFormState = {
         departmentId: '',
         name: '',
+        description: '',
+        preCare: '',
+        postCare: '',
         price: '',
+        regularPrice: '',
+        discountedPrice: '',
+        threeSessionTotalCost: '',
+        threeSessionValidity: '',
+        threeSessionDiscountedPrice: '',
+        sixSessionTotalCost: '',
+        sixSessionValidity: '',
+        sixSessionDiscountedPrice: '',
         duration: '30',
         allowedDoctorIds: [],
         allowedGender: 'both',
@@ -54,7 +76,8 @@ export default function ServicesPage() {
         medicineSelectionMode: 'choose',
         consumableIds: [],
         addOns: []
-    });
+    };
+    const [newService, setNewService] = useState<ServiceFormState>(emptyServiceForm);
 
     const [resources, setResources] = useState<Resource[]>([]);
     const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -105,7 +128,9 @@ export default function ServicesPage() {
             clinicId: selectedClinicId,
             departmentId: formState.departmentId,
             name: formState.name,
-            price: Number(formState.price),
+            price: Number(formState.discountedPrice) || Number(formState.regularPrice) || Number(formState.price),
+            regularPrice: Number(formState.regularPrice) || undefined,
+            discountedPrice: Number(formState.discountedPrice) || undefined,
             duration: Number(formState.duration),
             allowedDoctorIds: formState.allowedDoctorIds,
             allowedGender: formState.allowedGender,
@@ -135,11 +160,26 @@ export default function ServicesPage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const payload = {
+            const payload: any = {
                 clinicId: selectedClinicId,
                 departmentId: newService.departmentId,
                 name: newService.name,
-                price: Number(newService.price),
+                description: newService.description,
+                preCare: newService.preCare,
+                postCare: newService.postCare,
+                price: Number(newService.discountedPrice) || Number(newService.regularPrice),
+                regularPrice: newService.regularPrice ? Number(newService.regularPrice) : undefined,
+                discountedPrice: newService.discountedPrice ? Number(newService.discountedPrice) : undefined,
+                threeSessionPackage: newService.threeSessionTotalCost ? {
+                    totalCost: Number(newService.threeSessionTotalCost),
+                    validity: Number(newService.threeSessionValidity) || 90,
+                    discountedPrice: Number(newService.threeSessionDiscountedPrice) || Number(newService.threeSessionTotalCost)
+                } : undefined,
+                sixSessionPackage: newService.sixSessionTotalCost ? {
+                    totalCost: Number(newService.sixSessionTotalCost),
+                    validity: Number(newService.sixSessionValidity) || 180,
+                    discountedPrice: Number(newService.sixSessionDiscountedPrice) || Number(newService.sixSessionTotalCost)
+                } : undefined,
                 duration: Number(newService.duration),
                 allowedDoctorIds: newService.allowedDoctorIds,
                 allowedGender: newService.allowedGender,
@@ -169,7 +209,7 @@ export default function ServicesPage() {
             if (res.ok) {
                 await fetchServices();
                 setIsAddModalOpen(false);
-                setNewService({ departmentId: '', name: '', price: '', duration: '30', allowedDoctorIds: [], allowedGender: 'both', allowedDays: [], timeWindowStart: '', timeWindowEnd: '', isTaxable: false, category: '', followUpDuration: '', screeningQuestions: [], requiredResourceIds: [], maxMedicines: '', medicineIds: [], medicineSelectionMode: 'choose', consumableIds: [], addOns: [] });
+                setNewService(emptyServiceForm);
             } else {
                 alert('Failed to add service');
             }
@@ -185,12 +225,19 @@ export default function ServicesPage() {
         if (!editingService) return;
         setSubmitting(true);
         try {
-            const payload = {
+            const payload: any = {
                 clinicId: selectedClinicId,
                 departmentId: editingService.departmentId,
                 serviceId: editingService.id,
                 name: editingService.name,
+                description: editingService.description || '',
+                preCare: editingService.preCare || '',
+                postCare: editingService.postCare || '',
                 price: Number(editingService.price),
+                regularPrice: editingService.regularPrice ? Number(editingService.regularPrice) : undefined,
+                discountedPrice: editingService.discountedPrice ? Number(editingService.discountedPrice) : undefined,
+                threeSessionPackage: editingService.threeSessionPackage ? editingService.threeSessionPackage : undefined,
+                sixSessionPackage: editingService.sixSessionPackage ? editingService.sixSessionPackage : undefined,
                 duration: Number(editingService.duration),
                 allowedDoctorIds: editingService.allowedDoctorIds,
                 allowedGender: editingService.allowedGender,
@@ -406,6 +453,9 @@ export default function ServicesPage() {
                                     <div key={service.id} className="p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
                                         <div className="flex-1">
                                             <h3 className="font-medium text-gray-900 dark:text-white mb-1">{service.name}</h3>
+                                            {service.description && (
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-2">{service.description}</p>
+                                            )}
                                             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="w-3.5 h-3.5" />
@@ -413,8 +463,25 @@ export default function ServicesPage() {
                                                 </span>
                                                 <span className="flex items-center gap-1">
                                                     <span className="text-xs font-semibold">د.إ</span>
-                                                    {service.price} AED {service.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded">+VAT</span>}
+                                                    {service.regularPrice && service.discountedPrice ? (
+                                                        <><span className="line-through text-gray-400 mr-1">{service.regularPrice}</span><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
+                                                    ) : service.discountedPrice ? (
+                                                        <><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
+                                                    ) : (
+                                                        <>{service.regularPrice || service.price} AED</>
+                                                    )}
+                                                    {service.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded ml-1">+VAT</span>}
                                                 </span>
+                                                {service.threeSessionPackage && (
+                                                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 rounded-full text-xs text-blue-700 dark:text-blue-300 font-medium">
+                                                        3-Pack: {service.threeSessionPackage.discountedPrice} AED ({service.threeSessionPackage.validity}d)
+                                                    </span>
+                                                )}
+                                                {service.sixSessionPackage && (
+                                                    <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-full text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                                                        6-Pack: {service.sixSessionPackage.discountedPrice} AED ({service.sixSessionPackage.validity}d)
+                                                    </span>
+                                                )}
                                                 {service.category && (
                                                     <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs text-gray-600 dark:text-gray-300">
                                                         {service.category}
@@ -526,17 +593,105 @@ export default function ServicesPage() {
                                             onChange={(e) => setNewService({ ...newService, name: e.target.value })}
                                         />
                                     </div>
+
+                                    {/* Description & Care Instructions */}
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Price ($)</label>
+                                        <label className="block text-sm font-medium mb-1">Service Description</label>
+                                        <textarea
+                                            rows={3}
+                                            placeholder="Describe what the service involves..."
+                                            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                            value={newService.description}
+                                            onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Pre-Procedure Care</label>
+                                            <textarea
+                                                rows={3}
+                                                placeholder="Instructions before the procedure..."
+                                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                                value={newService.preCare}
+                                                onChange={(e) => setNewService({ ...newService, preCare: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Post-Procedure Care</label>
+                                            <textarea
+                                                rows={3}
+                                                placeholder="Instructions after the procedure..."
+                                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                                value={newService.postCare}
+                                                onChange={(e) => setNewService({ ...newService, postCare: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Regular Price (AED) *</label>
                                         <input
                                             required
                                             type="number"
                                             min="0"
+                                            placeholder="Original price before discount"
                                             className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                            value={newService.price}
-                                            onChange={(e) => setNewService({ ...newService, price: e.target.value })}
+                                            value={newService.regularPrice}
+                                            onChange={(e) => setNewService({ ...newService, regularPrice: e.target.value })}
                                         />
                                     </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Discounted Price (AED) *</label>
+                                        <input
+                                            required
+                                            type="number"
+                                            min="0"
+                                            placeholder="Client will be charged this price"
+                                            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                            value={newService.discountedPrice}
+                                            onChange={(e) => setNewService({ ...newService, discountedPrice: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 3-Session Package */}
+                                <div className="border border-blue-200 dark:border-blue-800 rounded-lg p-4 bg-blue-50/50 dark:bg-blue-900/10">
+                                    <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-3">📦 3-Session Package</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Total Cost (AED)</label>
+                                            <input type="number" min="0" placeholder="e.g. 1500" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={newService.threeSessionTotalCost} onChange={(e) => setNewService({ ...newService, threeSessionTotalCost: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Validity (Days)</label>
+                                            <input type="number" min="1" placeholder="e.g. 90" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={newService.threeSessionValidity} onChange={(e) => setNewService({ ...newService, threeSessionValidity: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Discounted Price (AED)</label>
+                                            <input type="number" min="0" placeholder="Discounted total" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={newService.threeSessionDiscountedPrice} onChange={(e) => setNewService({ ...newService, threeSessionDiscountedPrice: e.target.value })} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 6-Session Package */}
+                                <div className="border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 bg-emerald-50/50 dark:bg-emerald-900/10">
+                                    <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3">📦 6-Session Package</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Total Cost (AED)</label>
+                                            <input type="number" min="0" placeholder="e.g. 2700" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={newService.sixSessionTotalCost} onChange={(e) => setNewService({ ...newService, sixSessionTotalCost: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Validity (Days)</label>
+                                            <input type="number" min="1" placeholder="e.g. 180" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={newService.sixSessionValidity} onChange={(e) => setNewService({ ...newService, sixSessionValidity: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Discounted Price (AED)</label>
+                                            <input type="number" min="0" placeholder="Discounted total" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={newService.sixSessionDiscountedPrice} onChange={(e) => setNewService({ ...newService, sixSessionDiscountedPrice: e.target.value })} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Category</label>
                                         <input
@@ -889,17 +1044,86 @@ export default function ServicesPage() {
                                             onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
                                         />
                                     </div>
+
+                                    {/* Description & Care Instructions */}
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Price ($)</label>
-                                        <input
-                                            required
-                                            type="number"
-                                            min="0"
+                                        <label className="block text-sm font-medium mb-1">Service Description</label>
+                                        <textarea
+                                            rows={3}
+                                            placeholder="Describe what the service involves..."
                                             className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                            value={editingService.price}
-                                            onChange={(e) => setEditingService({ ...editingService, price: Number(e.target.value) })}
+                                            value={editingService.description || ''}
+                                            onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
                                         />
                                     </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Pre-Procedure Care</label>
+                                            <textarea
+                                                rows={3}
+                                                placeholder="Instructions before the procedure..."
+                                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                                value={editingService.preCare || ''}
+                                                onChange={(e) => setEditingService({ ...editingService, preCare: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Post-Procedure Care</label>
+                                            <textarea
+                                                rows={3}
+                                                placeholder="Instructions after the procedure..."
+                                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                                value={editingService.postCare || ''}
+                                                onChange={(e) => setEditingService({ ...editingService, postCare: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Regular Price (AED) *</label>
+                                        <input required type="number" min="0" placeholder="Original price before discount" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={editingService.regularPrice || ''} onChange={(e) => setEditingService({ ...editingService, regularPrice: e.target.value ? Number(e.target.value) : undefined } as any)} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Discounted Price (AED) *</label>
+                                        <input required type="number" min="0" placeholder="Client will be charged this price" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={editingService.discountedPrice || ''} onChange={(e) => setEditingService({ ...editingService, discountedPrice: e.target.value ? Number(e.target.value) : undefined } as any)} />
+                                    </div>
+                                </div>
+                                {/* 3-Session Package Edit */}
+                                <div className="border border-blue-200 dark:border-blue-800 rounded-lg p-4 bg-blue-50/50 dark:bg-blue-900/10">
+                                    <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-3">📦 3-Session Package</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Total Cost (AED)</label>
+                                            <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={editingService.threeSessionPackage?.totalCost || ''} onChange={(e) => setEditingService({ ...editingService, threeSessionPackage: { ...editingService.threeSessionPackage, totalCost: Number(e.target.value), validity: editingService.threeSessionPackage?.validity || 90, discountedPrice: editingService.threeSessionPackage?.discountedPrice || 0 } } as any)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Validity (Days)</label>
+                                            <input type="number" min="1" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={editingService.threeSessionPackage?.validity || ''} onChange={(e) => setEditingService({ ...editingService, threeSessionPackage: { ...editingService.threeSessionPackage, validity: Number(e.target.value), totalCost: editingService.threeSessionPackage?.totalCost || 0, discountedPrice: editingService.threeSessionPackage?.discountedPrice || 0 } } as any)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Discounted Price (AED)</label>
+                                            <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={editingService.threeSessionPackage?.discountedPrice || ''} onChange={(e) => setEditingService({ ...editingService, threeSessionPackage: { ...editingService.threeSessionPackage, discountedPrice: Number(e.target.value), totalCost: editingService.threeSessionPackage?.totalCost || 0, validity: editingService.threeSessionPackage?.validity || 90 } } as any)} />
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* 6-Session Package Edit */}
+                                <div className="border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 bg-emerald-50/50 dark:bg-emerald-900/10">
+                                    <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3">📦 6-Session Package</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Total Cost (AED)</label>
+                                            <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={editingService.sixSessionPackage?.totalCost || ''} onChange={(e) => setEditingService({ ...editingService, sixSessionPackage: { ...editingService.sixSessionPackage, totalCost: Number(e.target.value), validity: editingService.sixSessionPackage?.validity || 180, discountedPrice: editingService.sixSessionPackage?.discountedPrice || 0 } } as any)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Validity (Days)</label>
+                                            <input type="number" min="1" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={editingService.sixSessionPackage?.validity || ''} onChange={(e) => setEditingService({ ...editingService, sixSessionPackage: { ...editingService.sixSessionPackage, validity: Number(e.target.value), totalCost: editingService.sixSessionPackage?.totalCost || 0, discountedPrice: editingService.sixSessionPackage?.discountedPrice || 0 } } as any)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">Discounted Price (AED)</label>
+                                            <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={editingService.sixSessionPackage?.discountedPrice || ''} onChange={(e) => setEditingService({ ...editingService, sixSessionPackage: { ...editingService.sixSessionPackage, discountedPrice: Number(e.target.value), totalCost: editingService.sixSessionPackage?.totalCost || 0, validity: editingService.sixSessionPackage?.validity || 180 } } as any)} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Category</label>
                                         <input

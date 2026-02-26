@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ClientsStore, Client } from '@/lib/clients-store';
-import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2 } from 'lucide-react';
+import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink } from 'lucide-react';
 
 /* ── Form shape ── */
 interface EditForm {
@@ -98,6 +98,12 @@ export default function ClientsPage() {
     const [isRegistering, setIsRegistering] = useState(false);
     const [readingEid, setReadingEid] = useState(false);
     const [eidDemoWarning, setEidDemoWarning] = useState(false);
+    // Client Grouping
+    const [connectedPatients, setConnectedPatients] = useState<{ patientPhone: string; relationship: string }[]>([]);
+    const [connSearch, setConnSearch] = useState('');
+    const [connSelectedClient, setConnSelectedClient] = useState<Client | null>(null);
+    const [connDropdownOpen, setConnDropdownOpen] = useState(false);
+    const [newConnRelation, setNewConnRelation] = useState('Spouse');
 
     const refreshClients = () => setClients(ClientsStore.getAll());
     useEffect(() => { refreshClients(); }, []);
@@ -170,9 +176,12 @@ export default function ClientsPage() {
             emergencyWorkMobile: client.emergencyWorkMobile || '',
         });
         setIsEditModalOpen(true);
+        // Load connected patients from localStorage
+        const stored = localStorage.getItem(`client-grouping-${client.id}`);
+        setConnectedPatients(stored ? JSON.parse(stored) : (client.connectedPatients || []));
     };
 
-    const openRegister = () => { setEditingClient(null); setIsRegistering(true); setEditForm({ ...emptyForm }); setIsEditModalOpen(true); };
+    const openRegister = () => { setEditingClient(null); setIsRegistering(true); setEditForm({ ...emptyForm }); setConnectedPatients([]); setIsEditModalOpen(true); };
 
     const handleReadEmiratesId = async () => {
         setReadingEid(true);
@@ -267,7 +276,11 @@ export default function ClientsPage() {
             emergencyWorkMobile: editForm.emergencyWorkMobile || undefined,
         };
 
-        if (editingClient) ClientsStore.update(editingClient.id, updates);
+        if (editingClient) {
+            ClientsStore.update(editingClient.id, updates);
+            // Save connected patients to localStorage
+            localStorage.setItem(`client-grouping-${editingClient.id}`, JSON.stringify(connectedPatients));
+        }
         setIsEditModalOpen(false);
         refreshClients();
     };
@@ -546,6 +559,125 @@ export default function ClientsPage() {
                                 {sel('Relationship', 'emergencyRelationship', RELATIONSHIPS)}
                                 {fld('Telephone', 'emergencyTelephone', { type: 'tel', placeholder: '+971 XX XXX XXXX' })}
                                 {fld('Work / Mobile', 'emergencyWorkMobile', { type: 'tel', placeholder: '+971 5X XXX XXXX' })}
+                            </div>
+
+                            {/* ── Section 6: Client Grouping ── */}
+                            {secHeader(<Link2 className="w-4 h-4" />, 'Client Grouping / Connected Patients')}
+                            <div>
+                                {/* Existing connections */}
+                                {connectedPatients.length > 0 && (
+                                    <div className="space-y-2 mb-4">
+                                        {connectedPatients.map((cp, idx) => {
+                                            const linked = clients.find(c => (c.mobile || c.phone) === cp.patientPhone);
+                                            return (
+                                                <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="font-semibold text-gray-900 dark:text-white text-sm">{linked?.name || 'Unknown Patient'}</span>
+                                                                <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">{cp.relationship}</span>
+                                                                {!linked && <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">Not in system</span>}
+                                                            </div>
+                                                            {linked ? (
+                                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                                                    <span>📱 {linked.mobile || linked.phone || '—'}</span>
+                                                                    <span>✉️ {linked.email || '—'}</span>
+                                                                    <span>🌍 {linked.nationality || '—'}</span>
+                                                                    {linked.emiratesIdNumber && <span>🪪 {linked.emiratesIdNumber}</span>}
+                                                                    {linked.clientClass && <span>⭐ {linked.clientClass}</span>}
+                                                                    <span>📋 {linked.totalBookings} booking{linked.totalBookings !== 1 ? 's' : ''}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-xs text-gray-400">Phone: {cp.patientPhone}</div>
+                                                            )}
+                                                        </div>
+                                                        <button type="button" onClick={() => setConnectedPatients(connectedPatients.filter((_, i) => i !== idx))}
+                                                            className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 ml-2" title="Remove">
+                                                            <Unlink className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Add new connection */}
+                                <div className="flex gap-2 items-end">
+                                    <div className="flex-1 relative">
+                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Search Patient (Name or Phone)</label>
+                                        <input type="text" placeholder="Type name or phone to search..."
+                                            className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                            value={connSelectedClient ? connSelectedClient.name : connSearch}
+                                            onChange={e => { setConnSearch(e.target.value); setConnSelectedClient(null); setConnDropdownOpen(true); }}
+                                            onFocus={() => { if (connSearch.length >= 1) setConnDropdownOpen(true); }} />
+                                        {/* Search results dropdown */}
+                                        {connDropdownOpen && connSearch.length >= 1 && !connSelectedClient && (() => {
+                                            const matches = clients.filter(c =>
+                                                (c.name.toLowerCase().includes(connSearch.toLowerCase()) ||
+                                                    (c.mobile || c.phone || '').includes(connSearch) ||
+                                                    (c.email || '').toLowerCase().includes(connSearch.toLowerCase())) &&
+                                                !connectedPatients.some(cp => cp.patientPhone === (c.mobile || c.phone)) &&
+                                                c.id !== editingClient?.id
+                                            ).slice(0, 8);
+                                            return matches.length > 0 ? (
+                                                <div className="absolute z-20 top-full mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                                                    {matches.map(c => (
+                                                        <button key={c.id} type="button"
+                                                            className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors border-b last:border-b-0 border-gray-100 dark:border-gray-700"
+                                                            onClick={() => { setConnSelectedClient(c); setConnSearch(''); setConnDropdownOpen(false); }}>
+                                                            <div className="font-medium text-sm text-gray-900 dark:text-white">{c.name}</div>
+                                                            <div className="text-xs text-gray-500 flex gap-3">
+                                                                <span>📱 {c.mobile || c.phone || '—'}</span>
+                                                                <span>✉️ {c.email || '—'}</span>
+                                                                {c.nationality && <span>🌍 {c.nationality}</span>}
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="absolute z-20 top-full mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-3 text-xs text-gray-500">
+                                                    No matching clients found.
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Relationship</label>
+                                        <select className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                            value={newConnRelation} onChange={e => setNewConnRelation(e.target.value)}>
+                                            {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                                        </select>
+                                    </div>
+                                    <button type="button" onClick={() => {
+                                        if (!connSelectedClient) return;
+                                        const phone = connSelectedClient.mobile || connSelectedClient.phone || '';
+                                        if (connectedPatients.some(p => p.patientPhone === phone)) { alert('Already connected.'); return; }
+                                        setConnectedPatients([...connectedPatients, { patientPhone: phone, relationship: newConnRelation }]);
+                                        setConnSelectedClient(null); setConnSearch('');
+                                    }} disabled={!connSelectedClient} className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1">
+                                        <UserPlus className="w-3.5 h-3.5" /> Add
+                                    </button>
+                                </div>
+
+                                {/* Selected client preview */}
+                                {connSelectedClient && (
+                                    <div className="mt-2 p-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-xs">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <span className="font-semibold text-green-800 dark:text-green-300">✓ Selected: {connSelectedClient.name}</span>
+                                            <button type="button" onClick={() => { setConnSelectedClient(null); setConnSearch(''); }} className="text-green-600 hover:text-green-800 text-xs underline">Clear</button>
+                                        </div>
+                                        <div className="text-green-700 dark:text-green-400 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-0.5">
+                                            <span>📱 {connSelectedClient.mobile || connSelectedClient.phone || '—'}</span>
+                                            <span>✉️ {connSelectedClient.email || '—'}</span>
+                                            <span>🌍 {connSelectedClient.nationality || '—'}</span>
+                                            {connSelectedClient.emiratesIdNumber && <span>🪪 {connSelectedClient.emiratesIdNumber}</span>}
+                                            {connSelectedClient.clientClass && <span>⭐ {connSelectedClient.clientClass}</span>}
+                                            <span>📋 {connSelectedClient.totalBookings} booking{connSelectedClient.totalBookings !== 1 ? 's' : ''}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                <p className="text-xs text-gray-400 mt-2">Link family members or related patients to this client for group tracking.</p>
                             </div>
                         </div>
 
