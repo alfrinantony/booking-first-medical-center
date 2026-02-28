@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { uploadToBlob, productRegistrationPath } from '@/lib/azure-blob';
 
-const MAX_SIZE = 1 * 1024 * 1024; // 1MB
+const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export async function POST(request: Request) {
     try {
@@ -14,23 +13,19 @@ export async function POST(request: Request) {
         }
 
         if (file.size > MAX_SIZE) {
-            return NextResponse.json({ error: 'File must be less than 1MB' }, { status: 400 });
+            return NextResponse.json({ error: 'File must be less than 5MB' }, { status: 400 });
         }
 
         if (file.type !== 'application/pdf') {
             return NextResponse.json({ error: 'Only PDF files are allowed' }, { status: 400 });
         }
 
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'registrations');
-        await mkdir(uploadDir, { recursive: true });
+        // Upload to Azure Blob with organized path
+        const blobPath = productRegistrationPath(file.name);
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const blobUrl = await uploadToBlob(blobPath, buffer, file.type);
 
-        const uniqueName = `reg-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const filePath = path.join(uploadDir, uniqueName);
-
-        const bytes = await file.arrayBuffer();
-        await writeFile(filePath, Buffer.from(bytes));
-
-        return NextResponse.json({ fileName: uniqueName });
+        return NextResponse.json({ fileName: file.name, blobUrl });
     } catch {
         return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
     }

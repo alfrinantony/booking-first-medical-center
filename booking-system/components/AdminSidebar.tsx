@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2 } from 'lucide-react';
+import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet } from 'lucide-react';
 import { User } from '@/lib/users-store';
 
 export default function AdminSidebar() {
@@ -299,6 +299,76 @@ export default function AdminSidebar() {
                 >
                     <BarChart2 className="w-5 h-5" />
                     Reports
+                </Link>
+
+                {canManageStaff && (
+                    <>
+                        <Link
+                            href="/admin/hr"
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/admin/hr') && !isActive('/admin/hr/')
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            <Briefcase className="w-5 h-5" />
+                            HR Management
+                        </Link>
+
+                        <Link
+                            href="/admin/hr/employees"
+                            className={`flex items-center gap-3 px-4 py-3 pl-12 rounded-lg font-medium text-sm transition-colors ${isActive('/admin/hr/employees')
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            <Users className="w-4 h-4" />
+                            Employees
+                        </Link>
+
+                        <Link
+                            href="/admin/hr/payroll"
+                            className={`flex items-center gap-3 px-4 py-3 pl-12 rounded-lg font-medium text-sm transition-colors ${isActive('/admin/hr/payroll')
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            <Calculator className="w-4 h-4" />
+                            Payroll
+                        </Link>
+
+                        <Link
+                            href="/admin/hr/letters"
+                            className={`flex items-center gap-3 px-4 py-3 pl-12 rounded-lg font-medium text-sm transition-colors ${isActive('/admin/hr/letters')
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            <ClipboardList className="w-4 h-4" />
+                            Letters
+                        </Link>
+
+                        <Link
+                            href="/admin/hr/recruitment"
+                            className={`flex items-center gap-3 px-4 py-3 pl-12 rounded-lg font-medium text-sm transition-colors ${isActive('/admin/hr/recruitment')
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            <UserPlus className="w-4 h-4" />
+                            Recruitment
+                        </Link>
+                    </>
+                )}
+
+                <Link
+                    href="/admin/accounting"
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/admin/accounting')
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                >
+                    <Wallet className="w-5 h-5" />
+                    Accounting
                 </Link>
 
                 {canManageStaff && (
