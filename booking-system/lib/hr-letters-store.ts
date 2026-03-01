@@ -69,7 +69,7 @@ function renderSalaryCertificate(emp: Employee, issuedDate: string, refNum: stri
     return `
 <div style="font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto; padding: 40px 60px; color: #1a1a1a;">
     <div style="text-align: center; margin-bottom: 40px; border-bottom: 3px double #1a365d; padding-bottom: 20px;">
-        <h1 style="font-size: 28px; color: #1a365d; margin: 0; letter-spacing: 2px;">BOOKING FIRST MEDICAL CENTER</h1>
+        <h1 style="font-size: 28px; color: #1a365d; margin: 0; letter-spacing: 2px;">FIRST MEDICAL CENTER LLC</h1>
         <p style="font-size: 12px; color: #666; margin: 5px 0 0 0;">Dubai, United Arab Emirates</p>
     </div>
 
@@ -84,7 +84,7 @@ function renderSalaryCertificate(emp: Employee, issuedDate: string, refNum: stri
         <p><strong>To Whom It May Concern,</strong></p>
 
         <p>This is to certify that <strong>${emp.firstName} ${emp.lastName}</strong>, holder of Passport No. <strong>${emp.passportNumber || '—'}</strong>,
-        is employed with Booking First Medical Center as <strong>${emp.designation}</strong> in the <strong>${emp.department}</strong> department
+        is employed with First Medical Center LLC as <strong>${emp.designation}</strong> in the <strong>${emp.department}</strong> department
         since <strong>${formatDate(emp.joiningDate)}</strong>.</p>
 
         <p>The monthly salary details are as follows:</p>
@@ -144,7 +144,7 @@ function renderEmploymentCertificate(emp: Employee, issuedDate: string, refNum: 
     return `
 <div style="font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto; padding: 40px 60px; color: #1a1a1a;">
     <div style="text-align: center; margin-bottom: 40px; border-bottom: 3px double #1a365d; padding-bottom: 20px;">
-        <h1 style="font-size: 28px; color: #1a365d; margin: 0; letter-spacing: 2px;">BOOKING FIRST MEDICAL CENTER</h1>
+        <h1 style="font-size: 28px; color: #1a365d; margin: 0; letter-spacing: 2px;">FIRST MEDICAL CENTER LLC</h1>
         <p style="font-size: 12px; color: #666; margin: 5px 0 0 0;">Dubai, United Arab Emirates</p>
     </div>
 
@@ -160,7 +160,7 @@ function renderEmploymentCertificate(emp: Employee, issuedDate: string, refNum: 
 
         <p>This is to certify that <strong>${emp.firstName} ${emp.lastName}</strong>, holder of Passport No. <strong>${emp.passportNumber || '—'}</strong>
         and Emirates ID No. <strong>${emp.emiratesId || '—'}</strong>,
-        is currently employed with <strong>Booking First Medical Center</strong> as <strong>${emp.designation}</strong>
+        is currently employed with <strong>First Medical Center LLC</strong> as <strong>${emp.designation}</strong>
         in the <strong>${emp.department}</strong> department.</p>
 
         <p>Date of joining: <strong>${formatDate(emp.joiningDate)}</strong></p>
@@ -196,7 +196,7 @@ function renderExperienceCertificate(
     return `
 <div style="font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto; padding: 40px 60px; color: #1a1a1a;">
     <div style="text-align: center; margin-bottom: 40px; border-bottom: 3px double #1a365d; padding-bottom: 20px;">
-        <h1 style="font-size: 28px; color: #1a365d; margin: 0; letter-spacing: 2px;">BOOKING FIRST MEDICAL CENTER</h1>
+        <h1 style="font-size: 28px; color: #1a365d; margin: 0; letter-spacing: 2px;">FIRST MEDICAL CENTER LLC</h1>
         <p style="font-size: 12px; color: #666; margin: 5px 0 0 0;">Dubai, United Arab Emirates</p>
     </div>
 
@@ -211,7 +211,7 @@ function renderExperienceCertificate(
         <p><strong>To Whom It May Concern,</strong></p>
 
         <p>This is to certify that <strong>${emp.firstName} ${emp.lastName}</strong>, holder of Passport No. <strong>${emp.passportNumber || '—'}</strong>,
-        was employed with <strong>Booking First Medical Center</strong> as <strong>${emp.designation}</strong>
+        was employed with <strong>First Medical Center LLC</strong> as <strong>${emp.designation}</strong>
         in the <strong>${emp.department}</strong> department.</p>
 
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">

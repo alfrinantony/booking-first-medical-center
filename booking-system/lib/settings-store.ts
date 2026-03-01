@@ -45,7 +45,7 @@ interface SettingsState {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-    companyName: 'Booking First Medical Center',
+    companyName: 'First Medical Center LLC',
     contactEmail: 'admin@bookingfirst.com',
 
     emailHost: 'smtp.gmail.com',

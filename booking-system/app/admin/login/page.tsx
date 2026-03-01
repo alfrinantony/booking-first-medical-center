@@ -40,7 +40,7 @@ export default function AdminLoginPage() {
             <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
                 <div className="text-center mb-8">
                     <h1 className="text-2xl font-bold text-gray-800">Staff Login</h1>
-                    <p className="text-gray-500 text-sm mt-1">Booking First Medical Center</p>
+                    <p className="text-gray-500 text-sm mt-1">First Medical Center LLC</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">

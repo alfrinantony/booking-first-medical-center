@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Booking First Medical Center",
+  title: "First Medical Center LLC",
   description: "Advanced Medical Booking System",
 };
 

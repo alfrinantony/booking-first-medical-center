@@ -62,7 +62,7 @@ function SuccessContent() {
                         <CheckCircle className="h-10 w-10 text-green-600" />
                     </div>
                     <h2 className="text-3xl font-extrabold text-white">Booking Confirmed!</h2>
-                    <p className="mt-2 text-indigo-100">Thank you for choosing Booking First Medical Center.</p>
+                    <p className="mt-2 text-indigo-100">Thank you for choosing First Medical Center LLC.</p>
                     <div className="mt-3 inline-flex px-4 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-800">
                         {bookingDetails.status}
                     </div>

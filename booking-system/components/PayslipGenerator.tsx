@@ -278,7 +278,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
 
                     <div id="payslip-print">
                         <div className="header mb-4 border-b-2 border-indigo-600 pb-3">
-                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Booking First Medical Center</h2>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">First Medical Center LLC</h2>
                             <p className="text-sm text-gray-500">Payslip for {MONTH_NAMES[payslip.month - 1]} {payslip.year}</p>
                         </div>
 
