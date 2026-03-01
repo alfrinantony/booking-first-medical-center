@@ -234,3 +234,16 @@ export function getLeaveBalance(employeeId: string) {
         pending: leaveRequests.filter(lr => lr.employeeId === employeeId && lr.status === 'PENDING').length,
     };
 }
+
+// ── Date range queries ──
+export function getLeavesByDateRange(startDate: string, endDate: string): LeaveRequest[] {
+    return leaveRequests.filter(lr => {
+        // Overlap check: leave overlaps with [startDate, endDate] if
+        // leave.startDate <= endDate AND leave.endDate >= startDate
+        return lr.startDate <= endDate && lr.endDate >= startDate;
+    });
+}
+
+export function getAllLeaves(): LeaveRequest[] {
+    return [...leaveRequests];
+}

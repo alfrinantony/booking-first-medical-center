@@ -15,6 +15,21 @@ const WEEKDAYS = [
     { value: 6, label: 'Sat', full: 'Saturday' },
 ];
 
+interface LeaveEntry {
+    id: string;
+    employeeId: string;
+    employeeName: string;
+    employeeCode: string;
+    designation: string;
+    workplaceName: string;
+    leaveType: string;
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    reason: string;
+    status: string;
+}
+
 export default function SchedulePage() {
     const [selectedClinicId, setSelectedClinicId] = useState(clinics[0].id);
     const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -27,6 +42,10 @@ export default function SchedulePage() {
     // Days Off state
     const [daysOff, setDaysOff] = useState<number[]>([]);
     const [daysOffMessage, setDaysOffMessage] = useState('');
+
+    // Staff on Leave state
+    const [staffLeaves, setStaffLeaves] = useState<LeaveEntry[]>([]);
+    const [leavesLoading, setLeavesLoading] = useState(false);
 
     // Derived state
     const currentClinic = clinics.find(c => c.id === selectedClinicId);
@@ -72,6 +91,28 @@ export default function SchedulePage() {
         fetchSchedule();
     }, [selectedDoctorId, startDate]);
 
+    // Fetch staff leaves when date range changes
+    useEffect(() => {
+        if (!startDate || !endDate) return;
+
+        const fetchLeaves = async () => {
+            setLeavesLoading(true);
+            try {
+                const res = await fetch(`/api/admin/schedule-leave?startDate=${startDate}&endDate=${endDate}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setStaffLeaves(data.leaves || []);
+                }
+            } catch {
+                console.error('Failed to fetch staff leaves');
+            } finally {
+                setLeavesLoading(false);
+            }
+        };
+
+        fetchLeaves();
+    }, [startDate, endDate]);
+
     // Check if selected start date falls on a day off
     const startDayOfWeek = startDate ? new Date(startDate).getDay() : -1;
     const isStartDateDayOff = daysOff.includes(startDayOfWeek);
@@ -95,7 +136,6 @@ export default function SchedulePage() {
     const handleSaveDaysOff = async () => {
         setDaysOffMessage('');
         try {
-            // Save days off to the API
             const res = await fetch('/api/admin/schedule/days-off', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -108,7 +148,6 @@ export default function SchedulePage() {
             if (res.ok) {
                 setDaysOffMessage('Days off saved!');
             } else {
-                // Fallback: update locally on the doctor object
                 if (selectedDoctor) {
                     selectedDoctor.daysOff = daysOff;
                 }
@@ -116,7 +155,6 @@ export default function SchedulePage() {
             }
             setTimeout(() => setDaysOffMessage(''), 3000);
         } catch {
-            // Fallback: save locally
             if (selectedDoctor) {
                 selectedDoctor.daysOff = daysOff;
             }
@@ -138,7 +176,6 @@ export default function SchedulePage() {
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                 const dayOfWeek = d.getDay();
 
-                // Skip days that are marked as days off
                 if (daysOff.includes(dayOfWeek)) {
                     skippedDaysOff++;
                     continue;
@@ -264,8 +301,8 @@ export default function SchedulePage() {
                                             onClick={() => toggleDayOff(day.value)}
                                             title={day.full}
                                             className={`py-2 px-1 rounded-lg text-xs font-bold transition-all border-2 ${isOff
-                                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-400 dark:border-red-600'
-                                                    : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                                                ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-400 dark:border-red-600'
+                                                : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
                                                 }`}
                                         >
                                             {day.label}
@@ -296,69 +333,146 @@ export default function SchedulePage() {
                         </div>
                     </div>
 
-                    {/* Time Slots Grid */}
-                    <div className="md:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <Clock className="w-5 h-5 text-indigo-600" />
-                                Available Slots
-                            </h2>
-                            <div className="text-sm text-gray-500">
-                                {startDate ? format(new Date(startDate), 'MMMM d, yyyy') : 'Select start date'}
+                    {/* Time Slots Grid + Staff on Leave */}
+                    <div className="md:col-span-2 space-y-6">
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <Clock className="w-5 h-5 text-indigo-600" />
+                                    Available Slots
+                                </h2>
+                                <div className="text-sm text-gray-500">
+                                    {startDate ? format(new Date(startDate), 'MMMM d, yyyy') : 'Select start date'}
+                                </div>
                             </div>
+
+                            {/* Day Off Warning */}
+                            {isStartDateDayOff && (
+                                <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex items-center gap-2">
+                                    <CalendarOff className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                                        <strong>{WEEKDAYS[startDayOfWeek]?.full}</strong> is marked as a day off for this doctor.
+                                        The schedule will be skipped for this day when saving.
+                                    </p>
+                                </div>
+                            )}
+
+                            {isLoading ? (
+                                <div className="flex justify-center py-12">Loading...</div>
+                            ) : (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                    {timeSlots.map(slot => {
+                                        const isAvailable = availableSlots.includes(slot);
+                                        return (
+                                            <button
+                                                key={slot}
+                                                onClick={() => toggleSlot(slot)}
+                                                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${isAvailable
+                                                    ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-500'
+                                                    : 'bg-gray-100 text-gray-400 border-2 border-transparent hover:bg-gray-200'
+                                                    }`}
+                                            >
+                                                {slot}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <div className="mt-8 flex items-center justify-between border-t pt-6 border-gray-100 dark:border-gray-700">
+                                <div className="text-sm">
+                                    <span className="font-bold text-indigo-600">{availableSlots.length}</span> slots selected
+                                </div>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                                >
+                                    <Save className="w-4 h-4" />
+                                    Save Schedule
+                                </button>
+                            </div>
+                            {message && (
+                                <div className={`mt-4 p-3 rounded-md text-center text-sm font-medium ${message.includes('success') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                    {message}
+                                </div>
+                            )}
                         </div>
 
-                        {/* Day Off Warning */}
-                        {isStartDateDayOff && (
-                            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex items-center gap-2">
-                                <CalendarOff className="w-4 h-4 text-amber-600 shrink-0" />
-                                <p className="text-sm text-amber-700 dark:text-amber-300">
-                                    <strong>{WEEKDAYS[startDayOfWeek]?.full}</strong> is marked as a day off for this doctor.
-                                    The schedule will be skipped for this day when saving.
-                                </p>
-                            </div>
-                        )}
+                        {/* ── Staff on Leave Panel ── */}
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-1">
+                                <CalendarOff className="w-5 h-5 text-orange-500" />
+                                Staff on Leave
+                                <span className="text-xs font-normal text-gray-400 ml-1">(Clinical Department)</span>
+                            </h2>
+                            <p className="text-xs text-gray-500 mb-4">
+                                Employees with approved or pending leave overlapping the selected date range.
+                            </p>
 
-                        {isLoading ? (
-                            <div className="flex justify-center py-12">Loading...</div>
-                        ) : (
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                {timeSlots.map(slot => {
-                                    const isAvailable = availableSlots.includes(slot);
-                                    return (
-                                        <button
-                                            key={slot}
-                                            onClick={() => toggleSlot(slot)}
-                                            className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${isAvailable
-                                                ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-500'
-                                                : 'bg-gray-100 text-gray-400 border-2 border-transparent hover:bg-gray-200'
+                            {leavesLoading ? (
+                                <div className="flex justify-center py-8 text-sm text-gray-400">Loading leave data...</div>
+                            ) : staffLeaves.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-50 dark:bg-green-900/20 mb-3">
+                                        <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">No staff on leave for this period</p>
+                                    <p className="text-xs text-gray-400 mt-1">All clinical staff are available</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {staffLeaves.map((leave) => (
+                                        <div
+                                            key={leave.id}
+                                            className={`p-4 rounded-lg border-l-4 ${leave.status === 'APPROVED'
+                                                    ? 'border-l-green-500 bg-green-50 dark:bg-green-900/10'
+                                                    : leave.status === 'PENDING'
+                                                        ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-900/10'
+                                                        : 'border-l-gray-400 bg-gray-50 dark:bg-gray-700/30'
                                                 }`}
                                         >
-                                            {slot}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        <div className="mt-8 flex items-center justify-between border-t pt-6 border-gray-100 dark:border-gray-700">
-                            <div className="text-sm">
-                                <span className="font-bold text-indigo-600">{availableSlots.length}</span> slots selected
-                            </div>
-                            <button
-                                onClick={handleSave}
-                                disabled={isLoading}
-                                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                            >
-                                <Save className="w-4 h-4" />
-                                Save Schedule
-                            </button>
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                                                            {leave.employeeName}
+                                                        </span>
+                                                        <span className="text-xs text-gray-400">({leave.employeeCode})</span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{leave.designation} · {leave.workplaceName}</p>
+                                                </div>
+                                                <span
+                                                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${leave.status === 'APPROVED'
+                                                            ? 'bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-300'
+                                                            : leave.status === 'PENDING'
+                                                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-800/30 dark:text-amber-300'
+                                                                : 'bg-gray-100 text-gray-600'
+                                                        }`}
+                                                >
+                                                    {leave.status}
+                                                </span>
+                                            </div>
+                                            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300">
+                                                    {leave.leaveType}
+                                                </span>
+                                                <span className="text-gray-500 dark:text-gray-400">
+                                                    {leave.startDate} → {leave.endDate} ({leave.totalDays} day{leave.totalDays !== 1 ? 's' : ''})
+                                                </span>
+                                            </div>
+                                            {leave.reason && (
+                                                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 italic">
+                                                    &ldquo;{leave.reason}&rdquo;
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        {message && (
-                            <div className={`mt-4 p-3 rounded-md text-center text-sm font-medium ${message.includes('success') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                {message}
-                            </div>
-                        )}
                     </div>
 
                 </div>

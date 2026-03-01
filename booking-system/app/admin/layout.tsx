@@ -21,7 +21,7 @@ export default function AdminLayout({
         <AdminAuthGuard>
             <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex">
                 <AdminSidebar />
-                <div className="flex-1 md:ml-64 transition-all duration-300">
+                <div className="flex-1 md:ml-60 transition-all duration-300">
                     {children}
                 </div>
             </div>
