@@ -53,7 +53,7 @@ export interface User {
     role: UserRole;
     designation?: string;
     department?: string;
-    clinicId?: string;
+    clinicIds: string[];   // supports multiple branches
     isActive: boolean;
     scope?: AssignedScope;
 }
@@ -68,7 +68,7 @@ const initialUsers: User[] = [
         role: 'SUPER_ADMIN',
         designation: 'Operations Manager',
         department: 'Operation',
-        clinicId: 'head-office',
+        clinicIds: ['clinic-1', 'clinic-2', 'clinic-3', 'head-office'],
         isActive: true,
     },
     {
@@ -79,7 +79,7 @@ const initialUsers: User[] = [
         role: 'STAFF',
         designation: 'Receptionist',
         department: 'Administration',
-        clinicId: 'clinic-1',
+        clinicIds: ['clinic-1'],
         isActive: true,
     },
     {
@@ -90,7 +90,7 @@ const initialUsers: User[] = [
         role: 'STAFF',
         designation: 'Nurse',
         department: 'Clinical',
-        clinicId: 'clinic-2',
+        clinicIds: ['clinic-1', 'clinic-2'],
         isActive: true,
     },
     {
@@ -101,7 +101,7 @@ const initialUsers: User[] = [
         role: 'DOCTOR',
         designation: 'Doctor',
         department: 'Clinical',
-        clinicId: 'clinic-1',
+        clinicIds: ['clinic-1'],
         isActive: true,
         scope: { doctorId: 'doc-gp-1' },
     },
@@ -113,7 +113,7 @@ const initialUsers: User[] = [
         role: 'ADMIN',
         designation: 'Office Manager',
         department: 'Administration',
-        clinicId: 'clinic-3',
+        clinicIds: ['clinic-3'],
         isActive: true,
     },
     {
@@ -124,7 +124,7 @@ const initialUsers: User[] = [
         role: 'STAFF',
         designation: 'Lab Technician',
         department: 'Clinical',
-        clinicId: 'clinic-2',
+        clinicIds: ['clinic-2'],
         isActive: false,
     },
 ];

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Shield, User, Stethoscope, Lock, Search, ToggleLeft, ToggleRight, Building2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Shield, User, Stethoscope, Lock, Search, ToggleLeft, ToggleRight, Building2, Check } from 'lucide-react';
 import {
     User as UserType,
     UserRole,
@@ -21,7 +21,7 @@ interface UserFormState {
     role: UserRole;
     designation: string;
     department: string;
-    clinicId: string;
+    clinicIds: string[];
     isActive: boolean;
     scopeDoctorId?: string;
 }
@@ -33,7 +33,7 @@ const EMPTY_FORM: UserFormState = {
     role: 'STAFF',
     designation: '',
     department: 'Clinical',
-    clinicId: 'clinic-1',
+    clinicIds: ['clinic-1'],
     isActive: true,
     scopeDoctorId: '',
 };
@@ -83,10 +83,8 @@ export default function StaffPage() {
         }
     };
 
-    // Can the current user edit/delete target user?
     const canManage = (targetUser: UserType) => {
         if (isSuperAdmin) return true;
-        // ADMIN cannot manage SUPER_ADMIN or other ADMINs
         if (targetUser.role === 'SUPER_ADMIN' || targetUser.role === 'ADMIN') return false;
         return true;
     };
@@ -98,7 +96,6 @@ export default function StaffPage() {
         if (formData.role === 'DOCTOR' && formData.scopeDoctorId) {
             scope.doctorId = formData.scopeDoctorId;
         }
-        scope.clinicId = formData.clinicId;
 
         if (editingUser) {
             UsersStore.updateUser(editingUser.id, {
@@ -107,7 +104,7 @@ export default function StaffPage() {
                 role: formData.role,
                 designation: formData.designation,
                 department: formData.department,
-                clinicId: formData.clinicId,
+                clinicIds: formData.clinicIds,
                 isActive: formData.isActive,
                 scope,
                 ...(formData.password ? { password: formData.password } : {}),
@@ -124,7 +121,7 @@ export default function StaffPage() {
                 role: formData.role,
                 designation: formData.designation,
                 department: formData.department,
-                clinicId: formData.clinicId,
+                clinicIds: formData.clinicIds,
                 isActive: formData.isActive,
                 scope,
             });
@@ -144,7 +141,7 @@ export default function StaffPage() {
             role: user.role,
             designation: user.designation || '',
             department: user.department || 'Clinical',
-            clinicId: user.clinicId || user.scope?.clinicId || 'clinic-1',
+            clinicIds: user.clinicIds || [],
             isActive: user.isActive,
             scopeDoctorId: user.scope?.doctorId || '',
             password: '',
@@ -164,6 +161,22 @@ export default function StaffPage() {
         loadData();
     };
 
+    const toggleClinicId = (cId: string) => {
+        setFormData(prev => {
+            const ids = prev.clinicIds.includes(cId)
+                ? prev.clinicIds.filter(id => id !== cId)
+                : [...prev.clinicIds, cId];
+            return { ...prev, clinicIds: ids };
+        });
+    };
+
+    const selectAllClinics = () => {
+        setFormData(prev => ({
+            ...prev,
+            clinicIds: CLINICS.map(c => c.id),
+        }));
+    };
+
     const getRoleIcon = (role: UserRole) => {
         if (role === 'SUPER_ADMIN') return <Shield className="w-4 h-4 text-purple-600" />;
         if (role === 'ADMIN') return <Shield className="w-4 h-4 text-indigo-600" />;
@@ -178,18 +191,18 @@ export default function StaffPage() {
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     };
 
-    const getClinicName = (clinicId: string | undefined) => {
-        if (!clinicId) return '-';
-        const clinic = CLINICS.find(c => c.id === clinicId);
-        return clinic?.name || clinicId;
+    const getClinicNames = (ids: string[]) => {
+        if (!ids || ids.length === 0) return '-';
+        return ids.map(id => {
+            const c = CLINICS.find(cl => cl.id === id);
+            return c?.name || id;
+        });
     };
 
-    // Designations filtered by selected department in form
     const filteredDesignations = formData.department
         ? DESIGNATIONS_BY_DEPARTMENT[formData.department] || []
         : ALL_DESIGNATIONS;
 
-    // Filter users displayed in the table
     const filteredUsers = users.filter(u => {
         const matchesSearch =
             !searchQuery ||
@@ -289,80 +302,91 @@ export default function StaffPage() {
                                 <th className="px-5 py-3">Role</th>
                                 <th className="px-5 py-3">Designation</th>
                                 <th className="px-5 py-3">Department</th>
-                                <th className="px-5 py-3">Branch</th>
+                                <th className="px-5 py-3">Branches</th>
                                 <th className="px-5 py-3">Status</th>
                                 <th className="px-5 py-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {filteredUsers.map(user => (
-                                <tr key={user.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${!user.isActive ? 'opacity-60' : ''}`}>
-                                    <td className="px-5 py-4">
-                                        <div>
-                                            <div className="font-medium text-gray-900 dark:text-white text-sm">{user.name}</div>
-                                            <div className="text-xs text-gray-500">@{user.username}</div>
-                                        </div>
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
-                                            {getRoleIcon(user.role)}
-                                            {user.role.replace('_', ' ')}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                        {user.designation || <span className="text-gray-400">-</span>}
-                                    </td>
-                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
-                                        {user.department || <span className="text-gray-400">-</span>}
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <span className="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                                            <Building2 className="w-3 h-3" />
-                                            {getClinicName(user.clinicId)}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        {user.isActive ? (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                                                Active
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                                                Inactive
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        {canManage(user) ? (
-                                            <div className="flex gap-1">
-                                                <button
-                                                    onClick={() => handleToggleActive(user)}
-                                                    title={user.isActive ? 'Deactivate' : 'Activate'}
-                                                    className={`p-1.5 rounded-md transition-colors ${user.isActive ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'}`}
-                                                >
-                                                    {user.isActive ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleEdit(user)}
-                                                    title="Edit"
-                                                    className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 p-1.5 rounded-md transition-colors"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(user.id)}
-                                                    title="Delete"
-                                                    className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-md transition-colors"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                            {filteredUsers.map(user => {
+                                const branchNames = getClinicNames(user.clinicIds);
+                                return (
+                                    <tr key={user.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${!user.isActive ? 'opacity-60' : ''}`}>
+                                        <td className="px-5 py-4">
+                                            <div>
+                                                <div className="font-medium text-gray-900 dark:text-white text-sm">{user.name}</div>
+                                                <div className="text-xs text-gray-500">@{user.username}</div>
                                             </div>
-                                        ) : (
-                                            <span className="text-xs text-gray-400 italic">No access</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
+                                                {getRoleIcon(user.role)}
+                                                {user.role.replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                            {user.designation || <span className="text-gray-400">-</span>}
+                                        </td>
+                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                            {user.department || <span className="text-gray-400">-</span>}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            {Array.isArray(branchNames) ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {branchNames.map((name, i) => (
+                                                        <span key={i} className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                            <Building2 className="w-2.5 h-2.5" />
+                                                            {name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-400 text-sm">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            {user.isActive ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                                    Active
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                    Inactive
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            {canManage(user) ? (
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={() => handleToggleActive(user)}
+                                                        title={user.isActive ? 'Deactivate' : 'Activate'}
+                                                        className={`p-1.5 rounded-md transition-colors ${user.isActive ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'}`}
+                                                    >
+                                                        {user.isActive ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleEdit(user)}
+                                                        title="Edit"
+                                                        className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 p-1.5 rounded-md transition-colors"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(user.id)}
+                                                        title="Delete"
+                                                        className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-md transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-gray-400 italic">No access</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {filteredUsers.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="px-5 py-12 text-center text-gray-400">
@@ -447,37 +471,66 @@ export default function StaffPage() {
                                 </div>
                             </div>
 
-                            {/* Row 3: Designation + Branch */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Designation</label>
-                                    <select
-                                        required
-                                        className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                        value={formData.designation}
-                                        onChange={e => setFormData({ ...formData, designation: e.target.value })}
-                                    >
-                                        <option value="">Select Designation</option>
-                                        {filteredDesignations.map(d => (
-                                            <option key={d} value={d}>{d}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Branch / Clinic</label>
-                                    <select
-                                        className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                        value={formData.clinicId}
-                                        onChange={e => setFormData({ ...formData, clinicId: e.target.value })}
-                                    >
-                                        {CLINICS.map(c => (
-                                            <option key={c.id} value={c.id}>{c.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                            {/* Designation */}
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Designation</label>
+                                <select
+                                    required
+                                    className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    value={formData.designation}
+                                    onChange={e => setFormData({ ...formData, designation: e.target.value })}
+                                >
+                                    <option value="">Select Designation</option>
+                                    {filteredDesignations.map(d => (
+                                        <option key={d} value={d}>{d}</option>
+                                    ))}
+                                </select>
                             </div>
 
-                            {/* Doctor Profile Link — only shows if role is DOCTOR */}
+                            {/* Branches — Multi-select checkboxes */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Assigned Branches
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={selectAllClinics}
+                                        className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 font-medium"
+                                    >
+                                        Select All
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {CLINICS.map(clinic => {
+                                        const isSelected = formData.clinicIds.includes(clinic.id);
+                                        return (
+                                            <button
+                                                key={clinic.id}
+                                                type="button"
+                                                onClick={() => toggleClinicId(clinic.id)}
+                                                className={`flex items-center gap-2 p-2.5 rounded-lg border-2 text-left text-sm transition-all ${isSelected
+                                                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
+                                                        : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                                                    }`}
+                                            >
+                                                <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${isSelected
+                                                        ? 'bg-indigo-600 text-white'
+                                                        : 'border border-gray-300 dark:border-gray-500'
+                                                    }`}>
+                                                    {isSelected && <Check className="w-3 h-3" />}
+                                                </div>
+                                                <span className="text-xs font-medium">{clinic.name}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {formData.clinicIds.length === 0 && (
+                                    <p className="text-xs text-red-500 mt-1">Please select at least one branch.</p>
+                                )}
+                            </div>
+
+                            {/* Doctor Profile Link */}
                             {formData.role === 'DOCTOR' && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Assigned Doctor Profile</label>
@@ -518,7 +571,8 @@ export default function StaffPage() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
+                                    disabled={formData.clinicIds.length === 0}
+                                    className="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors disabled:opacity-50"
                                 >
                                     {editingUser ? 'Save Changes' : 'Create User'}
                                 </button>
