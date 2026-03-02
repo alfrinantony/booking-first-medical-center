@@ -202,6 +202,7 @@ export interface Clinic {
     dhaLicenceExpiry?: string; // ISO YYYY-MM-DD
     fanarLicenceNumber?: string;
     fanarLicenceExpiry?: string; // ISO YYYY-MM-DD
+    taxRegistrationNumber?: string; // Tax Registration Number (TRN) for UAE VAT
 }
 
 export type ContractType =

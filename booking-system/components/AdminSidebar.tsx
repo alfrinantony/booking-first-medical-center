@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X } from 'lucide-react';
+import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText } from 'lucide-react';
 import { User } from '@/lib/users-store';
 
 export default function AdminSidebar() {
@@ -213,6 +213,17 @@ export default function AdminSidebar() {
             </Link>
 
             <Link
+                href="/admin/vat-report"
+                className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/vat-report')
+                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+            >
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                VAT Report
+            </Link>
+
+            <Link
                 href="/admin/client-grouping"
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/client-grouping')
                     ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
@@ -297,7 +308,7 @@ export default function AdminSidebar() {
                     }`}
             >
                 <BarChart2 className="w-4 h-4 shrink-0" />
-                Reports
+                Clinical Reports
             </Link>
 
             {canManageStaff && (

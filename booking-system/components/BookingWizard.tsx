@@ -7,7 +7,7 @@ import { useAuthStore } from '@/lib/store';
 import { usePackagesStore } from '@/lib/packages-store';
 import CustomerAuth from './auth/CustomerAuth';
 import { Calendar, Clock, User, ChevronRight, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, startOfMonth, getMonth, getYear } from 'date-fns';
 import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_NAMES } from '@/lib/booking-voice-controller';
 
 export default function BookingWizard() {
@@ -100,8 +100,8 @@ export default function BookingWizard() {
         }
     }, [selectedClinic]);
 
-    // Generate next 14 days for date selection, filtering by service.allowedDays AND clinic.workingDays
-    const availableDates = Array.from({ length: 14 })
+    // Generate next 90 days (3 months) for date selection, filtering by service.allowedDays AND clinic.workingDays
+    const availableDates = Array.from({ length: 90 })
         .map((_, i) => addDays(new Date(), i + 1))
         .filter(date => {
             // Service Restrictions
@@ -114,6 +114,23 @@ export default function BookingWizard() {
             }
             return true;
         });
+
+    // Group available dates by month for calendar view
+    const [calendarMonthIndex, setCalendarMonthIndex] = useState(0);
+    const datesByMonth = React.useMemo(() => {
+        const groups: { key: string; label: string; dates: Date[] }[] = [];
+        const monthMap = new Map<string, Date[]>();
+        for (const d of availableDates) {
+            const key = `${getYear(d)}-${getMonth(d)}`;
+            if (!monthMap.has(key)) monthMap.set(key, []);
+            monthMap.get(key)!.push(d);
+        }
+        for (const [key, dates] of monthMap) {
+            groups.push({ key, label: format(dates[0], 'MMMM yyyy'), dates });
+        }
+        return groups;
+    }, [availableDates.length, selectedService, selectedClinic]);
+    const currentMonthGroup = datesByMonth[calendarMonthIndex] || datesByMonth[0];
 
     // Helper to parse "10:30 AM" to minutes from midnight (12h format)
     const parseTimeSlot = (timeStr: string) => {
@@ -1200,21 +1217,85 @@ export default function BookingWizard() {
 
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold mb-3">Select Date</h3>
-                            <div className="flex gap-3 overflow-x-auto pb-2">
-                                {availableDates.map((date) => (
+                            {/* Month Navigation */}
+                            {datesByMonth.length > 0 && (
+                                <div className="flex items-center justify-between mb-4">
                                     <button
-                                        key={date.toISOString()}
-                                        onClick={() => setSelectedDate(date)}
-                                        className={`min-w-[80px] p-3 rounded-lg border text-center transition-all ${selectedDate?.toDateString() === date.toDateString()
-                                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-gray-900'
-                                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                                            }`}
+                                        onClick={() => setCalendarMonthIndex(Math.max(0, calendarMonthIndex - 1))}
+                                        disabled={calendarMonthIndex === 0}
+                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                     >
-                                        <div className="text-xs uppercase font-bold text-gray-500">{format(date, 'EEE')}</div>
-                                        <div className="text-xl font-bold">{format(date, 'd')}</div>
+                                        <ChevronRight className="w-5 h-5 rotate-180 text-gray-600 dark:text-gray-300" />
                                     </button>
+                                    <span className="text-lg font-bold text-gray-900 dark:text-white">{currentMonthGroup?.label}</span>
+                                    <button
+                                        onClick={() => setCalendarMonthIndex(Math.min(datesByMonth.length - 1, calendarMonthIndex + 1))}
+                                        disabled={calendarMonthIndex >= datesByMonth.length - 1}
+                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                    </button>
+                                </div>
+                            )}
+                            {/* Day-of-week header */}
+                            <div className="grid grid-cols-7 gap-2 mb-2">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                                    <div key={d} className="text-center text-xs font-bold text-gray-400 uppercase">{d}</div>
                                 ))}
                             </div>
+                            {/* Calendar grid */}
+                            {currentMonthGroup && (() => {
+                                const firstDate = currentMonthGroup.dates[0];
+                                const monthStart = startOfMonth(firstDate);
+                                const startDow = monthStart.getDay(); // 0=Sun
+                                // Build a set of available day-of-month for quick lookup
+                                const availableSet = new Set(currentMonthGroup.dates.map(d => d.getDate()));
+                                // Days in this month
+                                const daysInMonth = new Date(getYear(firstDate), getMonth(firstDate) + 1, 0).getDate();
+                                const cells: (Date | null)[] = [];
+                                // Leading empties
+                                for (let i = 0; i < startDow; i++) cells.push(null);
+                                // Day cells
+                                for (let day = 1; day <= daysInMonth; day++) {
+                                    if (availableSet.has(day)) {
+                                        cells.push(currentMonthGroup.dates.find(d => d.getDate() === day) || null);
+                                    } else {
+                                        cells.push(null); // unavailable day placeholder
+                                    }
+                                }
+                                return (
+                                    <div className="grid grid-cols-7 gap-2">
+                                        {cells.map((date, idx) => {
+                                            if (!date) {
+                                                // Show the day number but disabled
+                                                const dayNum = idx - startDow + 1;
+                                                if (dayNum >= 1 && dayNum <= daysInMonth) {
+                                                    return (
+                                                        <div key={`empty-${idx}`} className="p-2 rounded-lg text-center">
+                                                            <div className="text-sm text-gray-300 dark:text-gray-600">{dayNum}</div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return <div key={`pad-${idx}`} />;
+                                            }
+                                            const isSelected = selectedDate?.toDateString() === date.toDateString();
+                                            return (
+                                                <button
+                                                    key={date.toISOString()}
+                                                    onClick={() => setSelectedDate(date)}
+                                                    className={`p-2 rounded-lg border text-center transition-all ${isSelected
+                                                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-gray-900'
+                                                        : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                        }`}
+                                                >
+                                                    <div className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400">{format(date, 'EEE')}</div>
+                                                    <div className="text-lg font-bold">{format(date, 'd')}</div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {selectedDate && (

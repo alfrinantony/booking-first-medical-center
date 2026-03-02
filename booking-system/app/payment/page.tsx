@@ -24,14 +24,11 @@ function PaymentContent() {
 
     const [clientSecret, setClientSecret] = useState("");
 
-    const [paymentMethod, setPaymentMethod] = useState<'card' | 'tabby' | 'tamara' | 'clinic'>('card');
+    const [paymentMethod, setPaymentMethod] = useState<'card' | 'clinic'>('card');
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Calculate totals
-    const surchargeMetric = 0.05; // 5%
-    const isSurchargeApplicable = paymentMethod === 'tabby' || paymentMethod === 'tamara';
-    const surchargeAmount = isSurchargeApplicable ? amount * surchargeMetric : 0;
-    const totalAmount = amount + surchargeAmount;
+    const totalAmount = amount;
 
     useEffect(() => {
         if (paymentMethod === 'card' && amount > 0) {
@@ -79,12 +76,7 @@ function PaymentContent() {
                             <span>{serviceName}:</span>
                             <span>{amount.toFixed(2)} AED</span>
                         </div>
-                        {isSurchargeApplicable && (
-                            <div className="flex justify-between text-sm text-indigo-600 dark:text-indigo-400">
-                                <span>Service Fee (5%):</span>
-                                <span>+{surchargeAmount.toFixed(2)} AED</span>
-                            </div>
-                        )}
+
                         <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white pt-2 border-t border-gray-200 dark:border-gray-700">
                             <span>Total to Pay:</span>
                             <span>{totalAmount.toFixed(2)} AED</span>
@@ -106,30 +98,6 @@ function PaymentContent() {
                     </button>
 
                     <button
-                        onClick={() => setPaymentMethod('tabby')}
-                        className={`p-3 border rounded-lg flex flex-col items-center justify-center gap-2 transition-all relative overflow-hidden ${paymentMethod === 'tabby'
-                            ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                            }`}
-                    >
-                        <div className="font-bold text-sm">tabby</div>
-                        <span className="text-xs text-center text-gray-500">Split in 4</span>
-                        <div className="absolute top-0 right-0 bg-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-bl">+5%</div>
-                    </button>
-
-                    <button
-                        onClick={() => setPaymentMethod('tamara')}
-                        className={`p-3 border rounded-lg flex flex-col items-center justify-center gap-2 transition-all relative overflow-hidden ${paymentMethod === 'tamara'
-                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-gray-900'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                            }`}
-                    >
-                        <div className="font-bold text-sm">tamara</div>
-                        <span className="text-xs text-center text-gray-500">Split in 3</span>
-                        <div className="absolute top-0 right-0 bg-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded-bl">+5%</div>
-                    </button>
-
-                    <button
                         onClick={() => setPaymentMethod('clinic')}
                         className={`p-3 border rounded-lg flex flex-col items-center justify-center gap-2 transition-all ${paymentMethod === 'clinic'
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900'
@@ -148,27 +116,6 @@ function PaymentContent() {
                     </Elements>
                 )}
 
-                {(paymentMethod === 'tabby' || paymentMethod === 'tamara') && (
-                    <div className="text-center">
-                        <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-6 text-sm">
-                            You will be redirected to <strong>{paymentMethod === 'tabby' ? 'Tabby' : 'Tamara'}</strong> to complete your payment of <strong>{totalAmount.toFixed(2)} AED</strong> for <strong>{serviceName}</strong>.
-                        </div>
-                        <button
-                            onClick={handleMockPayment}
-                            disabled={isProcessing}
-                            className="w-full bg-black text-white font-bold py-3 px-4 rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {isProcessing ? (
-                                <>
-                                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                                    Redirecting...
-                                </>
-                            ) : (
-                                `Pay with ${paymentMethod === 'tabby' ? 'Tabby' : 'Tamara'}`
-                            )}
-                        </button>
-                    </div>
-                )}
 
                 {paymentMethod === 'clinic' && (
                     <div className="text-center">

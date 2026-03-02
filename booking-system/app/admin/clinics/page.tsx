@@ -25,6 +25,7 @@ interface ClinicFormState {
     dhaLicenceExpiry: string;
     fanarLicenceNumber: string;
     fanarLicenceExpiry: string;
+    taxRegistrationNumber: string;
 }
 
 const initialFormState: ClinicFormState = {
@@ -46,6 +47,7 @@ const initialFormState: ClinicFormState = {
     dhaLicenceExpiry: '',
     fanarLicenceNumber: '',
     fanarLicenceExpiry: '',
+    taxRegistrationNumber: '',
 };
 
 export default function AdminClinicsPage() {
@@ -130,6 +132,7 @@ export default function AdminClinicsPage() {
             dhaLicenceExpiry: clinic.dhaLicenceExpiry || '',
             fanarLicenceNumber: clinic.fanarLicenceNumber || '',
             fanarLicenceExpiry: clinic.fanarLicenceExpiry || '',
+            taxRegistrationNumber: clinic.taxRegistrationNumber || '',
         });
         setIsEditing(true);
         setIsModalOpen(true);
@@ -210,6 +213,9 @@ export default function AdminClinicsPage() {
                                     )}
                                     <div className="text-xs text-gray-400 mt-2">
                                         VAT: {clinic.vatPercentage}%
+                                        {clinic.taxRegistrationNumber && (
+                                            <span className="ml-2">| TRN: {clinic.taxRegistrationNumber}</span>
+                                        )}
                                     </div>
                                     {(clinic.tradeLicenceNumber || clinic.dhaLicenceNumber || clinic.fanarLicenceNumber) && (
                                         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-1.5">
@@ -382,11 +388,18 @@ export default function AdminClinicsPage() {
                                         />
                                     </div>
 
-                                    {/* Licences Section */}
+                                    {/* Tax & Licences Section */}
                                     <div className="md:col-span-2 border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
                                         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                                            <FileCheck className="w-4 h-4" /> Licences
+                                            <FileCheck className="w-4 h-4" /> Tax & Licences
                                         </h3>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium mb-1">Tax Registration Number (TRN)</label>
+                                        <input type="text" placeholder="e.g. 100442724100003"
+                                            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                            value={editingClinic.taxRegistrationNumber}
+                                            onChange={(e) => setEditingClinic({ ...editingClinic, taxRegistrationNumber: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Trade Licence Number</label>
