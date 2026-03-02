@@ -18,7 +18,10 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { transcript, step, stepName, options, conversationHistory } = body;
+        const { transcript, step, stepName, options, conversationHistory, language, customerName, customerAge, customerGender } = body;
+
+        // Language label for prompt
+        const langLabel = language === 'ar' ? 'Arabic' : 'English';
 
         if (!transcript) {
             return NextResponse.json(
@@ -32,6 +35,11 @@ export async function POST(request: Request) {
             ? `Available options for "${stepName}": ${options.map((o: { name: string; price?: number }) => o.price ? `${o.name} (${o.price} AED)` : o.name).join(', ')}`
             : '';
 
+        // Customer context for personalization
+        const customerContext = customerName
+            ? `\n👤 CUSTOMER PROFILE:\n- Name: ${customerName}${customerAge ? `\n- Age: ${customerAge}` : ''}${customerGender ? `\n- Gender: ${customerGender}` : ''}\nAddress the customer by their name when appropriate to build rapport.\n`
+            : '';
+
         const systemPrompt = `You are the official AI assistant for DubaiFMC (Dubai First Medical Center), a premium aesthetic and laser clinic with three branches in Dubai.
 
 YOUR OBJECTIVES:
@@ -40,7 +48,7 @@ YOUR OBJECTIVES:
 - Guide clients toward booking
 - Maintain medical safety boundaries
 - Increase conversion rate professionally
-
+${customerContext}
 🏥 OUR SERVICES:
 Laser Hair Removal (Candela GentleMax Pro & Lumenis Splendor X), Electrolysis Hair Removal, Hydrafacial, Oxygenofacial, PRP (Hair & Face), Hair Fillers, Face Fillers, Mesotherapy, Profhilo, Jalupro, Sculptra, Microneedling, Radiofrequency Microneedling, Botox, Chemical Peeling, Skin Rejuvenation, CO2 Fractional Laser, Carbon Peeling, Pico Laser, Acne Treatments, Tattoo Removal, Piercings (Ear, Nose, Belly).
 
@@ -50,9 +58,10 @@ Laser Hair Removal (Candela GentleMax Pro & Lumenis Splendor X), Electrolysis Ha
 3. Silicon Oasis Branch – 15th Floor, SIT Tower, Silicon Oasis
 When booking, ALWAYS ask which branch the client prefers.
 
-🌍 LANGUAGE RULE:
-If the client writes in Arabic → reply in Arabic in the spokenResponse field.
-If the client writes in English → reply in English.
+🌍 STRICT LANGUAGE RULE:
+The customer has chosen ${langLabel} as their preferred language.
+You MUST respond ONLY in ${langLabel}. Do NOT switch to any other language under any circumstances, even if the user mixes languages.
+All spokenResponse values MUST be in ${langLabel}.
 Keep tone premium, warm, and professional.
 
 💰 PRICING RULE:

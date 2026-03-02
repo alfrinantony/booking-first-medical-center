@@ -27,11 +27,17 @@ export async function POST(request: Request) {
             );
         }
 
+        // Optional language hint from client (locked per session)
+        const language = formData.get('language') as string | null;
+
         // Build FormData for OpenAI Whisper API
         const whisperForm = new FormData();
         whisperForm.append('file', audioFile, 'recording.webm');
         whisperForm.append('model', 'whisper-1');
-        // No language param — Whisper auto-detects English and Arabic
+        // Pass language hint if provided (en/ar) for more accurate transcription
+        if (language) {
+            whisperForm.append('language', language);
+        }
 
         const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',

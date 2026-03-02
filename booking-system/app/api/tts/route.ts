@@ -14,11 +14,14 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { text } = body;
+        const { text, lang } = body;
 
         if (!text?.trim()) {
             return NextResponse.json({ error: 'No text provided.' }, { status: 400 });
         }
+
+        // Select voice based on language — shimmer for English, nova for Arabic
+        const voice = lang === 'ar' ? 'nova' : 'shimmer';
 
         const response = await fetch('https://api.openai.com/v1/audio/speech', {
             method: 'POST',
@@ -29,7 +32,7 @@ export async function POST(request: Request) {
             body: JSON.stringify({
                 model: 'tts-1',
                 input: text,
-                voice: 'shimmer',  // Warm, professional female voice
+                voice,
                 response_format: 'mp3',
                 speed: 1.0,
             }),

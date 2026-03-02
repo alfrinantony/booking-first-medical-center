@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mic, MicOff, PhoneOff, UserRoundPlus, X, MessageCircle, ChevronDown, Loader2, Timer } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, UserRoundPlus, X, ChevronDown, Loader2, Timer, Globe } from 'lucide-react';
 import {
     bookingVoiceController,
     VOICE_EVENTS,
@@ -43,6 +43,15 @@ export default function VoiceAgentBubble() {
     const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
     const [error, setError] = useState('');
     const [dailyLimitReached, setDailyLimitReached] = useState(false);
+    const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'ar' | null>(null);
+    const selectedLanguageRef = useRef<'en' | 'ar'>('en');
+
+    // Compute customer details from auth store
+    const customerName = user?.name || '';
+    const customerGender = user?.gender || '';
+    const customerAge = user?.dateOfBirth
+        ? String(Math.floor((Date.now() - new Date(user.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)))
+        : '';
     const [remainingSeconds, setRemainingSeconds] = useState(300); // 5 minutes = 300s
 
     const DAILY_LIMIT_SECONDS = 300; // 5 minutes
@@ -164,13 +173,13 @@ export default function VoiceAgentBubble() {
             }
 
             try {
-                // Detect Arabic for fallback voice selection
-                const isArabic = /[\u0600-\u06FF\u0750-\u077F]/.test(text);
+                // Use the locked session language
+                const lang = selectedLanguageRef.current;
 
                 const res = await fetch('/api/tts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text, lang: isArabic ? 'ar' : 'en' }),
+                    body: JSON.stringify({ text, lang }),
                 });
 
                 if (!res.ok) throw new Error('TTS failed');
@@ -230,6 +239,7 @@ export default function VoiceAgentBubble() {
             // Step 1: Transcribe with Whisper
             const formData = new FormData();
             formData.append('audio', audioBlob, 'recording.webm');
+            formData.append('language', selectedLanguageRef.current);
 
             const transcribeRes = await fetch('/api/whisper/transcribe', {
                 method: 'POST',
@@ -271,6 +281,10 @@ export default function VoiceAgentBubble() {
                     stepName: contextRef.current.stepName,
                     options: contextRef.current.options,
                     conversationHistory: chatHistoryRef.current.slice(-6),
+                    language: selectedLanguageRef.current,
+                    customerName,
+                    customerAge,
+                    customerGender,
                 }),
             });
 
@@ -592,6 +606,7 @@ export default function VoiceAgentBubble() {
         chatHistoryRef.current = [];
         setTranscript('');
         setError('');
+        setSelectedLanguage(null);
     }, [stopListening]);
 
     /* ── Transfer to human ── */
@@ -614,27 +629,36 @@ export default function VoiceAgentBubble() {
     // Keep startListeningRef in sync for use in callbacks/event handlers
     useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
 
+    /* ── Start session after language is selected ── */
+    const startSession = useCallback((lang: 'en' | 'ar') => {
+        setSelectedLanguage(lang);
+        selectedLanguageRef.current = lang;
+        setIsConnected(true);
+
+        const firstName = customerName.split(' ')[0] || '';
+        const greeting = lang === 'ar'
+            ? `أهلاً وسهلاً${firstName ? ` ${firstName}` : ''}! أنا مساعدك الافتراضي. كيف أقدر أساعدك اليوم؟`
+            : `Welcome back${firstName ? `, ${firstName}` : ''}! I'm your virtual assistant. How can I assist you today?`;
+
+        const msg: ChatMessage = { role: 'assistant', content: greeting };
+        setChatLog([msg]);
+        chatHistoryRef.current = [msg];
+        speak(greeting).then(() => {
+            continuousModeRef.current = true;
+            setTimeout(() => startListeningRef.current(), 400);
+        });
+    }, [customerName, speak]);
+
     /* ── Toggle panel ── */
     const toggle = useCallback(() => {
         if (!isOpen) {
             setIsOpen(true);
-            // Auto-start greeting on first open, then auto-listen
-            if (!isConnected) {
-                setIsConnected(true);
-                const greeting = 'Welcome to DubaiFMC! I am your virtual assistant. I can help you book appointments, answer questions about our treatments, or manage your existing bookings. How can I help you today?';
-                const msg: ChatMessage = { role: 'assistant', content: greeting };
-                setChatLog([msg]);
-                chatHistoryRef.current = [msg];
-                speak(greeting).then(() => {
-                    // Auto-start listening after greeting (continuous mode)
-                    continuousModeRef.current = true;
-                    setTimeout(() => startListeningRef.current(), 400);
-                });
-            }
+            // If already connected (minimized), just re-open
+            // If not connected, show language picker (no auto-start)
         } else {
             setIsOpen(false);
         }
-    }, [isOpen, isConnected, speak]);
+    }, [isOpen]);
 
     /* ── Cleanup on unmount ── */
     useEffect(() => {
@@ -654,10 +678,10 @@ export default function VoiceAgentBubble() {
             {!isOpen && (
                 <button
                     onClick={toggle}
-                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+                    className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 overflow-hidden border-2 border-indigo-500"
                     aria-label="Open voice assistant"
                 >
-                    <MessageCircle className="w-6 h-6" />
+                    <img src="/voice-agent-avatar.png" alt="Voice Assistant" className="w-full h-full object-cover" />
                     {/* Pulse ring */}
                     <span className="absolute inset-0 rounded-full bg-indigo-400 animate-ping opacity-30" />
                 </button>
@@ -671,6 +695,11 @@ export default function VoiceAgentBubble() {
                         <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-gray-400'}`} />
                             <span className="font-semibold text-sm">Voice Assistant</span>
+                            {selectedLanguage && (
+                                <span className="text-xs bg-indigo-700 rounded-full px-2 py-0.5">
+                                    {selectedLanguage === 'ar' ? '🇦🇪 AR' : '🇬🇧 EN'}
+                                </span>
+                            )}
                             {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
                         </div>
                         <div className="flex items-center gap-2">
@@ -696,80 +725,112 @@ export default function VoiceAgentBubble() {
                         </div>
                     </div>
 
-                    {/* Waveform / Status area */}
-                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-                        {isListening ? (
-                            <canvas
-                                ref={canvasRef}
-                                width={340}
-                                height={50}
-                                className="w-full h-[50px] rounded"
-                            />
-                        ) : (
-                            <div className="text-center text-xs text-gray-500 dark:text-gray-400 py-2">
-                                {isProcessing ? '🧠 Thinking...' :
-                                    isSpeaking ? '🔊 Speaking...' :
-                                        isConnected ? '🎙️ Tap the mic to speak' :
-                                            'Click the mic to start'}
+                    {/* Language Selection Screen */}
+                    {!isConnected && (
+                        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-6">
+                            <div className="text-center">
+                                <Globe className="w-10 h-10 text-indigo-500 mx-auto mb-3" />
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Choose Your Language</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">اختر لغتك المفضلة</p>
                             </div>
-                        )}
-                    </div>
+                            <div className="flex gap-4 w-full">
+                                <button
+                                    onClick={() => startSession('en')}
+                                    className="flex-1 flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+                                >
+                                    <span className="text-3xl">🇬🇧</span>
+                                    <span className="font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600">English</span>
+                                </button>
+                                <button
+                                    onClick={() => startSession('ar')}
+                                    className="flex-1 flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+                                >
+                                    <span className="text-3xl">🇦🇪</span>
+                                    <span className="font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600">العربية</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Waveform / Status area (only when connected) */}
+                    {isConnected && (
+                        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                            {isListening ? (
+                                <canvas
+                                    ref={canvasRef}
+                                    width={340}
+                                    height={50}
+                                    className="w-full h-[50px] rounded"
+                                />
+                            ) : (
+                                <div className="text-center text-xs text-gray-500 dark:text-gray-400 py-2">
+                                    {isProcessing ? '🧠 Thinking...' :
+                                        isSpeaking ? '🔊 Speaking...' :
+                                            '🎙️ Tap the mic to speak'}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Chat log */}
-                    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[200px] max-h-[280px]">
-                        {chatLog.map((msg, i) => (
-                            <div
-                                key={i}
-                                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            >
+                    {isConnected && (
+                        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[200px] max-h-[280px]">
+                            {chatLog.map((msg, i) => (
                                 <div
-                                    className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${msg.role === 'user'
-                                        ? 'bg-indigo-600 text-white rounded-br-sm'
-                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
-                                        }`}
+                                    key={i}
+                                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                 >
-                                    {msg.content}
+                                    <div
+                                        className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${msg.role === 'user'
+                                            ? 'bg-indigo-600 text-white rounded-br-sm'
+                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
+                                            }`}
+                                    >
+                                        {msg.content}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                        {error && (
-                            <div className="text-xs text-red-500 text-center">{error}</div>
-                        )}
-                        <div ref={chatEndRef} />
-                    </div>
+                            ))}
+                            {error && (
+                                <div className="text-xs text-red-500 text-center">{error}</div>
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
+                    )}
 
-                    {/* Controls */}
-                    <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center gap-3">
-                        <button
-                            onClick={() => handleTransfer()}
-                            className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            title="Transfer to human"
-                        >
-                            <UserRoundPlus className="w-5 h-5" />
-                        </button>
+                    {/* Controls (only when connected) */}
+                    {isConnected && (
+                        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center gap-3">
+                            <button
+                                onClick={() => handleTransfer()}
+                                className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                title="Transfer to human"
+                            >
+                                <UserRoundPlus className="w-5 h-5" />
+                            </button>
 
-                        <button
-                            onClick={isListening ? () => stopListening() : startListening}
-                            disabled={isProcessing || isSpeaking || dailyLimitReached}
-                            className={`p-4 rounded-full text-white transition-all ${isListening
-                                ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                                : isProcessing || isSpeaking || dailyLimitReached
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-indigo-600 hover:bg-indigo-700'
-                                }`}
-                            title={dailyLimitReached ? 'Daily limit reached' : isListening ? 'Stop recording' : 'Start recording'}
-                        >
-                            {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                        </button>
+                            <button
+                                onClick={isListening ? () => stopListening() : startListening}
+                                disabled={isProcessing || isSpeaking || dailyLimitReached}
+                                className={`p-4 rounded-full text-white transition-all ${isListening
+                                    ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                                    : isProcessing || isSpeaking || dailyLimitReached
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : 'bg-indigo-600 hover:bg-indigo-700'
+                                    }`}
+                                title={dailyLimitReached ? 'Daily limit reached' : isListening ? 'Stop recording' : 'Start recording'}
+                            >
+                                {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                            </button>
 
-                        <button
-                            onClick={disconnect}
-                            className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"
-                            title="End session"
-                        >
-                            <PhoneOff className="w-5 h-5" />
-                        </button>
-                    </div>
+                            <button
+                                onClick={disconnect}
+                                className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"
+                                title="End session"
+                            >
+                                <PhoneOff className="w-5 h-5" />
+                            </button>
+                        </div>
+                    )}
 
                     {/* Daily limit warning */}
                     {dailyLimitReached && (

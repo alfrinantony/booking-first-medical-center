@@ -1,0 +1,179 @@
+# First Medical Center LLC — Application Details
+
+## Overview
+
+| Item | Detail |
+|---|---|
+| **App Name** | `booking-system` (v0.1.0) |
+| **Company** | First Medical Center LLC |
+| **Framework** | Next.js 16.1.6 (App Router) |
+| **Language** | TypeScript 5 |
+| **Frontend** | React 19.2.3, Tailwind CSS 4 |
+| **Hosting** | Azure (via GitHub → `main` branch auto-deploy) |
+| **Repository** | `github.com/alfrinantony/booking-first-medical-center` |
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| **UI Components** | React + Tailwind CSS + Lucide Icons |
+| **State Management** | Zustand 5 (persisted stores with `zustand/middleware`) |
+| **Form Handling** | React Hook Form + Zod validation |
+| **Payments** | Stripe (JS + React SDK) |
+| **File Storage** | Azure Blob Storage (`@azure/storage-blob`) |
+| **Email** | Nodemailer |
+| **Date Utilities** | date-fns |
+| **Voice/AI** | OpenAI (Whisper STT + GPT) |
+
+---
+
+## Storage Architecture
+
+### 1. Client-Side Storage (Zustand Persisted Stores → `localStorage`)
+
+All application data is persisted in the browser's `localStorage` via Zustand's `persist` middleware. Each store has its own key:
+
+| Store File | localStorage Key | Purpose |
+|---|---|---|
+| [billing-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/billing-store.ts) | `billing-store` | Invoices, invoice sequences |
+| [bookings-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/bookings-store.ts) | `bookings-store` | All appointment bookings |
+| [clients-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/clients-store.ts) | `clients-store` | Client / patient records |
+| [clinics-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/clinics-store.ts) | `clinics-store` | Branch/clinic configurations |
+| [contracts-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/contracts-store.ts) | `contracts-store` | Branch contracts |
+| [customer-auth-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/customer-auth-store.ts) | `customer-auth-store` | Customer login/registration |
+| [doctors-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/doctors-store.ts) | `doctors-store` | Doctor profiles |
+| [services-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/services-store.ts) | `services-store` | Services catalog |
+| [packages-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/packages-store.ts) | `packages-store` | Treatment packages |
+| [accounting-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/accounting-store.ts) | `accounting-store` | Chart of accounts, transactions, invoices |
+| [hr-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/hr-store.ts) | `hr-store` | Employee records |
+| [hr-documents-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/hr-documents-store.ts) | `hr-documents-store` | Employee documents metadata |
+| [hr-leave-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/hr-leave-store.ts) | `hr-leave-store` | Leave records |
+| [hr-payroll-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/hr-payroll-store.ts) | `hr-payroll-store` | Payslips, salary records |
+| [hr-letters-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/hr-letters-store.ts) | `hr-letters-store` | HR letters & templates |
+| [hr-recruitment-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/hr-recruitment-store.ts) | `hr-recruitment-store` | Recruitment candidates |
+| [inbox-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/inbox-store.ts) | `inbox-store` | Internal messages |
+| [logs-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/logs-store.ts) | `logs-store` | Audit logs |
+| [loyalty-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/loyalty-store.ts) | `loyalty-store` | Loyalty points program |
+| [notification-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/notification-store.ts) | `notification-store` | Notification settings |
+| [promo-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/promo-store.ts) | `promo-store` | Promo codes |
+| [settings-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/settings-store.ts) | `settings-store` | App settings |
+| [users-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/users-store.ts) | `users-store` | Staff / admin accounts |
+| [verification-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/verification-store.ts) | `verification-store` | OTP / email verification |
+| [call-agent-summary-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/call-agent-summary-store.ts) | `call-agent-summaries` | Voice call agent logs |
+| [resources-store.ts](file:///c:/AntiGravityWorks/Booking%20First%20Medical%20Center/booking-system/lib/resources-store.ts) | `resources-store` | Shared resources |
+
+> [!IMPORTANT]
+> All business data currently lives in **browser localStorage** via Zustand persisted stores. This means data is local to each browser/device and is not synced across users. This is suitable for a single-user/demo setup but would need a database backend (e.g., Azure SQL, Cosmos DB) for production multi-user access.
+
+### 2. Azure Blob Storage (File/Document Storage)
+
+Used for uploading and storing **binary files** (PDFs, images, scanned documents).
+
+| Setting | Value |
+|---|---|
+| **Service** | Azure Blob Storage |
+| **Container** | `fmc-documents` |
+| **SDK** | `@azure/storage-blob` v12.31 |
+| **Connection** | Via `AZURE_STORAGE_CONNECTION_STRING` env var |
+
+**Blob Path Structure:**
+
+| Category | Path Pattern | Example |
+|---|---|---|
+| HR Employee Docs | `hr/employees/{empId}/{category}/{timestamp}-{file}` | `hr/employees/emp-001/passport/1709-scan.pdf` |
+| Recruitment Docs | `hr/recruitment/candidates/{id}/{type}/{timestamp}-{file}` | `hr/recruitment/candidates/cand-01/cv/resume.pdf` |
+| Accounting Receipts | `accounting/transactions/{txnId}-{timestamp}-{file}` | `accounting/transactions/txn-01-1709-receipt.jpg` |
+| Product Registration | `products/registrations/{timestamp}-{file}` | `products/registrations/1709-cert.pdf` |
+| HR Letters | `letters/{letterId}-{timestamp}-{file}` | `letters/ltr-01-1709-offer.pdf` |
+
+### 3. Session Storage
+
+| Key | Purpose |
+|---|---|
+| `adminUser` | Stores logged-in admin user object for session |
+
+---
+
+## Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI API for Whisper STT + GPT voice agent |
+| `STRIPE_SECRET_KEY` | Stripe server-side payment processing |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe client-side checkout |
+| `AZURE_STORAGE_CONNECTION_STRING` | Azure Blob Storage access |
+| `AZURE_STORAGE_CONTAINER` | Blob container name (default: `fmc-documents`) |
+| `EMIRATES_ID_TOOLKIT_URL` | Emirates ID card reader endpoint |
+| `VOICE_AGENT_TRANSFER_WEBHOOK_URL` | Voice agent human transfer webhook |
+| `CALL_AGENT_API_KEY` | External call agent API authentication |
+
+---
+
+## Application Modules (28 Admin Pages)
+
+| Module | Route | Description |
+|---|---|---|
+| Dashboard | `/admin` | Overview stats & quick actions |
+| Appointments | `/admin/appointments` | Manage bookings |
+| Clients | `/admin/clients` | Patient records |
+| Registered Users | `/admin/registered-users` | Customer accounts |
+| Staff Schedule | `/admin/schedule` | Staff work schedules |
+| Doctors | `/admin/doctors` | Doctor profiles |
+| Services | `/admin/services` | Service catalog with descriptions |
+| Inventory (Medicines) | `/admin/medicines` | Medicine & consumable stock |
+| Suppliers | `/admin/suppliers` | Supplier management |
+| Product Registry | `/admin/product-registry` | Product registrations |
+| Purchases | `/admin/purchases` | Purchase orders |
+| Branches | `/admin/clinics` | Clinic branches (with TRN) |
+| Contracts | `/admin/contracts` | Branch contracts |
+| Packages | `/admin/packages` | Treatment packages |
+| Loyalty Points | `/admin/loyalty` | Loyalty program |
+| Billing | `/admin/billing` | Invoices & billing |
+| **VAT Report** | `/admin/vat-report` | VAT report (monthly range) |
+| Client Grouping | `/admin/client-grouping` | Client segments |
+| Inbox | `/admin/inbox` | Internal messaging |
+| Promo Codes | `/admin/promos` | Promotional codes |
+| Settings | `/admin/settings` | App configuration |
+| Notifications | `/admin/settings/notifications` | Alert settings |
+| Audit Logs | `/admin/logs` | Activity audit trail |
+| Call Agent Summary | `/admin/call-agent-summaries` | Voice call logs |
+| Clinical Reports | `/admin/reports` | Analytics & reporting |
+| HR Management | `/admin/hr` | HR dashboard |
+| HR Employees | `/admin/hr/employees` | Employee records |
+| HR Payroll | `/admin/hr/payroll` | Payslips & salary |
+| HR Letters | `/admin/hr/letters` | HR letters & templates |
+| HR Recruitment | `/admin/hr/recruitment` | Candidate hiring |
+| Accounting | `/admin/accounting` | Chart of accounts |
+| Staff Access | `/admin/staff` | Role & permission management |
+
+## Customer-Facing Pages
+
+| Page | Route | Description |
+|---|---|---|
+| Home | `/` | Landing page |
+| Booking | `/booking` | Appointment booking wizard (3-month range) |
+| Packages | `/packages` | Browse treatment packages |
+| Payment | `/payment` | Credit Card / Pay at Clinic |
+| Login | `/login` | Customer authentication |
+| Appointments | `/appointments` | View own bookings |
+| Profile | `/customer` | Customer profile |
+
+---
+
+## API Routes (11 Groups)
+
+| Group | Base Path | Purpose |
+|---|---|---|
+| Admin | `/api/admin/*` | CRUD for all admin entities |
+| Auth | `/api/auth/*` | Customer auth, OTP verification |
+| Bookings | `/api/bookings/*` | Booking creation & queries |
+| Payment | `/api/payment/*` | Stripe payment intents |
+| Voice Agent | `/api/voice-agent/*` | AI voice booking assistant |
+| Whisper | `/api/whisper/*` | Speech-to-text processing |
+| TTS | `/api/tts/*` | Text-to-speech |
+| Messages | `/api/messages/*` | Messaging endpoints |
+| Webhooks | `/api/webhooks/*` | External webhook handlers |
+| Integrations | `/api/integrations/*` | Third-party integrations |
+| Call Agent | `/api/call-agent-summaries/*` | Call summary submissions |
