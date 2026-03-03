@@ -14,6 +14,7 @@ export interface ServicePackageTier {
 export interface Service {
     id: string;
     name: string;
+    image?: string; // Azure Blob URL for service thumbnail
     description?: string;
     preCare?: string;
     postCare?: string;
@@ -175,6 +176,7 @@ export interface Doctor {
 export interface Department {
     id: string;
     name: string;
+    image?: string; // Azure Blob URL for department image
     services: Service[];
     doctors: Doctor[];
 }
@@ -379,6 +381,9 @@ export const clinics: Clinic[] = [
         rating: 4.8,
         reviewCount: 2336,
         parkingInfo: 'Free Parking on Basement',
+        contactPhone: '+971 4 250 6262',
+        email: 'muraqabat@firstmedical.ae',
+        operationHours: 'Mon–Sat: 10 AM – 10 PM',
         departments: departmentNames.slice(0, 3).map(dept => ({
             id: `c1-${dept}`,
             name: dept,
@@ -397,6 +402,9 @@ export const clinics: Clinic[] = [
         rating: 4.9,
         reviewCount: 1936,
         parkingInfo: 'Ample RTA Parking',
+        contactPhone: '+971 4 261 7171',
+        email: 'qiyadah@firstmedical.ae',
+        operationHours: 'Mon–Sat: 10 AM – 10 PM',
         departments: [departmentNames[0], departmentNames[1], departmentNames[2]].map(dept => ({
             id: `c2-${dept}`,
             name: dept,
@@ -415,6 +423,9 @@ export const clinics: Clinic[] = [
         rating: 4.8,
         reviewCount: 178,
         parkingInfo: 'Building Parking 30 min Free',
+        contactPhone: '+971 4 392 0809',
+        email: 'siliconoasis@firstmedical.ae',
+        operationHours: 'Mon–Sat: 10 AM – 10 PM',
         departments: [departmentNames[0], departmentNames[1], departmentNames[2]].map(dept => ({
             id: `c3-${dept}`,
             name: dept,

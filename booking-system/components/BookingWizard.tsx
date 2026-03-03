@@ -6,9 +6,18 @@ import { clinics, timeSlots, Clinic, Department, Service, Doctor, PromoCode, Med
 import { useAuthStore } from '@/lib/store';
 import { usePackagesStore } from '@/lib/packages-store';
 import CustomerAuth from './auth/CustomerAuth';
-import { Calendar, Clock, User, ChevronRight, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill } from 'lucide-react';
+import { Calendar, Clock, User, ChevronRight, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill, Phone, Mail, ExternalLink } from 'lucide-react';
 import { format, addDays, startOfMonth, getMonth, getYear } from 'date-fns';
 import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_NAMES } from '@/lib/booking-voice-controller';
+
+// Default department images (fallback when no Azure Blob URL is set)
+const DEPT_IMAGES: Record<string, string> = {
+    'Dermatology & Aesthetics': '/images/departments/dermatology.png',
+    'Laser & Electrolysis Hair Removal': '/images/departments/laser.png',
+    'Nursing & Beauty Therapy': '/images/departments/nursing.png',
+};
+const DEFAULT_DEPT_IMAGE = '/images/departments/default.png';
+const getDeptImage = (dept: { name: string; image?: string }) => dept.image || DEPT_IMAGES[dept.name] || DEFAULT_DEPT_IMAGE;
 
 // Helper: get current date/time in Dubai timezone (UTC+4)
 function getDubaiNow(): Date {
@@ -67,6 +76,14 @@ export default function BookingWizard() {
     // Dynamic Services State
     const [clinicDepts, setClinicDepts] = useState<Department[]>([]);
     const [isLoadingServices, setIsLoadingServices] = useState(false);
+
+    // Category images (from admin uploads)
+    const [categoryImages, setCategoryImages] = useState<Record<string, string>>({});
+    React.useEffect(() => {
+        fetch('/api/admin/category-images').then(r => r.json()).then(data => {
+            if (data && typeof data === 'object') setCategoryImages(data);
+        }).catch(() => { });
+    }, []);
 
     // Follow-up Logic state
     const [isFollowUp, setIsFollowUp] = useState(false);
@@ -821,7 +838,7 @@ export default function BookingWizard() {
                 step === 0 && (
                     <div>
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose a Clinic</h2>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose a Branch</h2>
                             <button
                                 onClick={() => {
                                     if (navigator.geolocation) {
@@ -836,20 +853,19 @@ export default function BookingWizard() {
                                         alert("Geolocation is not supported by your browser.");
                                     }
                                 }}
-                                className="flex items-center gap-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
                             >
                                 <Navigation className="w-4 h-4" />
                                 Show Distance from Me
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {clinics.map((clinic) => {
-                                // Calculate Distance if User Location is available
+                                // Calculate Distance
                                 let distance: string | null = null;
                                 if (myCoords && clinic.coordinates) {
-                                    // Haversine Formula
-                                    const R = 6371; // Radius of the earth in km
+                                    const R = 6371;
                                     const dLat = (clinic.coordinates.lat - myCoords.lat) * (Math.PI / 180);
                                     const dLon = (clinic.coordinates.lng - myCoords.lng) * (Math.PI / 180);
                                     const a =
@@ -857,82 +873,115 @@ export default function BookingWizard() {
                                         Math.cos(myCoords.lat * (Math.PI / 180)) * Math.cos(clinic.coordinates.lat * (Math.PI / 180)) *
                                         Math.sin(dLon / 2) * Math.sin(dLon / 2);
                                     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                                    const d = R * c; // Distance in km
-                                    distance = d.toFixed(1) + ' km';
+                                    distance = (R * c).toFixed(1) + ' km';
                                 }
 
                                 return (
-                                    <div key={clinic.id} className="relative group h-full">
-                                        <button
-                                            onClick={() => handleClinicSelect(clinic)}
-                                            className="w-full h-full p-6 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all text-left flex flex-col"
-                                        >
-                                            <div className="flex items-start justify-between w-full mb-4">
-                                                <div className="bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-lg">
-                                                    <MapPin className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                                                </div>
+                                    <div key={clinic.id}
+                                        className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer"
+                                        onClick={() => handleClinicSelect(clinic)}
+                                    >
+                                        {/* ── Map Section (top of card) ── */}
+                                        {clinic.coordinates && (
+                                            <div className="relative w-full h-40 sm:h-44 bg-gray-100 dark:bg-gray-900">
+                                                <iframe
+                                                    width="100%" height="100%" frameBorder="0" scrolling="no" marginHeight={0} marginWidth={0}
+                                                    src={clinic.cid
+                                                        ? `https://maps.google.com/maps?cid=${clinic.cid}&hl=en&z=17&output=embed`
+                                                        : `https://maps.google.com/maps?q=${clinic.coordinates.lat},${clinic.coordinates.lng}&hl=en&z=17&output=embed`
+                                                    }
+                                                    className="w-full h-full" title={`${clinic.name} Map`}
+                                                />
+                                                {/* Transparent overlay to prevent map stealing clicks */}
+                                                <div className="absolute inset-0 bg-transparent" />
+                                                {/* Distance badge */}
                                                 {distance && (
-                                                    <div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1">
+                                                    <div className="absolute top-2 right-2 bg-white dark:bg-gray-800 text-green-700 dark:text-green-300 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-md">
                                                         <Navigation className="w-3 h-3" />
                                                         {distance}
                                                     </div>
                                                 )}
                                             </div>
-                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{clinic.name}</h3>
+                                        )}
 
-                                            {/* Rating */}
-                                            {clinic.rating && (
-                                                <div className="flex items-center gap-1 mb-2">
-                                                    <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        {/* ── Details Section ── */}
+                                        <div className="flex flex-col flex-1 p-5">
+                                            {/* Name & Rating */}
+                                            <div className="flex items-start justify-between mb-3">
+                                                <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                                    {clinic.name}
+                                                </h3>
+                                                {clinic.rating && (
+                                                    <span className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2 py-1 rounded-lg ml-2 flex-shrink-0">
                                                         {clinic.rating} <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                                                        <span className="text-gray-400 dark:text-gray-500 font-normal ml-0.5">({clinic.reviewCount})</span>
                                                     </span>
-                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                        ({clinic.reviewCount} Google reviews)
+                                                )}
+                                            </div>
+
+                                            {/* Contact Details Grid */}
+                                            <div className="space-y-2.5 text-sm mb-4">
+                                                {/* Address */}
+                                                <div className="flex items-start gap-2.5 text-gray-600 dark:text-gray-300">
+                                                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-indigo-500" />
+                                                    <span>{clinic.address}</span>
+                                                </div>
+
+                                                {/* Phone */}
+                                                {clinic.contactPhone && (
+                                                    <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-300">
+                                                        <Phone className="w-4 h-4 flex-shrink-0 text-indigo-500" />
+                                                        <a href={`tel:${clinic.contactPhone}`} onClick={e => e.stopPropagation()}
+                                                            className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                                            {clinic.contactPhone}
+                                                        </a>
+                                                    </div>
+                                                )}
+
+                                                {/* Email */}
+                                                {clinic.email && (
+                                                    <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-300">
+                                                        <Mail className="w-4 h-4 flex-shrink-0 text-indigo-500" />
+                                                        <a href={`mailto:${clinic.email}`} onClick={e => e.stopPropagation()}
+                                                            className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors truncate">
+                                                            {clinic.email}
+                                                        </a>
+                                                    </div>
+                                                )}
+
+                                                {/* Hours */}
+                                                {clinic.operationHours && (
+                                                    <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-300">
+                                                        <Clock className="w-4 h-4 flex-shrink-0 text-indigo-500" />
+                                                        <span>{clinic.operationHours}</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Parking */}
+                                                {clinic.parkingInfo && (
+                                                    <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-300">
+                                                        <Car className="w-4 h-4 flex-shrink-0 text-indigo-500" />
+                                                        <span>{clinic.parkingInfo}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Select Button */}
+                                            <div className="mt-auto pt-3 border-t border-gray-100 dark:border-gray-700">
+                                                <div className="flex items-center justify-between text-sm">
+                                                    {clinic.locationMap && (
+                                                        <a href={clinic.locationMap} target="_blank" rel="noopener noreferrer"
+                                                            onClick={e => e.stopPropagation()}
+                                                            className="flex items-center gap-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                                            <ExternalLink className="w-3.5 h-3.5" /> View on Maps
+                                                        </a>
+                                                    )}
+                                                    <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold group-hover:gap-2 transition-all">
+                                                        Select Branch <ArrowRight className="w-4 h-4" />
                                                     </span>
                                                 </div>
-                                            )}
-
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{clinic.address}</p>
-
-                                            <div className="mt-auto space-y-2 pt-4 border-t border-gray-100 dark:border-gray-800 w-full">
-                                                {clinic.operationHours && (
-                                                    <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                                        <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                                                        <span className="line-clamp-2">{clinic.operationHours}</span>
-                                                    </div>
-                                                )}
-                                                {clinic.parkingInfo && (
-                                                    <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                                        <Car className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                                                        <span className="line-clamp-1">{clinic.parkingInfo}</span>
-                                                    </div>
-                                                )}
                                             </div>
-                                        </button>
-
-
-
-                                        {clinic.coordinates && (
-                                            <div className="w-full h-48 mt-4 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800 relative z-0 shadow-inner">
-                                                <iframe
-                                                    width="100%"
-                                                    height="100%"
-                                                    frameBorder="0"
-                                                    scrolling="no"
-                                                    marginHeight={0}
-                                                    marginWidth={0}
-                                                    src={clinic.cid
-                                                        ? `https://maps.google.com/maps?cid=${clinic.cid}&hl=en&z=17&output=embed`
-                                                        : `https://maps.google.com/maps?q=${clinic.coordinates.lat},${clinic.coordinates.lng}&hl=en&z=17&output=embed`
-                                                    }
-                                                    className="w-full h-full"
-                                                    title={`${clinic.name} Map`}
-                                                >
-                                                </iframe>
-                                                {/* Overlay to prevent map interaction from interfering with card click */}
-                                                <div className="absolute inset-0 bg-transparent pointer-events-none"></div>
-                                            </div>
-                                        )}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -951,7 +1000,7 @@ export default function BookingWizard() {
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Department</h2>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
                             {isLoadingServices ? (
                                 <div className="col-span-full text-center py-8">Loading departments...</div>
                             ) : (
@@ -959,10 +1008,24 @@ export default function BookingWizard() {
                                     <button
                                         key={dept.id}
                                         onClick={() => handleDeptSelect(dept)}
-                                        className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-center"
+                                        className="group overflow-hidden border border-gray-200 dark:border-gray-700 rounded-2xl hover:border-indigo-400 hover:shadow-lg transition-all duration-300 text-left"
                                     >
-                                        <span className="block font-medium text-gray-800 dark:text-gray-200">{dept.name}</span>
-                                        <span className="text-xs text-gray-500">{dept.services.length} Services</span>
+                                        <div className="relative w-full h-36 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                                            <img
+                                                src={getDeptImage(dept)}
+                                                alt={dept.name}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                                            <span className="absolute bottom-2 right-2 bg-white/90 dark:bg-gray-900/90 text-xs font-semibold text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                                                {dept.services.length} Services
+                                            </span>
+                                        </div>
+                                        <div className="p-3">
+                                            <span className="block font-semibold text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors text-sm">
+                                                {dept.name}
+                                            </span>
+                                        </div>
                                     </button>
                                 ))
                             )}
@@ -995,17 +1058,29 @@ export default function BookingWizard() {
                                 <span className="text-gray-300">/</span>
                                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Category</h2>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {categories.map(([cat, count]) => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => handleCategorySelect(cat)}
-                                        className="p-5 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all text-center group"
-                                    >
-                                        <span className="block font-semibold text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{cat}</span>
-                                        <span className="text-xs text-gray-500 mt-1">{count} Service{count > 1 ? 's' : ''}</span>
-                                    </button>
-                                ))}
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                                {categories.map(([cat, count]) => {
+                                    // Use dedicated category image, fallback to first service image in that category
+                                    const catImage = categoryImages[cat] || genderFiltered.find(s => (s.category || 'General Services') === cat)?.image;
+                                    return (
+                                        <button
+                                            key={cat}
+                                            onClick={() => handleCategorySelect(cat)}
+                                            className="group overflow-hidden border border-gray-200 dark:border-gray-700 rounded-2xl hover:border-indigo-400 hover:shadow-lg transition-all duration-300 text-left"
+                                        >
+                                            {catImage && (
+                                                <div className="relative w-full h-32 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                                                    <img src={catImage} alt={cat} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                                                </div>
+                                            )}
+                                            <div className={`p-4 ${!catImage ? 'py-6' : ''}`}>
+                                                <span className="block font-semibold text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{cat}</span>
+                                                <span className="text-xs text-gray-500 mt-1">{count} Service{count > 1 ? 's' : ''}</span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     );
@@ -1036,14 +1111,20 @@ export default function BookingWizard() {
                                     <button
                                         key={svc.id}
                                         onClick={() => handleServiceSelect(svc)}
-                                        className="w-full flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-500 transition-all group"
+                                        className="w-full flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group"
                                     >
-                                        <div className="text-left">
+                                        {/* Service Thumbnail */}
+                                        {svc.image && (
+                                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
+                                                <img src={svc.image} alt={svc.name} className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
+                                        <div className="flex-1 text-left min-w-0">
                                             <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
                                             {svc.description && (
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>
                                             )}
-                                            <div className="flex gap-2 text-sm text-gray-500 mt-1">
+                                            <div className="flex flex-wrap gap-2 text-sm text-gray-500 mt-1">
                                                 <span>{svc.duration} mins</span>
                                                 {svc.isTaxable && (
                                                     <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded font-medium">
@@ -1060,7 +1141,7 @@ export default function BookingWizard() {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-3 flex-shrink-0">
                                             <span className="font-bold text-indigo-600 dark:text-indigo-400">{svc.price} AED</span>
                                             <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-500" />
                                         </div>

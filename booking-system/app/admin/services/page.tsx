@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill } from 'lucide-react';
+import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill, ImagePlus, FolderOpen, X } from 'lucide-react';
 import { Clinic, Department, Service, ServiceAddOn, ServicePackageTier, Doctor, Resource, Medicine } from '@/lib/data';
 
 interface ServiceFormState {
@@ -35,6 +35,7 @@ interface ServiceFormState {
     medicineSelectionMode: 'choose' | 'either' | 'all';
     consumableIds: string[];
     addOns: ServiceAddOn[];
+    image: string;
 }
 
 export default function ServicesPage() {
@@ -75,7 +76,8 @@ export default function ServicesPage() {
         medicineIds: [],
         medicineSelectionMode: 'choose',
         consumableIds: [],
-        addOns: []
+        addOns: [],
+        image: ''
     };
     const [newService, setNewService] = useState<ServiceFormState>(emptyServiceForm);
 
@@ -87,10 +89,63 @@ export default function ServicesPage() {
     const [editingService, setEditingService] = useState<Service & { departmentId: string } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string } | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+
+    // Image upload helper
+    const uploadImage = async (file: File, type: string, id: string): Promise<string> => {
+        setUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', type);
+            formData.append('id', id);
+            const res = await fetch('/api/admin/images/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            return data.url || '';
+        } catch {
+            return '';
+        } finally {
+            setUploadingImage(false);
+        }
+    };
 
     useEffect(() => {
         fetchServices();
+        fetchCategoryImages();
     }, []);
+
+    // Category images state
+    const [categoryImages, setCategoryImages] = useState<Record<string, string>>({});
+    const [showCategoryPanel, setShowCategoryPanel] = useState(false);
+
+    const fetchCategoryImages = async () => {
+        try {
+            const res = await fetch('/api/admin/category-images');
+            const data = await res.json();
+            setCategoryImages(data);
+        } catch { }
+    };
+
+    const handleCategoryImageUpload = async (category: string, file: File) => {
+        const url = await uploadImage(file, 'category', category);
+        if (url) {
+            await fetch('/api/admin/category-images', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category, imageUrl: url })
+            });
+            setCategoryImages(prev => ({ ...prev, [category]: url }));
+        }
+    };
+
+    const handleCategoryImageRemove = async (category: string) => {
+        await fetch(`/api/admin/category-images?category=${encodeURIComponent(category)}`, { method: 'DELETE' });
+        setCategoryImages(prev => {
+            const copy = { ...prev };
+            delete copy[category];
+            return copy;
+        });
+    };
 
     const fetchServices = async () => {
         try {
@@ -197,7 +252,8 @@ export default function ServicesPage() {
                 medicineIds: newService.medicineIds,
                 medicineSelectionMode: newService.medicineIds.length > 0 ? newService.medicineSelectionMode : undefined,
                 consumableIds: newService.consumableIds,
-                addOns: newService.addOns
+                addOns: newService.addOns,
+                image: newService.image || undefined
             };
 
             const res = await fetch('/api/admin/services', {
@@ -255,7 +311,8 @@ export default function ServicesPage() {
                 medicineIds: editingService.medicineIds || [],
                 medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : undefined,
                 consumableIds: editingService.consumableIds || [],
-                addOns: editingService.addOns || []
+                addOns: editingService.addOns || [],
+                image: editingService.image || undefined
             };
 
             const res = await fetch('/api/admin/services', {
@@ -441,6 +498,79 @@ export default function ServicesPage() {
                     </div>
                 </div>
 
+                {/* ── Category Images Panel ── */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 overflow-hidden">
+                    <button
+                        onClick={() => setShowCategoryPanel(!showCategoryPanel)}
+                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <FolderOpen className="w-5 h-5 text-indigo-500" />
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">Category Images</span>
+                            <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                                {Object.keys(categoryImages).length} set
+                            </span>
+                        </div>
+                        <span className={`text-gray-400 transition-transform ${showCategoryPanel ? 'rotate-180' : ''}`}>
+                            ▼
+                        </span>
+                    </button>
+                    {showCategoryPanel && (() => {
+                        // Collect all unique categories across all departments
+                        const allCategories = new Set<string>();
+                        currentClinic?.departments.forEach(dept => {
+                            dept.services.forEach(svc => {
+                                if (svc.category) allCategories.add(svc.category);
+                            });
+                        });
+                        const cats = Array.from(allCategories).sort();
+                        return (
+                            <div className="px-6 pb-6 border-t border-gray-100 dark:border-gray-700">
+                                <p className="text-sm text-gray-500 mt-3 mb-4">Upload images for service categories. These images appear on the booking page when clients choose a category.</p>
+                                {cats.length === 0 ? (
+                                    <p className="text-sm text-gray-400 italic">No categories found. Add services with categories first.</p>
+                                ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                        {cats.map(cat => (
+                                            <div key={cat} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                                                {categoryImages[cat] ? (
+                                                    <div className="relative h-28 bg-gray-100 dark:bg-gray-700">
+                                                        <img src={categoryImages[cat]} alt={cat} className="w-full h-full object-cover" />
+                                                        <button
+                                                            onClick={() => handleCategoryImageRemove(cat)}
+                                                            className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                                                            title="Remove image"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <label className="flex flex-col items-center justify-center h-28 bg-gray-50 dark:bg-gray-700/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                                        <ImagePlus className="w-6 h-6 text-gray-300 mb-1" />
+                                                        <span className="text-xs text-gray-400">Upload</span>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            onChange={async (e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (file) await handleCategoryImageUpload(cat, file);
+                                                            }}
+                                                        />
+                                                    </label>
+                                                )}
+                                                <div className="p-2 text-center">
+                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate block">{cat}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+                </div>
+
                 {/* Service List */}
                 <div className="space-y-6">
                     {filteredDepartments.map(dept => (
@@ -451,87 +581,95 @@ export default function ServicesPage() {
                             <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {dept.services.map(service => (
                                     <div key={service.id} className="p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                                        <div className="flex-1">
-                                            <h3 className="font-medium text-gray-900 dark:text-white mb-1">{service.name}</h3>
-                                            {service.description && (
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-2">{service.description}</p>
-                                            )}
-                                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="w-3.5 h-3.5" />
-                                                    {service.duration} mins
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <span className="text-xs font-semibold">د.إ</span>
-                                                    {service.regularPrice && service.discountedPrice ? (
-                                                        <><span className="line-through text-gray-400 mr-1">{service.regularPrice}</span><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
-                                                    ) : service.discountedPrice ? (
-                                                        <><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
-                                                    ) : (
-                                                        <>{service.regularPrice || service.price} AED</>
-                                                    )}
-                                                    {service.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded ml-1">+VAT</span>}
-                                                </span>
-                                                {service.threeSessionPackage && (
-                                                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 rounded-full text-xs text-blue-700 dark:text-blue-300 font-medium">
-                                                        3-Pack: {service.threeSessionPackage.discountedPrice} AED ({service.threeSessionPackage.validity}d)
-                                                    </span>
-                                                )}
-                                                {service.sixSessionPackage && (
-                                                    <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-full text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-                                                        6-Pack: {service.sixSessionPackage.discountedPrice} AED ({service.sixSessionPackage.validity}d)
-                                                    </span>
-                                                )}
-                                                {service.category && (
-                                                    <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs text-gray-600 dark:text-gray-300">
-                                                        {service.category}
-                                                    </span>
-                                                )}
-                                                {service.followUpDuration && (
-                                                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                                                        <Clock className="w-3.5 h-3.5" />
-                                                        Free Follow Up within {service.followUpDuration}d
-                                                    </span>
-                                                )}
-                                                <span className="flex items-center gap-1" title="Allowed Doctors">
-                                                    <Users className="w-3.5 h-3.5" />
-                                                    {getAllowedDoctorsText(service, dept.doctors)}
-                                                </span>
-                                                <span className="flex items-center gap-1" title="Gender Restriction">
-                                                    <Users2 className="w-3.5 h-3.5" />
-                                                    {getGenderText(service.allowedGender)}
-                                                </span>
-                                                <span className="flex items-center gap-1" title="Day Restriction">
-                                                    <Calendar className="w-3.5 h-3.5" />
-                                                    {getDaysText(service.allowedDays)}
-                                                </span>
-                                                <span className="flex items-center gap-1" title="Time Restriction">
-                                                    <Clock4 className="w-3.5 h-3.5" />
-                                                    {getTimeWindowText(service.timeWindow)}
-                                                </span>
-                                                {service.requiredResourceIds && service.requiredResourceIds.length > 0 && (
-                                                    <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400" title="Required Resources">
-                                                        <Archive className="w-3.5 h-3.5" />
-                                                        {service.requiredResourceIds.length} Resources
-                                                    </span>
-                                                )}
-                                                {service.maxMedicines !== undefined && service.maxMedicines > 0 && (
-                                                    <span className="flex items-center gap-1 text-teal-600 dark:text-teal-400" title="Max Medicines">
-                                                        <Pill className="w-3.5 h-3.5" />
-                                                        Up to {service.maxMedicines} Medicine{service.maxMedicines > 1 ? 's' : ''}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {/* Add-on badges */}
-                                            {service.addOns && service.addOns.length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                                    {service.addOns.map(ao => (
-                                                        <span key={ao.id} className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
-                                                            🔧 {ao.procedure} · {ao.area} · +{ao.price} AED
-                                                        </span>
-                                                    ))}
+                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                            {/* Service Thumbnail */}
+                                            {service.image && (
+                                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
+                                                    <img src={service.image} alt={service.name} className="w-full h-full object-cover" />
                                                 </div>
                                             )}
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-medium text-gray-900 dark:text-white mb-1">{service.name}</h3>
+                                                {service.description && (
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-2">{service.description}</p>
+                                                )}
+                                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock className="w-3.5 h-3.5" />
+                                                        {service.duration} mins
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <span className="text-xs font-semibold">د.إ</span>
+                                                        {service.regularPrice && service.discountedPrice ? (
+                                                            <><span className="line-through text-gray-400 mr-1">{service.regularPrice}</span><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
+                                                        ) : service.discountedPrice ? (
+                                                            <><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
+                                                        ) : (
+                                                            <>{service.regularPrice || service.price} AED</>
+                                                        )}
+                                                        {service.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded ml-1">+VAT</span>}
+                                                    </span>
+                                                    {service.threeSessionPackage && (
+                                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 rounded-full text-xs text-blue-700 dark:text-blue-300 font-medium">
+                                                            3-Pack: {service.threeSessionPackage.discountedPrice} AED ({service.threeSessionPackage.validity}d)
+                                                        </span>
+                                                    )}
+                                                    {service.sixSessionPackage && (
+                                                        <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-full text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                                                            6-Pack: {service.sixSessionPackage.discountedPrice} AED ({service.sixSessionPackage.validity}d)
+                                                        </span>
+                                                    )}
+                                                    {service.category && (
+                                                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs text-gray-600 dark:text-gray-300">
+                                                            {service.category}
+                                                        </span>
+                                                    )}
+                                                    {service.followUpDuration && (
+                                                        <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                                            <Clock className="w-3.5 h-3.5" />
+                                                            Free Follow Up within {service.followUpDuration}d
+                                                        </span>
+                                                    )}
+                                                    <span className="flex items-center gap-1" title="Allowed Doctors">
+                                                        <Users className="w-3.5 h-3.5" />
+                                                        {getAllowedDoctorsText(service, dept.doctors)}
+                                                    </span>
+                                                    <span className="flex items-center gap-1" title="Gender Restriction">
+                                                        <Users2 className="w-3.5 h-3.5" />
+                                                        {getGenderText(service.allowedGender)}
+                                                    </span>
+                                                    <span className="flex items-center gap-1" title="Day Restriction">
+                                                        <Calendar className="w-3.5 h-3.5" />
+                                                        {getDaysText(service.allowedDays)}
+                                                    </span>
+                                                    <span className="flex items-center gap-1" title="Time Restriction">
+                                                        <Clock4 className="w-3.5 h-3.5" />
+                                                        {getTimeWindowText(service.timeWindow)}
+                                                    </span>
+                                                    {service.requiredResourceIds && service.requiredResourceIds.length > 0 && (
+                                                        <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400" title="Required Resources">
+                                                            <Archive className="w-3.5 h-3.5" />
+                                                            {service.requiredResourceIds.length} Resources
+                                                        </span>
+                                                    )}
+                                                    {service.maxMedicines !== undefined && service.maxMedicines > 0 && (
+                                                        <span className="flex items-center gap-1 text-teal-600 dark:text-teal-400" title="Max Medicines">
+                                                            <Pill className="w-3.5 h-3.5" />
+                                                            Up to {service.maxMedicines} Medicine{service.maxMedicines > 1 ? 's' : ''}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {/* Add-on badges */}
+                                                {service.addOns && service.addOns.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                                        {service.addOns.map(ao => (
+                                                            <span key={ao.id} className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
+                                                                🔧 {ao.procedure} · {ao.area} · +{ao.price} AED
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-2 ml-4">
                                             <button
@@ -592,6 +730,37 @@ export default function ServicesPage() {
                                             value={newService.name}
                                             onChange={(e) => setNewService({ ...newService, name: e.target.value })}
                                         />
+                                    </div>
+
+                                    {/* Service Image Upload */}
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium mb-1">Service Image</label>
+                                        <div className="flex items-center gap-4">
+                                            {newService.image && (
+                                                <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
+                                                    <img src={newService.image} alt="Preview" className="w-full h-full object-cover" />
+                                                </div>
+                                            )}
+                                            <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                                <ImagePlus className="w-5 h-5 text-gray-400" />
+                                                <span className="text-sm text-gray-500">{uploadingImage ? 'Uploading...' : 'Upload Image'}</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const url = await uploadImage(file, 'service', newService.name || 'new');
+                                                            if (url) setNewService({ ...newService, image: url });
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                            {newService.image && (
+                                                <button type="button" onClick={() => setNewService({ ...newService, image: '' })} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Description & Care Instructions */}
@@ -1045,7 +1214,36 @@ export default function ServicesPage() {
                                         />
                                     </div>
 
-                                    {/* Description & Care Instructions */}
+                                    {/* Service Image Upload (Edit) */}
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium mb-1">Service Image</label>
+                                        <div className="flex items-center gap-4">
+                                            {editingService.image && (
+                                                <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
+                                                    <img src={editingService.image} alt="Preview" className="w-full h-full object-cover" />
+                                                </div>
+                                            )}
+                                            <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                                <ImagePlus className="w-5 h-5 text-gray-400" />
+                                                <span className="text-sm text-gray-500">{uploadingImage ? 'Uploading...' : 'Upload Image'}</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const url = await uploadImage(file, 'service', editingService.id);
+                                                            if (url) setEditingService({ ...editingService, image: url });
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                            {editingService.image && (
+                                                <button type="button" onClick={() => setEditingService({ ...editingService, image: '' })} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                                            )}
+                                        </div>
+                                    </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Service Description</label>
                                         <textarea

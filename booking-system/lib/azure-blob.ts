@@ -120,3 +120,12 @@ export function letterDocPath(letterId: string, fileName: string): string {
     const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
     return `letters/${letterId}-${Date.now()}-${safe}`;
 }
+
+/**
+ * Catalog image path (departments, services, doctors):
+ * images/{type}/{id}/{timestamp}-{filename}
+ */
+export function catalogImagePath(type: string, id: string, fileName: string): string {
+    const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    return `images/${type}/${id}/${Date.now()}-${safe}`;
+}

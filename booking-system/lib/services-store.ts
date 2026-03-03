@@ -270,6 +270,24 @@ export const ServicesStore = {
     }
 };
 
+// ── Category Image Store ──────────────────────────────────────
+// Maps category name → image URL (since categories are just strings on services)
+let categoryImageStore: Record<string, string> = {};
+
+export const CategoryImageStore = {
+    getAll: (): Record<string, string> => ({ ...categoryImageStore }),
+
+    get: (category: string): string | undefined => categoryImageStore[category],
+
+    set: (category: string, imageUrl: string): void => {
+        categoryImageStore[category] = imageUrl;
+    },
+
+    remove: (category: string): void => {
+        delete categoryImageStore[category];
+    }
+};
+
 // In-memory store for registered products
 let registeredProductStore: RegisteredProduct[] = JSON.parse(JSON.stringify(initialRegisteredProducts));
 
