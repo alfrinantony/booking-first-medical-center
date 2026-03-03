@@ -2,14 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSettingsStore } from '@/lib/settings-store';
+import { useRestrictionsStore } from '@/lib/restrictions-store';
+import { timeSlots } from '@/lib/data';
 import { Save, Eye, EyeOff, Bell } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SettingsPage() {
     const { settings, updateSettings } = useSettingsStore();
+    const { peakDays, peakSlots, noShowRestrictionDays, setPeakConfig, setNoShowRestrictionDays } = useRestrictionsStore();
     const [formData, setFormData] = useState(settings);
     const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
     const [isClient, setIsClient] = useState(false);
+    const [localPeakDays, setLocalPeakDays] = useState<number[]>(peakDays);
+    const [localPeakSlots, setLocalPeakSlots] = useState<string[]>(peakSlots);
+    const [localRestrictionDays, setLocalRestrictionDays] = useState(noShowRestrictionDays);
 
     useEffect(() => {
         setFormData(settings);
@@ -131,6 +137,80 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </section>
+
+                {/* Peak Schedule & No-Show Restrictions */}
+                {(() => {
+                    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+                    const toggleDay = (day: number) => {
+                        setLocalPeakDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+                    };
+                    const toggleSlot = (slot: string) => {
+                        setLocalPeakSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]);
+                    };
+                    const savePeakConfig = () => {
+                        setPeakConfig(localPeakDays, localPeakSlots);
+                        setNoShowRestrictionDays(localRestrictionDays);
+                        alert('Peak schedule & restrictions saved!');
+                    };
+
+                    return (
+                        <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="flex justify-between items-center mb-6 border-b pb-2">
+                                <h2 className="text-lg font-medium text-gray-900 dark:text-white">🚫 Peak Schedule & No-Show Restrictions</h2>
+                                <button type="button" onClick={savePeakConfig} className="flex items-center gap-2 px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm">
+                                    <Save className="w-3 h-3" /> Save Peak Config
+                                </button>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                Clients with a no-show will be restricted from booking during these peak days and time slots.
+                            </p>
+
+                            <div className="space-y-6">
+                                {/* Peak Days */}
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Peak Days</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {dayLabels.map((label, idx) => (
+                                            <button key={idx} type="button" onClick={() => toggleDay(idx)}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${localPeakDays.includes(idx)
+                                                    ? 'bg-orange-100 dark:bg-orange-900/30 border-orange-500 text-orange-700 dark:text-orange-300'
+                                                    : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-orange-300'
+                                                    }`}>
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Peak Time Slots */}
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Peak Time Slots</h3>
+                                    <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                                        {timeSlots.map(slot => (
+                                            <button key={slot} type="button" onClick={() => toggleSlot(slot)}
+                                                className={`px-2 py-1.5 rounded text-xs font-medium border transition-all ${localPeakSlots.includes(slot)
+                                                    ? 'bg-orange-100 dark:bg-orange-900/30 border-orange-500 text-orange-700 dark:text-orange-300'
+                                                    : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-orange-300'
+                                                    }`}>
+                                                {slot}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Restriction Duration */}
+                                <div className="max-w-xs">
+                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Restriction Duration (Days)</h3>
+                                    <input type="number" min="1" max="90" value={localRestrictionDays}
+                                        onChange={e => setLocalRestrictionDays(Number(e.target.value))}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white text-sm" />
+                                    <p className="text-xs text-gray-400 mt-1">How many days the no-show peak restriction lasts (default: 7)</p>
+                                </div>
+                            </div>
+                        </section>
+                    );
+                })()}
 
 
 

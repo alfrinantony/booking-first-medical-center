@@ -10,6 +10,13 @@ import { Calendar, Clock, User, ChevronRight, Check, MapPin, AlertCircle, Car, A
 import { format, addDays, startOfMonth, getMonth, getYear } from 'date-fns';
 import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_NAMES } from '@/lib/booking-voice-controller';
 
+// Helper: get current date/time in Dubai timezone (UTC+4)
+function getDubaiNow(): Date {
+    const now = new Date();
+    const dubaiStr = now.toLocaleString('en-US', { timeZone: 'Asia/Dubai' });
+    return new Date(dubaiStr);
+}
+
 export default function BookingWizard() {
     const router = useRouter();
     const { user, isAuthenticated } = useAuthStore();
@@ -48,6 +55,7 @@ export default function BookingWizard() {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+    const [isAnyDoctor, setIsAnyDoctor] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -100,17 +108,30 @@ export default function BookingWizard() {
         }
     }, [selectedClinic]);
 
-    // Generate next 90 days (3 months) for date selection, filtering by service.allowedDays AND clinic.workingDays
+    // Generate next 90 days (3 months) for date selection, filtering by service, clinic, and doctor
     const availableDates = Array.from({ length: 90 })
-        .map((_, i) => addDays(new Date(), i + 1))
+        .map((_, i) => addDays(getDubaiNow(), i)) // starts from today (Dubai time)
         .filter(date => {
+            const dayOfWeek = date.getDay(); // 0=Sun … 6=Sat
+            const dateStr = format(date, 'yyyy-MM-dd');
+
             // Service Restrictions
             if (selectedService?.allowedDays && selectedService.allowedDays.length > 0) {
-                if (!selectedService.allowedDays.includes(date.getDay())) return false;
+                if (!selectedService.allowedDays.includes(dayOfWeek)) return false;
             }
             // Clinic Restrictions
             if (selectedClinic?.workingDays && selectedClinic.workingDays.length > 0) {
-                if (!selectedClinic.workingDays.includes(date.getDay())) return false;
+                if (!selectedClinic.workingDays.includes(dayOfWeek)) return false;
+            }
+            // Doctor Restrictions
+            if (selectedDoctor) {
+                // Doctor not working
+                if (selectedDoctor.status === 'not_working') return false;
+                // Doctor's regular days off
+                if (selectedDoctor.daysOff && selectedDoctor.daysOff.includes(dayOfWeek)) return false;
+                // Outside doctor's employment period
+                if (selectedDoctor.startDate && dateStr < selectedDoctor.startDate) return false;
+                if (selectedDoctor.endDate && dateStr > selectedDoctor.endDate) return false;
             }
             return true;
         });
@@ -204,7 +225,48 @@ export default function BookingWizard() {
                         return slotMins >= effectiveStart && slotMins < effectiveEnd;
                     });
 
+                    // 3b. If booking for today (Dubai time), hide slots less than 30 min from now
+                    const now = getDubaiNow();
+                    const isToday = selectedDate.toDateString() === now.toDateString();
+                    if (isToday) {
+                        const nowMins = now.getHours() * 60 + now.getMinutes();
+                        const minLeadTime = 30; // must be at least 30 minutes before slot
+                        slots = slots.filter((slot: string) => {
+                            const slotMins = parseTimeSlot(slot);
+                            return slotMins - nowMins >= minLeadTime;
+                        });
+                    }
+
+                    // 4. Filter out slots already booked by this patient on the same date
+                    if (user?.name) {
+                        try {
+                            const dateStr2 = format(selectedDate, 'yyyy-MM-dd');
+                            const bRes = await fetch(`/api/admin/bookings?date=${dateStr2}&search=${encodeURIComponent(user.name)}`);
+                            if (bRes.ok) {
+                                const myBookings = await bRes.json();
+                                const myBookedSlots = new Set(
+                                    myBookings
+                                        .filter((b: any) => b.status !== 'cancelled')
+                                        .map((b: any) => b.slot)
+                                );
+                                slots = slots.filter((slot: string) => !myBookedSlots.has(slot));
+                            }
+                        } catch { /* ignore */ }
+                    }
+
+                    // 5. No-show peak restriction filter
+                    if (user) {
+                        try {
+                            const rStore = require('@/lib/restrictions-store');
+                            const clientId = user.phone || user.email || user.name || '';
+                            slots = slots.filter((slot: string) =>
+                                !rStore.useRestrictionsStore.getState().isSlotRestricted(clientId, selectedDate, slot, selectedService?.id)
+                            );
+                        } catch { /* ignore */ }
+                    }
+
                     setAvailableSlots(slots);
+
 
                 } catch (error) {
                     console.error('Error fetching slots', error);
@@ -329,11 +391,12 @@ export default function BookingWizard() {
         }
     };
 
-    const handleDoctorSelect = (doc: Doctor) => {
+    const handleDoctorSelect = (doc: Doctor, anyDoctor = false) => {
         setSelectedDoctor(doc);
+        setIsAnyDoctor(anyDoctor);
         setStep(5);
         setSelectedDate(null); setSelectedSlot(null);
-        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 4, selected: doc.name });
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 4, selected: anyDoctor ? 'Any Available Doctor' : doc.name });
     };
 
     const handleDateSelect = (date: Date) => {
@@ -611,18 +674,29 @@ export default function BookingWizard() {
             referralName: referralName || undefined,
             referralContact: referralContact || undefined,
             referralEmployeeName: referralEmployeeName || undefined,
-            referralEmployeeId: referralEmployeeId || undefined
+            referralEmployeeId: referralEmployeeId || undefined,
+            anyDoctor: isAnyDoctor || undefined
         };
 
         try {
             // Persist booking
-            await fetch('/api/admin/bookings', {
+            const res = await fetch('/api/admin/bookings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bookingData)
             });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                if (res.status === 409) {
+                    alert(err.error || 'You already have a booking at this date and time.');
+                    return;
+                }
+                throw new Error(err.error || 'Booking failed');
+            }
         } catch (error) {
             console.error('Failed to save booking', error);
+            alert('Failed to create booking. Please try again.');
+            return;
         }
 
         // Store in URL params or context for the payment page
@@ -632,8 +706,9 @@ export default function BookingWizard() {
             bookingId: 'mock-booking-id-' + Date.now(),
             bookingDate: selectedDate?.toISOString().split('T')[0] || '',
             slot: selectedSlot || '',
-            doctorName: selectedDoctor?.name || '',
+            doctorName: isAnyDoctor ? '' : (selectedDoctor?.name || ''),
             clinicName: selectedClinic?.name || '',
+            anyDoctor: isAnyDoctor ? 'true' : '',
             ...(appliedPromo ? { promo: appliedPromo.code } : {})
         }).toString();
 
@@ -1183,6 +1258,27 @@ export default function BookingWizard() {
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Specialist</h2>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            {/* Any Available Doctor option */}
+                            <button
+                                onClick={() => {
+                                    const availableDocs = selectedDept.doctors.filter(doc => !selectedService?.allowedDoctorIds || selectedService.allowedDoctorIds.length === 0 || selectedService.allowedDoctorIds.includes(doc.id));
+                                    if (availableDocs.length > 0) {
+                                        handleDoctorSelect(availableDocs[0], true);
+                                    }
+                                }}
+                                className="flex items-center gap-4 p-4 border-2 border-dashed border-orange-400 dark:border-orange-500 rounded-xl hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all text-left sm:col-span-2"
+                            >
+                                <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <svg className="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-orange-600 dark:text-orange-400">Any Available Doctor</h4>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Let the system assign the first available specialist</p>
+                                </div>
+                            </button>
+
                             {selectedDept.doctors
                                 .filter(doc => !selectedService?.allowedDoctorIds || selectedService.allowedDoctorIds.length === 0 || selectedService.allowedDoctorIds.includes(doc.id))
                                 .map((doc) => (

@@ -37,6 +37,8 @@ export interface Service {
     medicineSelectionMode?: 'choose' | 'either' | 'all'; // choose=pick up to N, either=pick exactly 1, all=auto-include all
     consumableIds?: string[]; // IDs of consumables/medicines used per procedure
     addOns?: ServiceAddOn[]; // Optional add-on procedures with area and price
+    peakDays?: number[];    // Procedure-specific peak days (0=Sun–6=Sat), overrides clinic-wide
+    peakSlots?: string[];   // Procedure-specific peak time slots, overrides clinic-wide
 }
 
 export interface BranchStockEntry {
@@ -302,7 +304,7 @@ export interface Booking {
     patientName: string;
     whatsappNumber?: string; // New field
     email?: string;
-    status: 'booked' | 'confirmed' | 'rescheduled' | 'cancelled' | 'arrived' | 'in_service' | 'completed';
+    status: 'booked' | 'confirmed' | 'rescheduled' | 'cancelled' | 'arrived' | 'in_service' | 'completed' | 'no_show';
     confirmationStatus?: 'pending' | 'confirmed' | 'cancelled' | 'rescheduled'; // New field
     selectedMedicineIds?: string[]; // Medicines chosen by customer
     // Referral fields
@@ -311,6 +313,7 @@ export interface Booking {
     referralContact?: string;        // Contact number of referring family member or friend
     referralEmployeeName?: string;   // Employee name (if referred by employee)
     referralEmployeeId?: string;     // Employee ID number (if referred by employee)
+    anyDoctor?: boolean;             // True when booked under "Any Available Doctor"
     createdAt: string;
 }
 

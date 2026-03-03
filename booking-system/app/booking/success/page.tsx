@@ -118,7 +118,7 @@ function SuccessContent() {
                                 <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0" />
                                 <div>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Technician / Doctor</p>
-                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{bookingDetails.doctorName || 'N/A'}</p>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{bookingDetails.doctorName || 'Any Available Doctor'}</p>
                                 </div>
                             </div>
 

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mic, MicOff, PhoneOff, UserRoundPlus, X, ChevronDown, Loader2, Timer, Globe } from 'lucide-react';
+import { useRestrictionsStore } from '@/lib/restrictions-store';
 import {
     bookingVoiceController,
     VOICE_EVENTS,
@@ -643,22 +644,28 @@ export default function VoiceAgentBubble() {
         const msg: ChatMessage = { role: 'assistant', content: greeting };
         setChatLog([msg]);
         chatHistoryRef.current = [msg];
-        speak(greeting).then(() => {
-            continuousModeRef.current = true;
-            setTimeout(() => startListeningRef.current(), 400);
-        });
+        speak(greeting);
+        // Customer must manually tap the mic to start speaking
     }, [customerName, speak]);
 
     /* ── Toggle panel ── */
     const toggle = useCallback(() => {
         if (!isOpen) {
+            // Check voice agent block
+            if (user) {
+                const clientId = user.phone || user.email || user.name || '';
+                if (useRestrictionsStore.getState().isVoiceBlocked(clientId)) {
+                    alert('Voice booking is not available for your account. Please use the online booking portal or contact the clinic.');
+                    return;
+                }
+            }
             setIsOpen(true);
             // If already connected (minimized), just re-open
             // If not connected, show language picker (no auto-start)
         } else {
             setIsOpen(false);
         }
-    }, [isOpen]);
+    }, [isOpen, user]);
 
     /* ── Cleanup on unmount ── */
     useEffect(() => {

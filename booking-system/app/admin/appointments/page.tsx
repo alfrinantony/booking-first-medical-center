@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { clinics, Booking, timeSlots, Medicine } from '@/lib/data';
+import { useRestrictionsStore } from '@/lib/restrictions-store';
 import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X } from 'lucide-react';
 import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
@@ -137,12 +138,13 @@ export default function AdminAppointmentsPage() {
     const getNextStatusOptions = (currentStatus: Booking['status']) => {
         const flow: Record<string, Booking['status'][]> = {
             'booked': ['confirmed', 'cancelled'],
-            'confirmed': ['arrived', 'cancelled', 'rescheduled'],
+            'confirmed': ['arrived', 'cancelled', 'rescheduled', 'no_show'],
             'rescheduled': ['confirmed', 'cancelled'],
-            'arrived': ['in_service', 'cancelled'],
+            'arrived': ['in_service', 'cancelled', 'no_show'],
             'in_service': ['completed', 'cancelled'],
             'completed': [], // Terminal state
-            'cancelled': []  // Terminal state
+            'cancelled': [],  // Terminal state
+            'no_show': []     // Terminal state
         };
         return flow[currentStatus] || [];
     };
@@ -204,6 +206,11 @@ export default function AdminAppointmentsPage() {
             });
 
             if (res.ok) {
+                // If status changed to no_show, record the restriction
+                if (editForm.status === 'no_show' && editingBooking.status !== 'no_show') {
+                    const clientId = editingBooking.whatsappNumber || editingBooking.email || editingBooking.patientName;
+                    useRestrictionsStore.getState().recordNoShow(clientId);
+                }
                 setIsEditModalOpen(false);
                 fetchBookings(); // Refresh list
             } else {
@@ -413,14 +420,14 @@ export default function AdminAppointmentsPage() {
                                                             </div>
                                                         ) : (
                                                             slotBookings.map(b => (
-                                                                <div key={b.id} className="bg-white dark:bg-gray-800 p-2 rounded shadow-sm text-sm border-l-4 border-indigo-500 mb-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" onClick={() => handleEditClick(b)}>
+                                                                <div key={b.id} className={`bg-white dark:bg-gray-800 p-2 rounded shadow-sm text-sm border-l-4 mb-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${b.anyDoctor ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-900/10' : 'border-indigo-500'}`} onClick={() => handleEditClick(b)}>
                                                                     <div className="flex justify-between items-start">
                                                                         <span className="font-bold block text-gray-900 dark:text-white">{b.patientName}</span>
                                                                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                                                                             }`}>{b.status}</span>
                                                                     </div>
                                                                     <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                                                        <span className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {b.doctorId}</span>
+                                                                        <span className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {b.anyDoctor ? <span className="text-orange-600 font-medium">Any Doctor</span> : b.doctorId}</span>
                                                                         {b.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {b.duration}m</span>}
                                                                     </div>
                                                                     {b.selectedMedicineIds && b.selectedMedicineIds.length > 0 && (
@@ -477,8 +484,8 @@ export default function AdminAppointmentsPage() {
                                                 </span>
                                             </div>
                                             <div className="flex gap-0.5 justify-center flex-wrap px-1">
-                                                {dayBookings.slice(0, 5).map((_, i) => (
-                                                    <div key={i} className="w-1 h-1 rounded-full bg-indigo-500" />
+                                                {dayBookings.slice(0, 5).map((b, i) => (
+                                                    <div key={i} className={`w-1 h-1 rounded-full ${b.anyDoctor ? 'bg-orange-500' : 'bg-indigo-500'}`} />
                                                 ))}
                                                 {dayBookings.length > 5 && <div className="w-1 h-1 rounded-full bg-gray-400" />}
                                             </div>
@@ -499,14 +506,15 @@ export default function AdminAppointmentsPage() {
                     <div className="flex-1 overflow-y-auto pr-2 space-y-3">
                         {selectedDayBookings.length > 0 ? (
                             selectedDayBookings.map((booking) => (
-                                <div key={booking.id} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-indigo-300 transition-colors">
+                                <div key={booking.id} className={`p-3 rounded-lg border transition-colors ${booking.anyDoctor ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 hover:border-orange-400' : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-indigo-300'}`}>
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                             <Clock className="w-4 h-4 text-indigo-500" />
                                             {booking.slot}
                                         </div>
                                         <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                            booking.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                            booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                                booking.status === 'no_show' ? 'bg-red-200 text-red-800 font-bold' : 'bg-gray-100 text-gray-700'
                                             }`}>
                                             {booking.status}
                                         </span>
@@ -522,7 +530,7 @@ export default function AdminAppointmentsPage() {
                                             <MapPin className="w-3 h-3" /> Branch: {booking.clinicId}
                                         </div>
                                         <div className="flex items-center gap-1">
-                                            <Stethoscope className="w-3 h-3" /> Dr. {booking.doctorId}
+                                            <Stethoscope className="w-3 h-3" /> {booking.anyDoctor ? <span className="text-orange-600 font-semibold">Any Available Doctor</span> : `Dr. ${booking.doctorId}`}
                                         </div>
                                         {booking.selectedMedicineIds && booking.selectedMedicineIds.length > 0 && (
                                             <div className="flex flex-wrap gap-1 mt-1">

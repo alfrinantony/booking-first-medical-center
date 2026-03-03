@@ -54,6 +54,10 @@ export interface Client {
     bookingIds: string[];
     totalBookings: number;
     lastBookingDate?: string;
+    // Restrictions
+    noShowExempt?: boolean;        // Exempt from no-show peak restrictions
+    voiceAgentBlocked?: boolean;   // Blocked from voice agent booking
+    noShowDates?: string[];        // ISO dates of no-show occurrences
 }
 
 export const ClientsStore = {

@@ -24,6 +24,21 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
+        // Check for duplicate: same patient, same date, same slot (non-cancelled)
+        const existingBookings = BookingsStore.getAll();
+        const duplicate = existingBookings.find(b =>
+            b.patientName === body.patientName &&
+            b.date === body.date &&
+            b.slot === body.slot &&
+            b.status !== 'cancelled'
+        );
+        if (duplicate) {
+            return NextResponse.json(
+                { error: 'You already have a booking at this date and time.' },
+                { status: 409 }
+            );
+        }
+
         const newBooking = BookingsStore.add({
             ...body,
             status: 'booked'

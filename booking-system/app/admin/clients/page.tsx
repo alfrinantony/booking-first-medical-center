@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { ClientsStore, Client } from '@/lib/clients-store';
-import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink } from 'lucide-react';
+import { useRestrictionsStore } from '@/lib/restrictions-store';
+import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff } from 'lucide-react';
 
 /* ── Form shape ── */
 interface EditForm {
@@ -560,6 +561,58 @@ export default function ClientsPage() {
                                 {fld('Telephone', 'emergencyTelephone', { type: 'tel', placeholder: '+971 XX XXX XXXX' })}
                                 {fld('Work / Mobile', 'emergencyWorkMobile', { type: 'tel', placeholder: '+971 5X XXX XXXX' })}
                             </div>
+
+                            {/* ── Section 5b: Booking Restrictions ── */}
+                            {!isRegistering && editingClient && (() => {
+                                const clientId = editingClient.id;
+                                const store = useRestrictionsStore.getState();
+                                const restriction = store.getClientRestriction(clientId);
+                                const recentNoShows = restriction.noShowDates.filter(d => {
+                                    const diff = (Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24);
+                                    return diff <= 7;
+                                });
+                                return (
+                                    <>
+                                        {secHeader(<ShieldAlert className="w-4 h-4" />, 'Booking Restrictions')}
+                                        <div className="space-y-4">
+                                            {/* No-show count badge */}
+                                            {restriction.noShowDates.length > 0 && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-gray-500">No-Show History:</span>
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                                                        {restriction.noShowDates.length} total • {recentNoShows.length} in last 7 days
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Toggles */}
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
+                                                    <input type="checkbox" checked={restriction.noShowExempt}
+                                                        onChange={e => store.setNoShowExempt(clientId, e.target.checked)}
+                                                        className="w-4 h-4 text-green-600 rounded" />
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Exempt from No-Show Restrictions</div>
+                                                        <div className="text-xs text-gray-400">Allow booking during peak hours despite no-shows</div>
+                                                    </div>
+                                                </label>
+
+                                                <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
+                                                    <input type="checkbox" checked={restriction.voiceAgentBlocked}
+                                                        onChange={e => store.setVoiceAgentBlocked(clientId, e.target.checked)}
+                                                        className="w-4 h-4 text-red-600 rounded" />
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                                            <MicOff className="w-3.5 h-3.5" /> Block Voice Agent Booking
+                                                        </div>
+                                                        <div className="text-xs text-gray-400">Prevent booking via voice assistant</div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </>
+                                );
+                            })()}
 
                             {/* ── Section 6: Client Grouping ── */}
                             {secHeader(<Link2 className="w-4 h-4" />, 'Client Grouping / Connected Patients')}
