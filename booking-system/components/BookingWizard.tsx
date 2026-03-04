@@ -6,7 +6,7 @@ import { clinics, timeSlots, Clinic, Department, Service, Doctor, PromoCode, Med
 import { useAuthStore } from '@/lib/store';
 import { usePackagesStore } from '@/lib/packages-store';
 import CustomerAuth from './auth/CustomerAuth';
-import { Calendar, Clock, User, ChevronRight, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill, Phone, Mail, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, User, ChevronRight, ChevronDown, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill, Phone, Mail, ExternalLink, Map as MapIcon } from 'lucide-react';
 import { format, addDays, startOfMonth, getMonth, getYear } from 'date-fns';
 import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_NAMES } from '@/lib/booking-voice-controller';
 
@@ -18,6 +18,15 @@ const DEPT_IMAGES: Record<string, string> = {
 };
 const DEFAULT_DEPT_IMAGE = '/images/departments/default.png';
 const getDeptImage = (dept: { name: string; image?: string }) => dept.image || DEPT_IMAGES[dept.name] || DEFAULT_DEPT_IMAGE;
+
+// Default branch images (fallback when no custom image is uploaded)
+const BRANCH_IMAGES: Record<string, string> = {
+    'Al Muraqabat Branch': '/images/branches/muraqabat.png',
+    'Al Qiyadah Branch': '/images/branches/qiyadah.png',
+    'Silicon Oasis Branch': '/images/branches/silicon_oasis.png',
+};
+const DEFAULT_BRANCH_IMAGE = '/images/branches/muraqabat.png';
+const getBranchImage = (clinic: { name: string; image?: string }) => clinic.image || BRANCH_IMAGES[clinic.name] || DEFAULT_BRANCH_IMAGE;
 
 // Helper: get current date/time in Dubai timezone (UTC+4)
 function getDubaiNow(): Date {
@@ -68,6 +77,7 @@ export default function BookingWizard() {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [expandedMapId, setExpandedMapId] = useState<string | null>(null);
 
     // Dynamic slots state
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -876,49 +886,42 @@ export default function BookingWizard() {
                                     distance = (R * c).toFixed(1) + ' km';
                                 }
 
+                                const isMapExpanded = expandedMapId === clinic.id;
+
                                 return (
                                     <div key={clinic.id}
-                                        className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer"
-                                        onClick={() => handleClinicSelect(clinic)}
+                                        className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all duration-300 flex flex-col"
                                     >
-                                        {/* ── Map Section (top of card) ── */}
-                                        {clinic.coordinates && (
-                                            <div className="relative w-full h-40 sm:h-44 bg-gray-100 dark:bg-gray-900">
-                                                <iframe
-                                                    width="100%" height="100%" frameBorder="0" scrolling="no" marginHeight={0} marginWidth={0}
-                                                    src={clinic.cid
-                                                        ? `https://maps.google.com/maps?cid=${clinic.cid}&hl=en&z=17&output=embed`
-                                                        : `https://maps.google.com/maps?q=${clinic.coordinates.lat},${clinic.coordinates.lng}&hl=en&z=17&output=embed`
-                                                    }
-                                                    className="w-full h-full" title={`${clinic.name} Map`}
-                                                />
-                                                {/* Transparent overlay to prevent map stealing clicks */}
-                                                <div className="absolute inset-0 bg-transparent" />
-                                                {/* Distance badge */}
-                                                {distance && (
-                                                    <div className="absolute top-2 right-2 bg-white dark:bg-gray-800 text-green-700 dark:text-green-300 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-md">
-                                                        <Navigation className="w-3 h-3" />
-                                                        {distance}
-                                                    </div>
-                                                )}
+                                        {/* ── Branch Photo (top of card) ── */}
+                                        <div className="relative w-full h-44 sm:h-48 bg-gray-100 dark:bg-gray-900 overflow-hidden cursor-pointer" onClick={() => handleClinicSelect(clinic)}>
+                                            <img
+                                                src={getBranchImage(clinic)}
+                                                alt={`${clinic.name} interior`}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                                            {/* Branch name overlay */}
+                                            <div className="absolute bottom-3 left-4 right-4">
+                                                <h3 className="text-lg font-bold text-white drop-shadow-lg">{clinic.name}</h3>
                                             </div>
-                                        )}
+                                            {/* Rating badge */}
+                                            {clinic.rating && (
+                                                <span className="absolute top-3 left-3 flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2.5 py-1 rounded-lg shadow-md">
+                                                    {clinic.rating} <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                                                    <span className="text-gray-500 dark:text-gray-400 font-normal ml-0.5">({clinic.reviewCount})</span>
+                                                </span>
+                                            )}
+                                            {/* Distance badge */}
+                                            {distance && (
+                                                <div className="absolute top-3 right-3 bg-white/90 dark:bg-gray-800/90 text-green-700 dark:text-green-300 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-md">
+                                                    <Navigation className="w-3 h-3" />
+                                                    {distance}
+                                                </div>
+                                            )}
+                                        </div>
 
                                         {/* ── Details Section ── */}
-                                        <div className="flex flex-col flex-1 p-5">
-                                            {/* Name & Rating */}
-                                            <div className="flex items-start justify-between mb-3">
-                                                <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                                                    {clinic.name}
-                                                </h3>
-                                                {clinic.rating && (
-                                                    <span className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2 py-1 rounded-lg ml-2 flex-shrink-0">
-                                                        {clinic.rating} <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
-                                                        <span className="text-gray-400 dark:text-gray-500 font-normal ml-0.5">({clinic.reviewCount})</span>
-                                                    </span>
-                                                )}
-                                            </div>
-
+                                        <div className="flex flex-col flex-1 p-5 cursor-pointer" onClick={() => handleClinicSelect(clinic)}>
                                             {/* Contact Details Grid */}
                                             <div className="space-y-2.5 text-sm mb-4">
                                                 {/* Address */}
@@ -966,7 +969,7 @@ export default function BookingWizard() {
                                                 )}
                                             </div>
 
-                                            {/* Select Button */}
+                                            {/* Action Row: View on Maps + Select Branch */}
                                             <div className="mt-auto pt-3 border-t border-gray-100 dark:border-gray-700">
                                                 <div className="flex items-center justify-between text-sm">
                                                     {clinic.locationMap && (
@@ -982,6 +985,40 @@ export default function BookingWizard() {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* ── Expandable Map Section ── */}
+                                        {clinic.coordinates && (
+                                            <div className="border-t border-gray-100 dark:border-gray-700">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setExpandedMapId(isMapExpanded ? null : clinic.id);
+                                                    }}
+                                                    className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                                >
+                                                    <MapIcon className="w-4 h-4" />
+                                                    {isMapExpanded ? 'Hide Map' : 'Show Map'}
+                                                    <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapExpanded ? 'rotate-180' : ''}`} />
+                                                </button>
+                                                <div
+                                                    className={`overflow-hidden transition-all duration-400 ease-in-out ${isMapExpanded ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}
+                                                >
+                                                    <div className="relative w-full h-56 sm:h-64 bg-gray-100 dark:bg-gray-900">
+                                                        {isMapExpanded && (
+                                                            <iframe
+                                                                width="100%" height="100%" frameBorder="0" scrolling="no" marginHeight={0} marginWidth={0}
+                                                                src={clinic.cid
+                                                                    ? `https://maps.google.com/maps?cid=${clinic.cid}&hl=en&z=17&output=embed`
+                                                                    : `https://maps.google.com/maps?q=${clinic.coordinates.lat},${clinic.coordinates.lng}&hl=en&z=17&output=embed`
+                                                                }
+                                                                className="w-full h-full" title={`${clinic.name} Map`}
+                                                                loading="lazy"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

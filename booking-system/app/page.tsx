@@ -1,29 +1,234 @@
 import Link from "next/link";
+import LiveAvatarBubble from "@/components/LiveAvatarBubble";
+import { MapPin, Clock, Phone, Star, Shield, Sparkles, Calendar, ChevronRight } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-between p-24 bg-gray-50 dark:bg-gray-900">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          First Medical Center LLC
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
 
-      <div className="relative flex flex-col items-center place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <h1 className="text-4xl font-bold text-center mb-4">Welcome to First Medical Center</h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400 text-center mb-8 max-w-2xl">
-          Book your medical appointments easily with our AI-powered voice assistant.
-        </p>
-        <Link
-          href="/booking"
-          className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg transition-all hover:scale-105"
-        >
-          Book an Appointment
-        </Link>
-      </div>
+      {/* ── Hero Section ── */}
+      <section className="relative overflow-hidden pt-20 pb-16 sm:pt-28 sm:pb-24">
+        {/* Background decoration */}
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-radial from-indigo-200/30 to-transparent dark:from-indigo-900/20 rounded-full blur-3xl translate-x-1/3 -translate-y-1/4" />
+          <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-radial from-purple-200/20 to-transparent dark:from-purple-900/15 rounded-full blur-3xl -translate-x-1/3 translate-y-1/4" />
+        </div>
 
-      <div className="w-full max-w-4xl mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-1 lg:text-left">
-      </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+
+            {/* Left: Text Content */}
+            <div className="flex-1 text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 px-4 py-1.5 rounded-full text-sm font-medium mb-6">
+                <Sparkles className="w-4 h-4" />
+                AI-Powered Aesthetic Clinic
+              </div>
+
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 dark:text-white leading-tight tracking-tight">
+                Your Beauty,{" "}
+                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  Our Expertise
+                </span>
+              </h1>
+
+              <p className="mt-6 text-lg sm:text-xl text-gray-600 dark:text-gray-400 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                Premium laser, dermatology and aesthetic treatments across 3 branches in Dubai.
+                Book instantly with our AI assistant.
+              </p>
+
+              <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                <Link
+                  href="/booking"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-500/30"
+                >
+                  <Calendar className="w-5 h-5" />
+                  Book Appointment
+                </Link>
+                <Link
+                  href="/booking"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all hover:shadow-md"
+                >
+                  View Services
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {/* Trust badges */}
+              <div className="mt-10 flex flex-wrap gap-6 justify-center lg:justify-start text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-1.5">
+                  <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                  <span><strong className="text-gray-900 dark:text-white">4.8+</strong> Rating</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-green-500" />
+                  <span>DHA Licensed</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-indigo-500" />
+                  <span>3 Branches</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: LiveAvatar Circle */}
+            <div className="flex-shrink-0">
+              <LiveAvatarBubble />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Services Highlights ── */}
+      <section className="py-16 sm:py-20 bg-white/50 dark:bg-gray-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
+              Our Specialities
+            </h2>
+            <p className="mt-4 text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              State-of-the-art treatments with the latest technology and certified specialists.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: "✨", title: "Laser Hair Removal", desc: "Candela GentleMax Pro & Lumenis Splendor X for all skin types", color: "from-pink-500/10 to-rose-500/10" },
+              { icon: "💉", title: "Dermal Fillers & Botox", desc: "Natural-looking results with premium brands and expert hands", color: "from-purple-500/10 to-indigo-500/10" },
+              { icon: "🧬", title: "PRP & Mesotherapy", desc: "Regenerative treatments for hair and skin rejuvenation", color: "from-blue-500/10 to-cyan-500/10" },
+              { icon: "🔬", title: "Chemical Peeling", desc: "Advanced peels for acne, pigmentation and skin renewal", color: "from-green-500/10 to-emerald-500/10" },
+              { icon: "⚡", title: "RF Microneedling", desc: "Collagen stimulation for tighter, smoother skin", color: "from-amber-500/10 to-yellow-500/10" },
+              { icon: "🌟", title: "Hydrafacial", desc: "Deep cleansing, exfoliation and hydration in one session", color: "from-teal-500/10 to-sky-500/10" },
+            ].map((svc) => (
+              <Link
+                key={svc.title}
+                href="/booking"
+                className={`group p-6 rounded-2xl bg-gradient-to-br ${svc.color} dark:from-gray-800 dark:to-gray-800 border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-lg transition-all duration-300`}
+              >
+                <span className="text-3xl mb-4 block">{svc.icon}</span>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  {svc.title}
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{svc.desc}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Branches Section ── */}
+      <section className="py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
+              Visit Us
+            </h2>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">
+              Three convenient locations across Dubai
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                name: "Al Muraqabat Branch",
+                address: "7th Floor, Dominos Pizza Building, Al Muraqabat St, Deira",
+                phone: "+971 4 250 6262",
+                hours: "Mon–Sat: 10 AM – 10 PM",
+                rating: 4.8,
+                reviews: 2336,
+                image: "/images/branches/muraqabat.png",
+              },
+              {
+                name: "Al Qiyadah Branch",
+                address: "Mamzar Center, Opposite to Qiyadah Metro, Abu Hail",
+                phone: "+971 4 261 7171",
+                hours: "Mon–Sat: 10 AM – 10 PM",
+                rating: 4.9,
+                reviews: 1936,
+                image: "/images/branches/qiyadah.png",
+              },
+              {
+                name: "Silicon Oasis Branch",
+                address: "15th Floor, SIT Tower, Silicon Oasis",
+                phone: "+971 4 392 0809",
+                hours: "Mon–Sat: 10 AM – 10 PM",
+                rating: 4.8,
+                reviews: 178,
+                image: "/images/branches/silicon_oasis.png",
+              },
+            ].map((branch) => (
+              <div
+                key={branch.name}
+                className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-300"
+              >
+                <div className="relative h-40 overflow-hidden">
+                  <img
+                    src={branch.image}
+                    alt={branch.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                  <div className="absolute bottom-3 left-4">
+                    <h3 className="text-white font-bold drop-shadow-lg">{branch.name}</h3>
+                  </div>
+                  <div className="absolute top-3 right-3 flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 text-xs font-bold px-2 py-1 rounded-lg">
+                    {branch.rating} <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                    <span className="text-gray-400 font-normal">({branch.reviews})</span>
+                  </div>
+                </div>
+                <div className="p-5 space-y-2.5 text-sm">
+                  <div className="flex items-start gap-2 text-gray-600 dark:text-gray-300">
+                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-indigo-500" />
+                    <span>{branch.address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                    <Phone className="w-4 h-4 flex-shrink-0 text-indigo-500" />
+                    <span>{branch.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                    <Clock className="w-4 h-4 flex-shrink-0 text-indigo-500" />
+                    <span>{branch.hours}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA Section ── */}
+      <section className="py-16 sm:py-20 bg-gradient-to-r from-indigo-600 to-purple-700">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+            Ready to Start Your Journey?
+          </h2>
+          <p className="text-indigo-100 text-lg mb-8 max-w-2xl mx-auto">
+            Book your consultation today and discover the best treatments for you.
+          </p>
+          <Link
+            href="/booking"
+            className="inline-flex items-center gap-2 px-10 py-4 bg-white text-indigo-700 font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02]"
+          >
+            <Calendar className="w-5 h-5" />
+            Book Now
+          </Link>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer className="py-10 bg-gray-900 text-gray-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+              <p className="text-white font-bold text-lg">First Medical Center LLC</p>
+              <p className="text-sm mt-1">Premium Aesthetic & Laser Clinic — Dubai, UAE</p>
+            </div>
+            <div className="text-sm text-center md:text-right">
+              <p>© {new Date().getFullYear()} First Medical Center LLC. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
