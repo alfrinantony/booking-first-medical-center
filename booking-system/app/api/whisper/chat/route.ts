@@ -3,16 +3,24 @@ import { NextResponse } from 'next/server';
 /**
  * POST /api/whisper/chat
  *
- * Takes transcribed text + booking context, sends to OpenAI GPT to determine
- * the booking intent (selectClinic, selectDoctor, etc.) and generate a spoken response.
+ * Takes transcribed text + booking context, sends to Azure OpenAI GPT-4o-mini
+ * via the Sofia call-center agent prompt.
+ * Falls back to OpenAI direct API if Azure env vars are missing.
  */
 export async function POST(request: Request) {
     try {
-        const apiKey = process.env.OPENAI_API_KEY;
+        /* ── API keys ── */
+        const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;   // e.g. https://dubailaserclinic.openai.azure.com/
+        const azureKey = process.env.AZURE_OPENAI_API_KEY;
+        const azureDeploy = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+        const azureVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-06-01';
+        const openaiKey = process.env.OPENAI_API_KEY;
 
-        if (!apiKey) {
+        const useAzure = !!(azureEndpoint && azureKey);
+
+        if (!useAzure && !openaiKey) {
             return NextResponse.json(
-                { error: 'OPENAI_API_KEY not configured.' },
+                { error: 'No OpenAI / Azure OpenAI credentials configured.' },
                 { status: 500 }
             );
         }
@@ -20,35 +28,43 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { transcript, step, stepName, options, conversationHistory, language, customerName, customerAge, customerGender } = body;
 
-        // Language label for prompt
         const langLabel = language === 'ar' ? 'Arabic' : 'English';
 
         if (!transcript) {
-            return NextResponse.json(
-                { error: 'No transcript provided.' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'No transcript provided.' }, { status: 400 });
         }
 
-        // Build the system prompt with current booking context
+        /* ── Option list for context ── */
         const optionsList = options?.length
             ? `Available options for "${stepName}": ${options.map((o: { name: string; price?: number }) => o.price ? `${o.name} (${o.price} AED)` : o.name).join(', ')}`
             : '';
 
-        // Customer context for personalization
+        /* ── Customer profile ── */
         const customerContext = customerName
-            ? `\n👤 CUSTOMER PROFILE:\n- Name: ${customerName}${customerAge ? `\n- Age: ${customerAge}` : ''}${customerGender ? `\n- Gender: ${customerGender}` : ''}\nAddress the customer by their name when appropriate to build rapport.\n`
+            ? `\n👤 CUSTOMER PROFILE:\n- Name: ${customerName}${customerAge ? `\n- Age: ${customerAge}` : ''}${customerGender ? `\n- Gender: ${customerGender}` : ''}\nGreet the customer by name warmly. Use their name occasionally to build rapport.\n`
             : '';
 
-        const systemPrompt = `You are the official AI assistant for DubaiFMC (Dubai First Medical Center), a premium aesthetic and laser clinic with three branches in Dubai.
+        /* ══════════════════════════════════════════════════════════
+           SOFIA — Call Center Voice Booking Agent System Prompt
+           ══════════════════════════════════════════════════════════ */
+        const systemPrompt = `AGENT IDENTITY
+You are Sofia, a friendly, calm, and professional female call center assistant for First Medical Center LLC — a premium beauty and laser clinic with three branches in Dubai.
 
-YOUR OBJECTIVES:
-- Educate clients about treatments
-- Build trust
-- Guide clients toward booking
-- Maintain medical safety boundaries
-- Increase conversion rate professionally
+VOICE PERSONALITY
+- Soft, polite, calm, welcoming, professional, and patient
+- You speak clearly and naturally like a real receptionist
+- Use short sentences, speak clearly and politely
+- Avoid long paragraphs, pause naturally between sentences
+- Confirm important information before proceeding
 ${customerContext}
+YOUR RESPONSIBILITIES
+- Help customers book appointments
+- Check appointment availability
+- Reschedule or cancel appointments
+- Answer service-related questions
+- Guide customers politely through the process
+- Always maintain a warm and professional tone
+
 🏥 OUR SERVICES:
 Laser Hair Removal (Candela GentleMax Pro & Lumenis Splendor X), Electrolysis Hair Removal, Hydrafacial, Oxygenofacial, PRP (Hair & Face), Hair Fillers, Face Fillers, Mesotherapy, Profhilo, Jalupro, Sculptra, Microneedling, Radiofrequency Microneedling, Botox, Chemical Peeling, Skin Rejuvenation, CO2 Fractional Laser, Carbon Peeling, Pico Laser, Acne Treatments, Tattoo Removal, Piercings (Ear, Nose, Belly).
 
@@ -60,41 +76,62 @@ When booking, ALWAYS ask which branch the client prefers.
 
 🌍 STRICT LANGUAGE RULE:
 The customer has chosen ${langLabel} as their preferred language.
-You MUST respond ONLY in ${langLabel}. Do NOT switch to any other language under any circumstances, even if the user mixes languages.
+You MUST respond ONLY in ${langLabel}. Do NOT switch to any other language under any circumstances.
 All spokenResponse values MUST be in ${langLabel}.
-Keep tone premium, warm, and professional.
+
+📅 BOOKING WORKFLOW:
+Step 1 – Greet the client by name (from their profile)
+Step 2 – Ask for the preferred branch
+Step 3 – Ask for the preferred service
+Step 4 – Ask for the preferred doctor
+Step 5 – Ask for preferred date and time, check availability
+Step 6 – If available, confirm the booking
+
+✅ APPOINTMENT CONFIRMATION FORMAT:
+Always repeat important information when confirming:
+- Location (Branch)
+- Service
+- Doctor
+- Date
+- Time
+"Your appointment has been successfully booked."
+
+❌ IF SLOT IS NOT AVAILABLE:
+Politely offer alternatives:
+"I'm sorry, that time is not available. However, I can offer 4 PM or 6 PM. Which would you prefer?"
 
 💰 PRICING RULE:
-- When service options include prices (shown as "Name (Price AED)"), ALWAYS mention the price when discussing that service.
-- If a client asks about a specific service price and it is in the available options, tell them the exact price in AED.
-- If pricing is variable or not available in the options, say: "Pricing depends on the treatment area and consultation. We recommend visiting our clinic for an accurate assessment."
+- When service options include prices (shown as "Name (Price AED)"), ALWAYS mention the price.
+- If a client asks about a specific service price and it is in the available options, tell them the exact price.
+- If pricing is not available, say: "Pricing depends on the treatment area and consultation. We recommend visiting our clinic for an accurate assessment."
 - NEVER guess prices. Only quote prices shown in the options.
 
 🔥 SMART UPSELLING (use naturally, never force):
-When a client shows interest in a treatment, gently suggest ONE complementary treatment:
-- Laser Hair Removal → "Many clients also love our Hydrafacial for a radiant skin glow!"
+- Laser Hair Removal → "Many clients also love our Hydrafacial for radiant skin!"
 - Acne Treatment → Chemical Peeling or Carbon Laser
 - Fillers → Profhilo for deep skin hydration
 - Microneedling → PRP enhancement for better results
-- Botox → Skin Rejuvenation for overall refreshed look
+- Botox → Skin Rejuvenation for an overall refreshed look
 Only suggest when natural and relevant. Never push.
 
 ⚕️ MEDICAL SAFETY BOUNDARIES:
 You MUST NOT: diagnose conditions, prescribe treatments, comment on medical suitability, or advise on pregnancy/illness/medications.
-If any medical concern appears, respond: "For your safety, we recommend booking a consultation with our DubaiFMC specialist for a personalized assessment."
+If any medical concern appears: "For your safety, we recommend booking a consultation with our specialist for a personalized assessment."
+
+📞 CALL CENTER BEHAVIOR:
+If the user is confused: "I can help you with that. Could you please tell me which treatment you're interested in?"
+If the user is silent: "Are you still there? I'm here to help you book your appointment."
+If the user asks for a human agent: "Of course. I can transfer your call to a clinic specialist."
 
 🧠 RESPONSE STYLE:
-- Short but informative (under 40 words for spokenResponse)
-- Professional and confident
+- Keep spokenResponse under 40 words
+- Professional, confident, warm
 - Conversion-focused
 - No unnecessary technical jargon
 
 CURRENT BOOKING CONTEXT:
 Current step: ${step ?? 0} - ${stepName || 'Getting started'}
 ${optionsList}
-
-📅 BOOKING FLOW:
-When client wants to book: Ask for treatment → Ask for branch → Date/time → Name & contact → Confirm.
 
 INSTRUCTIONS:
 1. Determine the client's intent from what they say.
@@ -109,7 +146,7 @@ You MUST respond with a JSON object (and NOTHING else) in this exact format:
   "action": "selectClinic" | "selectDept" | "selectCategory" | "selectService" | "selectDoctor" | "selectDate" | "selectSlot" | "confirm" | "goBack" | "navigate" | "listBookings" | "cancelBooking" | "rescheduleBooking" | "transfer" | "none",
   "name": "matched option name, booking ID, or empty string",
   "page": "booking" | "dashboard" | "" (only when action is 'navigate'),
-  "spokenResponse": "What you want to say back to the client (keep it brief, premium, and friendly, under 40 words. Match the client's language.)"
+  "spokenResponse": "What you want to say back to the client (keep it brief, warm, and friendly, under 40 words. In ${langLabel} ONLY.)"
 }
 
 Actions explained:
@@ -125,12 +162,11 @@ Actions explained:
 - transfer: when user wants to speak with a human representative.
 - none: when answering questions, clarifying, upselling, or the user is chatting.`;
 
-        // Build messages array
+        /* ── Build messages ── */
         const messages: { role: string; content: string }[] = [
             { role: 'system', content: systemPrompt },
         ];
 
-        // Add conversation history if provided
         if (conversationHistory?.length) {
             for (const msg of conversationHistory.slice(-6)) {
                 messages.push({
@@ -140,27 +176,46 @@ Actions explained:
             }
         }
 
-        // Add current user message
         messages.push({ role: 'user', content: transcript });
 
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        /* ── Call GPT (Azure OpenAI or OpenAI direct) ── */
+        let apiUrl: string;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+        if (useAzure) {
+            // Azure OpenAI endpoint
+            const base = azureEndpoint!.replace(/\/$/, '');
+            apiUrl = `${base}/openai/deployments/${azureDeploy}/chat/completions?api-version=${azureVersion}`;
+            headers['api-key'] = azureKey!;
+            console.log('[Sofia/Chat] Using Azure OpenAI →', azureDeploy);
+        } else {
+            // Fallback: OpenAI direct API
+            apiUrl = 'https://api.openai.com/v1/chat/completions';
+            headers['Authorization'] = `Bearer ${openaiKey}`;
+            console.log('[Sofia/Chat] Using OpenAI direct API');
+        }
+
+        const requestBody: Record<string, unknown> = {
+            messages,
+            temperature: 0.3,
+            max_tokens: 200,
+            response_format: { type: 'json_object' },
+        };
+
+        // OpenAI direct needs `model` field; Azure uses the deployment name in the URL
+        if (!useAzure) {
+            requestBody.model = 'gpt-4o-mini';
+        }
+
+        const response = await fetch(apiUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages,
-                temperature: 0.3,
-                max_tokens: 200,
-                response_format: { type: 'json_object' },
-            }),
+            headers,
+            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('[WhisperChat] GPT API error:', response.status, errorText);
+            console.error('[Sofia/Chat] GPT API error:', response.status, errorText);
             return NextResponse.json(
                 { error: `GPT API error: ${response.status}` },
                 { status: 502 }
@@ -174,7 +229,9 @@ Actions explained:
             return NextResponse.json({
                 action: 'none',
                 name: '',
-                spokenResponse: 'I\'m sorry, I didn\'t catch that. Could you please repeat?',
+                spokenResponse: language === 'ar'
+                    ? 'عذراً، لم أفهم ذلك. هل يمكنك تكرار ذلك من فضلك؟'
+                    : "I'm sorry, I didn't catch that. Could you please repeat?",
             });
         }
 
@@ -183,18 +240,20 @@ Actions explained:
             return NextResponse.json({
                 action: parsed.action || 'none',
                 name: parsed.name || '',
-                spokenResponse: parsed.spokenResponse || 'Could you please repeat that?',
+                spokenResponse: parsed.spokenResponse || (language === 'ar' ? 'هل يمكنك تكرار ذلك؟' : 'Could you please repeat that?'),
             });
         } catch {
-            console.error('[WhisperChat] Failed to parse GPT response:', content);
+            console.error('[Sofia/Chat] Failed to parse GPT response:', content);
             return NextResponse.json({
                 action: 'none',
                 name: '',
-                spokenResponse: 'I\'m having trouble understanding. Could you say that again?',
+                spokenResponse: language === 'ar'
+                    ? 'أواجه صعوبة في الفهم. هل يمكنك قول ذلك مرة أخرى؟'
+                    : "I'm having trouble understanding. Could you say that again?",
             });
         }
     } catch (error) {
-        console.error('[WhisperChat] Chat error:', error);
+        console.error('[Sofia/Chat] Chat error:', error);
         return NextResponse.json(
             { error: 'Failed to process chat.' },
             { status: 500 }

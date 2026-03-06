@@ -3,16 +3,22 @@ import { NextResponse } from 'next/server';
 /**
  * POST /api/whisper/transcribe
  *
- * Accepts audio blob via FormData, sends to OpenAI Whisper API for transcription.
- * Returns the transcribed text.
+ * Accepts audio blob via FormData, sends to Azure OpenAI Whisper (or OpenAI
+ * direct as fallback) for transcription. Returns the transcribed text.
  */
 export async function POST(request: Request) {
     try {
-        const apiKey = process.env.OPENAI_API_KEY;
+        /* ── API keys ── */
+        const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+        const azureKey = process.env.AZURE_OPENAI_API_KEY;
+        const azureVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-06-01';
+        const openaiKey = process.env.OPENAI_API_KEY;
 
-        if (!apiKey) {
+        const useAzure = !!(azureEndpoint && azureKey);
+
+        if (!useAzure && !openaiKey) {
             return NextResponse.json(
-                { error: 'OPENAI_API_KEY not configured.' },
+                { error: 'No OpenAI / Azure OpenAI credentials configured.' },
                 { status: 500 }
             );
         }
@@ -30,26 +36,39 @@ export async function POST(request: Request) {
         // Optional language hint from client (locked per session)
         const language = formData.get('language') as string | null;
 
-        // Build FormData for OpenAI Whisper API
+        // Build FormData for Whisper API
         const whisperForm = new FormData();
         whisperForm.append('file', audioFile, 'recording.webm');
-        whisperForm.append('model', 'whisper-1');
-        // Pass language hint if provided (en/ar) for more accurate transcription
+
         if (language) {
             whisperForm.append('language', language);
         }
 
-        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        /* ── Call Whisper (Azure or OpenAI direct) ── */
+        let apiUrl: string;
+        const headers: Record<string, string> = {};
+
+        if (useAzure) {
+            const base = azureEndpoint!.replace(/\/$/, '');
+            apiUrl = `${base}/openai/deployments/whisper/audio/transcriptions?api-version=${azureVersion}`;
+            headers['api-key'] = azureKey!;
+            console.log('[Sofia/STT] Using Azure OpenAI Whisper');
+        } else {
+            apiUrl = 'https://api.openai.com/v1/audio/transcriptions';
+            headers['Authorization'] = `Bearer ${openaiKey}`;
+            whisperForm.append('model', 'whisper-1');
+            console.log('[Sofia/STT] Using OpenAI direct Whisper');
+        }
+
+        const response = await fetch(apiUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-            },
+            headers,
             body: whisperForm,
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('[Whisper] API error:', response.status, errorText);
+            console.error('[Sofia/STT] Whisper API error:', response.status, errorText);
             return NextResponse.json(
                 { error: `Whisper API error: ${response.status}` },
                 { status: 502 }
@@ -62,7 +81,7 @@ export async function POST(request: Request) {
             text: result.text || '',
         });
     } catch (error) {
-        console.error('[Whisper] Transcription error:', error);
+        console.error('[Sofia/STT] Transcription error:', error);
         return NextResponse.json(
             { error: 'Failed to transcribe audio.' },
             { status: 500 }

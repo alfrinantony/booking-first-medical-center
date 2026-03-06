@@ -638,8 +638,8 @@ export default function VoiceAgentBubble() {
 
         const firstName = customerName.split(' ')[0] || '';
         const greeting = lang === 'ar'
-            ? `أهلاً وسهلاً${firstName ? ` ${firstName}` : ''}! أنا مساعدك الافتراضي. كيف أقدر أساعدك اليوم؟`
-            : `Welcome back${firstName ? `, ${firstName}` : ''}! I'm your virtual assistant. How can I assist you today?`;
+            ? `مرحباً${firstName ? ` ${firstName}` : ''}! أنا صوفيا، مساعدتك في الحجز. كيف أقدر أساعدك اليوم؟`
+            : `Hello${firstName ? ` ${firstName}` : ''}! I'm Sofia, your booking assistant at First Medical Center. How may I help you today?`;
 
         const msg: ChatMessage = { role: 'assistant', content: greeting };
         setChatLog([msg]);
@@ -701,7 +701,7 @@ export default function VoiceAgentBubble() {
                     <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white rounded-t-2xl">
                         <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-gray-400'}`} />
-                            <span className="font-semibold text-sm">Voice Assistant</span>
+                            <span className="font-semibold text-sm">Sofia · Voice Assistant</span>
                             {selectedLanguage && (
                                 <span className="text-xs bg-indigo-700 rounded-full px-2 py-0.5">
                                     {selectedLanguage === 'ar' ? '🇦🇪 AR' : '🇬🇧 EN'}
