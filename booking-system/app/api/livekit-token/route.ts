@@ -11,13 +11,13 @@ export async function POST(request: Request) {
     try {
         const reqHeaders = new Headers(request.headers);
 
-        // Geo-restriction: UAE only
-        if (!isFromUAE(reqHeaders)) {
-            return NextResponse.json(
-                { error: 'This service is only available in the UAE.' },
-                { status: 403 }
-            );
-        }
+        // Geo-restriction: UAE only (TEMPORARILY DISABLED for testing)
+        // if (!isFromUAE(reqHeaders)) {
+        //     return NextResponse.json(
+        //         { error: 'This service is only available in the UAE.' },
+        //         { status: 403 }
+        //     );
+        // }
 
         const apiKey = process.env.LIVEKIT_API_KEY;
         const apiSecret = process.env.LIVEKIT_API_SECRET;
