@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, X, ChevronDown, Loader2, Timer, Globe } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, X, ChevronDown, Loader2, Timer } from 'lucide-react';
 import { useRestrictionsStore } from '@/lib/restrictions-store';
 import { useAuthStore } from '@/lib/store';
 
@@ -12,6 +12,7 @@ import {
     RemoteTrackPublication,
     RemoteParticipant,
     ConnectionState,
+    DisconnectReason,
 } from 'livekit-client';
 
 /* ─────────────────────────────────────────────
@@ -24,8 +25,7 @@ interface ChatMessage {
 }
 
 /* ─────────────────────────────────────────────
-   VoiceAgentBubble — LiveKit Agent Version
-   Connects to LiveKit Cloud agent via WebRTC
+   VoiceAgentBubble — LiveKit Cloud Agent
    ───────────────────────────────────────────── */
 
 export default function VoiceAgentBubble() {
@@ -38,14 +38,14 @@ export default function VoiceAgentBubble() {
     const [agentStatus, setAgentStatus] = useState<string>('');
     const [dailyLimitReached, setDailyLimitReached] = useState(false);
     const [remainingSeconds, setRemainingSeconds] = useState(300);
-    const [transcriptText, setTranscriptText] = useState('');
+    const [isSpeaking, setIsSpeaking] = useState(false);
 
     const DAILY_LIMIT_SECONDS = 300;
 
     // Refs
     const roomRef = useRef<Room | null>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
-    const audioRef = useRef<HTMLAudioElement>(null);
+    const audioContainerRef = useRef<HTMLDivElement>(null);
     const sessionStartRef = useRef<number>(0);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -79,7 +79,7 @@ export default function VoiceAgentBubble() {
         if (remaining <= 0) setDailyLimitReached(true);
     }, [user?.phone]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Auto-scroll chat
+    // Auto-scroll
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatLog]);
@@ -90,9 +90,10 @@ export default function VoiceAgentBubble() {
 
         setIsConnecting(true);
         setAgentStatus('Connecting...');
+        console.log('[Sofia] Starting connection...');
 
         try {
-            // 1. Get token from our API
+            // 1. Get token
             const tokenRes = await fetch('/api/livekit-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -108,86 +109,107 @@ export default function VoiceAgentBubble() {
             }
 
             const { token, url } = await tokenRes.json();
+            console.log('[Sofia] Token received, connecting to:', url);
 
-            // 2. Create and connect to LiveKit Room
+            // 2. Create Room
             const room = new Room({
                 adaptiveStream: true,
                 dynacast: true,
+                audioCaptureDefaults: {
+                    autoGainControl: true,
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                },
             });
 
             roomRef.current = room;
 
-            // Listen for agent audio tracks
+            // ── EVENT: Agent audio track subscribed ──
             room.on(RoomEvent.TrackSubscribed, (track, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+                console.log('[Sofia] Track subscribed:', track.kind, 'from:', participant.identity);
+
                 if (track.kind === Track.Kind.Audio) {
-                    // Attach agent audio to our <audio> element
-                    const audioElement = audioRef.current;
-                    if (audioElement) {
-                        track.attach(audioElement);
+                    // Use track.attach() which creates and returns a proper HTMLMediaElement
+                    const el = track.attach();
+                    el.setAttribute('autoplay', 'true');
+                    el.setAttribute('playsinline', 'true');
+                    el.volume = 1.0;
+
+                    // Append to hidden container in DOM
+                    if (audioContainerRef.current) {
+                        audioContainerRef.current.appendChild(el);
+                    } else {
+                        document.body.appendChild(el);
                     }
+
+                    console.log('[Sofia] Agent audio attached and playing');
+                    setIsSpeaking(true);
                 }
             });
 
-            // Listen for data messages (transcriptions, chat)
+            // ── EVENT: Track unsubscribed ──
+            room.on(RoomEvent.TrackUnsubscribed, (track) => {
+                track.detach().forEach(el => el.remove());
+                if (track.kind === Track.Kind.Audio) {
+                    setIsSpeaking(false);
+                }
+            });
+
+            // ── EVENT: Agent joins ──
+            room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
+                console.log('[Sofia] Participant joined:', participant.identity, 'metadata:', participant.metadata);
+                setAgentStatus('Sofia is here — speak now');
+            });
+
+            // ── EVENT: Data messages (transcriptions) ──
             room.on(RoomEvent.DataReceived, (payload: Uint8Array, participant?: RemoteParticipant) => {
                 try {
                     const text = new TextDecoder().decode(payload);
                     const data = JSON.parse(text);
+                    console.log('[Sofia] Data received:', data);
 
-                    // Handle transcription events from the agent
                     if (data.type === 'transcription' || data.transcript) {
                         const transcript = data.transcript || data.text || '';
                         const isFinal = data.is_final !== false;
 
                         if (isFinal && transcript.trim()) {
-                            if (data.participant_identity && !data.participant_identity.includes('agent')) {
-                                // User transcription
-                                setChatLog(prev => [...prev, { role: 'user', content: transcript }]);
-                            } else {
-                                // Agent transcription
-                                setChatLog(prev => [...prev, { role: 'assistant', content: transcript }]);
-                            }
-                        } else if (!isFinal) {
-                            setTranscriptText(transcript);
+                            const isAgent = participant && (
+                                participant.identity.includes('agent') ||
+                                participant.identity.includes('CA_')
+                            );
+                            setChatLog(prev => [...prev, {
+                                role: isAgent ? 'assistant' : 'user',
+                                content: transcript,
+                            }]);
                         }
                     }
                 } catch {
-                    // Not JSON, ignore
+                    // Not JSON
                 }
             });
 
-            // Track agent joining
-            room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
-                const meta = participant.metadata;
-                if (participant.identity.includes('agent') || (meta && meta.includes('agent'))) {
-                    setAgentStatus('Sofia is ready');
-                    const greeting: ChatMessage = {
-                        role: 'assistant',
-                        content: `Hello${customerName ? ` ${customerName.split(' ')[0]}` : ''}! I'm Sofia, your booking assistant. How may I help you today?`,
-                    };
-                    setChatLog(prev => {
-                        if (prev.length === 0) return [greeting];
-                        return prev;
-                    });
-                }
+            // ── EVENT: Active speakers ──
+            room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+                const agentSpeaking = speakers.some(s =>
+                    s.identity.includes('agent') || s.identity.includes('CA_')
+                );
+                setIsSpeaking(agentSpeaking);
             });
 
-            // Connection state changes
+            // ── EVENT: Connection state ──
             room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
+                console.log('[Sofia] Connection state:', state);
                 if (state === ConnectionState.Connected) {
                     setIsConnected(true);
                     setIsConnecting(false);
-                    setAgentStatus('Connected — speak to Sofia');
+                    setAgentStatus('Connected — waiting for Sofia...');
                     sessionStartRef.current = Date.now();
 
-                    // Start countdown timer
                     countdownRef.current = setInterval(() => {
                         const elapsed = Math.ceil((Date.now() - sessionStartRef.current) / 1000);
                         const remaining = Math.max(0, DAILY_LIMIT_SECONDS - getUsedSeconds() - elapsed);
                         setRemainingSeconds(remaining);
-                        if (remaining <= 0) {
-                            disconnect();
-                        }
+                        if (remaining <= 0) disconnect();
                     }, 1000);
                 } else if (state === ConnectionState.Disconnected) {
                     setIsConnected(false);
@@ -195,20 +217,27 @@ export default function VoiceAgentBubble() {
                 }
             });
 
-            room.on(RoomEvent.Disconnected, () => {
+            room.on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
+                console.log('[Sofia] Disconnected, reason:', reason);
                 setIsConnected(false);
                 setIsConnecting(false);
                 setAgentStatus('Session ended');
             });
 
-            // 3. Connect to the room with mic enabled
+            // 3. Connect
             await room.connect(url, token);
+            console.log('[Sofia] Connected to room:', room.name);
 
-            // 4. Publish local microphone
+            // 4. Enable microphone — this publishes user audio to the room
             await room.localParticipant.setMicrophoneEnabled(true);
+            console.log('[Sofia] Microphone enabled and publishing');
+
+            // Check if mic is actually publishing
+            const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+            console.log('[Sofia] Mic publication:', micPub ? 'active' : 'NOT FOUND');
 
         } catch (err) {
-            console.error('[VoiceAgent] Connection error:', err);
+            console.error('[Sofia] Connection error:', err);
             setAgentStatus(`Error: ${err instanceof Error ? err.message : 'Connection failed'}`);
             setIsConnecting(false);
         }
@@ -216,7 +245,6 @@ export default function VoiceAgentBubble() {
 
     /* ── Disconnect ── */
     const disconnect = useCallback(() => {
-        // Track usage
         if (sessionStartRef.current > 0) {
             const elapsed = Math.ceil((Date.now() - sessionStartRef.current) / 1000);
             addUsedSeconds(elapsed);
@@ -228,7 +256,7 @@ export default function VoiceAgentBubble() {
             countdownRef.current = null;
         }
 
-        // Email transcript (fire-and-forget)
+        // Email transcript
         if (chatLog.length > 1) {
             const authState = useAuthStore.getState();
             fetch('/api/voice-agent/email-transcript', {
@@ -240,7 +268,12 @@ export default function VoiceAgentBubble() {
                     patientPhone: authState.user?.phone || 'N/A',
                     timestamp: new Date().toISOString(),
                 }),
-            }).catch(err => console.warn('[VoiceAgent] Email send failed:', err));
+            }).catch(err => console.warn('[Sofia] Email send failed:', err));
+        }
+
+        // Detach all audio elements
+        if (audioContainerRef.current) {
+            audioContainerRef.current.innerHTML = '';
         }
 
         if (roomRef.current) {
@@ -252,8 +285,8 @@ export default function VoiceAgentBubble() {
         setIsConnecting(false);
         setIsOpen(false);
         setChatLog([]);
-        setTranscriptText('');
         setIsMuted(false);
+        setIsSpeaking(false);
         setAgentStatus('');
     }, [chatLog]);
 
@@ -261,16 +294,15 @@ export default function VoiceAgentBubble() {
     const toggleMute = useCallback(async () => {
         const room = roomRef.current;
         if (!room) return;
-
         const newMuted = !isMuted;
         await room.localParticipant.setMicrophoneEnabled(!newMuted);
         setIsMuted(newMuted);
+        console.log('[Sofia] Mic', newMuted ? 'muted' : 'unmuted');
     }, [isMuted]);
 
     /* ── Toggle panel ── */
     const toggle = useCallback(() => {
         if (!isOpen) {
-            // Check voice agent block
             if (user) {
                 const clientId = user.phone || user.email || user.name || '';
                 if (useRestrictionsStore.getState().isVoiceBlocked(clientId)) {
@@ -284,25 +316,20 @@ export default function VoiceAgentBubble() {
         }
     }, [isOpen, user]);
 
-    /* ── Cleanup on unmount ── */
+    /* ── Cleanup ── */
     useEffect(() => {
         return () => {
-            if (roomRef.current) {
-                roomRef.current.disconnect();
-            }
-            if (countdownRef.current) {
-                clearInterval(countdownRef.current);
-            }
+            if (roomRef.current) roomRef.current.disconnect();
+            if (countdownRef.current) clearInterval(countdownRef.current);
         };
     }, []);
 
-    // Auth gate
     if (!isAuthenticated) return null;
 
     return (
         <>
-            {/* Hidden audio element for agent voice */}
-            <audio ref={audioRef} autoPlay playsInline />
+            {/* Hidden container for agent audio elements */}
+            <div ref={audioContainerRef} style={{ display: 'none' }} />
 
             {/* Floating bubble */}
             {!isOpen && (
@@ -316,7 +343,7 @@ export default function VoiceAgentBubble() {
                 </button>
             )}
 
-            {/* Expanded panel */}
+            {/* Panel */}
             {isOpen && (
                 <div className="fixed bottom-6 right-6 z-50 w-[380px] max-h-[520px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
                     {/* Header */}
@@ -325,6 +352,7 @@ export default function VoiceAgentBubble() {
                             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : isConnecting ? 'bg-yellow-400 animate-pulse' : 'bg-gray-400'}`} />
                             <span className="font-semibold text-sm">Sofia · Voice Assistant</span>
                             {isConnecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                            {isSpeaking && <span className="text-xs bg-green-500 rounded-full px-2 py-0.5">🔊 Speaking</span>}
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1 bg-indigo-700 rounded-full px-2 py-0.5 text-xs">
@@ -340,7 +368,7 @@ export default function VoiceAgentBubble() {
                         </div>
                     </div>
 
-                    {/* Not connected: Start button */}
+                    {/* Start screen */}
                     {!isConnected && !isConnecting && (
                         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-5">
                             <div className="w-20 h-20 rounded-full overflow-hidden border-3 border-indigo-200 shadow-lg">
@@ -351,7 +379,7 @@ export default function VoiceAgentBubble() {
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Your AI booking assistant</p>
                             </div>
                             {dailyLimitReached ? (
-                                <p className="text-sm text-red-500 text-center">Daily voice limit reached. Try again tomorrow.</p>
+                                <p className="text-sm text-red-500 text-center">Daily limit reached. Try again tomorrow.</p>
                             ) : (
                                 <button
                                     onClick={connect}
@@ -367,19 +395,19 @@ export default function VoiceAgentBubble() {
                     {/* Connecting */}
                     {isConnecting && (
                         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-4">
-                            <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
+                            <div className="relative">
+                                <div className="w-16 h-16 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
+                            </div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{agentStatus}</p>
                         </div>
                     )}
 
-                    {/* Connected: Status bar */}
+                    {/* Status bar */}
                     {isConnected && (
                         <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{agentStatus}</span>
-                                {transcriptText && (
-                                    <span className="text-xs text-indigo-500 italic truncate max-w-[200px]">{transcriptText}</span>
-                                )}
+                                <span className="text-xs text-green-600 font-medium">{agentStatus}</span>
+                                {isMuted && <span className="text-xs text-red-500 font-medium">🔇 Muted</span>}
                             </div>
                         </div>
                     )}
@@ -387,6 +415,11 @@ export default function VoiceAgentBubble() {
                     {/* Chat log */}
                     {isConnected && (
                         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[200px] max-h-[280px]">
+                            {chatLog.length === 0 && (
+                                <div className="text-center text-sm text-gray-400 py-8">
+                                    🎙️ Start speaking — Sofia is listening...
+                                </div>
+                            )}
                             {chatLog.map((msg, i) => (
                                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${msg.role === 'user'
