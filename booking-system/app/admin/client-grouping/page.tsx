@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useCustomerAuthStore, RegisteredUser } from '@/lib/customer-auth-store';
+import { useCustomerAuthStore, RegisteredUser, ConnectedPatient } from '@/lib/customer-auth-store';
 import { Users, Search, Link2, Unlink, UserPlus } from 'lucide-react';
 import { PatientRelationship } from '@/lib/store';
 
@@ -23,15 +23,15 @@ export default function ClientGroupingPage() {
     const handleLinkPatient = () => {
         if (!selectedUser || !linkPhone) return;
 
-        const existing = (selectedUser as any).connectedPatients || [];
-        if (existing.some((p: any) => p.patientPhone === linkPhone)) {
+        const existing: ConnectedPatient[] = selectedUser.connectedPatients || [];
+        if (existing.some(p => p.patientPhone === linkPhone)) {
             alert('This patient is already connected.');
             return;
         }
 
         updateUser(selectedUser.id, {
             connectedPatients: [...existing, { patientPhone: linkPhone, relationship: linkRelationship }]
-        } as any);
+        });
 
         // Refresh selected user
         const updated = useCustomerAuthStore.getState().users.find(u => u.id === selectedUser.id);
@@ -41,10 +41,10 @@ export default function ClientGroupingPage() {
 
     const handleUnlinkPatient = (phone: string) => {
         if (!selectedUser) return;
-        const existing = (selectedUser as any).connectedPatients || [];
+        const existing: ConnectedPatient[] = selectedUser.connectedPatients || [];
         updateUser(selectedUser.id, {
-            connectedPatients: existing.filter((p: any) => p.patientPhone !== phone)
-        } as any);
+            connectedPatients: existing.filter(p => p.patientPhone !== phone)
+        });
 
         const updated = useCustomerAuthStore.getState().users.find(u => u.id === selectedUser.id);
         if (updated) setSelectedUser(updated);
@@ -83,8 +83,8 @@ export default function ClientGroupingPage() {
                                 <button key={u.id} className={`w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors ${selectedUser?.id === u.id ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-600' : ''}`} onClick={() => setSelectedUser(u)}>
                                     <div className="font-medium text-gray-900 dark:text-white">{u.name}</div>
                                     <div className="text-xs text-gray-500">{u.phone} · {u.email}</div>
-                                    {(u as any).connectedPatients?.length > 0 && (
-                                        <div className="text-xs text-indigo-600 mt-1 flex items-center gap-1"><Link2 className="w-3 h-3" /> {(u as any).connectedPatients.length} connections</div>
+                                    {u.connectedPatients && u.connectedPatients.length > 0 && (
+                                        <div className="text-xs text-indigo-600 mt-1 flex items-center gap-1"><Link2 className="w-3 h-3" /> {u.connectedPatients.length} connections</div>
                                     )}
                                 </button>
                             ))}
@@ -104,11 +104,11 @@ export default function ClientGroupingPage() {
                                     <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                                         <Link2 className="w-4 h-4" /> Connected Patients
                                     </h3>
-                                    {((selectedUser as any).connectedPatients || []).length === 0 ? (
+                                    {(selectedUser.connectedPatients || []).length === 0 ? (
                                         <p className="text-sm text-gray-500">No connected patients yet.</p>
                                     ) : (
                                         <div className="space-y-2">
-                                            {((selectedUser as any).connectedPatients || []).map((cp: any, idx: number) => {
+                                            {(selectedUser.connectedPatients || []).map((cp: ConnectedPatient, idx: number) => {
                                                 const linked = users.find(u => u.phone === cp.patientPhone);
                                                 return (
                                                     <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">

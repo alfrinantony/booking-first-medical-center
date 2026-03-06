@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { UserProfile } from './store'; // Import existing UserProfile type
+import { UserProfile, PatientRelationship } from './store'; // Import existing UserProfile type
+
+export interface ConnectedPatient {
+    patientPhone: string;
+    relationship: PatientRelationship;
+}
 
 export interface RegisteredUser extends UserProfile {
     id: string;
@@ -8,6 +13,7 @@ export interface RegisteredUser extends UserProfile {
     emailVerified: boolean;
     blocked: boolean;
     createdAt: string;
+    connectedPatients?: ConnectedPatient[];
 }
 
 interface CustomerAuthDatabase {

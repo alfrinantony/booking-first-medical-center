@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Scheduler } from '@/lib/scheduler';
 import { BookingsStore } from '@/lib/bookings-store';
 import { clinics } from '@/lib/data';
+import { HRShiftStore } from '@/lib/hr-shift-store';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -11,6 +12,16 @@ export async function GET(request: Request) {
 
     if (!doctorId || !date) {
         return NextResponse.json({ error: 'Missing doctorId or date' }, { status: 400 });
+    }
+
+    // ── Clinician Availability Check (shift integration) ──
+    const availability = HRShiftStore.isClinicianAvailable(doctorId, date);
+    if (!availability.available) {
+        return NextResponse.json({
+            slots: [],
+            unavailable: true,
+            reason: availability.reason || 'Clinician not on duty',
+        });
     }
 
     // 1. Get Base Schedule (or default availability)

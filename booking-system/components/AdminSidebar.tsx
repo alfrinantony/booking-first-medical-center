@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText } from 'lucide-react';
+import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText, Clock, FileSpreadsheet, Cpu } from 'lucide-react';
 import { User } from '@/lib/users-store';
 
 export default function AdminSidebar() {
@@ -88,7 +88,7 @@ export default function AdminSidebar() {
                     }`}
             >
                 <Calendar className="w-4 h-4 shrink-0" />
-                Staff Schedule
+                Clinicians Schedule
             </Link>
 
             <Link
@@ -366,6 +366,50 @@ export default function AdminSidebar() {
                     >
                         <UserPlus className="w-3.5 h-3.5 shrink-0" />
                         Recruitment
+                    </Link>
+
+                    <Link
+                        href="/admin/hr/attendance"
+                        className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/hr/attendance') && !isActive('/admin/hr/attendance/')
+                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                    >
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
+                        Attendance
+                    </Link>
+
+                    <Link
+                        href="/admin/hr/attendance/timesheet"
+                        className={`flex items-center gap-3 px-4 py-2 pl-14 rounded-lg font-medium text-[11px] transition-colors ${isActive('/admin/hr/attendance/timesheet')
+                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                            : 'text-gray-500 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                    >
+                        <FileSpreadsheet className="w-3 h-3 shrink-0" />
+                        Timesheet
+                    </Link>
+
+                    <Link
+                        href="/admin/hr/attendance/devices"
+                        className={`flex items-center gap-3 px-4 py-2 pl-14 rounded-lg font-medium text-[11px] transition-colors ${isActive('/admin/hr/attendance/devices')
+                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                            : 'text-gray-500 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                    >
+                        <Cpu className="w-3 h-3 shrink-0" />
+                        Devices
+                    </Link>
+
+                    <Link
+                        href="/admin/hr/shifts"
+                        className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/hr/shifts')
+                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                    >
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        Shift Schedule
                     </Link>
                 </>
             )}

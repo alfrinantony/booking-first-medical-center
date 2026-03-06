@@ -37,6 +37,19 @@ export interface AppSettings {
 
     // Google Maps
     googleMapsApiKey: string;
+
+    // ZKTeco SpeedFace-V5L
+    zktecoHost: string;
+    zktecoPort: number;
+    zktecoUsername: string;
+    zktecoPassword: string;
+    zktecoDeviceSn: string;
+
+    // Attendance Work Policy
+    workStartTime: string;
+    lateThresholdMinutes: number;
+    halfDayHours: number;
+    fullDayHours: number;
 }
 
 interface SettingsState {
@@ -73,6 +86,17 @@ const DEFAULT_SETTINGS: AppSettings = {
     crmEndpoint: '',
 
     googleMapsApiKey: '',
+
+    zktecoHost: '192.168.1.200',
+    zktecoPort: 4370,
+    zktecoUsername: 'admin',
+    zktecoPassword: '',
+    zktecoDeviceSn: 'SFVL-2024-00001',
+
+    workStartTime: '09:00',
+    lateThresholdMinutes: 15,
+    halfDayHours: 4,
+    fullDayHours: 8,
 };
 
 export const useSettingsStore = create<SettingsState>()(

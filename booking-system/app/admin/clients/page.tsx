@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { ClientsStore, Client } from '@/lib/clients-store';
 import { useRestrictionsStore } from '@/lib/restrictions-store';
-import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff } from 'lucide-react';
+import { useEMRStore, maskPhone, maskEmail } from '@/lib/emr-store';
+import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 /* ── Form shape ── */
 interface EditForm {
@@ -99,6 +100,10 @@ export default function ClientsPage() {
     const [isRegistering, setIsRegistering] = useState(false);
     const [readingEid, setReadingEid] = useState(false);
     const [eidDemoWarning, setEidDemoWarning] = useState(false);
+    // Contact masking
+    const [revealedContacts, setRevealedContacts] = useState<Set<string>>(new Set());
+    // EMR push
+    const [pushingEMR, setPushingEMR] = useState<Set<string>>(new Set());
     // Client Grouping
     const [connectedPatients, setConnectedPatients] = useState<{ patientPhone: string; relationship: string }[]>([]);
     const [connSearch, setConnSearch] = useState('');
@@ -108,6 +113,70 @@ export default function ClientsPage() {
 
     const refreshClients = () => setClients(ClientsStore.getAll());
     useEffect(() => { refreshClients(); }, []);
+
+    const toggleContactReveal = (clientId: string) => {
+        setRevealedContacts(prev => {
+            const next = new Set(prev);
+            next.has(clientId) ? next.delete(clientId) : next.add(clientId);
+            return next;
+        });
+    };
+
+    const handlePushToEMR = async (client: Client) => {
+        const emrConfig = useEMRStore.getState().config;
+        if (!emrConfig.enabled || !emrConfig.endpointUrl) {
+            alert('EMR integration is not configured. Please go to Settings to configure it.');
+            return;
+        }
+        setPushingEMR(prev => new Set(prev).add(client.id));
+        useEMRStore.getState().setPushStatus(client.id, { status: 'pending', timestamp: new Date().toISOString() });
+        try {
+            const res = await fetch('/api/admin/emr/push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    endpointUrl: emrConfig.endpointUrl,
+                    apiKey: emrConfig.apiKey,
+                    patientData: client,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                useEMRStore.getState().setPushStatus(client.id, {
+                    status: 'success',
+                    timestamp: new Date().toISOString(),
+                    emrReferenceId: data.emrReferenceId,
+                });
+            } else {
+                useEMRStore.getState().setPushStatus(client.id, {
+                    status: 'failed',
+                    timestamp: new Date().toISOString(),
+                    errorMessage: data.error,
+                });
+            }
+        } catch (err: unknown) {
+            useEMRStore.getState().setPushStatus(client.id, {
+                status: 'failed',
+                timestamp: new Date().toISOString(),
+                errorMessage: err instanceof Error ? err.message : 'Network error',
+            });
+        } finally {
+            setPushingEMR(prev => { const next = new Set(prev); next.delete(client.id); return next; });
+        }
+    };
+
+    const getEmrStatusBadge = (clientId: string) => {
+        const record = useEMRStore.getState().getPushStatus(clientId);
+        if (!record) return null;
+        const icons = { pending: <Clock className="w-3 h-3" />, success: <CheckCircle2 className="w-3 h-3" />, failed: <XCircle className="w-3 h-3" /> };
+        const colors = { pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300', success: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300', failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
+        const labels = { pending: 'Syncing', success: 'Synced', failed: 'Failed' };
+        return (
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${colors[record.status]}`} title={record.emrReferenceId || record.errorMessage || ''}>
+                {icons[record.status]} {labels[record.status]}
+            </span>
+        );
+    };
 
     const filteredClients = clients.filter(c =>
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -386,6 +455,7 @@ export default function ClientsPage() {
                             <th className="p-4">Bookings</th>
                             <th className="p-4">Last Visit</th>
                             <th className="p-4">Class</th>
+                            <th className="p-4">EMR</th>
                             <th className="p-4">Actions</th>
                         </tr>
                     </thead>
@@ -405,8 +475,15 @@ export default function ClientsPage() {
                                 </td>
                                 <td className="p-4 text-sm text-gray-600 dark:text-gray-300 font-mono">{client.emiratesIdNumber || '—'}</td>
                                 <td className="p-4">
-                                    <div className="text-sm text-gray-600 dark:text-gray-300">{client.mobile || client.phone || '—'}</div>
-                                    <div className="text-xs text-gray-400">{client.email || ''}</div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div>
+                                            <div className="text-sm text-gray-600 dark:text-gray-300">{revealedContacts.has(client.id) ? (client.mobile || client.phone || '—') : maskPhone(client.mobile || client.phone)}</div>
+                                            <div className="text-xs text-gray-400">{revealedContacts.has(client.id) ? (client.email || '') : (client.email ? maskEmail(client.email) : '')}</div>
+                                        </div>
+                                        <button onClick={e => { e.stopPropagation(); toggleContactReveal(client.id); }} className="p-1 text-gray-400 hover:text-indigo-600 rounded transition-colors" title={revealedContacts.has(client.id) ? 'Hide' : 'Reveal'}>
+                                            {revealedContacts.has(client.id) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                        </button>
+                                    </div>
                                 </td>
                                 <td className="p-4 text-sm text-gray-600 dark:text-gray-300">{client.nationality || '—'}</td>
                                 <td className="p-4">
@@ -421,12 +498,22 @@ export default function ClientsPage() {
                                     ) : <span className="text-xs text-gray-400">—</span>}
                                 </td>
                                 <td className="p-4">
-                                    <button onClick={e => handleEditClick(client, e)} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Edit</button>
+                                    {getEmrStatusBadge(client.id)}
+                                </td>
+                                <td className="p-4">
+                                    <div className="flex items-center gap-1">
+                                        <button onClick={e => handleEditClick(client, e)} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Edit</button>
+                                        <button onClick={e => { e.stopPropagation(); handlePushToEMR(client); }} disabled={pushingEMR.has(client.id)}
+                                            className="flex items-center gap-1 text-teal-600 hover:text-teal-800 text-sm font-medium disabled:opacity-50 ml-2" title="Push to EMR">
+                                            {pushingEMR.has(client.id) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                            EMR
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                         {filteredClients.length === 0 && (
-                            <tr><td colSpan={9} className="p-8 text-center text-gray-500">No clients found matching your search.</td></tr>
+                            <tr><td colSpan={10} className="p-8 text-center text-gray-500">No clients found matching your search.</td></tr>
                         )}
                     </tbody>
                 </table>

@@ -215,8 +215,8 @@ export default function SchedulePage() {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
             <div className="max-w-5xl mx-auto">
                 <header className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Staff Scheduling</h1>
-                    <p className="text-gray-600 dark:text-gray-400">Manage doctor availability, shifts, and weekly days off.</p>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Clinicians Schedule</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Manage clinician availability, shifts, and weekly days off.</p>
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -428,10 +428,10 @@ export default function SchedulePage() {
                                         <div
                                             key={leave.id}
                                             className={`p-4 rounded-lg border-l-4 ${leave.status === 'APPROVED'
-                                                    ? 'border-l-green-500 bg-green-50 dark:bg-green-900/10'
-                                                    : leave.status === 'PENDING'
-                                                        ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-900/10'
-                                                        : 'border-l-gray-400 bg-gray-50 dark:bg-gray-700/30'
+                                                ? 'border-l-green-500 bg-green-50 dark:bg-green-900/10'
+                                                : leave.status === 'PENDING'
+                                                    ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-900/10'
+                                                    : 'border-l-gray-400 bg-gray-50 dark:bg-gray-700/30'
                                                 }`}
                                         >
                                             <div className="flex items-start justify-between">
@@ -446,10 +446,10 @@ export default function SchedulePage() {
                                                 </div>
                                                 <span
                                                     className={`px-2 py-0.5 rounded-full text-xs font-bold ${leave.status === 'APPROVED'
-                                                            ? 'bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-300'
-                                                            : leave.status === 'PENDING'
-                                                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-800/30 dark:text-amber-300'
-                                                                : 'bg-gray-100 text-gray-600'
+                                                        ? 'bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-300'
+                                                        : leave.status === 'PENDING'
+                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-800/30 dark:text-amber-300'
+                                                            : 'bg-gray-100 text-gray-600'
                                                         }`}
                                                 >
                                                     {leave.status}

@@ -2,16 +2,43 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, AlertTriangle, Warehouse, ArrowRight, Bell, BellOff, CalendarClock, Pill } from 'lucide-react';
+import {
+    Users, Calendar, Activity, BarChart2, MapPin, AlertTriangle,
+    Warehouse, ArrowRight, Bell, BellOff, CalendarClock, Pill,
+    Building, Stethoscope, UserCheck, UserX, Clock, Coffee,
+    Tag, Package, FileText, ShieldCheck, DollarSign, Heart,
+    ClipboardList, Zap, TrendingUp, Briefcase
+} from 'lucide-react';
 import { Medicine, Clinic } from '@/lib/data';
 
 interface LowStockAlert {
     medicineId: string;
     medicineName: string;
-    location: string; // "Central" or clinic name
+    location: string;
     currentQty: number;
     minStock: number;
     isNotified: boolean;
+}
+
+interface AttendanceSummary {
+    totalEmployees: number;
+    present: number;
+    absent: number;
+    late: number;
+    onLeave: number;
+    weeklyOff: number;
+}
+
+interface Booking {
+    id: string;
+    patientName: string;
+    phone: string;
+    doctorName: string;
+    serviceName: string;
+    clinicName: string;
+    date: string;
+    slot: string;
+    status: string;
 }
 
 export default function AdminPage() {
@@ -19,50 +46,52 @@ export default function AdminPage() {
     const [clinics, setClinics] = useState<Clinic[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Live data
+    const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [shiftSummary, setShiftSummary] = useState<{ total: number; scheduled: number; offDuty: number; clinicianAuto: number } | null>(null);
+
+    const today = new Date().toISOString().split('T')[0];
+
     useEffect(() => {
         Promise.all([
             fetch('/api/admin/medicines').then(r => r.json()),
-            fetch('/api/admin/clinics').then(r => r.json())
-        ]).then(([meds, cls]) => {
+            fetch('/api/admin/clinics').then(r => r.json()),
+            fetch('/api/admin/hr/attendance?summary=true').then(r => r.json()).catch(() => null),
+            fetch('/api/admin/bookings').then(r => r.json()).catch(() => []),
+            fetch(`/api/admin/hr/shifts?date=${today}&summary=true`).then(r => r.json()).catch(() => null),
+        ]).then(([meds, cls, att, bk, shifts]) => {
             setMedicines(Array.isArray(meds) ? meds : []);
             setClinics(Array.isArray(cls) ? cls : []);
+            if (att?.summary) setAttendance(att.summary);
+            setBookings(Array.isArray(bk) ? bk.slice(0, 8) : []);
+            if (shifts?.summary) setShiftSummary(shifts.summary);
         }).catch(e => console.error(e)).finally(() => setLoading(false));
-    }, []);
+    }, [today]);
 
     const getClinicName = (id: string) => clinics.find(c => c.id === id)?.name || id;
 
-    // Build low-stock alerts
+    // Low stock alerts
     const lowStockAlerts: LowStockAlert[] = [];
     for (const med of medicines) {
-        // Central stock
         if (med.minCentralStock && med.minCentralStock > 0 && med.centralStock < med.minCentralStock) {
             lowStockAlerts.push({
-                medicineId: med.id,
-                medicineName: med.name,
-                location: 'Central Warehouse',
-                currentQty: med.centralStock,
-                minStock: med.minCentralStock,
-                isNotified: !!med.isNotified
+                medicineId: med.id, medicineName: med.name, location: 'Central Warehouse',
+                currentQty: med.centralStock, minStock: med.minCentralStock, isNotified: !!med.isNotified
             });
         }
-        // Branch stock — each branch has its own threshold
         for (const bs of (med.branchStock || [])) {
             if (bs.minQuantity && bs.minQuantity > 0 && bs.quantity < bs.minQuantity) {
                 lowStockAlerts.push({
-                    medicineId: med.id,
-                    medicineName: med.name,
-                    location: getClinicName(bs.clinicId),
-                    currentQty: bs.quantity,
-                    minStock: bs.minQuantity,
-                    isNotified: !!med.isNotified
+                    medicineId: med.id, medicineName: med.name, location: getClinicName(bs.clinicId),
+                    currentQty: bs.quantity, minStock: bs.minQuantity, isNotified: !!med.isNotified
                 });
             }
         }
     }
-
     const unacknowledgedCount = lowStockAlerts.filter(a => !a.isNotified).length;
 
-    // Build near-expiry alerts (≤100 days)
+    // Near-expiry
     const nearExpiryItems = medicines
         .filter(med => med.expiryDate)
         .map(med => {
@@ -72,223 +101,287 @@ export default function AdminPage() {
         .filter(item => item.daysLeft <= 100)
         .sort((a, b) => a.daysLeft - b.daysLeft);
 
+    // Count stats
+    const totalDoctors = clinics.reduce((sum, c) => sum + c.departments.reduce((ds, d) => ds + d.doctors.length, 0), 0);
+    const totalBranches = clinics.length;
+    const todaysBookings = bookings.filter(b => b.date === today).length || bookings.length;
+
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-            <main className="p-8">
-                <header className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Dashboard Overview</h2>
-                    <div className="flex items-center gap-4">
-                        <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Add New Doctor</button>
-                    </div>
-                </header>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            <main className="p-5 md:p-8 max-w-[1500px] mx-auto">
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    {[
-                        { label: 'Total Patients', value: '1,248', icon: Users, color: 'bg-blue-500' },
-                        { label: 'Appointments Today', value: '42', icon: Calendar, color: 'bg-emerald-500' },
-                        { label: 'Revenue (Month)', value: '$158k', icon: BarChart2, color: 'bg-purple-500' },
-                        { label: 'Active Doctors', value: '15', icon: Activity, color: 'bg-orange-500' },
-                    ].map((stat, i) => (
-                        <div key={i} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className={`p-3 rounded-lg ${stat.color} bg-opacity-10`}>
-                                    <stat.icon className={`w-6 h-6 ${stat.color.replace('bg-', 'text-')}`} />
-                                </div>
-                                <span className="text-xs font-medium text-green-500">+4.5%</span>
-                            </div>
-                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{stat.value}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
-                        </div>
-                    ))}
+                {/* ═══ Header ═══ */}
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}  ·  First Medical Center LLC
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Link href="/admin/doctors" className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors flex items-center gap-1.5">
+                            <Stethoscope className="w-3.5 h-3.5" /> Manage Doctors
+                        </Link>
+                        <Link href="/admin/hr/shifts" className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 transition-colors flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5" /> Shift Schedule
+                        </Link>
+                    </div>
                 </div>
 
-                {/* Low Stock Alerts */}
-                {lowStockAlerts.length > 0 && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-red-200 dark:border-red-800 p-6 mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 rounded-lg bg-red-100 dark:bg-red-900/30">
-                                    <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Low Stock Alerts</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {unacknowledgedCount > 0
-                                            ? <span className="text-red-600 dark:text-red-400 font-medium">{unacknowledgedCount} unacknowledged alert{unacknowledgedCount !== 1 ? 's' : ''}</span>
-                                            : <span className="text-green-600 dark:text-green-400">All alerts acknowledged</span>
-                                        }
-                                        {' · '}{lowStockAlerts.length} total
-                                    </p>
-                                </div>
-                            </div>
-                            <Link href="/admin/medicines" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
-                                View Inventory <ArrowRight className="w-3.5 h-3.5" />
-                            </Link>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500">
-                                        <th className="text-left py-2 px-3 font-medium">Status</th>
-                                        <th className="text-left py-2 px-3 font-medium">Item</th>
-                                        <th className="text-left py-2 px-3 font-medium">Location</th>
-                                        <th className="text-right py-2 px-3 font-medium">Current</th>
-                                        <th className="text-right py-2 px-3 font-medium">Minimum</th>
-                                        <th className="text-right py-2 px-3 font-medium">Deficit</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {lowStockAlerts.map((alert, i) => (
-                                        <tr key={i} className={`transition-colors ${alert.isNotified ? 'opacity-50' : 'hover:bg-red-50/50 dark:hover:bg-red-900/10'}`}>
-                                            <td className="py-2.5 px-3">
-                                                {alert.isNotified
-                                                    ? <span className="inline-flex items-center gap-1 text-xs text-gray-400"><BellOff className="w-3 h-3" /> Acknowledged</span>
-                                                    : <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium"><Bell className="w-3 h-3" /> Action Needed</span>
-                                                }
-                                            </td>
-                                            <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-white">{alert.medicineName}</td>
-                                            <td className="py-2.5 px-3">
-                                                <span className="inline-flex items-center gap-1 text-xs">
-                                                    {alert.location === 'Central Warehouse'
-                                                        ? <><Warehouse className="w-3 h-3 text-purple-500" /> {alert.location}</>
-                                                        : <><MapPin className="w-3 h-3 text-teal-500" /> {alert.location}</>
-                                                    }
-                                                </span>
-                                            </td>
-                                            <td className="py-2.5 px-3 text-right font-bold text-red-600 dark:text-red-400">{alert.currentQty}</td>
-                                            <td className="py-2.5 px-3 text-right text-gray-500">{alert.minStock}</td>
-                                            <td className="py-2.5 px-3 text-right">
-                                                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
-                                                    -{alert.minStock - alert.currentQty}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* Near Expiry Alerts */}
-                {nearExpiryItems.length > 0 && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-amber-200 dark:border-amber-800 p-6 mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                                    <CalendarClock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Expiring Soon</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        <span className="text-amber-600 dark:text-amber-400 font-medium">{nearExpiryItems.length} item{nearExpiryItems.length !== 1 ? 's' : ''}</span>
-                                        {' '}expiring within 100 days
-                                    </p>
-                                </div>
-                            </div>
-                            <Link href="/admin/medicines" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
-                                View Inventory <ArrowRight className="w-3.5 h-3.5" />
-                            </Link>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500">
-                                        <th className="text-left py-2 px-3 font-medium">Item</th>
-                                        <th className="text-left py-2 px-3 font-medium">Category</th>
-                                        <th className="text-left py-2 px-3 font-medium">Expiry Date</th>
-                                        <th className="text-right py-2 px-3 font-medium">Days Left</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {nearExpiryItems.map(item => (
-                                        <tr key={item.id} className="hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-colors">
-                                            <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-white">{item.name}</td>
-                                            <td className="py-2.5 px-3">
-                                                <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${item.category === 'consumable' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                                                    <Pill className="w-3 h-3" />
-                                                    {item.category === 'consumable' ? 'Consumable' : 'Medicine'}
-                                                </span>
-                                            </td>
-                                            <td className="py-2.5 px-3 text-gray-600 dark:text-gray-300">{item.expiryDate}</td>
-                                            <td className="py-2.5 px-3 text-right">
-                                                <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${item.daysLeft <= 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : item.daysLeft <= 30 ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>
-                                                    {item.daysLeft <= 0 ? 'Expired' : `${item.daysLeft}d`}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* Admin Dashboard Navigation Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    <Link href="/admin/clinics" className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700">
-                        <h2 className="text-xl font-bold mb-2 text-indigo-600">Manage Branches</h2>
-                        <p className="text-gray-600 dark:text-gray-400">Manage clinic locations, hours, and contact info.</p>
-                    </Link>
-
-                    <Link href="/admin/services" className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700">
-                        <h2 className="text-xl font-bold mb-2 text-indigo-600">Manage Services</h2>
-                        <p className="text-gray-600 dark:text-gray-400">Add, edit, or remove medical services and pricing.</p>
-                    </Link>
-
-                    <Link href="/admin/doctors" className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700">
-                        <h2 className="text-xl font-bold mb-2 text-indigo-600">Manage Doctors</h2>
-                        <p className="text-gray-600 dark:text-gray-400">Add or remove doctors and specialists.</p>
-                    </Link>
-
-                    <Link href="/admin/schedule" className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700">
-                        <h2 className="text-xl font-bold mb-2 text-indigo-600">Staff Schedules</h2>
-                        <p className="text-gray-600 dark:text-gray-400">Set availability and shifts for doctors.</p>
-                    </Link>
-
-                    <Link href="/admin/promos" className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700">
-                        <h2 className="text-xl font-bold mb-2 text-indigo-600">Promo Codes</h2>
-                        <p className="text-gray-600 dark:text-gray-400">Create and manage discounts and offers.</p>
-                    </Link>
-
-                    <Link href="/admin/resources" className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700">
-                        <h2 className="text-xl font-bold mb-2 text-indigo-600">Resources</h2>
-                        <p className="text-gray-600 dark:text-gray-400">Manage equipment and room inventory.</p>
-                    </Link>
+                {/* ═══ KPI Row ═══ */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+                    <KPICard icon={<Building className="w-4 h-4" />} label="Branches" value={totalBranches} color="indigo" />
+                    <KPICard icon={<Stethoscope className="w-4 h-4" />} label="Doctors" value={totalDoctors} color="blue" />
+                    <KPICard icon={<Calendar className="w-4 h-4" />} label="Today's Bookings" value={todaysBookings} color="emerald" />
+                    <KPICard icon={<UserCheck className="w-4 h-4" />} label="Staff Present" value={attendance?.present ?? '—'} color="green" />
+                    <KPICard icon={<UserX className="w-4 h-4" />} label="Absent / Late" value={attendance ? `${attendance.absent}/${attendance.late}` : '—'} color="red" />
+                    <KPICard icon={<ClipboardList className="w-4 h-4" />} label="Shifts Today" value={shiftSummary?.total ?? '—'} color="purple" />
                 </div>
 
-                {/* Recent Activity */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Recent Appointments</h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="border-b border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
-                                    <th className="py-3 px-4">Patient</th>
-                                    <th className="py-3 px-4">Doctor</th>
-                                    <th className="py-3 px-4">Service</th>
-                                    <th className="py-3 px-4">Time</th>
-                                    <th className="py-3 px-4">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm">
-                                {[1, 2, 3, 4, 5].map((_, i) => (
-                                    <tr key={i} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                        <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Jane Cooper</td>
-                                        <td className="py-3 px-4 text-gray-600 dark:text-gray-300">Dr. Smith</td>
-                                        <td className="py-3 px-4 text-gray-600 dark:text-gray-300">Cardiology Consult</td>
-                                        <td className="py-3 px-4 text-gray-600 dark:text-gray-300">10:00 AM</td>
-                                        <td className="py-3 px-4">
-                                            <span className="inline-flex px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Confirmed</span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                {/* ═══ Main Grid: 2-column ═══ */}
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5">
+
+                    {/* ── Left Column ── */}
+                    <div className="space-y-5">
+
+                        {/* Alerts Row: Low Stock + Expiry side by side */}
+                        {(lowStockAlerts.length > 0 || nearExpiryItems.length > 0) && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                                {/* Low Stock */}
+                                {lowStockAlerts.length > 0 && (
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-800 overflow-hidden">
+                                        <div className="flex items-center justify-between px-4 py-3 border-b border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
+                                            <div className="flex items-center gap-2">
+                                                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Low Stock</h3>
+                                                {unacknowledgedCount > 0 && (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-600 text-white">{unacknowledgedCount}</span>
+                                                )}
+                                            </div>
+                                            <Link href="/admin/medicines" className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5">
+                                                View All <ArrowRight className="w-3 h-3" />
+                                            </Link>
+                                        </div>
+                                        <div className="max-h-[200px] overflow-y-auto">
+                                            <table className="w-full text-xs">
+                                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                                    {lowStockAlerts.slice(0, 6).map((alert, i) => (
+                                                        <tr key={i} className={alert.isNotified ? 'opacity-50' : 'hover:bg-red-50/30 dark:hover:bg-red-900/5'}>
+                                                            <td className="py-2 px-3">
+                                                                {alert.isNotified
+                                                                    ? <BellOff className="w-3 h-3 text-gray-400" />
+                                                                    : <Bell className="w-3 h-3 text-amber-500" />}
+                                                            </td>
+                                                            <td className="py-2 px-2 font-medium text-gray-900 dark:text-white truncate max-w-[120px]">{alert.medicineName}</td>
+                                                            <td className="py-2 px-2 text-gray-500 truncate max-w-[100px]">
+                                                                {alert.location === 'Central Warehouse' ? <Warehouse className="w-3 h-3 inline mr-0.5 text-purple-500" /> : <MapPin className="w-3 h-3 inline mr-0.5 text-teal-500" />}
+                                                                {alert.location}
+                                                            </td>
+                                                            <td className="py-2 px-2 text-right">
+                                                                <span className="font-bold text-red-600">{alert.currentQty}</span>
+                                                                <span className="text-gray-400">/{alert.minStock}</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Expiry */}
+                                {nearExpiryItems.length > 0 && (
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-amber-200 dark:border-amber-800 overflow-hidden">
+                                        <div className="flex items-center justify-between px-4 py-3 border-b border-amber-100 dark:border-amber-900/30 bg-amber-50/50 dark:bg-amber-900/10">
+                                            <div className="flex items-center gap-2">
+                                                <CalendarClock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Expiring Soon</h3>
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-white">{nearExpiryItems.length}</span>
+                                            </div>
+                                            <Link href="/admin/medicines" className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5">
+                                                View All <ArrowRight className="w-3 h-3" />
+                                            </Link>
+                                        </div>
+                                        <div className="max-h-[200px] overflow-y-auto">
+                                            <table className="w-full text-xs">
+                                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                                    {nearExpiryItems.slice(0, 6).map(item => (
+                                                        <tr key={item.id} className="hover:bg-amber-50/30 dark:hover:bg-amber-900/5">
+                                                            <td className="py-2 px-3">
+                                                                <Pill className={`w-3 h-3 ${item.category === 'consumable' ? 'text-orange-500' : 'text-blue-500'}`} />
+                                                            </td>
+                                                            <td className="py-2 px-2 font-medium text-gray-900 dark:text-white truncate max-w-[140px]">{item.name}</td>
+                                                            <td className="py-2 px-2 text-gray-500">{item.expiryDate}</td>
+                                                            <td className="py-2 px-2 text-right">
+                                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${item.daysLeft <= 0 ? 'bg-red-100 text-red-700' : item.daysLeft <= 30 ? 'bg-red-50 text-red-600' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                                    {item.daysLeft <= 0 ? 'Expired' : `${item.daysLeft}d`}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Recent Bookings */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-indigo-600" /> Recent Appointments
+                                </h3>
+                                <Link href="/admin/bookings" className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5">
+                                    View All <ArrowRight className="w-3 h-3" />
+                                </Link>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 text-gray-500 uppercase tracking-wider">
+                                            <th className="text-left py-2 px-4 font-semibold">Patient</th>
+                                            <th className="text-left py-2 px-4 font-semibold">Doctor</th>
+                                            <th className="text-left py-2 px-4 font-semibold">Service</th>
+                                            <th className="text-left py-2 px-4 font-semibold">Branch</th>
+                                            <th className="text-left py-2 px-4 font-semibold">Time</th>
+                                            <th className="text-left py-2 px-4 font-semibold">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                        {bookings.length === 0 ? (
+                                            <tr><td colSpan={6} className="py-8 text-center text-gray-400 text-sm">
+                                                {loading ? 'Loading...' : 'No recent appointments'}
+                                            </td></tr>
+                                        ) : (
+                                            bookings.map((b, i) => (
+                                                <tr key={b.id || i} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                                                    <td className="py-2.5 px-4 font-medium text-gray-900 dark:text-white">{b.patientName}</td>
+                                                    <td className="py-2.5 px-4 text-gray-600 dark:text-gray-300">{b.doctorName}</td>
+                                                    <td className="py-2.5 px-4 text-gray-600 dark:text-gray-300 truncate max-w-[150px]">{b.serviceName}</td>
+                                                    <td className="py-2.5 px-4">
+                                                        <span className="flex items-center gap-1 text-gray-500"><Building className="w-3 h-3" />{b.clinicName}</span>
+                                                    </td>
+                                                    <td className="py-2.5 px-4 font-mono text-gray-600 dark:text-gray-300">{b.slot}</td>
+                                                    <td className="py-2.5 px-4">
+                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : b.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                            {b.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Right Sidebar: Quick Links ── */}
+                    <div className="space-y-4">
+
+                        {/* Attendance Snapshot */}
+                        {attendance && (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <Activity className="w-3.5 h-3.5" /> Today&apos;s Attendance
+                                </h3>
+                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                    <MiniStat label="Present" value={attendance.present} color="text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400" />
+                                    <MiniStat label="Absent" value={attendance.absent} color="text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400" />
+                                    <MiniStat label="Late" value={attendance.late} color="text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400" />
+                                    <MiniStat label="Weekly Off" value={attendance.weeklyOff} color="text-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-gray-400" />
+                                </div>
+                                <Link href="/admin/hr/attendance" className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center justify-center gap-0.5 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                    Full Attendance Dashboard <ArrowRight className="w-3 h-3" />
+                                </Link>
+                            </div>
+                        )}
+
+                        {/* Quick Navigation */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Quick Access</h3>
+                            <div className="space-y-1">
+                                <QuickLink href="/admin/clinics" icon={<Building className="w-4 h-4" />} label="Manage Branches" desc="Locations & hours" color="text-indigo-600" />
+                                <QuickLink href="/admin/services" icon={<Heart className="w-4 h-4" />} label="Services & Pricing" desc="Medical services" color="text-pink-600" />
+                                <QuickLink href="/admin/doctors" icon={<Stethoscope className="w-4 h-4" />} label="Doctors" desc="Specialists & staff" color="text-blue-600" />
+                                <QuickLink href="/admin/schedule" icon={<Calendar className="w-4 h-4" />} label="Clinician Schedule" desc="Availability & slots" color="text-emerald-600" />
+                                <QuickLink href="/admin/hr/shifts" icon={<Clock className="w-4 h-4" />} label="Shift Schedule" desc="Employee shifts" color="text-purple-600" />
+                                <QuickLink href="/admin/promos" icon={<Tag className="w-4 h-4" />} label="Promo Codes" desc="Discounts & offers" color="text-amber-600" />
+                                <QuickLink href="/admin/medicines" icon={<Package className="w-4 h-4" />} label="Inventory" desc="Medicines & supplies" color="text-teal-600" />
+                                <QuickLink href="/admin/resources" icon={<Briefcase className="w-4 h-4" />} label="Resources" desc="Equipment & rooms" color="text-orange-600" />
+                                <QuickLink href="/admin/hr/employees" icon={<Users className="w-4 h-4" />} label="HR — Employees" desc="Staff management" color="text-violet-600" />
+                                <QuickLink href="/admin/hr/payroll" icon={<DollarSign className="w-4 h-4" />} label="HR — Payroll" desc="Salary & timesheets" color="text-green-600" />
+                                <QuickLink href="/admin/settings" icon={<ShieldCheck className="w-4 h-4" />} label="Settings" desc="Config & permissions" color="text-gray-600" />
+                            </div>
+                        </div>
+
+                        {/* Shift Summary */}
+                        {shiftSummary && (
+                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-200 dark:border-purple-800 p-4">
+                                <h3 className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                    <Zap className="w-3.5 h-3.5" /> Today&apos;s Shifts
+                                </h3>
+                                <div className="flex items-baseline gap-1 mb-1">
+                                    <span className="text-2xl font-bold text-purple-700 dark:text-purple-300">{shiftSummary.scheduled}</span>
+                                    <span className="text-xs text-purple-500 dark:text-purple-400">scheduled</span>
+                                </div>
+                                <div className="flex gap-3 text-[11px] text-purple-600 dark:text-purple-400">
+                                    <span>{shiftSummary.offDuty} off duty</span>
+                                    <span>{shiftSummary.clinicianAuto} auto-clinician</span>
+                                </div>
+                                <Link href="/admin/hr/shifts" className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center justify-center gap-0.5 mt-3 pt-2 border-t border-purple-200 dark:border-purple-700">
+                                    Open Shift Dashboard <ArrowRight className="w-3 h-3" />
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>
         </div>
+    );
+}
+
+// ── KPI Card ──
+function KPICard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
+    const styles: Record<string, string> = {
+        indigo: 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400',
+        blue: 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400',
+        emerald: 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400',
+        green: 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400',
+        red: 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400',
+        purple: 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400',
+    };
+    return (
+        <div className={`rounded-xl border p-3 ${styles[color] || styles.indigo}`}>
+            <div className="flex items-center justify-between mb-1">{icon}</div>
+            <p className="text-2xl font-bold leading-tight">{value}</p>
+            <p className="text-[10px] font-medium opacity-70">{label}</p>
+        </div>
+    );
+}
+
+// ── Mini Stat (sidebar) ──
+function MiniStat({ label, value, color }: { label: string; value: number; color: string }) {
+    return (
+        <div className={`rounded-lg px-2.5 py-2 ${color}`}>
+            <p className="text-lg font-bold leading-tight">{value}</p>
+            <p className="text-[10px] opacity-70">{label}</p>
+        </div>
+    );
+}
+
+// ── Quick Link (sidebar) ──
+function QuickLink({ href, icon, label, desc, color }: { href: string; icon: React.ReactNode; label: string; desc: string; color: string }) {
+    return (
+        <Link href={href} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors group">
+            <span className={`${color} opacity-80 group-hover:opacity-100 transition-opacity`}>{icon}</span>
+            <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{label}</p>
+                <p className="text-[10px] text-gray-400">{desc}</p>
+            </div>
+            <ArrowRight className="w-3 h-3 text-gray-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+        </Link>
     );
 }

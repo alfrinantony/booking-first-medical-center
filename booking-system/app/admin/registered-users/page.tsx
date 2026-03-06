@@ -7,6 +7,7 @@ import {
     Merge, Check, Mail, Phone, Calendar, Ban, CheckCircle2,
     AlertTriangle, Eye, EyeOff, User
 } from 'lucide-react';
+import { maskPhone, maskEmail } from '@/lib/emr-store';
 
 export default function RegisteredUsersPage() {
     const {
@@ -35,6 +36,16 @@ export default function RegisteredUsersPage() {
 
     // View modal
     const [viewUser, setViewUser] = useState<RegisteredUser | null>(null);
+
+    // Contact masking
+    const [revealedContacts, setRevealedContacts] = useState<Set<string>>(new Set());
+    const toggleContactReveal = (id: string) => {
+        setRevealedContacts(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
 
     // Feedback
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -287,16 +298,21 @@ export default function RegisteredUsersPage() {
                                         <td className="p-4 text-sm">
                                             <div className="flex items-center gap-1.5">
                                                 <Mail className="w-3.5 h-3.5 text-gray-400" />
-                                                {u.email}
+                                                {revealedContacts.has(u.id) ? u.email : maskEmail(u.email)}
                                             </div>
                                         </td>
                                         <td className="p-4 text-sm">
-                                            {u.phone ? (
-                                                <div className="flex items-center gap-1.5">
-                                                    <Phone className="w-3.5 h-3.5 text-gray-400" />
-                                                    {u.phone}
-                                                </div>
-                                            ) : '—'}
+                                            <div className="flex items-center gap-1.5">
+                                                {u.phone ? (
+                                                    <>
+                                                        <Phone className="w-3.5 h-3.5 text-gray-400" />
+                                                        {revealedContacts.has(u.id) ? u.phone : maskPhone(u.phone)}
+                                                    </>
+                                                ) : '—'}
+                                                <button onClick={() => toggleContactReveal(u.id)} className="p-0.5 text-gray-400 hover:text-indigo-600 rounded transition-colors ml-1" title={revealedContacts.has(u.id) ? 'Hide' : 'Reveal'}>
+                                                    {revealedContacts.has(u.id) ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                                </button>
+                                            </div>
                                         </td>
                                         <td className="p-4">{getStatusBadge(u)}</td>
                                         <td className="p-4 text-sm text-gray-500">
@@ -358,11 +374,16 @@ export default function RegisteredUsersPage() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-lg">
                                     <div className="text-xs text-gray-500 mb-1">Email</div>
-                                    <div className="font-medium">{viewUser.email}</div>
+                                    <div className="font-medium">{revealedContacts.has(viewUser.id) ? viewUser.email : maskEmail(viewUser.email)}</div>
                                 </div>
                                 <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-lg">
                                     <div className="text-xs text-gray-500 mb-1">Phone</div>
-                                    <div className="font-medium">{viewUser.phone || '—'}</div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium">{revealedContacts.has(viewUser.id) ? (viewUser.phone || '—') : maskPhone(viewUser.phone)}</span>
+                                        <button onClick={() => toggleContactReveal(viewUser.id)} className="p-0.5 text-gray-400 hover:text-indigo-600 rounded transition-colors" title={revealedContacts.has(viewUser.id) ? 'Hide' : 'Reveal'}>
+                                            {revealedContacts.has(viewUser.id) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-lg">
                                     <div className="text-xs text-gray-500 mb-1">Gender</div>

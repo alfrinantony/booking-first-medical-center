@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useSettingsStore } from '@/lib/settings-store';
 import { useRestrictionsStore } from '@/lib/restrictions-store';
 import { timeSlots } from '@/lib/data';
-import { Save, Eye, EyeOff, Bell } from 'lucide-react';
+import { Save, Eye, EyeOff, Bell, Activity, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useEMRStore } from '@/lib/emr-store';
 
 export default function SettingsPage() {
     const { settings, updateSettings } = useSettingsStore();
@@ -16,6 +17,16 @@ export default function SettingsPage() {
     const [localPeakDays, setLocalPeakDays] = useState<number[]>(peakDays);
     const [localPeakSlots, setLocalPeakSlots] = useState<string[]>(peakSlots);
     const [localRestrictionDays, setLocalRestrictionDays] = useState(noShowRestrictionDays);
+
+    // EMR Integration state (must be at top level for stable hook ordering)
+    const emrStoreState = useEMRStore.getState();
+    const [emrUrl, setEmrUrl] = useState(emrStoreState.config.endpointUrl);
+    const [emrKey, setEmrKey] = useState(emrStoreState.config.apiKey);
+    const [emrEnabled, setEmrEnabled] = useState(emrStoreState.config.enabled);
+    const [emrMaskContacts, setEmrMaskContacts] = useState(emrStoreState.config.maskContacts ?? true);
+    const [showEmrKey, setShowEmrKey] = useState(false);
+    const [emrTesting, setEmrTesting] = useState(false);
+    const [emrTestResult, setEmrTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
     useEffect(() => {
         setFormData(settings);
@@ -213,6 +224,127 @@ export default function SettingsPage() {
                 })()}
 
 
+                {/* EMR Integration */}
+                {(() => {
+                    const saveEmrConfig = () => {
+                        useEMRStore.getState().updateConfig({ endpointUrl: emrUrl, apiKey: emrKey, enabled: emrEnabled, maskContacts: emrMaskContacts });
+                        alert('EMR configuration saved!');
+                    };
+
+                    const testEmrConnection = async () => {
+                        setEmrTesting(true);
+                        setEmrTestResult(null);
+                        // Temporarily update config so test uses latest values
+                        useEMRStore.getState().updateConfig({ endpointUrl: emrUrl, apiKey: emrKey });
+                        const result = await useEMRStore.getState().testConnection();
+                        setEmrTestResult(result);
+                        setEmrTesting(false);
+                    };
+
+                    return (
+                        <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="flex justify-between items-center mb-6 border-b pb-2">
+                                <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Activity className="w-5 h-5 text-teal-600" /> EMR Integration
+                                </h2>
+                                <div className="flex items-center gap-3">
+                                    <button type="button" onClick={testEmrConnection} disabled={emrTesting || !emrUrl}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm disabled:opacity-40 transition-colors">
+                                        {emrTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
+                                        Test Connection
+                                    </button>
+                                    <button type="button" onClick={saveEmrConfig}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm">
+                                        <Save className="w-3 h-3" /> Save EMR Config
+                                    </button>
+                                </div>
+                            </div>
+
+                            {emrTestResult && (
+                                <div className={`mb-4 p-3 rounded-lg text-sm font-medium flex items-center gap-2 ${emrTestResult.success
+                                    ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                    : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                    }`}>
+                                    {emrTestResult.success ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                    {emrTestResult.message}
+                                </div>
+                            )}
+
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                Configure the external Electronic Medical Records system to push client registration documents.
+                            </p>
+
+                            {/* Enable Toggle */}
+                            <div className="mb-4">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <div className={`relative w-11 h-6 rounded-full transition-colors ${emrEnabled ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                        onClick={() => setEmrEnabled(!emrEnabled)}>
+                                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${emrEnabled ? 'translate-x-5' : ''}`} />
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        {emrEnabled ? 'EMR Integration Enabled' : 'EMR Integration Disabled'}
+                                    </span>
+                                </label>
+                            </div>
+
+                            {/* Mask Contact Info Toggle */}
+                            <div className="mb-5">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <div className={`relative w-11 h-6 rounded-full transition-colors ${emrMaskContacts ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                        onClick={() => setEmrMaskContacts(!emrMaskContacts)}>
+                                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${emrMaskContacts ? 'translate-x-5' : ''}`} />
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {emrMaskContacts ? 'Mask Contact Info on Export' : 'Contact Info Visible on Export'}
+                                        </span>
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                            When enabled, mobile number, WhatsApp number, and email will be masked when sending client details to external systems.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Endpoint URL */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">EMR Endpoint URL</label>
+                                    <input type="text" value={emrUrl} onChange={e => setEmrUrl(e.target.value)}
+                                        placeholder="https://emr-api.example.com/api/patients"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
+                                </div>
+
+                                {/* API Key */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
+                                    <div className="relative">
+                                        <input type={showEmrKey ? 'text' : 'password'} value={emrKey} onChange={e => setEmrKey(e.target.value)}
+                                            placeholder="Enter EMR API key"
+                                            className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
+                                        <button type="button" onClick={() => setShowEmrKey(!showEmrKey)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                            {showEmrKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Webhook Info */}
+                            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                                <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Client Export Webhook</h4>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                    External systems can pull masked client data via this endpoint:
+                                </p>
+                                <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-teal-700 dark:text-teal-400 block overflow-x-auto">
+                                    GET /api/admin/clients/export?apiKey=YOUR_KEY
+                                </code>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                    Contact info is always masked on this endpoint. Use the API Key above for authentication.
+                                </p>
+                            </div>
+                        </section>
+                    );
+                })()}
 
                 {/* Integration APIs */}
                 <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
