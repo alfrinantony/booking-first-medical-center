@@ -45,12 +45,16 @@ export async function POST(request: Request) {
             nbf: now,
             video: {
                 roomJoin: true,
-                roomCreate: true, // auto-create room when visitor joins
+                roomCreate: true,
                 room: roomName,
                 canPublish: true,
                 canSubscribe: true,
                 canPublishData: true,
-                agent: 'CA_TahBGfdGjoqe', // LiveKit Cloud call agent
+            },
+            roomConfig: {
+                agents: [
+                    { agentName: 'CA_TahBGfdGjoqe' },
+                ],
             },
             metadata: JSON.stringify({ role: 'visitor' }),
         };
