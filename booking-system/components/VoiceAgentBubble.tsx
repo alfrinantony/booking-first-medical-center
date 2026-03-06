@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, X, ChevronDown, Loader2, Timer } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, X, ChevronDown, Loader2, Timer, Globe } from 'lucide-react';
 import { useRestrictionsStore } from '@/lib/restrictions-store';
 import { useAuthStore } from '@/lib/store';
 
@@ -39,6 +39,7 @@ export default function VoiceAgentBubble() {
     const [dailyLimitReached, setDailyLimitReached] = useState(false);
     const [remainingSeconds, setRemainingSeconds] = useState(300);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'ar' | null>(null);
 
     const DAILY_LIMIT_SECONDS = 300;
 
@@ -85,21 +86,23 @@ export default function VoiceAgentBubble() {
     }, [chatLog]);
 
     /* ── Connect to LiveKit Room ── */
-    const connect = useCallback(async () => {
+    const connect = useCallback(async (lang: 'en' | 'ar') => {
         if (isConnected || isConnecting || dailyLimitReached) return;
 
+        setSelectedLanguage(lang);
         setIsConnecting(true);
-        setAgentStatus('Connecting...');
-        console.log('[Sofia] Starting connection...');
+        setAgentStatus('Connecting to Sofia...');
+        console.log('[Sofia] Starting connection, language:', lang);
 
         try {
-            // 1. Get token
+            // 1. Get token — pass language in metadata
             const tokenRes = await fetch('/api/livekit-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     customerName,
                     customerPhone: user?.phone || '',
+                    language: lang,
                 }),
             });
 
@@ -111,7 +114,26 @@ export default function VoiceAgentBubble() {
             const { token, url } = await tokenRes.json();
             console.log('[Sofia] Token received, connecting to:', url);
 
-            // 2. Create Room
+            // 2. Request microphone FIRST (before room connection)
+            //    This ensures we have mic permission from user gesture context
+            let micStream: MediaStream;
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    },
+                });
+                console.log('[Sofia] Microphone access granted');
+            } catch (micErr) {
+                console.error('[Sofia] Mic access denied:', micErr);
+                setAgentStatus('Microphone access denied. Please allow mic access.');
+                setIsConnecting(false);
+                return;
+            }
+
+            // 3. Create Room
             const room = new Room({
                 adaptiveStream: true,
                 dynacast: true,
@@ -119,6 +141,9 @@ export default function VoiceAgentBubble() {
                     autoGainControl: true,
                     echoCancellation: true,
                     noiseSuppression: true,
+                },
+                audioOutput: {
+                    deviceId: 'default',
                 },
             });
 
@@ -129,25 +154,39 @@ export default function VoiceAgentBubble() {
                 console.log('[Sofia] Track subscribed:', track.kind, 'from:', participant.identity);
 
                 if (track.kind === Track.Kind.Audio) {
-                    // Use track.attach() which creates and returns a proper HTMLMediaElement
-                    const el = track.attach();
-                    el.setAttribute('autoplay', 'true');
-                    el.setAttribute('playsinline', 'true');
-                    el.volume = 1.0;
+                    // track.attach() creates a new <audio> element with the right srcObject
+                    const audioEl = track.attach();
+                    audioEl.autoplay = true;
+                    audioEl.setAttribute('playsinline', 'true');
+                    audioEl.volume = 1.0;
+                    audioEl.muted = false;
 
-                    // Append to hidden container in DOM
+                    // Append to hidden container
                     if (audioContainerRef.current) {
-                        audioContainerRef.current.appendChild(el);
+                        audioContainerRef.current.appendChild(audioEl);
                     } else {
-                        document.body.appendChild(el);
+                        document.body.appendChild(audioEl);
                     }
 
-                    console.log('[Sofia] Agent audio attached and playing');
+                    // Force play (needed for some browsers)
+                    audioEl.play().then(() => {
+                        console.log('[Sofia] ✅ Agent audio playing');
+                    }).catch(err => {
+                        console.warn('[Sofia] ⚠️ Audio autoplay blocked, trying workaround:', err);
+                        // Try again on next user interaction
+                        const resume = () => {
+                            audioEl.play();
+                            document.removeEventListener('click', resume);
+                        };
+                        document.addEventListener('click', resume);
+                    });
+
                     setIsSpeaking(true);
+                    setAgentStatus('Sofia is speaking...');
                 }
             });
 
-            // ── EVENT: Track unsubscribed ──
+            // Track unsubscribed
             room.on(RoomEvent.TrackUnsubscribed, (track) => {
                 track.detach().forEach(el => el.remove());
                 if (track.kind === Track.Kind.Audio) {
@@ -157,21 +196,30 @@ export default function VoiceAgentBubble() {
 
             // ── EVENT: Agent joins ──
             room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
-                console.log('[Sofia] Participant joined:', participant.identity, 'metadata:', participant.metadata);
+                console.log('[Sofia] Agent joined:', participant.identity);
                 setAgentStatus('Sofia is here — speak now');
+
+                // Add initial greeting to chat log
+                const langLabel = lang === 'ar' ? 'Arabic' : 'English';
+                const greeting = lang === 'ar'
+                    ? 'مرحباً! أنا صوفيا، مساعدتك في الحجز. كيف أقدر أساعدك؟'
+                    : `Hello${customerName ? ` ${customerName.split(' ')[0]}` : ''}! I'm Sofia, your booking assistant. How may I help you?`;
+                setChatLog(prev => {
+                    if (prev.length === 0) return [{ role: 'assistant' as const, content: greeting }];
+                    return prev;
+                });
             });
 
-            // ── EVENT: Data messages (transcriptions) ──
+            // ── EVENT: Data messages ──
             room.on(RoomEvent.DataReceived, (payload: Uint8Array, participant?: RemoteParticipant) => {
                 try {
                     const text = new TextDecoder().decode(payload);
                     const data = JSON.parse(text);
-                    console.log('[Sofia] Data received:', data);
+                    console.log('[Sofia] Data:', data);
 
                     if (data.type === 'transcription' || data.transcript) {
                         const transcript = data.transcript || data.text || '';
                         const isFinal = data.is_final !== false;
-
                         if (isFinal && transcript.trim()) {
                             const isAgent = participant && (
                                 participant.identity.includes('agent') ||
@@ -188,12 +236,14 @@ export default function VoiceAgentBubble() {
                 }
             });
 
-            // ── EVENT: Active speakers ──
+            // Active speakers
             room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
                 const agentSpeaking = speakers.some(s =>
-                    s.identity.includes('agent') || s.identity.includes('CA_')
+                    s.identity !== room.localParticipant.identity
                 );
                 setIsSpeaking(agentSpeaking);
+                if (agentSpeaking) setAgentStatus('Sofia is speaking...');
+                else if (isConnected) setAgentStatus('Listening...');
             });
 
             // ── EVENT: Connection state ──
@@ -218,23 +268,36 @@ export default function VoiceAgentBubble() {
             });
 
             room.on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
-                console.log('[Sofia] Disconnected, reason:', reason);
+                console.log('[Sofia] Disconnected:', reason);
                 setIsConnected(false);
                 setIsConnecting(false);
                 setAgentStatus('Session ended');
             });
 
-            // 3. Connect
+            // 4. Connect to the room
             await room.connect(url, token);
-            console.log('[Sofia] Connected to room:', room.name);
+            console.log('[Sofia] ✅ Connected to room:', room.name);
 
-            // 4. Enable microphone — this publishes user audio to the room
+            // 5. Stop the getUserMedia stream (room will create its own)
+            micStream.getTracks().forEach(t => t.stop());
+
+            // 6. Enable microphone through LiveKit
             await room.localParticipant.setMicrophoneEnabled(true);
-            console.log('[Sofia] Microphone enabled and publishing');
+            console.log('[Sofia] ✅ Microphone enabled');
 
-            // Check if mic is actually publishing
+            // Verify mic is publishing
             const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-            console.log('[Sofia] Mic publication:', micPub ? 'active' : 'NOT FOUND');
+            if (micPub) {
+                console.log('[Sofia] ✅ Mic track is publishing, trackSid:', micPub.trackSid);
+            } else {
+                console.warn('[Sofia] ⚠️ Mic track NOT found after enabling');
+            }
+
+            // Log room participants
+            console.log('[Sofia] Participants in room:', room.remoteParticipants.size);
+            room.remoteParticipants.forEach((p, id) => {
+                console.log('[Sofia] Remote participant:', id, p.identity);
+            });
 
         } catch (err) {
             console.error('[Sofia] Connection error:', err);
@@ -271,7 +334,7 @@ export default function VoiceAgentBubble() {
             }).catch(err => console.warn('[Sofia] Email send failed:', err));
         }
 
-        // Detach all audio elements
+        // Clean up audio
         if (audioContainerRef.current) {
             audioContainerRef.current.innerHTML = '';
         }
@@ -288,6 +351,7 @@ export default function VoiceAgentBubble() {
         setIsMuted(false);
         setIsSpeaking(false);
         setAgentStatus('');
+        setSelectedLanguage(null);
     }, [chatLog]);
 
     /* ── Toggle mic ── */
@@ -297,7 +361,6 @@ export default function VoiceAgentBubble() {
         const newMuted = !isMuted;
         await room.localParticipant.setMicrophoneEnabled(!newMuted);
         setIsMuted(newMuted);
-        console.log('[Sofia] Mic', newMuted ? 'muted' : 'unmuted');
     }, [isMuted]);
 
     /* ── Toggle panel ── */
@@ -306,7 +369,7 @@ export default function VoiceAgentBubble() {
             if (user) {
                 const clientId = user.phone || user.email || user.name || '';
                 if (useRestrictionsStore.getState().isVoiceBlocked(clientId)) {
-                    alert('Voice booking is not available for your account. Please use the online booking portal or contact the clinic.');
+                    alert('Voice booking is not available for your account.');
                     return;
                 }
             }
@@ -328,7 +391,7 @@ export default function VoiceAgentBubble() {
 
     return (
         <>
-            {/* Hidden container for agent audio elements */}
+            {/* Hidden container for agent audio */}
             <div ref={audioContainerRef} style={{ display: 'none' }} />
 
             {/* Floating bubble */}
@@ -352,7 +415,11 @@ export default function VoiceAgentBubble() {
                             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : isConnecting ? 'bg-yellow-400 animate-pulse' : 'bg-gray-400'}`} />
                             <span className="font-semibold text-sm">Sofia · Voice Assistant</span>
                             {isConnecting && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {isSpeaking && <span className="text-xs bg-green-500 rounded-full px-2 py-0.5">🔊 Speaking</span>}
+                            {selectedLanguage && (
+                                <span className="text-xs bg-indigo-700 rounded-full px-2 py-0.5">
+                                    {selectedLanguage === 'ar' ? '🇦🇪 AR' : '🇬🇧 EN'}
+                                </span>
+                            )}
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1 bg-indigo-700 rounded-full px-2 py-0.5 text-xs">
@@ -368,31 +435,41 @@ export default function VoiceAgentBubble() {
                         </div>
                     </div>
 
-                    {/* Start screen */}
-                    {!isConnected && !isConnecting && (
-                        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-5">
+                    {/* ── LANGUAGE SELECTION ── */}
+                    {!isConnected && !isConnecting && !selectedLanguage && (
+                        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-6">
                             <div className="w-20 h-20 rounded-full overflow-hidden border-3 border-indigo-200 shadow-lg">
                                 <img src="/voice-agent-avatar.png" alt="Sofia" className="w-full h-full object-cover" />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Talk to Sofia</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Your AI booking assistant</p>
+                                <Globe className="w-8 h-8 text-indigo-500 mx-auto mb-2" />
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Choose Your Language</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">اختر لغتك المفضلة</p>
                             </div>
                             {dailyLimitReached ? (
                                 <p className="text-sm text-red-500 text-center">Daily limit reached. Try again tomorrow.</p>
                             ) : (
-                                <button
-                                    onClick={connect}
-                                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all hover:scale-105 shadow-lg"
-                                >
-                                    <Mic className="w-5 h-5" />
-                                    Start Call
-                                </button>
+                                <div className="flex gap-4 w-full">
+                                    <button
+                                        onClick={() => connect('en')}
+                                        className="flex-1 flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+                                    >
+                                        <span className="text-3xl">🇬🇧</span>
+                                        <span className="font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600">English</span>
+                                    </button>
+                                    <button
+                                        onClick={() => connect('ar')}
+                                        className="flex-1 flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+                                    >
+                                        <span className="text-3xl">🇦🇪</span>
+                                        <span className="font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600">العربية</span>
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}
 
-                    {/* Connecting */}
+                    {/* Connecting spinner */}
                     {isConnecting && (
                         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-4">
                             <div className="relative">
@@ -406,7 +483,10 @@ export default function VoiceAgentBubble() {
                     {isConnected && (
                         <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-green-600 font-medium">{agentStatus}</span>
+                                <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                                    {isSpeaking && <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />}
+                                    {agentStatus}
+                                </span>
                                 {isMuted && <span className="text-xs text-red-500 font-medium">🔇 Muted</span>}
                             </div>
                         </div>

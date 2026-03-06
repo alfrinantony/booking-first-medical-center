@@ -31,8 +31,11 @@ export async function POST(request: Request) {
         }
 
         // Generate a unique participant identity
+        const body = await request.json().catch(() => ({}));
+        const language = body.language || 'en';
+        const name = body.customerName || '';
         const identity = `visitor-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-        const roomName = `avatar-room-${identity}`;
+        const roomName = `sofia-room-${identity}`;
 
         // Build JWT token manually (LiveKit uses standard JWT)
         const header = { alg: 'HS256', typ: 'JWT' };
@@ -41,7 +44,7 @@ export async function POST(request: Request) {
             iss: apiKey,
             sub: identity,
             iat: now,
-            exp: now + 300, // 5 minute expiry (covers 3 min session + buffer)
+            exp: now + 300,
             nbf: now,
             video: {
                 roomJoin: true,
@@ -56,7 +59,11 @@ export async function POST(request: Request) {
                     { agentName: 'CA_TahBGfdGjoqe' },
                 ],
             },
-            metadata: JSON.stringify({ role: 'visitor' }),
+            metadata: JSON.stringify({
+                role: 'visitor',
+                language,
+                customerName: name,
+            }),
         };
 
         // Base64url encode
