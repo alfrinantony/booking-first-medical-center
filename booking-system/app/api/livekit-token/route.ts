@@ -50,7 +50,7 @@ export async function POST(request: Request) {
                 canPublish: true,
                 canSubscribe: true,
                 canPublishData: true,
-                agent: 'fmc-avatar-agent', // dispatch this agent to the room
+                agent: 'CA_TahBGfdGjoqe', // LiveKit Cloud call agent
             },
             metadata: JSON.stringify({ role: 'visitor' }),
         };
