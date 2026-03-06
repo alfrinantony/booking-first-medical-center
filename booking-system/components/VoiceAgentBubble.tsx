@@ -274,30 +274,59 @@ export default function VoiceAgentBubble() {
                 setAgentStatus('Session ended');
             });
 
+            // Handle autoplay restrictions
+            room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+                if (!room.canPlaybackAudio) {
+                    console.warn('[Sofia] ⚠️ Audio playback blocked — calling startAudio()...');
+                    room.startAudio().then(() => {
+                        console.log('[Sofia] ✅ Audio playback resumed via startAudio()');
+                    });
+                }
+            });
+
             // 4. Connect to the room
             await room.connect(url, token);
             console.log('[Sofia] ✅ Connected to room:', room.name);
 
-            // 5. Stop the getUserMedia stream (room will create its own)
+            // 5. CRITICAL: startAudio() must be called from within a user gesture context
+            //    This handles browser autoplay policies
+            await room.startAudio();
+            console.log('[Sofia] ✅ startAudio() called — audio playback enabled');
+
+            // 6. Stop the getUserMedia stream (room will create its own)
             micStream.getTracks().forEach(t => t.stop());
 
-            // 6. Enable microphone through LiveKit
+            // 7. Enable microphone through LiveKit
             await room.localParticipant.setMicrophoneEnabled(true);
             console.log('[Sofia] ✅ Microphone enabled');
 
             // Verify mic is publishing
             const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
             if (micPub) {
-                console.log('[Sofia] ✅ Mic track is publishing, trackSid:', micPub.trackSid);
+                console.log('[Sofia] ✅ Mic track publishing, sid:', micPub.trackSid);
             } else {
-                console.warn('[Sofia] ⚠️ Mic track NOT found after enabling');
+                console.warn('[Sofia] ⚠️ Mic track NOT found');
             }
 
-            // Log room participants
-            console.log('[Sofia] Participants in room:', room.remoteParticipants.size);
-            room.remoteParticipants.forEach((p, id) => {
-                console.log('[Sofia] Remote participant:', id, p.identity);
+            // 8. Handle any already-connected participants (agent may join before us)
+            room.remoteParticipants.forEach((participant) => {
+                console.log('[Sofia] Existing participant:', participant.identity);
+                participant.trackPublications.forEach((pub) => {
+                    if (pub.track && pub.track.kind === Track.Kind.Audio) {
+                        console.log('[Sofia] Attaching existing audio track from:', participant.identity);
+                        const audioEl = pub.track.attach();
+                        audioEl.autoplay = true;
+                        audioEl.setAttribute('playsinline', 'true');
+                        audioEl.volume = 1.0;
+                        if (audioContainerRef.current) {
+                            audioContainerRef.current.appendChild(audioEl);
+                        }
+                        audioEl.play().catch(() => { });
+                    }
+                });
             });
+
+            console.log('[Sofia] Participants in room:', room.remoteParticipants.size);
 
         } catch (err) {
             console.error('[Sofia] Connection error:', err);
@@ -391,8 +420,8 @@ export default function VoiceAgentBubble() {
 
     return (
         <>
-            {/* Hidden container for agent audio */}
-            <div ref={audioContainerRef} style={{ display: 'none' }} />
+            {/* Audio container — must NOT be display:none or audio won't play */}
+            <div ref={audioContainerRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
 
             {/* Floating bubble */}
             {!isOpen && (
