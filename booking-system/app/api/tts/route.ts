@@ -20,8 +20,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'No text provided.' }, { status: 400 });
         }
 
-        // Select voice based on language — shimmer for English, nova for Arabic
-        const voice = lang === 'ar' ? 'nova' : 'shimmer';
+        // Select voice — nova for Sofia's warm, natural receptionist tone
+        const voice = lang === 'ar' ? 'nova' : 'nova';
 
         const response = await fetch('https://api.openai.com/v1/audio/speech', {
             method: 'POST',
