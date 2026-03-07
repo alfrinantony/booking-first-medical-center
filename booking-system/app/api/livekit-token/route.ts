@@ -1,24 +1,14 @@
 import { NextResponse } from 'next/server';
-import { isFromUAE } from '@/lib/geo-check';
+import { AccessToken } from 'livekit-server-sdk';
 
 /**
  * POST /api/livekit-token
  *
- * Generates a LiveKit access token for the LiveAvatar session.
- * Enforces UAE-only geo-restriction.
+ * Generates a LiveKit access token using the official server SDK,
+ * with proper agent dispatch configuration for the Cloud Call Agent.
  */
 export async function POST(request: Request) {
     try {
-        const reqHeaders = new Headers(request.headers);
-
-        // Geo-restriction: UAE only (TEMPORARILY DISABLED for testing)
-        // if (!isFromUAE(reqHeaders)) {
-        //     return NextResponse.json(
-        //         { error: 'This service is only available in the UAE.' },
-        //         { status: 403 }
-        //     );
-        // }
-
         const apiKey = process.env.LIVEKIT_API_KEY;
         const apiSecret = process.env.LIVEKIT_API_SECRET;
         const livekitUrl = process.env.LIVEKIT_URL;
@@ -30,67 +20,49 @@ export async function POST(request: Request) {
             );
         }
 
-        // Generate a unique participant identity
         const body = await request.json().catch(() => ({}));
         const language = body.language || 'en';
-        const name = body.customerName || '';
+        const customerName = body.customerName || '';
+
+        // Generate unique identity and room name
         const identity = `visitor-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
         const roomName = `sofia-room-${identity}`;
 
-        // Build JWT token manually (LiveKit uses standard JWT)
-        const header = { alg: 'HS256', typ: 'JWT' };
-        const now = Math.floor(Date.now() / 1000);
-        const payload = {
-            iss: apiKey,
-            sub: identity,
-            iat: now,
-            exp: now + 300,
-            nbf: now,
-            video: {
-                roomJoin: true,
-                roomCreate: true,
-                room: roomName,
-                canPublish: true,
-                canSubscribe: true,
-                canPublishData: true,
-            },
-            roomConfig: {
-                agents: [
-                    { agentName: 'CA_TahBGfdGjoqe' },
-                ],
-            },
+        // Use the official livekit-server-sdk to create token
+        const token = new AccessToken(apiKey, apiSecret, {
+            identity,
             metadata: JSON.stringify({
                 role: 'visitor',
                 language,
-                customerName: name,
+                customerName,
             }),
+        });
+
+        // Grant room permissions
+        token.addGrant({
+            roomJoin: true,
+            roomCreate: true,
+            room: roomName,
+            canPublish: true,
+            canSubscribe: true,
+            canPublishData: true,
+            // Agent dispatch — this tells LiveKit to dispatch the agent to this room
+            agent: 'CA_TahBGfdGjoqe',
+        });
+
+        // Set room configuration for agent dispatch
+        token.roomConfig = {
+            agents: [
+                { agentName: 'CA_TahBGfdGjoqe' },
+            ],
         };
 
-        // Base64url encode
-        const b64url = (obj: object) => {
-            const json = JSON.stringify(obj);
-            const b64 = Buffer.from(json).toString('base64');
-            return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        };
+        const jwt = await token.toJwt();
 
-        const headerEncoded = b64url(header);
-        const payloadEncoded = b64url(payload);
-        const signingInput = `${headerEncoded}.${payloadEncoded}`;
-
-        // HMAC-SHA256 signature
-        const crypto = await import('crypto');
-        const signature = crypto
-            .createHmac('sha256', apiSecret)
-            .update(signingInput)
-            .digest('base64')
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/, '');
-
-        const token = `${signingInput}.${signature}`;
+        console.log('[LiveKit Token] Generated token for room:', roomName, 'agent: CA_TahBGfdGjoqe');
 
         return NextResponse.json({
-            token,
+            token: jwt,
             url: livekitUrl,
             roomName,
             identity,
