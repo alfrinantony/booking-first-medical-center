@@ -12,9 +12,9 @@ import {
     useRemoteParticipants,
     useLocalParticipant,
     useVoiceAssistant,
-    useTracks,
+    useRoomContext,
 } from '@livekit/components-react';
-import { ConnectionState, Track, RoomEvent } from 'livekit-client';
+import { ConnectionState, RoomEvent } from 'livekit-client';
 
 /* ─────────────────────────────────────────────
    Types
@@ -43,6 +43,7 @@ function AgentSession({
     const connectionState = useConnectionState();
     const remoteParticipants = useRemoteParticipants();
     const { localParticipant } = useLocalParticipant();
+    const room = useRoomContext();
     const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
     const [isMuted, setIsMuted] = useState(false);
     const [agentStatus, setAgentStatus] = useState('Connecting...');
@@ -88,17 +89,20 @@ function AgentSession({
         }
     }, [voiceAssistant.agentTranscriptions]);
 
-    // Listen for user transcriptions via room event (TranscriptionReceived)
+    // Listen for ALL transcriptions via room — captures user speech
     useEffect(() => {
-        const room = localParticipant?.room;
         if (!room) return;
 
         const handleTranscription = (segments: any[], participant: any) => {
-            // Only process user's own transcriptions
-            if (participant?.identity === localParticipant?.identity) {
+            // Check if this is the local user's transcription (not the agent)
+            const isUser = participant && localParticipant &&
+                participant.identity === localParticipant.identity;
+
+            if (isUser) {
                 for (const seg of segments) {
-                    if (seg.final && seg.text?.trim() && !processedIdsRef.current.has(seg.id)) {
-                        processedIdsRef.current.add(seg.id);
+                    const segId = seg.id || `user-${seg.text}-${seg.startTime}`;
+                    if (seg.final && seg.text?.trim() && !processedIdsRef.current.has(segId)) {
+                        processedIdsRef.current.add(segId);
                         setChatLog(prev => [...prev, { role: 'user', content: seg.text.trim() }]);
                     }
                 }
@@ -107,7 +111,7 @@ function AgentSession({
 
         room.on(RoomEvent.TranscriptionReceived, handleTranscription);
         return () => { room.off(RoomEvent.TranscriptionReceived, handleTranscription); };
-    }, [localParticipant]);
+    }, [room, localParticipant]);
 
     // Toggle mic
     const toggleMute = useCallback(async () => {
