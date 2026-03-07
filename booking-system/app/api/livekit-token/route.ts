@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, RoomAgentDispatch, RoomConfiguration } from 'livekit-server-sdk';
 
 /**
  * POST /api/livekit-token
  *
  * Generates a LiveKit access token using the official server SDK,
- * with proper agent dispatch configuration for the Cloud Call Agent.
+ * with proper agent dispatch for the "Alfrin" Cloud Agent.
  */
 export async function POST(request: Request) {
     try {
@@ -46,20 +46,16 @@ export async function POST(request: Request) {
             canPublish: true,
             canSubscribe: true,
             canPublishData: true,
-            // Agent dispatch — this tells LiveKit to dispatch the agent to this room
-            agent: 'CA_TahBGfdGjoqe',
         });
 
         // Set room configuration for agent dispatch
-        token.roomConfig = {
-            agents: [
-                { agentName: 'CA_TahBGfdGjoqe' },
-            ],
-        };
+        // The agentName MUST match the agent's registered name: "Alfrin"
+        const agentDispatch = new RoomAgentDispatch({ agentName: 'Alfrin' });
+        token.roomConfig = new RoomConfiguration({ agents: [agentDispatch] });
 
         const jwt = await token.toJwt();
 
-        console.log('[LiveKit Token] Generated token for room:', roomName, 'agent: CA_TahBGfdGjoqe');
+        console.log('[LiveKit Token] Generated token for room:', roomName, 'agent: Alfrin');
 
         return NextResponse.json({
             token: jwt,
