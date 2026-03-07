@@ -23,6 +23,10 @@ export async function POST(request: Request) {
         const body = await request.json().catch(() => ({}));
         const language = body.language || 'en';
         const customerName = body.customerName || '';
+        const customerPhone = body.customerPhone || '';
+        const customerGender = body.customerGender || '';
+        const customerDateOfBirth = body.customerDateOfBirth || '';
+        const customerEmail = body.customerEmail || '';
 
         // Generate unique identity and room name
         const identity = `visitor-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -34,7 +38,12 @@ export async function POST(request: Request) {
             metadata: JSON.stringify({
                 role: 'visitor',
                 language,
-                customerName,
+                userName: customerName,
+                telephoneNumber: customerPhone,
+                gender: customerGender,
+                dateOfBirth: customerDateOfBirth,
+                email: customerEmail,
+                age: customerDateOfBirth ? String(Math.floor((Date.now() - new Date(customerDateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))) : '',
             }),
         });
 

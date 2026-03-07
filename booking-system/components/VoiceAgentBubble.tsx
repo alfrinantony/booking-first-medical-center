@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, X, ChevronDown, Loader2, Timer, Globe } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, X, ChevronDown, Timer, Globe } from 'lucide-react';
 import { useRestrictionsStore } from '@/lib/restrictions-store';
 import { useAuthStore } from '@/lib/store';
 
@@ -11,7 +11,7 @@ import {
     useConnectionState,
     useRemoteParticipants,
     useLocalParticipant,
-    useDataChannel,
+    useVoiceAssistant,
     useTracks,
 } from '@livekit/components-react';
 import { ConnectionState, Track, RoomEvent } from 'livekit-client';
@@ -47,56 +47,67 @@ function AgentSession({
     const [isMuted, setIsMuted] = useState(false);
     const [agentStatus, setAgentStatus] = useState('Connecting...');
     const chatEndRef = useRef<HTMLDivElement>(null);
+    const processedIdsRef = useRef<Set<string>>(new Set());
 
-    // Track remote audio tracks
-    const tracks = useTracks(
-        [{ source: Track.Source.Microphone, withPlaceholder: false }],
-        { onlySubscribed: true }
-    );
+    // Voice assistant hook — provides agent state and transcriptions
+    const voiceAssistant = useVoiceAssistant();
 
     // Auto-scroll
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatLog]);
 
-    // Update status based on connection
+    // Update status based on connection and agent state
     useEffect(() => {
         if (connectionState === ConnectionState.Connected) {
-            setAgentStatus('Connected — waiting for Sofia...');
+            if (voiceAssistant.state === 'listening') {
+                setAgentStatus('🎙️ Listening...');
+            } else if (voiceAssistant.state === 'thinking') {
+                setAgentStatus('💭 Thinking...');
+            } else if (voiceAssistant.state === 'speaking') {
+                setAgentStatus('🔊 Sofia is speaking...');
+            } else if (remoteParticipants.length > 0) {
+                setAgentStatus('Sofia is here — speak now');
+            } else {
+                setAgentStatus('Connected — waiting for Sofia...');
+            }
         } else if (connectionState === ConnectionState.Disconnected) {
             setAgentStatus('Disconnected');
         }
-    }, [connectionState]);
+    }, [connectionState, voiceAssistant.state, remoteParticipants.length]);
 
-    // Watch for remote participants (agent joining)
+    // Process agent transcriptions → chat log
     useEffect(() => {
-        if (remoteParticipants.length > 0) {
-            setAgentStatus('Sofia is here — speak now 🎙️');
-
-            // Add greeting to chat if empty
-            setChatLog(prev => {
-                if (prev.length === 0) {
-                    const greeting = language === 'ar'
-                        ? 'مرحباً! أنا صوفيا، مساعدتك في الحجز. كيف أقدر أساعدك؟'
-                        : `Hello${customerName ? ` ${customerName.split(' ')[0]}` : ''}! I'm Sofia, your booking assistant. How may I help you?`;
-                    return [{ role: 'assistant' as const, content: greeting }];
+        if (voiceAssistant.agentTranscriptions && voiceAssistant.agentTranscriptions.length > 0) {
+            for (const seg of voiceAssistant.agentTranscriptions) {
+                if (seg.final && seg.text.trim() && !processedIdsRef.current.has(seg.id)) {
+                    processedIdsRef.current.add(seg.id);
+                    setChatLog(prev => [...prev, { role: 'assistant', content: seg.text.trim() }]);
                 }
-                return prev;
-            });
+            }
         }
-    }, [remoteParticipants.length, language, customerName]);
+    }, [voiceAssistant.agentTranscriptions]);
 
-    // Track remote audio (for speaking indicator)
-    const hasRemoteAudio = tracks.some(t =>
-        t.participant.identity !== localParticipant?.identity &&
-        t.source === Track.Source.Microphone
-    );
-
+    // Listen for user transcriptions via room event (TranscriptionReceived)
     useEffect(() => {
-        if (hasRemoteAudio) {
-            console.log('[Sofia] ✅ Remote audio track detected — agent audio should be playing');
-        }
-    }, [hasRemoteAudio]);
+        const room = localParticipant?.room;
+        if (!room) return;
+
+        const handleTranscription = (segments: any[], participant: any) => {
+            // Only process user's own transcriptions
+            if (participant?.identity === localParticipant?.identity) {
+                for (const seg of segments) {
+                    if (seg.final && seg.text?.trim() && !processedIdsRef.current.has(seg.id)) {
+                        processedIdsRef.current.add(seg.id);
+                        setChatLog(prev => [...prev, { role: 'user', content: seg.text.trim() }]);
+                    }
+                }
+            }
+        };
+
+        room.on(RoomEvent.TranscriptionReceived, handleTranscription);
+        return () => { room.off(RoomEvent.TranscriptionReceived, handleTranscription); };
+    }, [localParticipant]);
 
     // Toggle mic
     const toggleMute = useCallback(async () => {
@@ -118,7 +129,6 @@ function AgentSession({
                     <span className="text-xs bg-indigo-700 rounded-full px-2 py-0.5">
                         {language === 'ar' ? '🇦🇪 AR' : '🇬🇧 EN'}
                     </span>
-                    {hasRemoteAudio && <span className="text-xs bg-green-500 rounded-full px-2 py-0.5">🔊</span>}
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 bg-indigo-700 rounded-full px-2 py-0.5 text-xs">
@@ -135,12 +145,10 @@ function AgentSession({
             <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                     <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                        {remoteParticipants.length > 0 && <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />}
+                        {voiceAssistant.state === 'speaking' && <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />}
                         {agentStatus}
                     </span>
-                    <span className="text-xs text-gray-500">
-                        {remoteParticipants.length} agent(s) · {tracks.length} track(s)
-                    </span>
+                    {isMuted && <span className="text-xs text-red-500 font-medium">🔇 Muted</span>}
                 </div>
             </div>
 
@@ -244,13 +252,16 @@ export default function VoiceAgentBubble() {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             stream.getTracks().forEach(t => t.stop());
 
-            // Get token
+            // Get token — pass ALL user profile info so the agent doesn't re-ask
             const res = await fetch('/api/livekit-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    customerName,
+                    customerName: user?.name || '',
                     customerPhone: user?.phone || '',
+                    customerGender: user?.gender || '',
+                    customerDateOfBirth: user?.dateOfBirth || '',
+                    customerEmail: user?.email || '',
                     language: lang,
                 }),
             });
@@ -270,13 +281,11 @@ export default function VoiceAgentBubble() {
                 setRemainingSeconds(remaining);
                 if (remaining <= 0) endCall();
             }, 1000);
-
-            console.log('[Sofia] Call started, token received, connecting to:', data.url);
         } catch (err) {
             console.error('[Sofia] Error:', err);
             alert('Failed to start call. Please allow microphone access and try again.');
         }
-    }, [customerName, user?.phone]);
+    }, [user]);
 
     /* ── End call ── */
     const endCall = useCallback(() => {
@@ -349,7 +358,6 @@ export default function VoiceAgentBubble() {
                             onDisconnected={endCall}
                             style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
                         >
-                            {/* This renders ALL remote audio tracks automatically */}
                             <RoomAudioRenderer />
 
                             <AgentSession
@@ -364,7 +372,6 @@ export default function VoiceAgentBubble() {
                     {/* ── NOT IN CALL: Language selection ── */}
                     {!isInCall && (
                         <>
-                            {/* Header */}
                             <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white rounded-t-2xl">
                                 <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-gray-400" />
