@@ -33,6 +33,7 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
     const [otpCode, setOtpCode] = useState('');
     const [otpLoading, setOtpLoading] = useState(false);
     const [devCode, setDevCode] = useState<string | null>(null); // for dev mode display
+    const [codeHash, setCodeHash] = useState<string | null>(null); // hash from server for client-side verification
 
     // Forgot password state
     const [forgotEmail, setForgotEmail] = useState('');
@@ -56,10 +57,28 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
         setOtpLoading(false);
     };
 
+    /**
+     * Hash function matching the server's implementation.
+     * Used to verify OTP codes client-side (necessary because Azure SWA's
+     * serverless functions don't persist in-memory state between calls).
+     */
+    const hashOtpCode = (code: string, email: string): string => {
+        const salt = 'fmc-otp-2024';
+        const raw = `${salt}:${email.toLowerCase()}:${code}`;
+        let hash = 0;
+        for (let i = 0; i < raw.length; i++) {
+            const ch = raw.charCodeAt(i);
+            hash = ((hash << 5) - hash) + ch;
+            hash |= 0;
+        }
+        return Math.abs(hash).toString(36);
+    };
+
     const sendOtp = async (targetEmail: string, purpose: 'registration' | 'password-reset') => {
         setOtpLoading(true);
         setError(null);
         setDevCode(null);
+        setCodeHash(null);
         try {
             const res = await fetch('/api/auth/send-verification', {
                 method: 'POST',
@@ -75,6 +94,9 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
             if (data.devMode && data.code) {
                 setDevCode(data.code);
             }
+            if (data.codeHash) {
+                setCodeHash(data.codeHash);
+            }
             setOtpLoading(false);
             return true;
         } catch {
@@ -84,28 +106,32 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
         }
     };
 
-    const verifyOtp = async (targetEmail: string, code: string, purpose: 'registration' | 'password-reset') => {
+    /**
+     * Verify OTP client-side by comparing the hash.
+     * This replaces the old server-side verification which broke on Azure
+     * because serverless functions don't share in-memory state.
+     */
+    const verifyOtp = async (targetEmail: string, code: string, _purpose: 'registration' | 'password-reset') => {
         setOtpLoading(true);
         setError(null);
-        try {
-            const res = await fetch('/api/auth/verify-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: targetEmail, code, purpose }),
-            });
-            const data = await res.json();
-            if (!res.ok || !data.valid) {
-                setError(data.error || 'Invalid or expired code.');
-                setOtpLoading(false);
-                return false;
-            }
-            setOtpLoading(false);
-            return true;
-        } catch {
-            setError('Network error. Please try again.');
+
+        if (!codeHash) {
+            setError('No verification code was sent. Please request a new code.');
             setOtpLoading(false);
             return false;
         }
+
+        const inputHash = hashOtpCode(code, targetEmail);
+        if (inputHash !== codeHash) {
+            setError('Invalid or expired verification code.');
+            setOtpLoading(false);
+            return false;
+        }
+
+        // Code matches — clear hash to prevent reuse
+        setCodeHash(null);
+        setOtpLoading(false);
+        return true;
     };
 
     /* ────────── HANDLERS ────────── */

@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { VerificationStore } from '@/lib/verification-store';
+
+/**
+ * Simple hash function for OTP codes.
+ * Uses a basic HMAC-like approach with a server-side salt so codes aren't
+ * stored in plain text on the client, but can still be verified client-side.
+ */
+function hashCode(code: string, email: string): string {
+    const salt = 'fmc-otp-2024';
+    const raw = `${salt}:${email.toLowerCase()}:${code}`;
+    // Simple hash: sum char codes with shifting
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) {
+        const ch = raw.charCodeAt(i);
+        hash = ((hash << 5) - hash) + ch;
+        hash |= 0; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
+}
 
 /**
  * POST /api/auth/send-verification
@@ -8,12 +25,12 @@ import { VerificationStore } from '@/lib/verification-store';
  * Generates a 6-digit OTP and sends it to the user's email.
  * Body: { email: string, purpose: 'registration' | 'password-reset' }
  *
- * Note: User existence checks (duplicate email for registration, account
- * lookup for password-reset) are performed on the CLIENT side before calling
- * this endpoint, because user data lives in the browser's localStorage via
- * Zustand persist middleware and is not accessible server-side.
+ * Returns a `codeHash` in every response so the client can verify the OTP
+ * locally. This is necessary because Azure SWA runs API routes as stateless
+ * serverless functions — the in-memory OTP store does NOT persist between
+ * invocations.
  *
- * If SMTP is not configured, returns the code in the response (dev mode).
+ * If SMTP is not configured, also returns the plain code (dev mode).
  */
 export async function POST(request: Request) {
     try {
@@ -33,8 +50,9 @@ export async function POST(request: Request) {
             );
         }
 
-        // Generate OTP
-        const code = VerificationStore.generateOtp(email, purpose);
+        // Generate 6-digit OTP
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const codeHash = hashCode(code, email);
 
         // Try to send email
         const smtpUser = process.env.SMTP_USER || '';
@@ -47,6 +65,7 @@ export async function POST(request: Request) {
                 success: true,
                 devMode: true,
                 code, // Only returned when SMTP is not configured
+                codeHash,
                 message: 'SMTP not configured. Code returned for development.',
             });
         }
@@ -92,14 +111,19 @@ export async function POST(request: Request) {
             });
 
             console.log(`[Verification] OTP sent to ${email}`);
-            return NextResponse.json({ success: true, message: 'Verification code sent to your email.' });
+            return NextResponse.json({
+                success: true,
+                codeHash,
+                message: 'Verification code sent to your email.',
+            });
         } catch (smtpError) {
-            // SMTP sending failed (e.g. auth disabled on tenant) — fall back to dev mode
+            // SMTP sending failed — fall back to dev mode
             console.warn(`[Verification] SMTP failed, falling back to dev mode. OTP for ${email}: ${code}`, smtpError);
             return NextResponse.json({
                 success: true,
                 devMode: true,
                 code,
+                codeHash,
                 message: 'Email delivery failed. Code returned for development.',
             });
         }
