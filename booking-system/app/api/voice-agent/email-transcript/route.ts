@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
         // SMTP Configuration
         const smtpHost = process.env.SMTP_HOST || 'mail.firsthealthmanagement.com';
-        const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+        const smtpPort = parseInt(process.env.SMTP_PORT || '465');
         const smtpUser = process.env.SMTP_USER || '';
         const smtpPass = process.env.SMTP_PASS || '';
         const recipientEmail = process.env.TRANSCRIPT_EMAIL || 'es@dubaifmc.com';

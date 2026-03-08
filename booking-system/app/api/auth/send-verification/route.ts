@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
         // Send email with OTP
         const smtpHost = process.env.SMTP_HOST || 'mail.firsthealthmanagement.com';
-        const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+        const smtpPort = parseInt(process.env.SMTP_PORT || '465');
 
         const transporter = nodemailer.createTransport({
             host: smtpHost,
