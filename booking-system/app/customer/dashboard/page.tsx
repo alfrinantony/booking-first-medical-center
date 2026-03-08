@@ -42,6 +42,11 @@ export default function CustomerDashboard() {
     const [actionSuccess, setActionSuccess] = useState('');
     const [autoDetectedCount, setAutoDetectedCount] = useState(0);
     const [hasBookingHistory, setHasBookingHistory] = useState(false);
+    const [visitedClinicIds, setVisitedClinicIds] = useState<string[]>([]);
+
+    // Gmail check: customer needs a Google account (Gmail) to post Google reviews
+    const isGmailEligible = user?.email?.toLowerCase().endsWith('@gmail.com') ||
+        user?.email?.toLowerCase().endsWith('@googlemail.com') || false;
 
     useEffect(() => {
         if (!isAuthenticated) router.push('/');
@@ -58,10 +63,13 @@ export default function CustomerDashboard() {
             fetch(`/api/bookings/by-patient?${params}`)
                 .then(r => r.json())
                 .then(data => {
-                    const eligible = (data.bookings || []).length > 0;
+                    const bookings = data.bookings || [];
+                    const visited: string[] = data.visitedClinicIds || [];
+                    const eligible = bookings.length > 0;
                     setHasBookingHistory(eligible);
-                    // Only auto-detect Google reviews for eligible customers
-                    if (eligible && user.name) {
+                    setVisitedClinicIds(visited);
+                    // Only auto-detect Google reviews for eligible + Gmail customers
+                    if (eligible && isGmailEligible && user.name) {
                         const customerId = user.phone || user.email;
                         fetchGoogleReviews(user.name, customerId).then(count => {
                             if (count > 0) setAutoDetectedCount(count);
@@ -325,22 +333,31 @@ export default function CustomerDashboard() {
                                     <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
                                     Google Reviews & Discounts
                                 </h3>
-                                {(() => {
+
+                                {!isGmailEligible ? (
+                                    /* Non-Gmail user: show info message */
+                                    <div className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg mt-2">
+                                        📧 A Google (Gmail) account is required to post Google reviews and earn discounts.
+                                        Your current email ({user.email}) is not a Gmail address.
+                                    </div>
+                                ) : (() => {
                                     const customerId = user.phone || user.email;
                                     const rd = getReviewDiscount(customerId);
                                     const myReviews = getCustomerReviews(customerId);
                                     return (
                                         <>
                                             {/* Discount Status */}
-                                            <div className={`text-sm font-medium px-3 py-2 rounded-lg mb-2 ${rd.percent === 3 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
-                                                rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
-                                                    rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
-                                                        'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                            <div className={`text-sm font-medium px-3 py-2 rounded-lg mb-2 ${rd.percent >= 3 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
+                                                    rd.percent === 2 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
+                                                        rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
+                                                            rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
+                                                                'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                                                 }`}>
-                                                {rd.percent === 3 ? '🎉 3% discount active — all branches reviewed!' :
-                                                    rd.percent === 1 ? `⭐ 1% discount active — review ${rd.totalBranches - rd.reviewedBranches} more for 3%` :
-                                                        rd.hasSubFiveReview ? '❌ No discount — only 5★ reviews qualify' :
-                                                            '💡 Leave 5★ Google reviews to earn discounts!'}
+                                                {rd.percent >= 3 ? '🎉 3% discount active — all visited branches reviewed!' :
+                                                    rd.percent === 2 ? '⭐ 2% discount active — review 1 more visited branch for 3%' :
+                                                        rd.percent === 1 ? '⭐ 1% discount active — review more visited branches to increase' :
+                                                            rd.hasSubFiveReview ? '❌ No discount — only 5★ reviews qualify' :
+                                                                '💡 Leave 5★ Google reviews for visited branches to earn discounts!'}
                                             </div>
                                             {autoDetectedCount > 0 && (
                                                 <div className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1">
@@ -351,18 +368,26 @@ export default function CustomerDashboard() {
                                             {/* Branch Review List */}
                                             <div className="space-y-3">
                                                 {allClinics.map(clinic => {
+                                                    const hasVisited = visitedClinicIds.includes(clinic.id);
                                                     const existingReview = myReviews.find(r => r.clinicId === clinic.id);
                                                     const reviewUrl = settings.googleReviewUrls?.[clinic.id] || clinic.locationMap || '#';
                                                     return (
-                                                        <div key={clinic.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3">
+                                                        <div key={clinic.id} className={`border rounded-xl p-3 ${hasVisited ? 'border-gray-100 dark:border-gray-700' : 'border-gray-100 dark:border-gray-700 opacity-60'
+                                                            }`}>
                                                             <div className="flex items-center justify-between mb-2">
                                                                 <span className="text-sm font-semibold text-gray-800 dark:text-white truncate">{clinic.name}</span>
-                                                                <a href={reviewUrl} target="_blank" rel="noopener noreferrer"
-                                                                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 flex-shrink-0">
-                                                                    <ExternalLink className="w-3 h-3" /> Google
-                                                                </a>
+                                                                {hasVisited && (
+                                                                    <a href={reviewUrl} target="_blank" rel="noopener noreferrer"
+                                                                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 flex-shrink-0">
+                                                                        <ExternalLink className="w-3 h-3" /> Google
+                                                                    </a>
+                                                                )}
                                                             </div>
-                                                            {existingReview ? (
+                                                            {!hasVisited ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-xs text-gray-400 italic">Not yet visited — book a service here to unlock review</span>
+                                                                </div>
+                                                            ) : existingReview ? (
                                                                 <div className="flex items-center gap-2">
                                                                     <div className="flex">
                                                                         {[1, 2, 3, 4, 5].map(s => (
@@ -396,7 +421,7 @@ export default function CustomerDashboard() {
 
                                             {/* Info */}
                                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-                                                5★ for 1 branch = 1% off • 5★ for all = 3% off
+                                                5★ for 1 branch = 1% off • 2 branches = 2% off • all 3 = 3% off
                                             </p>
                                         </>
                                     );

@@ -6,11 +6,15 @@ import { clinics } from './data';
  * Google Review Discount Store
  *
  * Tracks customer-submitted Google review ratings per branch.
- * Discount rules:
- *   • 5★ for ALL branches  → 3% off total
- *   • 5★ for 1+ branch (no sub-5 reviews) → 1% off total
- *   • Any review < 5★       → 0%
- *   • No reviews             → 0%
+ * Discount rules (graduated by branches visited + reviewed):
+ *   • 5★ review for 1 visited branch  → 1% off
+ *   • 5★ reviews for 2 visited branches → 2% off
+ *   • 5★ reviews for 3 visited branches → 3% off
+ *   • Any review < 5★                  → 0%
+ *   • No reviews                        → 0%
+ *
+ * Eligibility: customer must have booked at the branch to review it.
+ * Gmail: customer must have a Google (Gmail) account.
  *
  * Persistence:
  *   • Client-side: Zustand persist (localStorage)
@@ -26,7 +30,7 @@ export interface GoogleReview {
 }
 
 export interface ReviewDiscountResult {
-    percent: number;       // 0, 1, or 3
+    percent: number;       // 0, 1, 2, or 3
     reviewedBranches: number;
     totalBranches: number;
     hasSubFiveReview: boolean;
@@ -100,24 +104,21 @@ export const useReviewDiscountStore = create<ReviewDiscountState>()(
                     return { percent: 0, reviewedBranches: 0, totalBranches, hasSubFiveReview: false };
                 }
 
-                // Check for any sub-5 review
+                // Check for any sub-5 review — disqualifies all discounts
                 const hasSubFiveReview = customerReviews.some(r => r.rating < 5);
                 if (hasSubFiveReview) {
                     return { percent: 0, reviewedBranches: customerReviews.length, totalBranches, hasSubFiveReview: true };
                 }
 
-                // Count 5-star reviewed branches
+                // Count 5-star reviewed branches → graduated discount
                 const fiveStarBranches = new Set(
                     customerReviews.filter(r => r.rating === 5).map(r => r.clinicId)
                 );
                 const reviewedBranches = fiveStarBranches.size;
 
-                if (reviewedBranches >= totalBranches) {
-                    return { percent: 3, reviewedBranches, totalBranches, hasSubFiveReview: false };
-                }
-                if (reviewedBranches >= 1) {
-                    return { percent: 1, reviewedBranches, totalBranches, hasSubFiveReview: false };
-                }
+                // 1 branch = 1%, 2 branches = 2%, 3+ branches = 3%
+                const percent = Math.min(reviewedBranches, 3);
+                return { percent, reviewedBranches, totalBranches, hasSubFiveReview: false };
 
                 return { percent: 0, reviewedBranches: 0, totalBranches, hasSubFiveReview: false };
             },

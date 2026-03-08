@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
     // Sort ascending by date
     bookings.sort((a, b) => a.date.localeCompare(b.date));
 
-    return NextResponse.json({ bookings });
+    // Deduplicate visited clinic IDs (for review eligibility)
+    const visitedClinicIds = [...new Set(bookings.map(b => b.clinicId))];
+
+    return NextResponse.json({ bookings, visitedClinicIds });
 }
 
 export async function DELETE(request: NextRequest) {
