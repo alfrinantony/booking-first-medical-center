@@ -11,6 +11,10 @@ import { clinics } from './data';
  *   • 5★ for 1+ branch (no sub-5 reviews) → 1% off total
  *   • Any review < 5★       → 0%
  *   • No reviews             → 0%
+ *
+ * Persistence:
+ *   • Client-side: Zustand persist (localStorage)
+ *   • Server-side: /api/admin/reviews  (synced on mount & every submit)
  * ──────────────────────────────────────────── */
 
 export interface GoogleReview {
@@ -30,11 +34,15 @@ export interface ReviewDiscountResult {
 
 interface ReviewDiscountState {
     reviews: GoogleReview[];
+    _synced: boolean; // Whether initial server sync has happened
 
     // Customer actions
     submitReview: (customerPhone: string, clinicId: string, rating: number) => void;
     getCustomerReviews: (customerPhone: string) => GoogleReview[];
     getReviewDiscount: (customerPhone: string) => ReviewDiscountResult;
+
+    // Sync with server
+    syncWithServer: () => Promise<void>;
 
     // Admin
     getAllReviews: () => GoogleReview[];
@@ -45,6 +53,7 @@ export const useReviewDiscountStore = create<ReviewDiscountState>()(
     persist(
         (set, get) => ({
             reviews: [],
+            _synced: false,
 
             submitReview: (customerPhone, clinicId, rating) => {
                 const clamped = Math.max(1, Math.min(5, Math.round(rating)));
@@ -64,6 +73,13 @@ export const useReviewDiscountStore = create<ReviewDiscountState>()(
                         }],
                     };
                 });
+
+                // Persist to server (fire-and-forget)
+                fetch('/api/admin/reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerPhone, clinicId, rating: clamped }),
+                }).catch(() => {/* silent – localStorage is the fallback */ });
             },
 
             getCustomerReviews: (customerPhone) => {
@@ -101,12 +117,36 @@ export const useReviewDiscountStore = create<ReviewDiscountState>()(
                 return { percent: 0, reviewedBranches: 0, totalBranches, hasSubFiveReview: false };
             },
 
+            /**
+             * Two-way sync: push local reviews to server, merge server reviews back.
+             * Called once on first mount (dashboard / booking page).
+             */
+            syncWithServer: async () => {
+                if (get()._synced) return;
+                try {
+                    const localReviews = get().reviews;
+                    const res = await fetch('/api/admin/reviews', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sync: true, reviews: localReviews }),
+                    });
+                    if (res.ok) {
+                        const merged: GoogleReview[] = await res.json();
+                        set({ reviews: merged, _synced: true });
+                    }
+                } catch {
+                    // Offline → keep using localStorage
+                }
+            },
+
             getAllReviews: () => get().reviews,
 
             deleteReview: (id) => {
                 set(state => ({
                     reviews: state.reviews.filter(r => r.id !== id),
                 }));
+                // Also delete on server
+                fetch(`/api/admin/reviews?id=${id}`, { method: 'DELETE' }).catch(() => { });
             },
         }),
         {

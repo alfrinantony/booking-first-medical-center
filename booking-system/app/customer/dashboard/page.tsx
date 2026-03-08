@@ -27,7 +27,7 @@ interface PatientBooking {
 export default function CustomerDashboard() {
     const { user, isAuthenticated, logout } = useAuthStore();
     const { getMyPackages } = usePackagesStore();
-    const { getReviewDiscount, getCustomerReviews, submitReview } = useReviewDiscountStore();
+    const { getReviewDiscount, getCustomerReviews, submitReview, syncWithServer: syncReviews } = useReviewDiscountStore();
     const { settings } = useSettingsStore();
     const router = useRouter();
 
@@ -44,6 +44,10 @@ export default function CustomerDashboard() {
     useEffect(() => {
         if (!isAuthenticated) router.push('/');
     }, [isAuthenticated, router]);
+
+    useEffect(() => {
+        syncReviews();
+    }, []);
 
     useEffect(() => {
         if (user?.phone) fetchUpcomingBookings();
@@ -304,9 +308,9 @@ export default function CustomerDashboard() {
                                     <>
                                         {/* Discount Status */}
                                         <div className={`text-sm font-medium px-3 py-2 rounded-lg mb-4 ${rd.percent === 3 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
-                                                rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
-                                                    rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
-                                                        'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                            rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
+                                                rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
+                                                    'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                                             }`}>
                                             {rd.percent === 3 ? '🎉 3% discount active — all branches reviewed!' :
                                                 rd.percent === 1 ? `⭐ 1% discount active — review ${rd.totalBranches - rd.reviewedBranches} more for 3%` :
@@ -333,8 +337,8 @@ export default function CustomerDashboard() {
                                                                 <div className="flex">
                                                                     {[1, 2, 3, 4, 5].map(s => (
                                                                         <Star key={s} className={`w-4 h-4 cursor-pointer transition-colors ${s <= existingReview.rating
-                                                                                ? 'fill-yellow-500 text-yellow-500'
-                                                                                : 'text-gray-300 dark:text-gray-600'
+                                                                            ? 'fill-yellow-500 text-yellow-500'
+                                                                            : 'text-gray-300 dark:text-gray-600'
                                                                             }`}
                                                                             onClick={() => submitReview(user.phone, clinic.id, s)}
                                                                         />

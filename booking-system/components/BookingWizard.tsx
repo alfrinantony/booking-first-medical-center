@@ -40,11 +40,12 @@ export default function BookingWizard() {
     const router = useRouter();
     const { user, isAuthenticated } = useAuthStore();
     const { getMyPackages, useSession } = usePackagesStore();
-    const { getReviewDiscount } = useReviewDiscountStore();
+    const { getReviewDiscount, syncWithServer: syncReviews } = useReviewDiscountStore();
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
+        syncReviews();
     }, []);
 
     // Safety check for stale data (e.g. users from before DOB update)
