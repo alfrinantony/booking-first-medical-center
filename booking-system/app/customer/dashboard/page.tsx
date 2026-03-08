@@ -27,7 +27,7 @@ interface PatientBooking {
 export default function CustomerDashboard() {
     const { user, isAuthenticated, logout } = useAuthStore();
     const { getMyPackages } = usePackagesStore();
-    const { getReviewDiscount, getCustomerReviews, submitReview, syncWithServer: syncReviews } = useReviewDiscountStore();
+    const { getReviewDiscount, getCustomerReviews, submitReview, syncWithServer: syncReviews, fetchGoogleReviews } = useReviewDiscountStore();
     const { settings } = useSettingsStore();
     const router = useRouter();
 
@@ -40,6 +40,7 @@ export default function CustomerDashboard() {
     const [newSlot, setNewSlot] = useState('');
     const [actionError, setActionError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
+    const [autoDetectedCount, setAutoDetectedCount] = useState(0);
 
     useEffect(() => {
         if (!isAuthenticated) router.push('/');
@@ -47,7 +48,14 @@ export default function CustomerDashboard() {
 
     useEffect(() => {
         syncReviews();
-    }, []);
+        // Auto-detect Google reviews after sync
+        if (user?.name) {
+            const customerId = user.phone || user.email;
+            fetchGoogleReviews(user.name, customerId).then(count => {
+                if (count > 0) setAutoDetectedCount(count);
+            });
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (user?.phone) fetchUpcomingBookings();
@@ -308,7 +316,7 @@ export default function CustomerDashboard() {
                                 return (
                                     <>
                                         {/* Discount Status */}
-                                        <div className={`text-sm font-medium px-3 py-2 rounded-lg mb-4 ${rd.percent === 3 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
+                                        <div className={`text-sm font-medium px-3 py-2 rounded-lg mb-2 ${rd.percent === 3 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
                                             rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
                                                 rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
                                                     'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -318,6 +326,11 @@ export default function CustomerDashboard() {
                                                     rd.hasSubFiveReview ? '❌ No discount — only 5★ reviews qualify' :
                                                         '💡 Leave 5★ Google reviews to earn discounts!'}
                                         </div>
+                                        {autoDetectedCount > 0 && (
+                                            <div className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1">
+                                                🔍 {autoDetectedCount} review(s) auto-detected from Google
+                                            </div>
+                                        )}
 
                                         {/* Branch Review List */}
                                         <div className="space-y-3">

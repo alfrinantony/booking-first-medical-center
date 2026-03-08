@@ -35,6 +35,7 @@ export interface ReviewDiscountResult {
 interface ReviewDiscountState {
     reviews: GoogleReview[];
     _synced: boolean; // Whether initial server sync has happened
+    _googleChecked: boolean; // Whether Google Places API check has run
 
     // Customer actions
     submitReview: (customerPhone: string, clinicId: string, rating: number) => void;
@@ -43,6 +44,9 @@ interface ReviewDiscountState {
 
     // Sync with server
     syncWithServer: () => Promise<void>;
+
+    // Auto-detect Google reviews via Places API
+    fetchGoogleReviews: (customerName: string, customerId: string) => Promise<number>;
 
     // Admin
     getAllReviews: () => GoogleReview[];
@@ -54,6 +58,7 @@ export const useReviewDiscountStore = create<ReviewDiscountState>()(
         (set, get) => ({
             reviews: [],
             _synced: false,
+            _googleChecked: false,
 
             submitReview: (customerPhone, clinicId, rating) => {
                 const clamped = Math.max(1, Math.min(5, Math.round(rating)));
@@ -136,6 +141,41 @@ export const useReviewDiscountStore = create<ReviewDiscountState>()(
                     }
                 } catch {
                     // Offline → keep using localStorage
+                }
+            },
+
+            /**
+             * Fetch real Google reviews via Places API and auto-detect
+             * if the customer has already reviewed any branch.
+             * Returns the number of new reviews auto-detected.
+             */
+            fetchGoogleReviews: async (customerName, customerId) => {
+                if (get()._googleChecked) return 0;
+                try {
+                    const res = await fetch(
+                        `/api/admin/google-reviews?customerName=${encodeURIComponent(customerName)}`
+                    );
+                    if (!res.ok) { set({ _googleChecked: true }); return 0; }
+                    const data = await res.json();
+                    const matches: { clinicId: string; rating: number }[] = data?.matches || [];
+
+                    let autoDetected = 0;
+                    for (const m of matches) {
+                        // Only auto-fill if the customer hasn't already manually rated this branch
+                        const existing = get().reviews.find(
+                            r => r.customerPhone === customerId && r.clinicId === m.clinicId
+                        );
+                        if (!existing) {
+                            // Use submitReview so it also persists to the server
+                            get().submitReview(customerId, m.clinicId, m.rating);
+                            autoDetected++;
+                        }
+                    }
+                    set({ _googleChecked: true });
+                    return autoDetected;
+                } catch {
+                    set({ _googleChecked: true });
+                    return 0;
                 }
             },
 
