@@ -167,6 +167,14 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
         e.preventDefault();
         setError(null);
 
+        // Check if account exists client-side (data is in localStorage via Zustand persist)
+        const { users } = useCustomerAuthStore.getState();
+        const user = users.find(u => u.email === forgotEmail);
+        if (!user) {
+            setError('No account found with this email address.');
+            return;
+        }
+
         const sent = await sendOtp(forgotEmail, 'password-reset');
         if (sent) {
             setSuccessMsg('Verification code sent to your email.');

@@ -2,8 +2,8 @@
 
 import dynamic from 'next/dynamic';
 
-const VoiceAgentBubble = dynamic(() => import('@/components/VoiceAgentBubble'), { ssr: false });
+const CallCenterAgent = dynamic(() => import('@/components/CallCenterAgent'), { ssr: false });
 
 export default function VoiceAgentWrapper() {
-    return <VoiceAgentBubble />;
+    return <CallCenterAgent />;
 }
