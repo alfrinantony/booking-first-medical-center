@@ -102,9 +102,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     fullDayHours: 8,
 
     googleReviewUrls: {
-        'clinic-1': 'https://g.page/r/first-medical-muraqabat/review',
-        'clinic-2': 'https://g.page/r/first-medical-qiyadah/review',
-        'clinic-3': 'https://g.page/r/first-medical-silicon/review',
+        'clinic-1': 'https://maps.google.com/?cid=7431063405124527074',
+        'clinic-2': 'https://maps.google.com/?cid=6599779727377220868',
+        'clinic-3': 'https://maps.google.com/?cid=13746671430218161081',
     },
 };
 
