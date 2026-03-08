@@ -41,6 +41,7 @@ export default function CustomerDashboard() {
     const [actionError, setActionError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
     const [autoDetectedCount, setAutoDetectedCount] = useState(0);
+    const [hasBookingHistory, setHasBookingHistory] = useState(false);
 
     useEffect(() => {
         if (!isAuthenticated) router.push('/');
@@ -48,12 +49,26 @@ export default function CustomerDashboard() {
 
     useEffect(() => {
         syncReviews();
-        // Auto-detect Google reviews after sync
-        if (user?.name) {
-            const customerId = user.phone || user.email;
-            fetchGoogleReviews(user.name, customerId).then(count => {
-                if (count > 0) setAutoDetectedCount(count);
-            });
+        // Check if customer has any booking history (eligible for reviews)
+        if (user?.name || user?.phone) {
+            const params = new URLSearchParams();
+            if (user.phone) params.set('phone', user.phone);
+            if (user.name) params.set('name', user.name);
+            params.set('includeAll', 'true');
+            fetch(`/api/bookings/by-patient?${params}`)
+                .then(r => r.json())
+                .then(data => {
+                    const eligible = (data.bookings || []).length > 0;
+                    setHasBookingHistory(eligible);
+                    // Only auto-detect Google reviews for eligible customers
+                    if (eligible && user.name) {
+                        const customerId = user.phone || user.email;
+                        fetchGoogleReviews(user.name, customerId).then(count => {
+                            if (count > 0) setAutoDetectedCount(count);
+                        });
+                    }
+                })
+                .catch(() => { });
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -303,89 +318,91 @@ export default function CustomerDashboard() {
                             </div>
                         </div>
 
-                        {/* ── Google Reviews & Discounts ── */}
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                            <h3 className="font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-                                <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-                                Google Reviews & Discounts
-                            </h3>
-                            {(() => {
-                                const customerId = user.phone || user.email;
-                                const rd = getReviewDiscount(customerId);
-                                const myReviews = getCustomerReviews(customerId);
-                                return (
-                                    <>
-                                        {/* Discount Status */}
-                                        <div className={`text-sm font-medium px-3 py-2 rounded-lg mb-2 ${rd.percent === 3 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
-                                            rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
-                                                rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
-                                                    'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                                            }`}>
-                                            {rd.percent === 3 ? '🎉 3% discount active — all branches reviewed!' :
-                                                rd.percent === 1 ? `⭐ 1% discount active — review ${rd.totalBranches - rd.reviewedBranches} more for 3%` :
-                                                    rd.hasSubFiveReview ? '❌ No discount — only 5★ reviews qualify' :
-                                                        '💡 Leave 5★ Google reviews to earn discounts!'}
-                                        </div>
-                                        {autoDetectedCount > 0 && (
-                                            <div className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1">
-                                                🔍 {autoDetectedCount} review(s) auto-detected from Google
+                        {/* ── Google Reviews & Discounts (only for customers with booking history) ── */}
+                        {hasBookingHistory && (
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                                <h3 className="font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                                    <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                                    Google Reviews & Discounts
+                                </h3>
+                                {(() => {
+                                    const customerId = user.phone || user.email;
+                                    const rd = getReviewDiscount(customerId);
+                                    const myReviews = getCustomerReviews(customerId);
+                                    return (
+                                        <>
+                                            {/* Discount Status */}
+                                            <div className={`text-sm font-medium px-3 py-2 rounded-lg mb-2 ${rd.percent === 3 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
+                                                rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
+                                                    rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
+                                                        'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                                }`}>
+                                                {rd.percent === 3 ? '🎉 3% discount active — all branches reviewed!' :
+                                                    rd.percent === 1 ? `⭐ 1% discount active — review ${rd.totalBranches - rd.reviewedBranches} more for 3%` :
+                                                        rd.hasSubFiveReview ? '❌ No discount — only 5★ reviews qualify' :
+                                                            '💡 Leave 5★ Google reviews to earn discounts!'}
                                             </div>
-                                        )}
+                                            {autoDetectedCount > 0 && (
+                                                <div className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1">
+                                                    🔍 {autoDetectedCount} review(s) auto-detected from Google
+                                                </div>
+                                            )}
 
-                                        {/* Branch Review List */}
-                                        <div className="space-y-3">
-                                            {allClinics.map(clinic => {
-                                                const existingReview = myReviews.find(r => r.clinicId === clinic.id);
-                                                const reviewUrl = settings.googleReviewUrls?.[clinic.id] || clinic.locationMap || '#';
-                                                return (
-                                                    <div key={clinic.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <span className="text-sm font-semibold text-gray-800 dark:text-white truncate">{clinic.name}</span>
-                                                            <a href={reviewUrl} target="_blank" rel="noopener noreferrer"
-                                                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 flex-shrink-0">
-                                                                <ExternalLink className="w-3 h-3" /> Google
-                                                            </a>
+                                            {/* Branch Review List */}
+                                            <div className="space-y-3">
+                                                {allClinics.map(clinic => {
+                                                    const existingReview = myReviews.find(r => r.clinicId === clinic.id);
+                                                    const reviewUrl = settings.googleReviewUrls?.[clinic.id] || clinic.locationMap || '#';
+                                                    return (
+                                                        <div key={clinic.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-sm font-semibold text-gray-800 dark:text-white truncate">{clinic.name}</span>
+                                                                <a href={reviewUrl} target="_blank" rel="noopener noreferrer"
+                                                                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 flex-shrink-0">
+                                                                    <ExternalLink className="w-3 h-3" /> Google
+                                                                </a>
+                                                            </div>
+                                                            {existingReview ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="flex">
+                                                                        {[1, 2, 3, 4, 5].map(s => (
+                                                                            <Star key={s} className={`w-4 h-4 cursor-pointer transition-colors ${s <= existingReview.rating
+                                                                                ? 'fill-yellow-500 text-yellow-500'
+                                                                                : 'text-gray-300 dark:text-gray-600'
+                                                                                }`}
+                                                                                onClick={() => submitReview(customerId, clinic.id, s)}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">✓ Rated {existingReview.rating}★</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="flex">
+                                                                        {[1, 2, 3, 4, 5].map(s => (
+                                                                            <Star key={s}
+                                                                                className="w-4 h-4 text-gray-300 dark:text-gray-600 cursor-pointer hover:text-yellow-500 hover:fill-yellow-500 transition-colors"
+                                                                                onClick={() => submitReview(customerId, clinic.id, s)}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                    <span className="text-xs text-gray-400">Not rated</span>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        {existingReview ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex">
-                                                                    {[1, 2, 3, 4, 5].map(s => (
-                                                                        <Star key={s} className={`w-4 h-4 cursor-pointer transition-colors ${s <= existingReview.rating
-                                                                            ? 'fill-yellow-500 text-yellow-500'
-                                                                            : 'text-gray-300 dark:text-gray-600'
-                                                                            }`}
-                                                                            onClick={() => submitReview(customerId, clinic.id, s)}
-                                                                        />
-                                                                    ))}
-                                                                </div>
-                                                                <span className="text-xs text-green-600 dark:text-green-400 font-medium">✓ Rated {existingReview.rating}★</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex">
-                                                                    {[1, 2, 3, 4, 5].map(s => (
-                                                                        <Star key={s}
-                                                                            className="w-4 h-4 text-gray-300 dark:text-gray-600 cursor-pointer hover:text-yellow-500 hover:fill-yellow-500 transition-colors"
-                                                                            onClick={() => submitReview(customerId, clinic.id, s)}
-                                                                        />
-                                                                    ))}
-                                                                </div>
-                                                                <span className="text-xs text-gray-400">Not rated</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    );
+                                                })}
+                                            </div>
 
-                                        {/* Info */}
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-                                            5★ for 1 branch = 1% off • 5★ for all = 3% off
-                                        </p>
-                                    </>
-                                );
-                            })()}
-                        </div>
+                                            {/* Info */}
+                                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                                                5★ for 1 branch = 1% off • 5★ for all = 3% off
+                                            </p>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        )}
 
                         <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg">
                             <h3 className="font-bold text-lg mb-2">Need Help?</h3>

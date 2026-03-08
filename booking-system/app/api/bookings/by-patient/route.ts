@@ -17,6 +17,7 @@ const today = () => new Date().toISOString().split('T')[0];
 export async function GET(request: NextRequest) {
     const phone = request.nextUrl.searchParams.get('phone');
     const name = request.nextUrl.searchParams.get('name');
+    const includeAll = request.nextUrl.searchParams.get('includeAll') === 'true';
 
     if (!phone && !name) {
         return NextResponse.json({ error: 'phone or name required' }, { status: 400 });
@@ -28,7 +29,9 @@ export async function GET(request: NextRequest) {
     const bookings = all.filter(b => {
         const matchPhone = phone && (b.whatsappNumber === phone || b.whatsappNumber === `+${phone}`);
         const matchName = name && b.patientName.toLowerCase().includes(name.toLowerCase());
-        return (matchPhone || matchName) && b.date >= todayStr && b.status !== 'cancelled';
+        if (!(matchPhone || matchName)) return false;
+        if (!includeAll && b.date < todayStr) return false; // Skip past bookings unless includeAll
+        return b.status !== 'cancelled';
     });
 
     // Sort ascending by date
