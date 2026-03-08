@@ -593,7 +593,7 @@ export default function BookingWizard() {
     const priceWithTax = basePrice + vatAmount + medicineTotal;
 
     // Final Price with Discounts
-    const reviewDiscount = (isAuthenticated && user?.phone) ? getReviewDiscount(user.phone) : { percent: 0, reviewedBranches: 0, totalBranches: 0, hasSubFiveReview: false };
+    const reviewDiscount = (isAuthenticated && (user?.phone || user?.email)) ? getReviewDiscount(user.phone || user.email) : { percent: 0, reviewedBranches: 0, totalBranches: 0, hasSubFiveReview: false };
     const reviewDiscountAmount = (reviewDiscount.percent > 0 && !isFree) ? priceWithTax * (reviewDiscount.percent / 100) : 0;
     let finalPrice = priceWithTax;
     if (isFree) {

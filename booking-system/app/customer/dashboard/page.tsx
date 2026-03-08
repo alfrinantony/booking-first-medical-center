@@ -302,8 +302,9 @@ export default function CustomerDashboard() {
                                 Google Reviews & Discounts
                             </h3>
                             {(() => {
-                                const rd = getReviewDiscount(user.phone);
-                                const myReviews = getCustomerReviews(user.phone);
+                                const customerId = user.phone || user.email;
+                                const rd = getReviewDiscount(customerId);
+                                const myReviews = getCustomerReviews(customerId);
                                 return (
                                     <>
                                         {/* Discount Status */}
@@ -340,7 +341,7 @@ export default function CustomerDashboard() {
                                                                             ? 'fill-yellow-500 text-yellow-500'
                                                                             : 'text-gray-300 dark:text-gray-600'
                                                                             }`}
-                                                                            onClick={() => submitReview(user.phone, clinic.id, s)}
+                                                                            onClick={() => submitReview(customerId, clinic.id, s)}
                                                                         />
                                                                     ))}
                                                                 </div>
@@ -352,7 +353,7 @@ export default function CustomerDashboard() {
                                                                     {[1, 2, 3, 4, 5].map(s => (
                                                                         <Star key={s}
                                                                             className="w-4 h-4 text-gray-300 dark:text-gray-600 cursor-pointer hover:text-yellow-500 hover:fill-yellow-500 transition-colors"
-                                                                            onClick={() => submitReview(user.phone, clinic.id, s)}
+                                                                            onClick={() => submitReview(customerId, clinic.id, s)}
                                                                         />
                                                                     ))}
                                                                 </div>
