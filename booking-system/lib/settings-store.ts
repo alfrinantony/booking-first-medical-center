@@ -50,6 +50,9 @@ export interface AppSettings {
     lateThresholdMinutes: number;
     halfDayHours: number;
     fullDayHours: number;
+
+    // Google Review URLs (per clinic/branch)
+    googleReviewUrls: Record<string, string>;
 }
 
 interface SettingsState {
@@ -97,6 +100,12 @@ const DEFAULT_SETTINGS: AppSettings = {
     lateThresholdMinutes: 15,
     halfDayHours: 4,
     fullDayHours: 8,
+
+    googleReviewUrls: {
+        'clinic-1': 'https://g.page/r/first-medical-muraqabat/review',
+        'clinic-2': 'https://g.page/r/first-medical-qiyadah/review',
+        'clinic-3': 'https://g.page/r/first-medical-silicon/review',
+    },
 };
 
 export const useSettingsStore = create<SettingsState>()(

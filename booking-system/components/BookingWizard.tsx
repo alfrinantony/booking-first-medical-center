@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'; // Correct import for App Router
 import { clinics, timeSlots, Clinic, Department, Service, Doctor, PromoCode, Medicine } from '@/lib/data';
 import { useAuthStore } from '@/lib/store';
 import { usePackagesStore } from '@/lib/packages-store';
+import { useReviewDiscountStore } from '@/lib/review-discount-store';
 import CustomerAuth from './auth/CustomerAuth';
 import { Calendar, Clock, User, ChevronRight, ChevronDown, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill, Phone, Mail, ExternalLink, Map as MapIcon } from 'lucide-react';
 import { format, addDays, startOfMonth, getMonth, getYear } from 'date-fns';
@@ -39,6 +40,7 @@ export default function BookingWizard() {
     const router = useRouter();
     const { user, isAuthenticated } = useAuthStore();
     const { getMyPackages, useSession } = usePackagesStore();
+    const { getReviewDiscount } = useReviewDiscountStore();
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -590,11 +592,18 @@ export default function BookingWizard() {
     const priceWithTax = basePrice + vatAmount + medicineTotal;
 
     // Final Price with Discounts
+    const reviewDiscount = (isAuthenticated && user?.phone) ? getReviewDiscount(user.phone) : { percent: 0, reviewedBranches: 0, totalBranches: 0, hasSubFiveReview: false };
+    const reviewDiscountAmount = (reviewDiscount.percent > 0 && !isFree) ? priceWithTax * (reviewDiscount.percent / 100) : 0;
     let finalPrice = priceWithTax;
     if (isFree) {
         finalPrice = 0;
-    } else if (appliedPromo) {
-        finalPrice = Math.max(0, priceWithTax - discountAmount);
+    } else {
+        if (appliedPromo) {
+            finalPrice = Math.max(0, priceWithTax - discountAmount);
+        }
+        if (reviewDiscountAmount > 0) {
+            finalPrice = Math.max(0, finalPrice - reviewDiscountAmount);
+        }
     }
 
     const handleApplyPromo = async () => {
@@ -1734,8 +1743,17 @@ export default function BookingWizard() {
                                     )}
                                     {discountAmount > 0 && (
                                         <div className="flex justify-between text-sm text-green-600">
-                                            <span>Discount</span>
+                                            <span>Promo Discount</span>
                                             <span>-{discountAmount.toFixed(2)} AED</span>
+                                        </div>
+                                    )}
+                                    {reviewDiscountAmount > 0 && (
+                                        <div className="flex justify-between text-sm text-green-600">
+                                            <span className="flex items-center gap-1">
+                                                <Star className="w-3.5 h-3.5 fill-yellow-500 text-yellow-500" />
+                                                Google Review Discount ({reviewDiscount.percent}%)
+                                            </span>
+                                            <span>-{reviewDiscountAmount.toFixed(2)} AED</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700">

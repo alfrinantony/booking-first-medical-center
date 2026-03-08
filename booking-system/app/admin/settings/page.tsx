@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSettingsStore } from '@/lib/settings-store';
 import { useRestrictionsStore } from '@/lib/restrictions-store';
-import { timeSlots } from '@/lib/data';
-import { Save, Eye, EyeOff, Bell, Activity, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { timeSlots, clinics as allClinics } from '@/lib/data';
+import { Save, Eye, EyeOff, Bell, Activity, Loader2, CheckCircle2, XCircle, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useEMRStore } from '@/lib/emr-store';
 
@@ -50,7 +50,8 @@ export default function SettingsPage() {
         setShowSecrets(prev => ({ ...prev, [field]: !prev[field] }));
     };
 
-    const renderInput = (label: string, name: keyof typeof settings, type: 'text' | 'password' = 'text', placeholder = '') => (
+    type ScalarSettingsKey = { [K in keyof typeof settings]: (typeof settings)[K] extends string | number ? K : never }[keyof typeof settings];
+    const renderInput = (label: string, name: ScalarSettingsKey, type: 'text' | 'password' = 'text', placeholder = '') => (
         <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {label}
@@ -382,6 +383,38 @@ export default function SettingsPage() {
                             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">🗺️ Google Maps</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {renderInput('API Key', 'googleMapsApiKey', 'password')}
+                            </div>
+                        </div>
+
+                        {/* Google Review URLs */}
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                <Star className="w-4 h-4 text-yellow-500" /> Google Review URLs
+                            </h3>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                                Set the Google review page URL for each branch. Customers will see these links in their dashboard.
+                            </p>
+                            <div className="space-y-3">
+                                {allClinics.map(clinic => (
+                                    <div key={clinic.id} className="mb-3">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{clinic.name}</label>
+                                        <input
+                                            type="text"
+                                            value={formData.googleReviewUrls?.[clinic.id] || ''}
+                                            onChange={e => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    googleReviewUrls: {
+                                                        ...prev.googleReviewUrls,
+                                                        [clinic.id]: e.target.value,
+                                                    },
+                                                }));
+                                            }}
+                                            placeholder="https://g.page/r/your-branch/review"
+                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                        />
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
