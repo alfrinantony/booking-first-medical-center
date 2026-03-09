@@ -56,6 +56,9 @@ export default function CustomerDashboard() {
         syncReviews();
         // Check if customer has any booking history (eligible for reviews)
         if (user?.name || user?.phone) {
+            const customerId = user.phone || user.email;
+            const existingReviews = getCustomerReviews(customerId);
+
             const params = new URLSearchParams();
             if (user.phone) params.set('phone', user.phone);
             if (user.name) params.set('name', user.name);
@@ -65,18 +68,27 @@ export default function CustomerDashboard() {
                 .then(data => {
                     const bookings = data.bookings || [];
                     const visited: string[] = data.visitedClinicIds || [];
-                    const eligible = bookings.length > 0;
+                    // Eligible if they have bookings OR already have reviews stored
+                    const eligible = bookings.length > 0 || existingReviews.length > 0;
                     setHasBookingHistory(eligible);
-                    setVisitedClinicIds(visited);
+                    // Merge visited branches from bookings + existing reviews
+                    const reviewedClinicIds = existingReviews.map(r => r.clinicId);
+                    const allVisited = [...new Set([...visited, ...reviewedClinicIds])];
+                    setVisitedClinicIds(allVisited);
                     // Only auto-detect Google reviews for eligible + Gmail customers
                     if (eligible && isGmailEligible && user.name) {
-                        const customerId = user.phone || user.email;
                         fetchGoogleReviews(user.name, customerId).then(count => {
                             if (count > 0) setAutoDetectedCount(count);
                         });
                     }
                 })
-                .catch(() => { });
+                .catch(() => {
+                    // If API fails, still show card if customer has existing reviews
+                    if (existingReviews.length > 0) {
+                        setHasBookingHistory(true);
+                        setVisitedClinicIds([...new Set(existingReviews.map(r => r.clinicId))]);
+                    }
+                });
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -348,10 +360,10 @@ export default function CustomerDashboard() {
                                         <>
                                             {/* Discount Status */}
                                             <div className={`text-sm font-medium px-3 py-2 rounded-lg mb-2 ${rd.percent >= 3 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
-                                                    rd.percent === 2 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
-                                                        rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
-                                                            rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
-                                                                'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                                rd.percent === 2 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
+                                                    rd.percent === 1 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
+                                                        rd.hasSubFiveReview ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
+                                                            'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                                                 }`}>
                                                 {rd.percent >= 3 ? '🎉 3% discount active — all visited branches reviewed!' :
                                                     rd.percent === 2 ? '⭐ 2% discount active — review 1 more visited branch for 3%' :
