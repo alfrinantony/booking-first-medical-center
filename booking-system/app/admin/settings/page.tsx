@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings } from '@/lib/settings-store';
 import { timeSlots, clinics as allClinics } from '@/lib/data';
-import { Save, Eye, EyeOff, Bell, Activity, Loader2, CheckCircle2, XCircle, Star } from 'lucide-react';
+import { Save, Eye, EyeOff, Bell, Activity, Loader2, CheckCircle2, XCircle, Star, Cloud, Bot, CreditCard, Megaphone, Phone, Server, Fingerprint, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { EMRConfig } from '@/lib/emr-store';
 
@@ -17,6 +17,15 @@ const DEFAULT_SETTINGS: AppSettings = {
     zktecoHost: '192.168.1.200', zktecoPort: 4370, zktecoUsername: 'admin', zktecoPassword: '', zktecoDeviceSn: 'SFVL-2024-00001',
     workStartTime: '09:00', lateThresholdMinutes: 15, halfDayHours: 4, fullDayHours: 8,
     googleReviewUrls: {},
+    // New fields
+    metricoolApiToken: '', metricoolUserId: '', metricoolBlogId: '',
+    livekitApiKey: '', livekitApiSecret: '', livekitUrl: '',
+    liveAvatarApiKey: '', liveAvatarAvatarId: '', liveAvatarMode: 'LITE',
+    azureOpenaiEndpoint: '', azureOpenaiApiKey: '', azureOpenaiDeployment: 'gpt-4o-mini',
+    azureStorageConnectionString: '', azureStorageContainer: 'fmc-documents',
+    googleAdsCustomerId: '',
+    metaAdsAccountId: '', metaAdsAccessToken: '',
+    openaiCallCenterApiKey: '', callAgentApiKey: '',
 };
 
 export default function SettingsPage() {
@@ -104,79 +113,383 @@ export default function SettingsPage() {
         </div>
     );
 
+    // Section component for consistent styling
+    const Section = ({ icon, title, color, children, extra }: { icon: React.ReactNode; title: string; color?: string; children: React.ReactNode; extra?: React.ReactNode }) => (
+        <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex justify-between items-center mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">
+                <h2 className={`text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2 ${color || ''}`}>
+                    {icon} {title}
+                </h2>
+                {extra}
+            </div>
+            {children}
+        </section>
+    );
+
+    const SubSection = ({ label, children }: { label: string; children: React.ReactNode }) => (
+        <div>
+            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">{label}</h3>
+            {children}
+        </div>
+    );
+
     return (
         <div className="p-6 max-w-4xl mx-auto">
             <div className="mb-8 flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Settings</h1>
-                    <p className="text-gray-600 dark:text-gray-400">Configure application settings and integrations.</p>
+                    <p className="text-gray-600 dark:text-gray-400">Configure application settings, API keys, and integrations.</p>
                 </div>
                 <button
                     onClick={handleSave}
                     className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                 >
                     <Save className="w-4 h-4" />
-                    Save Changes
+                    Save All
                 </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-8">
-                {/* General Settings */}
-                <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4 border-b pb-2">General Information</h2>
+            <form onSubmit={handleSave} className="space-y-6">
+
+                {/* ── 1. General Information ── */}
+                <Section icon="🏢" title="General Information">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {renderInput('Company Name', 'companyName')}
                         {renderInput('Contact Email', 'contactEmail', 'text')}
                     </div>
-                </section>
+                </Section>
 
-                {/* Notification Channels */}
-                <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="flex justify-between items-center mb-6 border-b pb-2">
-                        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Notification Channels</h2>
-                        <Link
-                            href="/admin/settings/notifications"
-                            className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-                        >
-                            <Bell className="w-4 h-4" />
-                            Manage Notification Rules
-                        </Link>
-                    </div>
-
+                {/* ── 2. Communication ── */}
+                <Section icon={<Phone className="w-5 h-5 text-blue-600" />} title="Communication">
                     <div className="space-y-8">
-                        {/* Email */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Email Configuration (SMTP)</h3>
+                        <div className="flex justify-end -mt-4 mb-2">
+                            <Link href="/admin/settings/notifications"
+                                className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+                                <Bell className="w-4 h-4" /> Manage Notification Rules
+                            </Link>
+                        </div>
+
+                        <SubSection label="📧 Email Configuration (SMTP)">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {renderInput('SMTP Host', 'emailHost')}
                                 {renderInput('SMTP Port', 'emailPort')}
                                 {renderInput('SMTP User', 'emailUser')}
                                 {renderInput('SMTP Password', 'emailPass', 'password')}
                             </div>
-                        </div>
+                        </SubSection>
 
-                        {/* SMS */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">SMS Configuration (Twilio)</h3>
+                        <SubSection label="📱 SMS Configuration (Twilio)">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {renderInput('Twilio Account SID', 'twilioSid')}
                                 {renderInput('Twilio Auth Token', 'twilioAuthToken', 'password')}
                                 {renderInput('Twilio From Number', 'twilioFrom')}
                             </div>
-                        </div>
+                        </SubSection>
 
-                        {/* WhatsApp */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">WhatsApp Configuration (Meta)</h3>
+                        <SubSection label="💬 WhatsApp Configuration (Meta)">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {renderInput('Meta Phone ID', 'metaPhoneId')}
                                 {renderInput('WhatsApp Access Token', 'whatsappAccessToken', 'password')}
                             </div>
+                        </SubSection>
+                    </div>
+                </Section>
+
+                {/* ── 3. AI & Voice Assistants ── */}
+                <Section icon={<Bot className="w-5 h-5 text-purple-600" />} title="AI & Voice Assistants">
+                    <div className="space-y-8">
+                        <SubSection label="🧠 Azure OpenAI">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('Endpoint URL', 'azureOpenaiEndpoint', 'text', 'https://your-resource.openai.azure.com/')}
+                                {renderInput('API Key', 'azureOpenaiApiKey', 'password')}
+                                {renderInput('Deployment Name', 'azureOpenaiDeployment', 'text', 'gpt-4o-mini')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="🎙️ OpenAI (Whisper STT + GPT)">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('OpenAI API Key', 'openaiApiKey', 'password')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="📞 OpenAI Call Center Agent (Realtime Booking)">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('Call Center API Key', 'openaiCallCenterApiKey', 'password')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="🎥 LiveKit (WebRTC Video Avatar)">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('API Key', 'livekitApiKey', 'password')}
+                                {renderInput('API Secret', 'livekitApiSecret', 'password')}
+                                {renderInput('WebSocket URL', 'livekitUrl', 'text', 'wss://your-app.livekit.cloud')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="🤖 LiveAvatar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('API Key', 'liveAvatarApiKey', 'password')}
+                                {renderInput('Avatar ID', 'liveAvatarAvatarId')}
+                                {renderInput('Mode', 'liveAvatarMode', 'text', 'LITE')}
+                            </div>
+                        </SubSection>
+                    </div>
+                </Section>
+
+                {/* ── 4. Social Media & Marketing ── */}
+                <Section icon={<Megaphone className="w-5 h-5 text-pink-600" />} title="Social Media & Marketing">
+                    <div className="space-y-8">
+                        <SubSection label="📊 Metricool (Analytics & Social Inbox)">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('API Token', 'metricoolApiToken', 'password')}
+                                {renderInput('User ID', 'metricoolUserId')}
+                                {renderInput('Blog ID', 'metricoolBlogId')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="📱 Meta Ads (Facebook / Instagram Ads)">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('Ads Account ID', 'metaAdsAccountId')}
+                                {renderInput('Ads Access Token', 'metaAdsAccessToken', 'password')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="📱 Meta / Facebook (Messenger & Webhooks)">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('App ID', 'metaAppId')}
+                                {renderInput('App Secret', 'metaAppSecret', 'password')}
+                                {renderInput('Messenger Access Token', 'messengerAccessToken', 'password')}
+                                {renderInput('Webhook Verify Token', 'verifyToken')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="📣 Google Ads">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('Customer ID', 'googleAdsCustomerId', 'text', '370-832-5833')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="🗺️ Google Maps & Places">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('API Key', 'googleMapsApiKey', 'password')}
+                            </div>
+                        </SubSection>
+
+                        {/* Google Review URLs */}
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                <Star className="w-4 h-4 text-yellow-500" /> Google Review URLs
+                            </h3>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                                Set the Google review page URL for each branch. Customers will see these links in their dashboard.
+                            </p>
+                            <div className="space-y-3">
+                                {allClinics.map(clinic => (
+                                    <div key={clinic.id} className="mb-3">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{clinic.name}</label>
+                                        <input
+                                            type="text"
+                                            value={formData.googleReviewUrls?.[clinic.id] || ''}
+                                            onChange={e => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    googleReviewUrls: {
+                                                        ...prev.googleReviewUrls,
+                                                        [clinic.id]: e.target.value,
+                                                    },
+                                                }));
+                                            }}
+                                            placeholder="https://g.page/r/your-branch/review"
+                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </section>
+                </Section>
 
-                {/* Peak Schedule & No-Show Restrictions */}
+                {/* ── 5. Payments ── */}
+                <Section icon={<CreditCard className="w-5 h-5 text-green-600" />} title="Payments">
+                    <SubSection label="💳 Stripe">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {renderInput('Publishable Key', 'stripePublishableKey')}
+                            {renderInput('Secret Key', 'stripeSecretKey', 'password')}
+                        </div>
+                    </SubSection>
+                </Section>
+
+                {/* ── 6. CRM & EMR ── */}
+                <Section icon={<Activity className="w-5 h-5 text-teal-600" />} title="CRM & EMR">
+                    <div className="space-y-8">
+                        <SubSection label="📋 CRM / High Level">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('API Key', 'crmApiKey', 'password')}
+                                {renderInput('Endpoint URL', 'crmEndpoint', 'text', 'https://api.gohighlevel.com/v1')}
+                            </div>
+                        </SubSection>
+
+                        {/* EMR Integration (inline block) */}
+                        {(() => {
+                            const saveEmrConfig = async () => {
+                                await fetch('/api/admin/emr', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'updateConfig', updates: { endpointUrl: emrUrl, apiKey: emrKey, enabled: emrEnabled, maskContacts: emrMaskContacts } }),
+                                });
+                                alert('EMR configuration saved!');
+                            };
+
+                            const testEmrConnection = async () => {
+                                setEmrTesting(true);
+                                setEmrTestResult(null);
+                                await fetch('/api/admin/emr', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'updateConfig', updates: { endpointUrl: emrUrl, apiKey: emrKey } }),
+                                });
+                                const res = await fetch('/api/admin/emr', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'testConnection' }),
+                                });
+                                const result = await res.json();
+                                setEmrTestResult(result);
+                                setEmrTesting(false);
+                            };
+
+                            return (
+                                <div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">🏥 EMR Integration</h3>
+                                        <div className="flex items-center gap-3">
+                                            <button type="button" onClick={testEmrConnection} disabled={emrTesting || !emrUrl}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm disabled:opacity-40 transition-colors">
+                                                {emrTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
+                                                Test Connection
+                                            </button>
+                                            <button type="button" onClick={saveEmrConfig}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm">
+                                                <Save className="w-3 h-3" /> Save EMR
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {emrTestResult && (
+                                        <div className={`mb-4 p-3 rounded-lg text-sm font-medium flex items-center gap-2 ${emrTestResult.success
+                                            ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                            : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                            }`}>
+                                            {emrTestResult.success ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                            {emrTestResult.message}
+                                        </div>
+                                    )}
+
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                        Configure the external Electronic Medical Records system to push client registration documents.
+                                    </p>
+
+                                    {/* Enable Toggle */}
+                                    <div className="mb-4">
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <div className={`relative w-11 h-6 rounded-full transition-colors ${emrEnabled ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                                onClick={() => setEmrEnabled(!emrEnabled)}>
+                                                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${emrEnabled ? 'translate-x-5' : ''}`} />
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                {emrEnabled ? 'EMR Integration Enabled' : 'EMR Integration Disabled'}
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {/* Mask Contact Info Toggle */}
+                                    <div className="mb-5">
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <div className={`relative w-11 h-6 rounded-full transition-colors ${emrMaskContacts ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                                onClick={() => setEmrMaskContacts(!emrMaskContacts)}>
+                                                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${emrMaskContacts ? 'translate-x-5' : ''}`} />
+                                            </div>
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                    {emrMaskContacts ? 'Mask Contact Info on Export' : 'Contact Info Visible on Export'}
+                                                </span>
+                                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                                    When enabled, mobile, WhatsApp, and email will be masked when sending to external systems.
+                                                </p>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">EMR Endpoint URL</label>
+                                            <input type="text" value={emrUrl} onChange={e => setEmrUrl(e.target.value)}
+                                                placeholder="https://emr-api.example.com/api/patients"
+                                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
+                                            <div className="relative">
+                                                <input type={showEmrKey ? 'text' : 'password'} value={emrKey} onChange={e => setEmrKey(e.target.value)}
+                                                    placeholder="Enter EMR API key"
+                                                    className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
+                                                <button type="button" onClick={() => setShowEmrKey(!showEmrKey)}
+                                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                                    {showEmrKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                                        <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Client Export Webhook</h4>
+                                        <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-teal-700 dark:text-teal-400 block overflow-x-auto">
+                                            GET /api/admin/clients/export?apiKey=YOUR_KEY
+                                        </code>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </Section>
+
+                {/* ── 7. Cloud Infrastructure ── */}
+                <Section icon={<Cloud className="w-5 h-5 text-sky-600" />} title="Cloud Infrastructure">
+                    <SubSection label="☁️ Azure Blob Storage">
+                        <div className="grid grid-cols-1 gap-6">
+                            {renderInput('Connection String', 'azureStorageConnectionString', 'password')}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+                            {renderInput('Container Name', 'azureStorageContainer', 'text', 'fmc-documents')}
+                        </div>
+                    </SubSection>
+                </Section>
+
+                {/* ── 8. Attendance & Devices ── */}
+                <Section icon={<Fingerprint className="w-5 h-5 text-orange-600" />} title="Attendance & Devices">
+                    <div className="space-y-8">
+                        <SubSection label="📷 ZKTeco SpeedFace-V5L">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('Device Host IP', 'zktecoHost', 'text', '192.168.1.200')}
+                                {renderInput('Port', 'zktecoPort')}
+                                {renderInput('Username', 'zktecoUsername')}
+                                {renderInput('Password', 'zktecoPassword', 'password')}
+                                {renderInput('Device Serial No', 'zktecoDeviceSn')}
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="⏰ Work Policy">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('Work Start Time', 'workStartTime', 'text', '09:00')}
+                                {renderInput('Late Threshold (min)', 'lateThresholdMinutes')}
+                                {renderInput('Half Day Hours', 'halfDayHours')}
+                                {renderInput('Full Day Hours', 'fullDayHours')}
+                            </div>
+                        </SubSection>
+                    </div>
+                </Section>
+
+                {/* ── 9. Booking Restrictions ── */}
                 {(() => {
                     const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -201,13 +514,15 @@ export default function SettingsPage() {
                     };
 
                     return (
-                        <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                            <div className="flex justify-between items-center mb-6 border-b pb-2">
-                                <h2 className="text-lg font-medium text-gray-900 dark:text-white">🚫 Peak Schedule & No-Show Restrictions</h2>
+                        <Section
+                            icon={<ShieldAlert className="w-5 h-5 text-orange-600" />}
+                            title="Booking Restrictions"
+                            extra={
                                 <button type="button" onClick={savePeakConfig} className="flex items-center gap-2 px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm">
                                     <Save className="w-3 h-3" /> Save Peak Config
                                 </button>
-                            </div>
+                            }
+                        >
                             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                                 Clients with a no-show will be restricted from booking during these peak days and time slots.
                             </p>
@@ -254,229 +569,22 @@ export default function SettingsPage() {
                                     <p className="text-xs text-gray-400 mt-1">How many days the no-show peak restriction lasts (default: 7)</p>
                                 </div>
                             </div>
-                        </section>
+                        </Section>
                     );
                 })()}
 
-
-                {/* EMR Integration */}
-                {(() => {
-                    const saveEmrConfig = async () => {
-                        await fetch('/api/admin/emr', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'updateConfig', updates: { endpointUrl: emrUrl, apiKey: emrKey, enabled: emrEnabled, maskContacts: emrMaskContacts } }),
-                        });
-                        alert('EMR configuration saved!');
-                    };
-
-                    const testEmrConnection = async () => {
-                        setEmrTesting(true);
-                        setEmrTestResult(null);
-                        // Save latest values first, then test
-                        await fetch('/api/admin/emr', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'updateConfig', updates: { endpointUrl: emrUrl, apiKey: emrKey } }),
-                        });
-                        const res = await fetch('/api/admin/emr', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'testConnection' }),
-                        });
-                        const result = await res.json();
-                        setEmrTestResult(result);
-                        setEmrTesting(false);
-                    };
-
-                    return (
-                        <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                            <div className="flex justify-between items-center mb-6 border-b pb-2">
-                                <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                                    <Activity className="w-5 h-5 text-teal-600" /> EMR Integration
-                                </h2>
-                                <div className="flex items-center gap-3">
-                                    <button type="button" onClick={testEmrConnection} disabled={emrTesting || !emrUrl}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm disabled:opacity-40 transition-colors">
-                                        {emrTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
-                                        Test Connection
-                                    </button>
-                                    <button type="button" onClick={saveEmrConfig}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm">
-                                        <Save className="w-3 h-3" /> Save EMR Config
-                                    </button>
-                                </div>
-                            </div>
-
-                            {emrTestResult && (
-                                <div className={`mb-4 p-3 rounded-lg text-sm font-medium flex items-center gap-2 ${emrTestResult.success
-                                    ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                                    : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                                    }`}>
-                                    {emrTestResult.success ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                                    {emrTestResult.message}
-                                </div>
-                            )}
-
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                Configure the external Electronic Medical Records system to push client registration documents.
-                            </p>
-
-                            {/* Enable Toggle */}
-                            <div className="mb-4">
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <div className={`relative w-11 h-6 rounded-full transition-colors ${emrEnabled ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                        onClick={() => setEmrEnabled(!emrEnabled)}>
-                                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${emrEnabled ? 'translate-x-5' : ''}`} />
-                                    </div>
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {emrEnabled ? 'EMR Integration Enabled' : 'EMR Integration Disabled'}
-                                    </span>
-                                </label>
-                            </div>
-
-                            {/* Mask Contact Info Toggle */}
-                            <div className="mb-5">
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <div className={`relative w-11 h-6 rounded-full transition-colors ${emrMaskContacts ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                        onClick={() => setEmrMaskContacts(!emrMaskContacts)}>
-                                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${emrMaskContacts ? 'translate-x-5' : ''}`} />
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {emrMaskContacts ? 'Mask Contact Info on Export' : 'Contact Info Visible on Export'}
-                                        </span>
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                                            When enabled, mobile number, WhatsApp number, and email will be masked when sending client details to external systems.
-                                        </p>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Endpoint URL */}
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">EMR Endpoint URL</label>
-                                    <input type="text" value={emrUrl} onChange={e => setEmrUrl(e.target.value)}
-                                        placeholder="https://emr-api.example.com/api/patients"
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
-                                </div>
-
-                                {/* API Key */}
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
-                                    <div className="relative">
-                                        <input type={showEmrKey ? 'text' : 'password'} value={emrKey} onChange={e => setEmrKey(e.target.value)}
-                                            placeholder="Enter EMR API key"
-                                            className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
-                                        <button type="button" onClick={() => setShowEmrKey(!showEmrKey)}
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
-                                            {showEmrKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Webhook Info */}
-                            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
-                                <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Client Export Webhook</h4>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                    External systems can pull masked client data via this endpoint:
-                                </p>
-                                <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-teal-700 dark:text-teal-400 block overflow-x-auto">
-                                    GET /api/admin/clients/export?apiKey=YOUR_KEY
-                                </code>
-                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                    Contact info is always masked on this endpoint. Use the API Key above for authentication.
-                                </p>
-                            </div>
-                        </section>
-                    );
-                })()}
-
-                {/* Integration APIs */}
-                <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6 border-b pb-2">Integration APIs</h2>
-
-                    <div className="space-y-8">
-                        {/* Stripe */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">💳 Stripe (Payments)</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {renderInput('Publishable Key', 'stripePublishableKey')}
-                                {renderInput('Secret Key', 'stripeSecretKey', 'password')}
-                            </div>
+                {/* ── 10. Call Agent ── */}
+                <Section icon={<Server className="w-5 h-5 text-gray-600" />} title="External Call Agent">
+                    <SubSection label="🔑 Call Agent Summary API">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            API key used by the external call agent to submit call summaries to this system.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {renderInput('Call Agent API Key', 'callAgentApiKey', 'password')}
                         </div>
+                    </SubSection>
+                </Section>
 
-                        {/* OpenAI */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">🧠 OpenAI (Voice Assistant)</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {renderInput('API Key', 'openaiApiKey', 'password')}
-                            </div>
-                        </div>
-
-                        {/* CRM */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">📋 CRM / High Level</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {renderInput('API Key', 'crmApiKey', 'password')}
-                                {renderInput('Endpoint URL', 'crmEndpoint', 'text', 'https://api.gohighlevel.com/v1')}
-                            </div>
-                        </div>
-
-                        {/* Google Maps */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">🗺️ Google Maps</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {renderInput('API Key', 'googleMapsApiKey', 'password')}
-                            </div>
-                        </div>
-
-                        {/* Google Review URLs */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                <Star className="w-4 h-4 text-yellow-500" /> Google Review URLs
-                            </h3>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                                Set the Google review page URL for each branch. Customers will see these links in their dashboard.
-                            </p>
-                            <div className="space-y-3">
-                                {allClinics.map(clinic => (
-                                    <div key={clinic.id} className="mb-3">
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{clinic.name}</label>
-                                        <input
-                                            type="text"
-                                            value={formData.googleReviewUrls?.[clinic.id] || ''}
-                                            onChange={e => {
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    googleReviewUrls: {
-                                                        ...prev.googleReviewUrls,
-                                                        [clinic.id]: e.target.value,
-                                                    },
-                                                }));
-                                            }}
-                                            placeholder="https://g.page/r/your-branch/review"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Meta / Facebook */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">📱 Meta / Facebook</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {renderInput('App ID', 'metaAppId')}
-                                {renderInput('App Secret', 'metaAppSecret', 'password')}
-                                {renderInput('Messenger Access Token', 'messengerAccessToken', 'password')}
-                                {renderInput('Webhook Verify Token', 'verifyToken')}
-                            </div>
-                        </div>
-                    </div>
-                </section>
             </form>
         </div>
     );

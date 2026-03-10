@@ -56,6 +56,45 @@ export interface AppSettings {
 
     // Google Review URLs (per clinic/branch)
     googleReviewUrls: Record<string, string>;
+
+    // ── New fields ──
+
+    // Metricool (Social Media Analytics & Inbox)
+    metricoolApiToken: string;
+    metricoolUserId: string;
+    metricoolBlogId: string;
+
+    // LiveKit (WebRTC Video Avatar)
+    livekitApiKey: string;
+    livekitApiSecret: string;
+    livekitUrl: string;
+
+    // LiveAvatar
+    liveAvatarApiKey: string;
+    liveAvatarAvatarId: string;
+    liveAvatarMode: string;
+
+    // Azure OpenAI
+    azureOpenaiEndpoint: string;
+    azureOpenaiApiKey: string;
+    azureOpenaiDeployment: string;
+
+    // Azure Blob Storage
+    azureStorageConnectionString: string;
+    azureStorageContainer: string;
+
+    // Google Ads
+    googleAdsCustomerId: string;
+
+    // Meta Ads (Facebook/Instagram Ads)
+    metaAdsAccountId: string;
+    metaAdsAccessToken: string;
+
+    // OpenAI Call Center Agent (Realtime booking)
+    openaiCallCenterApiKey: string;
+
+    // External Call Agent API
+    callAgentApiKey: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -104,6 +143,35 @@ const DEFAULT_SETTINGS: AppSettings = {
         'clinic-2': 'https://maps.google.com/?cid=6599779727377220868',
         'clinic-3': 'https://maps.google.com/?cid=13746671430218161081',
     },
+
+    // New defaults
+    metricoolApiToken: '',
+    metricoolUserId: '',
+    metricoolBlogId: '',
+
+    livekitApiKey: '',
+    livekitApiSecret: '',
+    livekitUrl: '',
+
+    liveAvatarApiKey: '',
+    liveAvatarAvatarId: '',
+    liveAvatarMode: 'LITE',
+
+    azureOpenaiEndpoint: '',
+    azureOpenaiApiKey: '',
+    azureOpenaiDeployment: 'gpt-4o-mini',
+
+    azureStorageConnectionString: '',
+    azureStorageContainer: 'fmc-documents',
+
+    googleAdsCustomerId: '',
+
+    metaAdsAccountId: '',
+    metaAdsAccessToken: '',
+
+    openaiCallCenterApiKey: '',
+
+    callAgentApiKey: '',
 };
 
 // ── In-memory store ──
