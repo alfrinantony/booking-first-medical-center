@@ -3,8 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useInboxStore } from '@/lib/inbox-store';
 import { Platform, GoogleReviewConversation, Conversation } from '@/types/inbox';
-import { Send, Search, Facebook, Instagram, Phone, MoreVertical, Star, Clock, Bot, MapPin, Linkedin, MessageCircle } from 'lucide-react';
+import { Send, Search, Facebook, Instagram, Phone, MoreVertical, Star, Clock, Bot, MapPin, Linkedin, MessageCircle, Lock } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
+
+// Platforms not yet connected
+const COMING_SOON_PLATFORMS: Platform[] = ['whatsapp', 'tiktok', 'linkedin'];
 
 // Google "G" icon SVG component
 function GoogleIcon({ className }: { className?: string }) {
@@ -59,7 +62,8 @@ export default function UnifiedInbox() {
         setFilter,
         setActiveConversation,
         sendMessage,
-        fetchGoogleReviewConversations
+        fetchSocialInbox,
+        socialInboxLoading,
     } = useInboxStore();
 
     const [replyText, setReplyText] = useState('');
@@ -68,11 +72,13 @@ export default function UnifiedInbox() {
 
     useEffect(() => {
         setIsClient(true);
-        // Load Google review conversations on mount
-        fetchGoogleReviewConversations();
-    }, [fetchGoogleReviewConversations]);
+        // Load all social inbox conversations from Metricool
+        fetchSocialInbox();
+    }, [fetchSocialInbox]);
 
     if (!isClient) return <div className="p-8">Loading inbox...</div>;
+
+    const isComingSoon = COMING_SOON_PLATFORMS.includes(filter as Platform);
 
     const filteredConversations = conversations?.filter(c => {
         const matchesFilter = filter === 'all' || c.platform === filter;
@@ -166,6 +172,8 @@ export default function UnifiedInbox() {
                         : conversations.filter(c => c.platform === tab.key).length;
                     const isActive = filter === tab.key;
 
+                    const isComingSoonTab = COMING_SOON_PLATFORMS.includes(tab.key as Platform);
+
                     return (
                         <button
                             key={tab.key}
@@ -173,18 +181,19 @@ export default function UnifiedInbox() {
                             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap border-b-2 ${isActive
                                 ? tab.activeColor
                                 : `bg-gray-50 dark:bg-gray-700/50 ${tab.color} hover:bg-gray-100 dark:hover:bg-gray-700 border-transparent`
-                                }`}
+                                } ${isComingSoonTab ? 'opacity-60' : ''}`}
                         >
                             {tab.icon}
                             <span>{tab.label}</span>
-                            {count > 0 && (
+                            {isComingSoonTab ? (
+                                <Lock className="w-3 h-3 text-gray-400" />
+                            ) : count > 0 ? (
                                 <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
                                     {count}
                                 </span>
-                            )}
-                            {count === 0 && totalCount > 0 && (
+                            ) : totalCount > 0 ? (
                                 <span className="text-[10px] text-gray-400 dark:text-gray-500">{totalCount}</span>
-                            )}
+                            ) : null}
                         </button>
                     );
                 })}
@@ -207,67 +216,92 @@ export default function UnifiedInbox() {
                     </div>
 
                     <div className="flex-1 overflow-y-auto">
-                        {filteredConversations.map(conversation => {
-                            const isGR = isGoogleReview(conversation);
-                            const autoReplyInfo = isGR ? getAutoReplyInfo(conversation) : null;
-
-                            return (
-                                <div
-                                    key={conversation.id}
-                                    onClick={() => setActiveConversation(conversation.id)}
-                                    className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${activeConversationId === conversation.id ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-l-indigo-500' : 'border-l-4 border-l-transparent'
-                                        }`}
-                                >
-                                    <div className="flex justify-between items-start mb-1">
-                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">{conversation.participants[0].name}</h3>
-                                            {getPlatformIcon(conversation.platform)}
-                                        </div>
-                                        <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                                            {format(new Date(conversation.lastMessage.timestamp), 'MMM d, h:mm a')}
-                                        </span>
-                                    </div>
-
-                                    {/* Google Review: show star rating + branch */}
-                                    {isGR && (
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <StarRating rating={conversation.starRating} />
-                                            <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                                                <MapPin className="w-3 h-3" />
-                                                {conversation.clinicName.replace(' Branch', '')}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                        {conversation.lastMessage.content}
-                                    </p>
-
-                                    {/* Google Review: auto-reply status badge */}
-                                    {isGR && autoReplyInfo && (
-                                        <div className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${autoReplyInfo.color}`}>
-                                            {conversation.replyStatus === 'auto_replied' ? (
-                                                <Bot className="w-3 h-3" />
-                                            ) : (
-                                                <Clock className="w-3 h-3" />
-                                            )}
-                                            {autoReplyInfo.label}
-                                        </div>
-                                    )}
-
-                                    {/* Unread badge for non-Google conversations */}
-                                    {!isGR && conversation.unreadCount > 0 && (
-                                        <span className="mt-1 inline-flex items-center justify-center w-5 h-5 bg-indigo-600 text-white text-[10px] rounded-full font-bold">
-                                            {conversation.unreadCount}
-                                        </span>
-                                    )}
+                        {/* Coming Soon overlay for disconnected platforms */}
+                        {isComingSoon ? (
+                            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                                    <Lock className="w-8 h-8 text-gray-400" />
                                 </div>
-                            );
-                        })}
-                        {filteredConversations.length === 0 && (
-                            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                                No conversations found
+                                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Coming Soon</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                                    {filter === 'whatsapp' && 'WhatsApp Business integration is coming soon. Stay tuned!'}
+                                    {filter === 'tiktok' && 'TikTok inbox integration is planned for a future update.'}
+                                    {filter === 'linkedin' && 'LinkedIn messaging will be available in a future update.'}
+                                </p>
+                                <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Not Connected
+                                </span>
                             </div>
+                        ) : socialInboxLoading ? (
+                            <div className="flex-1 flex items-center justify-center p-8">
+                                <div className="animate-pulse text-gray-400">Loading conversations...</div>
+                            </div>
+                        ) : (
+                            <>
+                                {filteredConversations.map(conversation => {
+                                    const isGR = isGoogleReview(conversation);
+                                    const autoReplyInfo = isGR ? getAutoReplyInfo(conversation) : null;
+
+                                    return (
+                                        <div
+                                            key={conversation.id}
+                                            onClick={() => setActiveConversation(conversation.id)}
+                                            className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${activeConversationId === conversation.id ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-l-indigo-500' : 'border-l-4 border-l-transparent'
+                                                }`}
+                                        >
+                                            <div className="flex justify-between items-start mb-1">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">{conversation.participants[0].name}</h3>
+                                                    {getPlatformIcon(conversation.platform)}
+                                                </div>
+                                                <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                                                    {format(new Date(conversation.lastMessage.timestamp), 'MMM d, h:mm a')}
+                                                </span>
+                                            </div>
+
+                                            {/* Google Review: show star rating + branch */}
+                                            {isGR && (
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <StarRating rating={conversation.starRating} />
+                                                    <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                                                        <MapPin className="w-3 h-3" />
+                                                        {conversation.clinicName.replace(' Branch', '')}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                                {conversation.lastMessage.content}
+                                            </p>
+
+                                            {/* Google Review: auto-reply status badge */}
+                                            {isGR && autoReplyInfo && (
+                                                <div className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${autoReplyInfo.color}`}>
+                                                    {conversation.replyStatus === 'auto_replied' ? (
+                                                        <Bot className="w-3 h-3" />
+                                                    ) : (
+                                                        <Clock className="w-3 h-3" />
+                                                    )}
+                                                    {autoReplyInfo.label}
+                                                </div>
+                                            )}
+
+                                            {/* Unread badge for non-Google conversations */}
+                                            {!isGR && conversation.unreadCount > 0 && (
+                                                <span className="mt-1 inline-flex items-center justify-center w-5 h-5 bg-indigo-600 text-white text-[10px] rounded-full font-bold">
+                                                    {conversation.unreadCount}
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {filteredConversations.length === 0 && (
+                                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                        No conversations found
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
