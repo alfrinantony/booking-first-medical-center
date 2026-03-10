@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ClinicsStore } from '@/lib/clinics-store';
 
 export async function GET(request: Request) {
-    const clinics = ClinicsStore.getClinics();
+    const clinics = await ClinicsStore.getClinics();
     return NextResponse.json(clinics);
 }
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Name and Address are required' }, { status: 400 });
         }
 
-        const newClinic = ClinicsStore.addClinic({
+        const newClinic = await ClinicsStore.addClinic({
             name,
             address,
             vatPercentage: Number(vatPercentage) || 0,
@@ -45,7 +45,7 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
         }
 
-        const updatedClinic = ClinicsStore.updateClinic(id, updates);
+        const updatedClinic = await ClinicsStore.updateClinic(id, updates);
 
         if (!updatedClinic) {
             return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
@@ -66,7 +66,7 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
         }
 
-        const success = ClinicsStore.removeClinic(id);
+        const success = await ClinicsStore.removeClinic(id);
 
         if (!success) {
             return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });

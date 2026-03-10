@@ -2,6 +2,8 @@
 // HR Documents Store — Categorised document metadata & expiry tracking
 // ─────────────────────────────────────────────────────────────
 
+import { loadFromBlob, saveToBlob } from './blob-persistence';
+
 export type DocumentCategory =
     | 'RECRUITMENT'
     | 'LEGAL'
@@ -303,33 +305,52 @@ const initialDocuments: EmployeeDocument[] = [
 
 // ── In-memory store ──
 let documents: EmployeeDocument[] = JSON.parse(JSON.stringify(initialDocuments));
+let docLoaded = false;
+
+async function ensureDocLoaded() {
+    if (!docLoaded) {
+        documents = await loadFromBlob<EmployeeDocument[]>('hr-documents', initialDocuments);
+        docLoaded = true;
+    }
+}
+
+async function saveDoc() {
+    await saveToBlob('hr-documents', documents);
+}
 
 export const HRDocumentsStore = {
-    getByEmployee: (employeeId: string): EmployeeDocument[] => {
+    getByEmployee: async (employeeId: string): Promise<EmployeeDocument[]> => {
+        await ensureDocLoaded();
         return documents.filter(d => d.employeeId === employeeId);
     },
 
-    getById: (id: string): EmployeeDocument | undefined => {
+    getById: async (id: string): Promise<EmployeeDocument | undefined> => {
+        await ensureDocLoaded();
         return documents.find(d => d.id === id);
     },
 
-    add: (data: Omit<EmployeeDocument, 'id'>): EmployeeDocument => {
+    add: async (data: Omit<EmployeeDocument, 'id'>): Promise<EmployeeDocument> => {
+        await ensureDocLoaded();
         const doc: EmployeeDocument = {
             ...data,
             id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         };
         documents.push(doc);
+        await saveDoc();
         return doc;
     },
 
-    delete: (id: string): boolean => {
+    delete: async (id: string): Promise<boolean> => {
+        await ensureDocLoaded();
         const len = documents.length;
         documents = documents.filter(d => d.id !== id);
-        return documents.length < len;
+        if (documents.length < len) { await saveDoc(); return true; }
+        return false;
     },
 
     /** Documents expiring within `withinDays` from now */
-    getExpiringSoon: (withinDays: number = 30): (EmployeeDocument & { daysRemaining: number })[] => {
+    getExpiringSoon: async (withinDays: number = 30): Promise<(EmployeeDocument & { daysRemaining: number })[]> => {
+        await ensureDocLoaded();
         const now = new Date();
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() + withinDays);
@@ -346,7 +367,8 @@ export const HRDocumentsStore = {
     },
 
     /** Documents already expired */
-    getExpired: (): (EmployeeDocument & { daysOverdue: number })[] => {
+    getExpired: async (): Promise<(EmployeeDocument & { daysOverdue: number })[]> => {
+        await ensureDocLoaded();
         const now = new Date();
         return documents
             .filter(d => d.expiryDate)
@@ -360,7 +382,8 @@ export const HRDocumentsStore = {
     },
 
     /** All documents (for reports) */
-    getAll: (): EmployeeDocument[] => {
+    getAll: async (): Promise<EmployeeDocument[]> => {
+        await ensureDocLoaded();
         return [...documents];
     },
 };

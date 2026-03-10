@@ -7,6 +7,7 @@ import { HRStore, WORKPLACES } from './hr-store';
 import { HRAttendanceStore, AttendanceRecord } from './hr-attendance-store';
 import { BookingsStore } from './bookings-store';
 import { clinics } from './data';
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 // ── Types ──
 
@@ -169,6 +170,24 @@ function buildSeedAssignments(): ShiftAssignment[] {
 
 let shiftTemplates: ShiftTemplate[] = [...defaultTemplates];
 let shiftAssignments: ShiftAssignment[] = buildSeedAssignments();
+let shiftLoaded = false;
+
+interface ShiftBlobData { templates: ShiftTemplate[]; assignments: ShiftAssignment[] }
+
+async function ensureShiftLoaded() {
+    if (!shiftLoaded) {
+        const data = await loadFromBlob<ShiftBlobData>('hr-shifts', null as any);
+        if (data) {
+            shiftTemplates = data.templates;
+            shiftAssignments = data.assignments;
+        }
+        shiftLoaded = true;
+    }
+}
+
+async function saveShift() {
+    await saveToBlob<ShiftBlobData>('hr-shifts', { templates: shiftTemplates, assignments: shiftAssignments });
+}
 
 // ── Helpers ──
 
@@ -187,46 +206,55 @@ export const HRShiftStore = {
 
     // ═══ Shift Templates ═══
 
-    getTemplates(): ShiftTemplate[] {
+    async getTemplates(): Promise<ShiftTemplate[]> {
+        await ensureShiftLoaded();
         return [...shiftTemplates];
     },
 
-    getTemplateById(id: string): ShiftTemplate | undefined {
+    async getTemplateById(id: string): Promise<ShiftTemplate | undefined> {
+        await ensureShiftLoaded();
         return shiftTemplates.find(t => t.id === id);
     },
 
-    addTemplate(data: Omit<ShiftTemplate, 'id'>): ShiftTemplate {
+    async addTemplate(data: Omit<ShiftTemplate, 'id'>): Promise<ShiftTemplate> {
+        await ensureShiftLoaded();
         const template: ShiftTemplate = {
             ...data,
             id: `tpl-${Date.now()}`,
         };
         shiftTemplates.push(template);
+        await saveShift();
         return template;
     },
 
-    updateTemplate(id: string, updates: Partial<Omit<ShiftTemplate, 'id'>>): ShiftTemplate | null {
+    async updateTemplate(id: string, updates: Partial<Omit<ShiftTemplate, 'id'>>): Promise<ShiftTemplate | null> {
+        await ensureShiftLoaded();
         const idx = shiftTemplates.findIndex(t => t.id === id);
         if (idx === -1) return null;
         shiftTemplates[idx] = { ...shiftTemplates[idx], ...updates };
+        await saveShift();
         return shiftTemplates[idx];
     },
 
-    deleteTemplate(id: string): boolean {
+    async deleteTemplate(id: string): Promise<boolean> {
+        await ensureShiftLoaded();
         const len = shiftTemplates.length;
         shiftTemplates = shiftTemplates.filter(t => t.id !== id);
-        return shiftTemplates.length < len;
+        if (shiftTemplates.length < len) { await saveShift(); return true; }
+        return false;
     },
 
     // ═══ Shift Assignments ═══
 
-    getAssignments(filters?: {
+    async getAssignments(filters?: {
         date?: string;
         startDate?: string;
         endDate?: string;
         branchId?: string;
         employeeId?: string;
         status?: ShiftStatus;
-    }): ShiftAssignment[] {
+    }): Promise<ShiftAssignment[]> {
+        await ensureShiftLoaded();
         let result = [...shiftAssignments];
 
         if (filters?.date) {
@@ -251,31 +279,29 @@ export const HRShiftStore = {
         return result;
     },
 
-    assignShift(data: {
+    async assignShift(data: {
         employeeId: string;
         date: string;
         shiftTemplateId: string;
         branchId: string;
-        startTime?: string;       // custom override
-        endTime?: string;         // custom override
-        breakMinutes?: number;    // custom override
+        startTime?: string;
+        endTime?: string;
+        breakMinutes?: number;
         notes?: string;
-    }): ShiftAssignment {
+    }): Promise<ShiftAssignment> {
+        await ensureShiftLoaded();
         const now = new Date().toISOString();
         const template = shiftTemplates.find(t => t.id === data.shiftTemplateId);
         const branch = WORKPLACES.find(w => w.id === data.branchId);
 
-        // Remove any existing assignment for this employee on this date
         shiftAssignments = shiftAssignments.filter(
             a => !(a.employeeId === data.employeeId && a.date === data.date)
         );
 
-        // Use custom times if provided, otherwise fall back to template
         const start = data.startTime || template?.startTime || '09:00';
         const end = data.endTime || template?.endTime || '18:00';
         const brk = data.breakMinutes ?? template?.breakMinutes ?? 0;
 
-        // Auto-calculate expected hours from the chosen times
         const totalMin = timeToMinutes(end) - timeToMinutes(start);
         const netHours = minutesToHours(Math.max(0, totalMin - brk));
 
@@ -304,10 +330,12 @@ export const HRShiftStore = {
         };
 
         shiftAssignments.push(assignment);
+        await saveShift();
         return assignment;
     },
 
-    updateAssignment(id: string, updates: Partial<Omit<ShiftAssignment, 'id' | 'createdAt'>>): ShiftAssignment | null {
+    async updateAssignment(id: string, updates: Partial<Omit<ShiftAssignment, 'id' | 'createdAt'>>): Promise<ShiftAssignment | null> {
+        await ensureShiftLoaded();
         const idx = shiftAssignments.findIndex(a => a.id === id);
         if (idx === -1) return null;
         shiftAssignments[idx] = {
@@ -315,26 +343,29 @@ export const HRShiftStore = {
             ...updates,
             updatedAt: new Date().toISOString(),
         };
+        await saveShift();
         return shiftAssignments[idx];
     },
 
-    deleteAssignment(id: string): boolean {
+    async deleteAssignment(id: string): Promise<boolean> {
+        await ensureShiftLoaded();
         const len = shiftAssignments.length;
         shiftAssignments = shiftAssignments.filter(a => a.id !== id);
-        return shiftAssignments.length < len;
+        if (shiftAssignments.length < len) { await saveShift(); return true; }
+        return false;
     },
 
     // ═══ Clinician Auto-Shift Generation ═══
 
-    generateClinicianShifts(date: string, branchId?: string): {
+    async generateClinicianShifts(date: string, branchId?: string): Promise<{
         generated: number;
         shifts: ShiftAssignment[];
-    } {
-        const allBookings = BookingsStore.getByFilters({ date });
+    }> {
+        await ensureShiftLoaded();
+        const allBookings = await BookingsStore.getByFilters({ date });
         const generated: ShiftAssignment[] = [];
         const now = new Date().toISOString();
 
-        // Group bookings by doctorId
         const doctorBookings: Record<string, { slots: string[]; clinicId: string; count: number }> = {};
         for (const b of allBookings) {
             if (b.status === 'cancelled') continue;
@@ -350,7 +381,6 @@ export const HRShiftStore = {
         for (const [doctorId, data] of Object.entries(doctorBookings)) {
             if (data.slots.length === 0) continue;
 
-            // Find doctor name from clinics data
             let doctorName = doctorId;
             for (const clinic of clinics) {
                 for (const dept of clinic.departments) {
@@ -359,26 +389,23 @@ export const HRShiftStore = {
                 }
             }
 
-            // Determine shift window from first to last appointment + 30min buffer
             const sortedSlots = data.slots.sort((a, b) => {
                 return timeToMinutes(convertTo24(a)) - timeToMinutes(convertTo24(b));
             });
 
             const firstSlot24 = convertTo24(sortedSlots[0]);
             const lastSlot24 = convertTo24(sortedSlots[sortedSlots.length - 1]);
-            const shiftStart = addMinutesToTime(firstSlot24, -30);  // 30min before first appointment
-            const shiftEnd = addMinutesToTime(lastSlot24, 60);      // 60min after last appointment
+            const shiftStart = addMinutesToTime(firstSlot24, -30);
+            const shiftEnd = addMinutesToTime(lastSlot24, 60);
 
             const startMin = timeToMinutes(shiftStart);
             const endMin = timeToMinutes(shiftEnd);
             const totalMin = endMin - startMin;
-            const breakMin = totalMin > 300 ? 60 : 0; // 1hr break if > 5hrs
+            const breakMin = totalMin > 300 ? 60 : 0;
             const expectedHours = minutesToHours(totalMin - breakMin);
 
-            // Use doctorId as employeeId if it matches an HR employee, otherwise use doctorId directly
             const empId = `clinician-${doctorId}`;
 
-            // Remove existing auto-shift for this clinician on this date
             shiftAssignments = shiftAssignments.filter(
                 a => !(a.employeeId === empId && a.date === date && a.isClinicianAutoShift)
             );
@@ -409,24 +436,29 @@ export const HRShiftStore = {
             generated.push(assignment);
         }
 
+        await saveShift();
         return { generated: generated.length, shifts: generated };
     },
 
     // ═══ Shift vs Attendance Comparison ═══
 
-    compareAttendanceVsShift(date: string): ShiftAttendanceComparison[] {
+    async compareAttendanceVsShift(date: string): Promise<ShiftAttendanceComparison[]> {
+        await ensureShiftLoaded();
         const dayAssignments = shiftAssignments.filter(a => a.date === date && a.status !== 'OFF_DUTY');
-        const dayAttendance = HRAttendanceStore.getAll({ date });
+        const dayAttendance = await HRAttendanceStore.getAll({ date });
         const comparisons: ShiftAttendanceComparison[] = [];
 
-        // Build attendance lookup by employeeId
         const attendanceMap: Record<string, AttendanceRecord> = {};
         for (const att of dayAttendance) {
             attendanceMap[att.employeeId] = att;
         }
 
+        // Pre-load employees
+        const allEmployees = await HRStore.getAll();
+        const employeeMap = new Map(allEmployees.map(e => [e.id, e]));
+
         for (const shift of dayAssignments) {
-            const emp = HRStore.getById(shift.employeeId);
+            const emp = employeeMap.get(shift.employeeId);
             const att = attendanceMap[shift.employeeId];
 
             let status: ShiftAttendanceComparison['status'] = 'ABSENT';
@@ -481,21 +513,19 @@ export const HRShiftStore = {
 
     // ═══ Clinician Availability Check (for booking integration) ═══
 
-    isClinicianAvailable(doctorId: string, date: string): {
+    async isClinicianAvailable(doctorId: string, date: string): Promise<{
         available: boolean;
         reason?: string;
         shift?: ShiftAssignment;
-    } {
-        // Check in clinics data for doctor daysOff
+    }> {
+        await ensureShiftLoaded();
         for (const clinic of clinics) {
             for (const dept of clinic.departments) {
                 const doc = dept.doctors.find(d => d.id === doctorId);
                 if (doc) {
-                    // Check status
                     if (doc.status === 'not_working') {
                         return { available: false, reason: 'Clinician is not currently working' };
                     }
-                    // Check daysOff
                     if (doc.daysOff && doc.daysOff.length > 0) {
                         const dayOfWeek = new Date(date).getDay();
                         if (doc.daysOff.includes(dayOfWeek)) {
@@ -507,7 +537,6 @@ export const HRShiftStore = {
             }
         }
 
-        // Check if there's an explicit OFF_DUTY shift assignment
         const empId = `clinician-${doctorId}`;
         const assignment = shiftAssignments.find(
             a => (a.employeeId === empId || a.employeeId === doctorId) && a.date === date
@@ -520,13 +549,13 @@ export const HRShiftStore = {
             return { available: true, shift: assignment };
         }
 
-        // No explicit shift — still available (default open)
         return { available: true };
     },
 
     // ═══ Summary for a date ═══
 
-    getDaySummary(date: string) {
+    async getDaySummary(date: string) {
+        await ensureShiftLoaded();
         const assignments = shiftAssignments.filter(a => a.date === date);
         return {
             total: assignments.length,

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText, Clock, FileSpreadsheet, Cpu } from 'lucide-react';
+import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText, Clock, FileSpreadsheet, Cpu, TrendingUp, BarChart3 } from 'lucide-react';
 import { User } from '@/lib/users-store';
 
 export default function AdminSidebar() {
@@ -254,6 +254,28 @@ export default function AdminSidebar() {
             >
                 <Tag className="w-4 h-4 shrink-0" />
                 Promo Codes
+            </Link>
+
+            <Link
+                href="/admin/marketing"
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/marketing')
+                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+            >
+                <TrendingUp className="w-4 h-4 shrink-0" />
+                Marketing
+            </Link>
+
+            <Link
+                href="/admin/social"
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/social')
+                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+            >
+                <BarChart3 className="w-4 h-4 shrink-0" />
+                Social
             </Link>
 
             <Link

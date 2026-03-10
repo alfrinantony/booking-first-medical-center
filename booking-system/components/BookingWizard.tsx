@@ -4,8 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation'; // Correct import for App Router
 import { clinics, timeSlots, Clinic, Department, Service, Doctor, PromoCode, Medicine } from '@/lib/data';
 import { useAuthStore } from '@/lib/store';
-import { usePackagesStore } from '@/lib/packages-store';
-import { useReviewDiscountStore } from '@/lib/review-discount-store';
 import CustomerAuth from './auth/CustomerAuth';
 import { Calendar, Clock, User, ChevronRight, ChevronDown, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill, Phone, Mail, ExternalLink, Map as MapIcon } from 'lucide-react';
 import { format, addDays, startOfMonth, getMonth, getYear } from 'date-fns';
@@ -39,14 +37,32 @@ function getDubaiNow(): Date {
 export default function BookingWizard() {
     const router = useRouter();
     const { user, isAuthenticated } = useAuthStore();
-    const { getMyPackages, useSession } = usePackagesStore();
-    const { getReviewDiscount, syncWithServer: syncReviews } = useReviewDiscountStore();
     const [isMounted, setIsMounted] = useState(false);
+
+    // API-fetched state for packages and review discount
+    const [myPackagesList, setMyPackagesList] = useState<import('@/types/packages').CustomerPackage[]>([]);
+    const [reviewDiscountData, setReviewDiscountData] = useState<{ percent: number; reviewedBranches: number; totalBranches: number; hasSubFiveReview: boolean }>({ percent: 0, reviewedBranches: 0, totalBranches: 0, hasSubFiveReview: false });
 
     useEffect(() => {
         setIsMounted(true);
-        syncReviews();
     }, []);
+
+    // Fetch packages and review discount data when user is authenticated
+    useEffect(() => {
+        if (!isAuthenticated || !user) return;
+        const customerId = user.phone || user.email;
+        if (user.phone) {
+            fetch(`/api/admin/packages?type=my&phone=${encodeURIComponent(user.phone)}`)
+                .then(r => r.json()).then(setMyPackagesList).catch(() => {});
+        }
+        fetch(`/api/admin/reviews?customerPhone=${encodeURIComponent(customerId)}`)
+            .then(r => r.json()).then((reviews: any[]) => {
+                const fiveStarBranches = new Set(reviews.filter((r: any) => r.rating === 5).map((r: any) => r.clinicId));
+                const hasSubFive = reviews.some((r: any) => r.rating < 5);
+                const percent = hasSubFive ? 0 : Math.min(fiveStarBranches.size, 3);
+                setReviewDiscountData({ percent, reviewedBranches: fiveStarBranches.size, totalBranches: clinics.length, hasSubFiveReview: hasSubFive });
+            }).catch(() => {});
+    }, [isAuthenticated, user]);
 
     // Safety check for stale data (e.g. users from before DOB update)
     // Only run this when mounted and authenticated to avoid hydration mismatches
@@ -593,7 +609,7 @@ export default function BookingWizard() {
     const priceWithTax = basePrice + vatAmount + medicineTotal;
 
     // Final Price with Discounts
-    const reviewDiscount = (isAuthenticated && (user?.phone || user?.email)) ? getReviewDiscount(user.phone || user.email) : { percent: 0, reviewedBranches: 0, totalBranches: 0, hasSubFiveReview: false };
+    const reviewDiscount = reviewDiscountData;
     const reviewDiscountAmount = (reviewDiscount.percent > 0 && !isFree) ? priceWithTax * (reviewDiscount.percent / 100) : 0;
     let finalPrice = priceWithTax;
     if (isFree) {
@@ -758,7 +774,7 @@ export default function BookingWizard() {
 
 
     // --- Package Logic ---
-    const myPackages = (isAuthenticated && user?.phone) ? getMyPackages(user.phone) : [];
+    const myPackages = myPackagesList;
     const applicablePackage = selectedService ? myPackages.find(p => p.remainingSessions[selectedService.id] > 0) : null;
     const [usePackageSession, setUsePackageSession] = useState(false);
 
@@ -773,7 +789,12 @@ export default function BookingWizard() {
     const handlePackageConfirm = async () => {
         if (!applicablePackage || !selectedService || !user) return;
 
-        const result = useSession(applicablePackage.id, selectedService.id);
+        const res = await fetch('/api/admin/packages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'useSession', customerPackageId: applicablePackage.id, serviceId: selectedService.id }),
+        });
+        const result = await res.json();
         if (result.success) {
             const bookingData: any = {
                 clinicId: selectedClinic?.id,

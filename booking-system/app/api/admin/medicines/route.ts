@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { MedicineStore } from '@/lib/services-store';
 
 export async function GET() {
-    return NextResponse.json(MedicineStore.getMedicines());
+    return NextResponse.json(await MedicineStore.getMedicines());
 }
 
 export async function POST(request: Request) {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Name and price are required' }, { status: 400 });
         }
 
-        const medicine = MedicineStore.addMedicine({
+        const medicine = await MedicineStore.addMedicine({
             name,
             price: Number(price),
             centralStock: centralStock !== undefined ? Number(centralStock) : 0,
@@ -52,7 +52,7 @@ export async function PUT(request: Request) {
             updates.minCentralStock = updates.minCentralStock === '' ? undefined : Number(updates.minCentralStock);
         }
 
-        const updated = MedicineStore.updateMedicine(id, updates);
+        const updated = await MedicineStore.updateMedicine(id, updates);
         if (updated) {
             return NextResponse.json(updated);
         }
@@ -71,7 +71,7 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Medicine ID is required' }, { status: 400 });
         }
 
-        const success = MedicineStore.removeMedicine(id);
+        const success = await MedicineStore.removeMedicine(id);
         if (success) {
             return NextResponse.json({ success: true });
         }

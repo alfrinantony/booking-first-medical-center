@@ -3,7 +3,7 @@ import { HRStore } from '@/lib/hr-store';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const employee = HRStore.getById(id);
+    const employee = await HRStore.getById(id);
     if (!employee) {
         return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
@@ -24,7 +24,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         if (body.leavesTaken !== undefined) body.leavesTaken = Number(body.leavesTaken);
         if (body.sickLeavesTaken !== undefined) body.sickLeavesTaken = Number(body.sickLeavesTaken);
 
-        const updated = HRStore.update(id, body);
+        const updated = await HRStore.update(id, body);
         if (!updated) {
             return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
@@ -36,7 +36,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const deleted = HRStore.delete(id);
+    const deleted = await HRStore.delete(id);
     if (!deleted) {
         return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }

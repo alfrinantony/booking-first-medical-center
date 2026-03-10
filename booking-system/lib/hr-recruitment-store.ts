@@ -2,6 +2,8 @@
 // HR Recruitment Store — Job Openings & Candidate Pipeline
 // ─────────────────────────────────────────────────────────────
 
+import { loadFromBlob, saveToBlob } from './blob-persistence';
+
 export const RECRUITMENT_STAGES = [
     'Application Received',
     'Screening',
@@ -263,10 +265,29 @@ const initialCandidates: Candidate[] = [
 // ── In-memory stores ──
 let openings: JobOpening[] = JSON.parse(JSON.stringify(initialOpenings));
 let candidates: Candidate[] = JSON.parse(JSON.stringify(initialCandidates));
+let recLoaded = false;
+
+interface RecBlobData { openings: JobOpening[]; candidates: Candidate[] }
+
+async function ensureRecLoaded() {
+    if (!recLoaded) {
+        const data = await loadFromBlob<RecBlobData>('hr-recruitment', null as any);
+        if (data) {
+            openings = data.openings;
+            candidates = data.candidates;
+        }
+        recLoaded = true;
+    }
+}
+
+async function saveRec() {
+    await saveToBlob<RecBlobData>('hr-recruitment', { openings, candidates });
+}
 
 export const RecruitmentStore = {
     // ─── Openings ───
-    getAllOpenings: (filters?: { status?: OpeningStatus; search?: string }): JobOpening[] => {
+    getAllOpenings: async (filters?: { status?: OpeningStatus; search?: string }): Promise<JobOpening[]> => {
+        await ensureRecLoaded();
         let result = [...openings];
         if (filters?.status) {
             result = result.filter(o => o.status === filters.status);
@@ -279,18 +300,19 @@ export const RecruitmentStore = {
                 o.workplaceName.toLowerCase().includes(q)
             );
         }
-        // attach candidate counts
         return result.map(o => ({
             ...o,
             _candidateCount: candidates.filter(c => c.jobOpeningId === o.id).length,
         }));
     },
 
-    getOpeningById: (id: string): JobOpening | undefined => {
+    getOpeningById: async (id: string): Promise<JobOpening | undefined> => {
+        await ensureRecLoaded();
         return openings.find(o => o.id === id);
     },
 
-    addOpening: (data: Omit<JobOpening, 'id' | 'createdAt' | 'updatedAt'>): JobOpening => {
+    addOpening: async (data: Omit<JobOpening, 'id' | 'createdAt' | 'updatedAt'>): Promise<JobOpening> => {
+        await ensureRecLoaded();
         const now = new Date().toISOString();
         const opening: JobOpening = {
             ...data,
@@ -299,25 +321,31 @@ export const RecruitmentStore = {
             updatedAt: now,
         };
         openings.push(opening);
+        await saveRec();
         return opening;
     },
 
-    updateOpening: (id: string, updates: Partial<Omit<JobOpening, 'id' | 'createdAt'>>): JobOpening | null => {
+    updateOpening: async (id: string, updates: Partial<Omit<JobOpening, 'id' | 'createdAt'>>): Promise<JobOpening | null> => {
+        await ensureRecLoaded();
         const idx = openings.findIndex(o => o.id === id);
         if (idx === -1) return null;
         openings[idx] = { ...openings[idx], ...updates, updatedAt: new Date().toISOString() };
+        await saveRec();
         return openings[idx];
     },
 
-    deleteOpening: (id: string): boolean => {
+    deleteOpening: async (id: string): Promise<boolean> => {
+        await ensureRecLoaded();
         const len = openings.length;
         openings = openings.filter(o => o.id !== id);
         candidates = candidates.filter(c => c.jobOpeningId !== id); // cascade
-        return openings.length < len;
+        if (openings.length < len) { await saveRec(); return true; }
+        return false;
     },
 
     // ─── Candidates ───
-    getAllCandidates: (filters?: { openingId?: string; stage?: RecruitmentStage; search?: string }): Candidate[] => {
+    getAllCandidates: async (filters?: { openingId?: string; stage?: RecruitmentStage; search?: string }): Promise<Candidate[]> => {
+        await ensureRecLoaded();
         let result = [...candidates];
         if (filters?.openingId) {
             result = result.filter(c => c.jobOpeningId === filters.openingId);
@@ -336,11 +364,13 @@ export const RecruitmentStore = {
         return result;
     },
 
-    getCandidateById: (id: string): Candidate | undefined => {
+    getCandidateById: async (id: string): Promise<Candidate | undefined> => {
+        await ensureRecLoaded();
         return candidates.find(c => c.id === id);
     },
 
-    addCandidate: (data: Omit<Candidate, 'id' | 'createdAt' | 'updatedAt'>): Candidate => {
+    addCandidate: async (data: Omit<Candidate, 'id' | 'createdAt' | 'updatedAt'>): Promise<Candidate> => {
+        await ensureRecLoaded();
         const now = new Date().toISOString();
         const candidate: Candidate = {
             ...data,
@@ -349,23 +379,29 @@ export const RecruitmentStore = {
             updatedAt: now,
         };
         candidates.push(candidate);
+        await saveRec();
         return candidate;
     },
 
-    updateCandidate: (id: string, updates: Partial<Omit<Candidate, 'id' | 'createdAt'>>): Candidate | null => {
+    updateCandidate: async (id: string, updates: Partial<Omit<Candidate, 'id' | 'createdAt'>>): Promise<Candidate | null> => {
+        await ensureRecLoaded();
         const idx = candidates.findIndex(c => c.id === id);
         if (idx === -1) return null;
         candidates[idx] = { ...candidates[idx], ...updates, updatedAt: new Date().toISOString() };
+        await saveRec();
         return candidates[idx];
     },
 
-    deleteCandidate: (id: string): boolean => {
+    deleteCandidate: async (id: string): Promise<boolean> => {
+        await ensureRecLoaded();
         const len = candidates.length;
         candidates = candidates.filter(c => c.id !== id);
-        return candidates.length < len;
+        if (candidates.length < len) { await saveRec(); return true; }
+        return false;
     },
 
-    getStats: () => {
+    getStats: async () => {
+        await ensureRecLoaded();
         const totalOpenings = openings.length;
         const openPositions = openings.filter(o => o.status === 'OPEN').length;
         const totalCandidates = candidates.length;

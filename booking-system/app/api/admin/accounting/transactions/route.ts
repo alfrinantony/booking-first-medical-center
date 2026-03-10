@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const dateTo = searchParams.get('dateTo') || undefined;
     const search = searchParams.get('search') || undefined;
     const branchId = searchParams.get('branchId') || undefined;
-    const txns = AccountingStore.getAllTransactions({
+    const txns = await AccountingStore.getAllTransactions({
         type: type || undefined, accountId, dateFrom, dateTo, search, branchId,
     });
     return NextResponse.json(txns);
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const txn = AccountingStore.addTransaction(body);
+        const txn = await AccountingStore.addTransaction(body);
         return NextResponse.json(txn, { status: 201 });
     } catch {
         return NextResponse.json({ error: 'Invalid data' }, { status: 400 });

@@ -1,3 +1,5 @@
+import { loadFromBlob, saveToBlob } from './blob-persistence';
+
 export interface NotificationConfig {
     id: string;
     type: 'email' | 'sms' | 'whatsapp';
@@ -6,7 +8,7 @@ export interface NotificationConfig {
     template: string;
 }
 
-let configs: NotificationConfig[] = [
+const initialConfigs: NotificationConfig[] = [
     {
         id: 'notif-1',
         type: 'email',
@@ -23,28 +25,44 @@ let configs: NotificationConfig[] = [
     }
 ];
 
-export const NotificationStore = {
-    getAll: () => configs,
+let configs: NotificationConfig[] = [...initialConfigs];
+let notifLoaded = false;
 
-    update: (id: string, updates: Partial<NotificationConfig>) => {
+async function ensureNotifLoaded() {
+    if (!notifLoaded) {
+        configs = await loadFromBlob<NotificationConfig[]>('notifications', initialConfigs);
+        notifLoaded = true;
+    }
+}
+
+export const NotificationStore = {
+    getAll: async () => { await ensureNotifLoaded(); return configs; },
+
+    update: async (id: string, updates: Partial<NotificationConfig>) => {
+        await ensureNotifLoaded();
         const index = configs.findIndex(c => c.id === id);
         if (index !== -1) {
             configs[index] = { ...configs[index], ...updates };
+            await saveToBlob('notifications', configs);
             return configs[index];
         }
         return null;
     },
 
-    add: (config: Omit<NotificationConfig, 'id'>) => {
+    add: async (config: Omit<NotificationConfig, 'id'>) => {
+        await ensureNotifLoaded();
         const newConfig = {
             ...config,
             id: `notif-${Date.now()}`
         };
         configs.push(newConfig);
+        await saveToBlob('notifications', configs);
         return newConfig;
     },
 
-    delete: (id: string) => {
+    delete: async (id: string) => {
+        await ensureNotifLoaded();
         configs = configs.filter(c => c.id !== id);
+        await saveToBlob('notifications', configs);
     }
 };

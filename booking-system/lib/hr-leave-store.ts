@@ -1,5 +1,7 @@
 // ── Leave Management Store (UAE Labor Law compliant) ──
 
+import { loadFromBlob, saveToBlob } from './blob-persistence';
+
 export const LEAVE_TYPES = [
     'Annual Leave',
     'Sick Leave',
@@ -72,7 +74,7 @@ export const UAE_LEAVE_RULES = {
 };
 
 // ── In-memory store ──
-const leaveRequests: LeaveRequest[] = [
+let leaveRequests: LeaveRequest[] = [
     {
         id: 'lr-001',
         employeeId: 'emp-001',
@@ -125,7 +127,7 @@ const leaveRequests: LeaveRequest[] = [
     },
 ];
 
-const leavePlannings: LeavePlanning[] = [
+let leavePlannings: LeavePlanning[] = [
     {
         id: 'lp-001',
         employeeId: 'emp-001',
@@ -140,20 +142,43 @@ const leavePlannings: LeavePlanning[] = [
 
 let nextLeaveId = 5;
 let nextPlanId = 2;
+let leaveLoaded = false;
+
+interface LeaveBlobData { requests: LeaveRequest[]; plannings: LeavePlanning[]; nextLeaveId: number; nextPlanId: number }
+
+async function ensureLeaveLoaded() {
+    if (!leaveLoaded) {
+        const data = await loadFromBlob<LeaveBlobData>('hr-leave', null as any);
+        if (data) {
+            leaveRequests = data.requests;
+            leavePlannings = data.plannings;
+            nextLeaveId = data.nextLeaveId;
+            nextPlanId = data.nextPlanId;
+        }
+        leaveLoaded = true;
+    }
+}
+
+async function saveLeave() {
+    await saveToBlob<LeaveBlobData>('hr-leave', { requests: leaveRequests, plannings: leavePlannings, nextLeaveId, nextPlanId });
+}
 
 // ── Leave helper functions ──
 
-export function getLeavesByEmployee(employeeId: string): LeaveRequest[] {
+export async function getLeavesByEmployee(employeeId: string): Promise<LeaveRequest[]> {
+    await ensureLeaveLoaded();
     return leaveRequests.filter(lr => lr.employeeId === employeeId)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
-export function getPlanningsByEmployee(employeeId: string): LeavePlanning[] {
+export async function getPlanningsByEmployee(employeeId: string): Promise<LeavePlanning[]> {
+    await ensureLeaveLoaded();
     return leavePlannings.filter(lp => lp.employeeId === employeeId)
         .sort((a, b) => new Date(a.plannedStartDate).getTime() - new Date(b.plannedStartDate).getTime());
 }
 
-export function createLeaveRequest(data: Omit<LeaveRequest, 'id' | 'createdAt' | 'updatedAt'>): LeaveRequest {
+export async function createLeaveRequest(data: Omit<LeaveRequest, 'id' | 'createdAt' | 'updatedAt'>): Promise<LeaveRequest> {
+    await ensureLeaveLoaded();
     const lr: LeaveRequest = {
         ...data,
         id: `lr-${String(nextLeaveId++).padStart(3, '0')}`,
@@ -161,38 +186,46 @@ export function createLeaveRequest(data: Omit<LeaveRequest, 'id' | 'createdAt' |
         updatedAt: new Date().toISOString(),
     };
     leaveRequests.push(lr);
+    await saveLeave();
     return lr;
 }
 
-export function updateLeaveStatus(id: string, status: LeaveStatus, approvedBy?: string, rejectedReason?: string): LeaveRequest | null {
+export async function updateLeaveStatus(id: string, status: LeaveStatus, approvedBy?: string, rejectedReason?: string): Promise<LeaveRequest | null> {
+    await ensureLeaveLoaded();
     const lr = leaveRequests.find(l => l.id === id);
     if (!lr) return null;
     lr.status = status;
     lr.updatedAt = new Date().toISOString();
     if (approvedBy) lr.approvedBy = approvedBy;
     if (rejectedReason) lr.rejectedReason = rejectedReason;
+    await saveLeave();
     return lr;
 }
 
-export function createLeavePlanning(data: Omit<LeavePlanning, 'id' | 'createdAt'>): LeavePlanning {
+export async function createLeavePlanning(data: Omit<LeavePlanning, 'id' | 'createdAt'>): Promise<LeavePlanning> {
+    await ensureLeaveLoaded();
     const lp: LeavePlanning = {
         ...data,
         id: `lp-${String(nextPlanId++).padStart(3, '0')}`,
         createdAt: new Date().toISOString(),
     };
     leavePlannings.push(lp);
+    await saveLeave();
     return lp;
 }
 
-export function deleteLeavePlanning(id: string): boolean {
+export async function deleteLeavePlanning(id: string): Promise<boolean> {
+    await ensureLeaveLoaded();
     const idx = leavePlannings.findIndex(lp => lp.id === id);
     if (idx === -1) return false;
     leavePlannings.splice(idx, 1);
+    await saveLeave();
     return true;
 }
 
 // ── Leave balance calculation ──
-export function getLeaveBalance(employeeId: string) {
+export async function getLeaveBalance(employeeId: string) {
+    await ensureLeaveLoaded();
     const requests = leaveRequests.filter(lr => lr.employeeId === employeeId && lr.status === 'APPROVED');
 
     const annualUsed = requests.filter(lr => lr.leaveType === 'Annual Leave').reduce((s, lr) => s + lr.totalDays, 0);
@@ -204,16 +237,13 @@ export function getLeaveBalance(employeeId: string) {
     const unpaidUsed = requests.filter(lr => lr.leaveType === 'Unpaid Leave').reduce((s, lr) => s + lr.totalDays, 0);
     const absentDays = requests.filter(lr => lr.leaveType === 'Absent').reduce((s, lr) => s + lr.totalDays, 0);
 
-    // Sick leave pay breakdown
     const sickFullPay = Math.min(sickUsed, UAE_LEAVE_RULES.sickLeave.fullPayDays);
     const sickHalfPay = Math.min(Math.max(sickUsed - 15, 0), UAE_LEAVE_RULES.sickLeave.halfPayDays);
     const sickUnpaid = Math.max(sickUsed - 45, 0);
 
-    // Maternity pay breakdown
     const maternityFullPay = Math.min(maternityUsed, UAE_LEAVE_RULES.maternityLeave.fullPayDays);
     const maternityHalfPay = Math.min(Math.max(maternityUsed - 45, 0), UAE_LEAVE_RULES.maternityLeave.halfPayDays);
 
-    // Absent warnings
     const absentWarning = absentDays >= UAE_LEAVE_RULES.absentTermination.nonConsecutiveDays;
 
     return {
@@ -236,14 +266,14 @@ export function getLeaveBalance(employeeId: string) {
 }
 
 // ── Date range queries ──
-export function getLeavesByDateRange(startDate: string, endDate: string): LeaveRequest[] {
+export async function getLeavesByDateRange(startDate: string, endDate: string): Promise<LeaveRequest[]> {
+    await ensureLeaveLoaded();
     return leaveRequests.filter(lr => {
-        // Overlap check: leave overlaps with [startDate, endDate] if
-        // leave.startDate <= endDate AND leave.endDate >= startDate
         return lr.startDate <= endDate && lr.endDate >= startDate;
     });
 }
 
-export function getAllLeaves(): LeaveRequest[] {
+export async function getAllLeaves(): Promise<LeaveRequest[]> {
+    await ensureLeaveLoaded();
     return [...leaveRequests];
 }

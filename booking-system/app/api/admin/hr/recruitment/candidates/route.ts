@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const stage = searchParams.get('stage') as RecruitmentStage | null;
     const search = searchParams.get('search') || undefined;
 
-    const candidates = RecruitmentStore.getAllCandidates({
+    const candidates = await RecruitmentStore.getAllCandidates({
         openingId,
         stage: stage || undefined,
         search,
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const candidate = RecruitmentStore.addCandidate(body);
+        const candidate = await RecruitmentStore.addCandidate(body);
         return NextResponse.json(candidate, { status: 201 });
     } catch {
         return NextResponse.json({ error: 'Invalid data' }, { status: 400 });

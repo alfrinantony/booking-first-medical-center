@@ -1,17 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
-import { usePackagesStore } from '@/lib/packages-store';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
+import type { Package as PkgType } from '@/types/packages';
 import { Package, Check, ShieldCheck, Clock, ArrowRight } from 'lucide-react';
 import CustomerAuth from '@/components/auth/CustomerAuth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function PackagesPage() {
-    const { availablePackages, purchasePackage } = usePackagesStore();
+    const [availablePackages, setAvailablePackages] = useState<PkgType[]>([]);
     const { user, isAuthenticated } = useAuthStore();
     const router = useRouter();
+
+    useEffect(() => {
+        fetch('/api/admin/packages').then(r => r.json()).then(setAvailablePackages).catch(() => {});
+    }, []);
 
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
@@ -26,17 +30,21 @@ export default function PackagesPage() {
         }
     };
 
-    const executePurchase = (pkgId: string) => {
+    const executePurchase = async (pkgId: string) => {
         if (!user) return;
-
-        // Mock Payment Process
-        const confirmBuy = window.confirm("Confirm purchase? (Mock Payment)");
-        if (confirmBuy) {
-            const purchased = purchasePackage(pkgId, user.name, user.phone);
-            if (purchased) {
-                setPurchaseSuccess(purchased.packageName);
+        try {
+            const res = await fetch('/api/admin/packages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'purchase', packageId: pkgId, customerName: user.name, customerPhone: user.phone }),
+            });
+            const result = await res.json();
+            if (result && !result.error) {
+                setPurchaseSuccess(pkgId);
                 setTimeout(() => setPurchaseSuccess(null), 3000);
             }
+        } catch {
+            // handle error silently
         }
     };
 

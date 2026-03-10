@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const department = searchParams.get('department') || undefined;
     const clinicId = searchParams.get('clinicId') || undefined;
 
-    const employees = HRStore.getAll({ search, status, department, clinicId });
+    const employees = await HRStore.getAll({ search, status, department, clinicId });
     return NextResponse.json(employees);
 }
 
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
         // Auto-generate employee code if not provided
         if (!body.employeeCode) {
-            body.employeeCode = HRStore.getNextCode();
+            body.employeeCode = await HRStore.getNextCode();
         }
 
         // Set defaults
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
             employeeCode: body.employeeCode,
         };
 
-        const employee = HRStore.add(data);
+        const employee = await HRStore.add(data);
         return NextResponse.json(employee, { status: 201 });
     } catch {
         return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });

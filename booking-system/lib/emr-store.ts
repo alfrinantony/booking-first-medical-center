@@ -1,5 +1,8 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+// ─────────────────────────────────────────────────────────────
+// EMR Store — EMR config & push status with Azure Blob persistence
+// ─────────────────────────────────────────────────────────────
+
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 /* ── Masking Utilities ── */
 
@@ -7,7 +10,6 @@ export function maskPhone(phone: string | undefined): string {
     if (!phone) return '—';
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 4) return '•'.repeat(phone.length);
-    // Show first 4 and last 2 digits, mask the rest
     const visible = phone.slice(0, Math.min(7, phone.length - 3));
     const masked = '•'.repeat(Math.max(0, phone.length - visible.length - 2));
     const tail = phone.slice(-2);
@@ -33,88 +35,91 @@ export interface EMRPushRecord {
     errorMessage?: string;
 }
 
-/* ── EMR Store ── */
+/* ── EMR Config ── */
 
-interface EMRConfig {
+export interface EMRConfig {
     endpointUrl: string;
     apiKey: string;
     enabled: boolean;
     maskContacts: boolean;
 }
 
-interface EMRState {
+// ── In-memory store ──
+interface EMRData {
     config: EMRConfig;
     pushRecords: EMRPushRecord[];
-
-    // Config actions
-    updateConfig: (updates: Partial<EMRConfig>) => void;
-
-    // Push actions
-    setPushStatus: (clientId: string, record: Omit<EMRPushRecord, 'clientId'>) => void;
-    getPushStatus: (clientId: string) => EMRPushRecord | undefined;
-
-    // Test connection
-    testConnection: () => Promise<{ success: boolean; message: string }>;
 }
 
-export const useEMRStore = create<EMRState>()(
-    persist(
-        (set, get) => ({
-            config: {
-                endpointUrl: '',
-                apiKey: '',
-                enabled: false,
-                maskContacts: true,
-            },
-            pushRecords: [],
+const DEFAULT_CONFIG: EMRConfig = {
+    endpointUrl: '',
+    apiKey: '',
+    enabled: false,
+    maskContacts: true,
+};
 
-            updateConfig: (updates) => {
-                set(state => ({
-                    config: { ...state.config, ...updates }
-                }));
-            },
+let config: EMRConfig = { ...DEFAULT_CONFIG };
+let pushRecords: EMRPushRecord[] = [];
+let emrLoaded = false;
 
-            setPushStatus: (clientId, record) => {
-                set(state => {
-                    const existing = state.pushRecords.findIndex(r => r.clientId === clientId);
-                    const newRecord: EMRPushRecord = { clientId, ...record };
-                    if (existing >= 0) {
-                        const updated = [...state.pushRecords];
-                        updated[existing] = newRecord;
-                        return { pushRecords: updated };
-                    }
-                    return { pushRecords: [...state.pushRecords, newRecord] };
-                });
-            },
+async function ensureEMRLoaded() {
+    if (!emrLoaded) {
+        const data = await loadFromBlob<EMRData>('emr-config', { config: DEFAULT_CONFIG, pushRecords: [] });
+        config = data.config;
+        pushRecords = data.pushRecords;
+        emrLoaded = true;
+    }
+}
 
-            getPushStatus: (clientId) => {
-                return get().pushRecords.find(r => r.clientId === clientId);
-            },
+async function saveEMR() {
+    await saveToBlob<EMRData>('emr-config', { config, pushRecords });
+}
 
-            testConnection: async () => {
-                const { config } = get();
-                if (!config.endpointUrl) {
-                    return { success: false, message: 'EMR endpoint URL is not configured.' };
-                }
-                try {
-                    const res = await fetch(config.endpointUrl, {
-                        method: 'OPTIONS',
-                        headers: {
-                            'Authorization': `Bearer ${config.apiKey}`,
-                        },
-                    });
-                    if (res.ok || res.status === 204) {
-                        return { success: true, message: 'Connection successful!' };
-                    }
-                    return { success: false, message: `Server responded with status ${res.status}` };
-                } catch (err: unknown) {
-                    const message = err instanceof Error ? err.message : 'Connection failed';
-                    return { success: false, message };
-                }
-            },
-        }),
-        {
-            name: 'emr-integration-storage',
+export const EMRStore = {
+    getConfig: async (): Promise<EMRConfig> => {
+        await ensureEMRLoaded();
+        return { ...config };
+    },
+
+    updateConfig: async (updates: Partial<EMRConfig>) => {
+        await ensureEMRLoaded();
+        config = { ...config, ...updates };
+        await saveEMR();
+    },
+
+    setPushStatus: async (clientId: string, record: Omit<EMRPushRecord, 'clientId'>) => {
+        await ensureEMRLoaded();
+        const newRecord: EMRPushRecord = { clientId, ...record };
+        const existing = pushRecords.findIndex(r => r.clientId === clientId);
+        if (existing >= 0) {
+            pushRecords[existing] = newRecord;
+        } else {
+            pushRecords.push(newRecord);
         }
-    )
-);
+        await saveEMR();
+    },
+
+    getPushStatus: async (clientId: string): Promise<EMRPushRecord | undefined> => {
+        await ensureEMRLoaded();
+        return pushRecords.find(r => r.clientId === clientId);
+    },
+
+    testConnection: async (): Promise<{ success: boolean; message: string }> => {
+        await ensureEMRLoaded();
+        if (!config.endpointUrl) {
+            return { success: false, message: 'EMR endpoint URL is not configured.' };
+        }
+        try {
+            const res = await fetch(config.endpointUrl, {
+                method: 'OPTIONS',
+                headers: { 'Authorization': `Bearer ${config.apiKey}` },
+            });
+            if (res.ok || res.status === 204) {
+                return { success: true, message: 'Connection successful!' };
+            }
+            return { success: false, message: `Server responded with status ${res.status}` };
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Connection failed';
+            return { success: false, message };
+        }
+    },
+};

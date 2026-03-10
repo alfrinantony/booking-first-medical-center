@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useBillingStore, Invoice } from '@/lib/billing-store';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Invoice } from '@/lib/billing-store';
 import { clinics } from '@/lib/data';
 import { FileText, Download, Calendar, Building2, TrendingUp, Receipt, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
@@ -17,8 +17,11 @@ interface VATRow {
 const MONTH_LABELS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function VATReportPage() {
-    const { getInvoices } = useBillingStore();
-    const allInvoices = getInvoices();
+    const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
+
+    useEffect(() => {
+        fetch('/api/admin/billing').then(r => r.json()).then(d => setAllInvoices(d || [])).catch(() => {});
+    }, []);
 
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth(); // 0-based

@@ -1,5 +1,8 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+// ─────────────────────────────────────────────────────────────
+// Billing Store — Invoice CRUD with Azure Blob persistence
+// ─────────────────────────────────────────────────────────────
+
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 export interface InvoiceLineItem {
     description: string;       // Service name or package name
@@ -34,67 +37,68 @@ export interface Invoice {
     notes?: string;
 }
 
-interface BillingState {
-    invoices: Invoice[];
-    nextSequence: number;
+// ── In-memory store ──
+interface BillingData { invoices: Invoice[]; nextSequence: number; }
 
-    createInvoice: (data: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt'>) => Invoice;
-    getInvoices: (filters?: { clientPhone?: string; clinicId?: string; dateFrom?: string; dateTo?: string }) => Invoice[];
-    getInvoiceById: (id: string) => Invoice | undefined;
+let invoices: Invoice[] = [];
+let nextSequence = 1;
+let billingLoaded = false;
+
+async function ensureBillingLoaded() {
+    if (!billingLoaded) {
+        const data = await loadFromBlob<BillingData>('billing', { invoices: [], nextSequence: 1 });
+        invoices = data.invoices;
+        nextSequence = data.nextSequence;
+        billingLoaded = true;
+    }
 }
 
-export const useBillingStore = create<BillingState>()(
-    persist(
-        (set, get) => ({
-            invoices: [],
-            nextSequence: 1,
+async function saveBilling() {
+    await saveToBlob<BillingData>('billing', { invoices, nextSequence });
+}
 
-            createInvoice: (data) => {
-                const state = get();
-                const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-                const seqStr = String(state.nextSequence).padStart(4, '0');
-                const invoiceNumber = `BFMC-INV-${today}-${seqStr}`;
+export const BillingStore = {
+    createInvoice: async (data: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt'>): Promise<Invoice> => {
+        await ensureBillingLoaded();
+        const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const seqStr = String(nextSequence).padStart(4, '0');
+        const invoiceNumber = `BFMC-INV-${today}-${seqStr}`;
 
-                const invoice: Invoice = {
-                    ...data,
-                    id: `inv-${Date.now()}`,
-                    invoiceNumber,
-                    createdAt: new Date().toISOString(),
-                };
+        const invoice: Invoice = {
+            ...data,
+            id: `inv-${Date.now()}`,
+            invoiceNumber,
+            createdAt: new Date().toISOString(),
+        };
 
-                set(s => ({
-                    invoices: [...s.invoices, invoice],
-                    nextSequence: s.nextSequence + 1,
-                }));
+        invoices.push(invoice);
+        nextSequence++;
+        await saveBilling();
+        return invoice;
+    },
 
-                return invoice;
-            },
+    getInvoices: async (filters?: { clientPhone?: string; clinicId?: string; dateFrom?: string; dateTo?: string }): Promise<Invoice[]> => {
+        await ensureBillingLoaded();
+        let result = [...invoices];
 
-            getInvoices: (filters) => {
-                let result = get().invoices;
-
-                if (filters?.clientPhone) {
-                    result = result.filter(i => i.clientPhone === filters.clientPhone);
-                }
-                if (filters?.clinicId) {
-                    result = result.filter(i => i.clinicId === filters.clinicId);
-                }
-                if (filters?.dateFrom) {
-                    result = result.filter(i => i.date >= filters.dateFrom!);
-                }
-                if (filters?.dateTo) {
-                    result = result.filter(i => i.date <= filters.dateTo!);
-                }
-
-                return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            },
-
-            getInvoiceById: (id) => {
-                return get().invoices.find(i => i.id === id);
-            },
-        }),
-        {
-            name: 'billing-store',
+        if (filters?.clientPhone) {
+            result = result.filter(i => i.clientPhone === filters.clientPhone);
         }
-    )
-);
+        if (filters?.clinicId) {
+            result = result.filter(i => i.clinicId === filters.clinicId);
+        }
+        if (filters?.dateFrom) {
+            result = result.filter(i => i.date >= filters.dateFrom!);
+        }
+        if (filters?.dateTo) {
+            result = result.filter(i => i.date <= filters.dateTo!);
+        }
+
+        return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    },
+
+    getInvoiceById: async (id: string): Promise<Invoice | undefined> => {
+        await ensureBillingLoaded();
+        return invoices.find(i => i.id === id);
+    },
+};

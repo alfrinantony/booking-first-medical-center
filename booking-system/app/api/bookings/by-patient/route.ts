@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'phone or name required' }, { status: 400 });
     }
 
-    const all = BookingsStore.getAll();
+    const all = await BookingsStore.getAll();
     const todayStr = today();
 
     const bookings = all.filter(b => {
@@ -49,7 +49,7 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Booking id required' }, { status: 400 });
     }
 
-    const booking = BookingsStore.getById(id);
+    const booking = await BookingsStore.getById(id);
     if (!booking) {
         return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
@@ -59,7 +59,7 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Cannot cancel past bookings' }, { status: 400 });
     }
 
-    const updated = BookingsStore.update(id, { status: 'cancelled', confirmationStatus: 'cancelled' });
+    const updated = await BookingsStore.update(id, { status: 'cancelled', confirmationStatus: 'cancelled' });
     return NextResponse.json({ booking: updated });
 }
 
@@ -72,7 +72,7 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'id, date, and slot are required' }, { status: 400 });
         }
 
-        const booking = BookingsStore.getById(id);
+        const booking = await BookingsStore.getById(id);
         if (!booking) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
         }
@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Cannot reschedule past bookings' }, { status: 400 });
         }
 
-        const updated = BookingsStore.update(id, { date, slot, status: 'rescheduled', confirmationStatus: 'rescheduled' });
+        const updated = await BookingsStore.update(id, { date, slot, status: 'rescheduled', confirmationStatus: 'rescheduled' });
         return NextResponse.json({ booking: updated });
     } catch {
         return NextResponse.json({ error: 'Failed to reschedule booking' }, { status: 500 });

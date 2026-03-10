@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     }
 
     // ── Clinician Availability Check (shift integration) ──
-    const availability = HRShiftStore.isClinicianAvailable(doctorId, date);
+    const availability = await HRShiftStore.isClinicianAvailable(doctorId, date);
     if (!availability.available) {
         return NextResponse.json({
             slots: [],
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     }
 
     // 3. Get Existing Bookings
-    const bookings = BookingsStore.getByFilters({ doctorId, date });
+    const bookings = await BookingsStore.getByFilters({ doctorId, date });
 
     // 4. Filter Slots based on Capacity
     // Count bookings per slot
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
         // OR better: Just fetch the service if we can.
 
         let targetService: any = null;
-        const allClinics = require('@/lib/services-store').ServicesStore.getClinics ? require('@/lib/services-store').ServicesStore.getClinics() : [];
+        const allClinics = require('@/lib/services-store').ServicesStore.getClinics ? await require('@/lib/services-store').ServicesStore.getClinics() : [];
         // The store might just be a flat list or map. 
         // Let's assume we can find it.
         // NOTE: In `lib/services-store.ts`, we probably need a `getServiceById` method.
@@ -106,16 +106,16 @@ export async function GET(request: Request) {
 
         // Let's rely on `ServicesStore.getServiceById(serviceId)` which I should add.
         // validating existence:
-        const service = ServicesStore.getServiceById(serviceId);
+        const service = await ServicesStore.getServiceById(serviceId);
 
         if (service && service.requiredResourceIds && service.requiredResourceIds.length > 0) {
             // Check each resource
             const resourceCounts: Record<string, Record<string, number>> = {}; // resourceId -> slot -> count
 
-            bookings.forEach(b => {
+            for (const b of bookings) {
                 if (b.status !== 'cancelled') {
                     // Look up service for every booking to check resource usage
-                    const bookedService = ServicesStore.getServiceById(b.serviceId);
+                    const bookedService = await ServicesStore.getServiceById(b.serviceId);
                     if (bookedService && bookedService.requiredResourceIds) {
                         bookedService.requiredResourceIds.forEach((resId: string) => {
                             if (!resourceCounts[resId]) resourceCounts[resId] = {};
@@ -123,14 +123,21 @@ export async function GET(request: Request) {
                         });
                     }
                 }
-            });
+            }
+
+            // Pre-load required resources
+            const resourceMap = new Map();
+            for (const resId of service.requiredResourceIds) {
+                const resource = await ResourcesStore.getResourceById(resId);
+                if (resource) resourceMap.set(resId, resource);
+            }
 
             // Filter slots based on resource limits
             availableSlots = availableSlots.filter(slot => {
                 // Check if ALL required resources are available for this slot
                 return service.requiredResourceIds.every((resId: string) => {
-                    const resource = ResourcesStore.getResourceById(resId);
-                    if (!resource) return true; // Resource not found, ignore? or block? Assume ignore for now.
+                    const resource = resourceMap.get(resId);
+                    if (!resource) return true; // Resource not found, ignore
 
                     const usedCount = (resourceCounts[resId] && resourceCounts[resId][slot]) || 0;
                     return usedCount < resource.totalQuantity;

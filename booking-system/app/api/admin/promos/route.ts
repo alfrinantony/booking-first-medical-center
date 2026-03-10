@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { PromoStore } from '@/lib/promo-store';
 
 export async function GET() {
-    return NextResponse.json(PromoStore.getAll());
+    return NextResponse.json(await PromoStore.getAll());
 }
 
 export async function POST(request: Request) {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const newPromo = PromoStore.add({
+        const newPromo = await PromoStore.add({
             code,
             discountType,
             discountValue: Number(discountValue),
@@ -37,7 +37,7 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: 'ID is required' }, { status: 400 });
         }
 
-        const updatedPromo = PromoStore.update(id, updates);
+        const updatedPromo = await PromoStore.update(id, updates);
 
         if (!updatedPromo) {
             return NextResponse.json({ error: 'Promo code not found' }, { status: 404 });
@@ -58,7 +58,7 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'ID is required' }, { status: 400 });
         }
 
-        const success = PromoStore.delete(id);
+        const success = await PromoStore.delete(id);
 
         if (!success) {
             return NextResponse.json({ error: 'Promo code not found' }, { status: 404 });

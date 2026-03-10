@@ -1,6 +1,7 @@
 import { Booking } from './data';
 import { BookingsStore } from './bookings-store';
 import { LogsStore } from './logs-store';
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 export interface Client {
     id: string;
@@ -60,9 +61,21 @@ export interface Client {
     noShowDates?: string[];        // ISO dates of no-show occurrences
 }
 
+// Persistent client metadata (fields not derived from bookings)
+let clientMetadata: Record<string, Partial<Client>> = {};
+let metadataLoaded = false;
+
+async function ensureMetadataLoaded() {
+    if (!metadataLoaded) {
+        clientMetadata = await loadFromBlob<Record<string, Partial<Client>>>('client-metadata', {});
+        metadataLoaded = true;
+    }
+}
+
 export const ClientsStore = {
-    getAll: (): Client[] => {
-        const bookings = BookingsStore.getAll();
+    getAll: async (): Promise<Client[]> => {
+        const bookings = await BookingsStore.getAll();
+        await ensureMetadataLoaded();
         const clientsMap = new Map<string, Client>();
 
         bookings.forEach(booking => {
@@ -95,31 +108,41 @@ export const ClientsStore = {
             if (!client.phone && booking.whatsappNumber) client.phone = booking.whatsappNumber;
         });
 
-        return Array.from(clientsMap.values());
+        // Merge persistent metadata onto booking-derived clients
+        const clients = Array.from(clientsMap.values());
+        for (const client of clients) {
+            const meta = clientMetadata[client.id];
+            if (meta) {
+                Object.assign(client, meta);
+            }
+        }
+
+        return clients;
     },
 
-    merge: (targetClientId: string, sourceClientId: string) => {
-        const bookings = BookingsStore.getAll();
+    merge: async (targetClientId: string, sourceClientId: string) => {
+        const bookings = await BookingsStore.getAll();
         const sourceBookings = bookings.filter(b => {
             const id = b.whatsappNumber || b.email || b.patientName;
             return id === sourceClientId;
         });
 
         // Get target details
-        const targetClient = ClientsStore.getAll().find(c => c.id === targetClientId);
+        const allClients = await ClientsStore.getAll();
+        const targetClient = allClients.find(c => c.id === targetClientId);
         if (!targetClient) return false;
 
-        sourceBookings.forEach(booking => {
+        for (const booking of sourceBookings) {
             // Update booking with target client details
-            BookingsStore.update(booking.id, {
+            await BookingsStore.update(booking.id, {
                 patientName: targetClient.name,
                 whatsappNumber: targetClient.phone,
                 email: targetClient.email
             });
-        });
+        }
 
         const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};
-        LogsStore.add({
+        await LogsStore.add({
             userId: user.id || 'admin',
             userName: user.name || 'Admin',
             action: 'MERGE_CLIENTS',
@@ -131,8 +154,8 @@ export const ClientsStore = {
         return true;
     },
 
-    update: (clientId: string, updates: Partial<Client>) => {
-        const bookings = BookingsStore.getAll();
+    update: async (clientId: string, updates: Partial<Client>) => {
+        const bookings = await BookingsStore.getAll();
         const clientBookings = bookings.filter(b => {
             const id = b.whatsappNumber || b.email || b.patientName;
             return id === clientId;
@@ -140,16 +163,21 @@ export const ClientsStore = {
 
         if (clientBookings.length === 0) return false;
 
-        clientBookings.forEach(booking => {
-            BookingsStore.update(booking.id, {
+        for (const booking of clientBookings) {
+            await BookingsStore.update(booking.id, {
                 patientName: updates.name || booking.patientName,
                 whatsappNumber: updates.phone || booking.whatsappNumber,
                 email: updates.email || booking.email
             });
-        });
+        }
+
+        // Persist extra metadata (fields beyond name/phone/email)
+        await ensureMetadataLoaded();
+        clientMetadata[clientId] = { ...clientMetadata[clientId], ...updates };
+        await saveToBlob('client-metadata', clientMetadata);
 
         const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};
-        LogsStore.add({
+        await LogsStore.add({
             userId: user.id || 'admin',
             userName: user.name || 'Admin',
             action: 'UPDATE_CLIENT',

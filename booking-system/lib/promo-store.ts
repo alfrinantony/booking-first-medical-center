@@ -1,16 +1,13 @@
 import { PromoCode } from './data';
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
-// In-memory store for promo codes
-let promoStore: PromoCode[] = [];
-
-// Seed some initial data for testing
 const initialPromos: PromoCode[] = [
     {
         id: 'promo-1',
         code: 'WELCOME10',
         discountType: 'percentage',
-        discountValue: 0.10, // 10%
-        applicableServiceIds: [], // All services
+        discountValue: 0.10,
+        applicableServiceIds: [],
         active: true,
         usageCount: 0
     },
@@ -18,7 +15,7 @@ const initialPromos: PromoCode[] = [
         id: 'promo-2',
         code: 'SAVE20',
         discountType: 'fixed',
-        discountValue: 20, // $20
+        discountValue: 20,
         applicableServiceIds: [],
         active: true,
         usageCount: 5
@@ -29,7 +26,7 @@ const initialPromos: PromoCode[] = [
         discountType: 'percentage',
         discountValue: 0.20,
         applicableServiceIds: [],
-        applicableDepartmentIds: ['c1-Dermatology', 'c2-Dermatology', 'c3-Dermatology'], // IDs from data.ts generator
+        applicableDepartmentIds: ['c1-Dermatology', 'c2-Dermatology', 'c3-Dermatology'],
         active: true,
         usageCount: 0
     },
@@ -39,7 +36,7 @@ const initialPromos: PromoCode[] = [
         discountType: 'fixed',
         discountValue: 5,
         applicableServiceIds: [],
-        validUntil: '2023-01-01', // Past date
+        validUntil: '2023-01-01',
         active: true,
         usageCount: 0
     },
@@ -49,27 +46,40 @@ const initialPromos: PromoCode[] = [
         discountType: 'fixed',
         discountValue: 5,
         applicableServiceIds: [],
-        validFrom: '2030-01-01', // Future date
+        validFrom: '2030-01-01',
         active: true,
         usageCount: 0
     }
 ];
-promoStore = [...initialPromos];
+
+let promoStore: PromoCode[] = [...initialPromos];
+let loaded = false;
+
+async function ensureLoaded() {
+    if (!loaded) {
+        promoStore = await loadFromBlob<PromoCode[]>('promos', initialPromos);
+        loaded = true;
+    }
+}
 
 export const PromoStore = {
-    getAll: () => {
+    getAll: async () => {
+        await ensureLoaded();
         return promoStore;
     },
 
-    getById: (id: string) => {
+    getById: async (id: string) => {
+        await ensureLoaded();
         return promoStore.find(p => p.id === id);
     },
 
-    getByCode: (code: string) => {
+    getByCode: async (code: string) => {
+        await ensureLoaded();
         return promoStore.find(p => p.code.toUpperCase() === code.toUpperCase() && p.active);
     },
 
-    add: (promo: Omit<PromoCode, 'id' | 'usageCount'>) => {
+    add: async (promo: Omit<PromoCode, 'id' | 'usageCount'>) => {
+        await ensureLoaded();
         const newPromo: PromoCode = {
             ...promo,
             id: `promo-${Date.now()}`,
@@ -77,30 +87,38 @@ export const PromoStore = {
             code: promo.code.toUpperCase()
         };
         promoStore.push(newPromo);
+        await saveToBlob('promos', promoStore);
         return newPromo;
     },
 
-    update: (id: string, updates: Partial<PromoCode>) => {
+    update: async (id: string, updates: Partial<PromoCode>) => {
+        await ensureLoaded();
         const index = promoStore.findIndex(p => p.id === id);
         if (index === -1) return null;
-
         const updatedPromo = { ...promoStore[index], ...updates };
         if (updates.code) updatedPromo.code = updates.code.toUpperCase();
-
         promoStore[index] = updatedPromo;
+        await saveToBlob('promos', promoStore);
         return updatedPromo;
     },
 
-    delete: (id: string) => {
+    delete: async (id: string) => {
+        await ensureLoaded();
         const initialLength = promoStore.length;
         promoStore = promoStore.filter(p => p.id !== id);
-        return promoStore.length < initialLength;
+        if (promoStore.length < initialLength) {
+            await saveToBlob('promos', promoStore);
+            return true;
+        }
+        return false;
     },
 
-    incrementUsage: (id: string) => {
+    incrementUsage: async (id: string) => {
+        await ensureLoaded();
         const index = promoStore.findIndex(p => p.id === id);
         if (index !== -1) {
             promoStore[index].usageCount++;
+            await saveToBlob('promos', promoStore);
         }
     }
 };

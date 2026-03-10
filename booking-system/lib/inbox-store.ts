@@ -1,20 +1,23 @@
 import { create } from 'zustand';
-import { Conversation, Message, Platform } from '@/types/inbox';
+import { Conversation, Message, Platform, GoogleReviewConversation } from '@/types/inbox';
 
 interface InboxState {
     conversations: Conversation[];
     activeConversationId: string | null;
     messages: Record<string, Message[]>; // conversationId -> messages
     filter: Platform | 'all';
+    googleReviewsLoaded: boolean;
 
     // Actions
     setFilter: (filter: Platform | 'all') => void;
     setActiveConversation: (conversationId: string) => void;
     sendMessage: (conversationId: string, content: string) => void;
     receiveMessage: (message: Message) => void;
+    fetchGoogleReviewConversations: () => Promise<void>;
+    replyToGoogleReview: (reviewId: string, content: string) => Promise<void>;
 }
 
-// Mock Data
+// Mock Data — existing social channels
 const MOCK_CONVERSATIONS: Conversation[] = [
     {
         id: 'conv_1',
@@ -69,6 +72,42 @@ const MOCK_CONVERSATIONS: Conversation[] = [
         },
         unreadCount: 0,
         updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    },
+    {
+        id: 'conv_4',
+        platform: 'tiktok',
+        participants: [{ id: 'user_4', name: 'Dana K.', avatar: 'https://i.pravatar.cc/150?u=dana' }],
+        lastMessage: {
+            id: 'msg_4',
+            conversationId: 'conv_4',
+            senderId: 'user_4',
+            senderName: 'Dana K.',
+            content: 'Hi! I saw your HydraFacial reel — do you have weekend availability?',
+            timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+            platform: 'tiktok',
+            isFromStaff: false,
+            status: 'read'
+        },
+        unreadCount: 1,
+        updatedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    },
+    {
+        id: 'conv_5',
+        platform: 'linkedin',
+        participants: [{ id: 'user_5', name: 'Dr. Rajan Mehta', avatar: 'https://i.pravatar.cc/150?u=rajan' }],
+        lastMessage: {
+            id: 'msg_5',
+            conversationId: 'conv_5',
+            senderId: 'user_5',
+            senderName: 'Dr. Rajan Mehta',
+            content: 'Interested in collaboration opportunities for dermatology services.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+            platform: 'linkedin',
+            isFromStaff: false,
+            status: 'read'
+        },
+        unreadCount: 1,
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
     }
 ];
 
@@ -122,29 +161,81 @@ const MOCK_MESSAGES: Record<string, Message[]> = {
             isFromStaff: false,
             status: 'read'
         }
+    ],
+    'conv_4': [
+        {
+            id: 'msg_4',
+            conversationId: 'conv_4',
+            senderId: 'user_4',
+            senderName: 'Dana K.',
+            content: 'Hi! I saw your HydraFacial reel — do you have weekend availability?',
+            timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+            platform: 'tiktok',
+            isFromStaff: false,
+            status: 'read'
+        }
+    ],
+    'conv_5': [
+        {
+            id: 'msg_5',
+            conversationId: 'conv_5',
+            senderId: 'user_5',
+            senderName: 'Dr. Rajan Mehta',
+            content: 'Interested in collaboration opportunities for dermatology services.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+            platform: 'linkedin',
+            isFromStaff: false,
+            status: 'read'
+        }
     ]
 };
+
+// Helper to get logged-in admin user from session
+function getLoggedInUser(): { id: string; name: string } {
+    if (typeof window === 'undefined') return { id: 'staff_unknown', name: 'Staff' };
+    try {
+        const raw = sessionStorage.getItem('adminUser');
+        if (raw) {
+            const user = JSON.parse(raw);
+            return { id: user.id || 'staff_unknown', name: user.name || 'Staff' };
+        }
+    } catch { /* ignore */ }
+    return { id: 'staff_unknown', name: 'Staff' };
+}
 
 export const useInboxStore = create<InboxState>((set, get) => ({
     conversations: MOCK_CONVERSATIONS,
     activeConversationId: null,
     messages: MOCK_MESSAGES,
     filter: 'all',
+    googleReviewsLoaded: false,
 
     setFilter: (filter) => set({ filter }),
 
     setActiveConversation: (conversationId) => set({ activeConversationId: conversationId }),
 
     sendMessage: (conversationId, content) => {
+        const conversation = get().conversations.find(c => c.id === conversationId);
+        if (!conversation) return;
+
+        // If this is a Google review, use the review reply endpoint
+        if (conversation.platform === 'google_reviews') {
+            get().replyToGoogleReview(conversationId, content);
+            return;
+        }
+
+        const currentUser = getLoggedInUser();
         const newMessage: Message = {
             id: `msg_${Date.now()}`,
             conversationId,
-            senderId: 'staff_1',
-            senderName: 'Staff',
+            senderId: currentUser.id,
+            senderName: currentUser.name,
             content,
             timestamp: new Date().toISOString(),
-            platform: get().conversations.find(c => c.id === conversationId)?.platform || 'whatsapp',
+            platform: conversation.platform || 'whatsapp',
             isFromStaff: true,
+            repliedByUserId: currentUser.id,
+            repliedByUserName: currentUser.name,
             status: 'sent'
         };
 
@@ -182,12 +273,97 @@ export const useInboxStore = create<InboxState>((set, get) => ({
             .catch(err => console.error('Error sending message:', err));
     },
 
+    replyToGoogleReview: async (reviewId, content) => {
+        const currentUser = getLoggedInUser();
+        // Optimistically add the reply to the UI
+        const newMessage: Message = {
+            id: `reply_${Date.now()}`,
+            conversationId: reviewId,
+            senderId: currentUser.id,
+            senderName: currentUser.name,
+            content,
+            timestamp: new Date().toISOString(),
+            platform: 'google_reviews',
+            isFromStaff: true,
+            repliedByUserId: currentUser.id,
+            repliedByUserName: currentUser.name,
+            status: 'sent'
+        };
+
+        set((state) => {
+            const existingMessages = state.messages[reviewId] || [];
+            const updatedMessages = [...existingMessages, newMessage];
+
+            const updatedConversations = state.conversations.map(c => {
+                if (c.id === reviewId) {
+                    const updated = { ...c, lastMessage: newMessage, updatedAt: newMessage.timestamp, unreadCount: 0 };
+                    // Update reply status for Google review conversations
+                    if ('replyStatus' in updated) {
+                        (updated as GoogleReviewConversation).replyStatus = 'replied';
+                        (updated as GoogleReviewConversation).autoReplyScheduledAt = undefined;
+                    }
+                    return updated;
+                }
+                return c;
+            });
+
+            updatedConversations.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+            return {
+                messages: { ...state.messages, [reviewId]: updatedMessages },
+                conversations: updatedConversations
+            };
+        });
+
+        // Call the API to persist the reply
+        try {
+            const currentUser = getLoggedInUser();
+            await fetch('/api/admin/google-reviews-inbox', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reviewId, content, repliedByUserId: currentUser.id, repliedByUserName: currentUser.name }),
+            });
+        } catch (err) {
+            console.error('Error replying to Google review:', err);
+        }
+    },
+
     receiveMessage: (message) => {
         set((state) => {
-            // Logic to handle incoming message (update conversation list, add to messages)
-            // For mock purposes, we just log it
             console.log('Received message:', message);
             return state;
         });
-    }
+    },
+
+    fetchGoogleReviewConversations: async () => {
+        if (get().googleReviewsLoaded) return;
+
+        // Set loaded flag eagerly to prevent duplicate fetches from React Strict Mode
+        set({ googleReviewsLoaded: true });
+
+        try {
+            const res = await fetch('/api/admin/google-reviews-inbox');
+            if (!res.ok) throw new Error('Failed to fetch');
+            const data = await res.json();
+
+            const googleConversations: Conversation[] = data.conversations || [];
+            const googleMessages: Record<string, Message[]> = data.messages || {};
+
+            set((state) => {
+                // Deduplicate: only add conversations not already present
+                const existingIds = new Set(state.conversations.map(c => c.id));
+                const newConversations = googleConversations.filter(c => !existingIds.has(c.id));
+
+                return {
+                    conversations: [...state.conversations, ...newConversations].sort(
+                        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+                    ),
+                    messages: { ...state.messages, ...googleMessages },
+                };
+            });
+        } catch (err) {
+            console.error('Error fetching Google review conversations:', err);
+        }
+    },
+
 }));

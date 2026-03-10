@@ -5,7 +5,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const medicineId = searchParams.get('medicineId') || undefined;
     const supplierId = searchParams.get('supplierId') || undefined;
-    const records = PurchaseStore.getByFilters({ medicineId, supplierId });
+    const records = await PurchaseStore.getByFilters({ medicineId, supplierId });
     return NextResponse.json(records);
 }
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
             }
         }
 
-        const record = PurchaseStore.add({
+        const record = await PurchaseStore.add({
             supplierId,
             billNumber,
             purchaseDate,
@@ -57,7 +57,7 @@ export async function DELETE(request: Request) {
         if (!id) {
             return NextResponse.json({ error: 'Purchase record ID is required' }, { status: 400 });
         }
-        const success = PurchaseStore.remove(id);
+        const success = await PurchaseStore.remove(id);
         if (success) return NextResponse.json({ success: true });
         return NextResponse.json({ error: 'Record not found' }, { status: 404 });
     } catch {

@@ -2,6 +2,8 @@
 // HR Store — Employee data model & in-memory CRUD
 // ─────────────────────────────────────────────────────────────
 
+import { loadFromBlob, saveToBlob } from './blob-persistence';
+
 export type EmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT';
 export type EmployeeStatus = 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED' | 'RESIGNED';
 export type Gender = 'MALE' | 'FEMALE';
@@ -347,9 +349,22 @@ const initialEmployees: Employee[] = [
 
 // ── In-memory store ──
 let employees: Employee[] = JSON.parse(JSON.stringify(initialEmployees));
+let hrLoaded = false;
+
+async function ensureHRLoaded() {
+    if (!hrLoaded) {
+        employees = await loadFromBlob<Employee[]>('hr-employees', initialEmployees);
+        hrLoaded = true;
+    }
+}
+
+async function saveHR() {
+    await saveToBlob('hr-employees', employees);
+}
 
 export const HRStore = {
-    getAll: (filters?: { search?: string; status?: EmployeeStatus; department?: string; clinicId?: string }): Employee[] => {
+    getAll: async (filters?: { search?: string; status?: EmployeeStatus; department?: string; clinicId?: string }): Promise<Employee[]> => {
+        await ensureHRLoaded();
         let result = [...employees];
 
         if (filters?.status) {
@@ -375,11 +390,13 @@ export const HRStore = {
         return result;
     },
 
-    getById: (id: string): Employee | undefined => {
+    getById: async (id: string): Promise<Employee | undefined> => {
+        await ensureHRLoaded();
         return employees.find(e => e.id === id);
     },
 
-    add: (data: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Employee => {
+    add: async (data: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employee> => {
+        await ensureHRLoaded();
         const now = new Date().toISOString();
         const newEmployee: Employee = {
             ...data,
@@ -388,10 +405,12 @@ export const HRStore = {
             updatedAt: now,
         };
         employees.push(newEmployee);
+        await saveHR();
         return newEmployee;
     },
 
-    update: (id: string, updates: Partial<Omit<Employee, 'id' | 'createdAt'>>): Employee | null => {
+    update: async (id: string, updates: Partial<Omit<Employee, 'id' | 'createdAt'>>): Promise<Employee | null> => {
+        await ensureHRLoaded();
         const index = employees.findIndex(e => e.id === id);
         if (index === -1) return null;
 
@@ -400,16 +419,20 @@ export const HRStore = {
             ...updates,
             updatedAt: new Date().toISOString(),
         };
+        await saveHR();
         return employees[index];
     },
 
-    delete: (id: string): boolean => {
+    delete: async (id: string): Promise<boolean> => {
+        await ensureHRLoaded();
         const len = employees.length;
         employees = employees.filter(e => e.id !== id);
-        return employees.length < len;
+        if (employees.length < len) { await saveHR(); return true; }
+        return false;
     },
 
-    getNextCode: (): string => {
+    getNextCode: async (): Promise<string> => {
+        await ensureHRLoaded();
         const maxNum = employees.reduce((max, e) => {
             const match = e.employeeCode.match(/FMC-(\d+)/);
             return match ? Math.max(max, parseInt(match[1], 10)) : max;
@@ -417,7 +440,8 @@ export const HRStore = {
         return `FMC-${String(maxNum + 1).padStart(3, '0')}`;
     },
 
-    getStats: () => {
+    getStats: async () => {
+        await ensureHRLoaded();
         const total = employees.length;
         const active = employees.filter(e => e.status === 'ACTIVE').length;
         const onLeave = employees.filter(e => e.status === 'ON_LEAVE').length;

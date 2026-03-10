@@ -11,7 +11,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'employeeId is required' }, { status: 400 });
     }
 
-    const docs = HRDocumentsStore.getByEmployee(employeeId);
+    const docs = await HRDocumentsStore.getByEmployee(employeeId);
     return NextResponse.json(docs);
 }
 
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const blobUrl = await uploadToBlob(blobPath, buffer, file.type);
 
-        const doc = HRDocumentsStore.add({
+        const doc = await HRDocumentsStore.add({
             employeeId,
             category: resolvedCategory,
             documentType,

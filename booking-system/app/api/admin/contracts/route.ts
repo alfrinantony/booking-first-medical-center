@@ -6,9 +6,9 @@ export async function GET(request: Request) {
     const clinicId = searchParams.get('clinicId');
 
     if (clinicId) {
-        return NextResponse.json(ContractsStore.getByClinic(clinicId));
+        return NextResponse.json(await ContractsStore.getByClinic(clinicId));
     }
-    return NextResponse.json(ContractsStore.getAll());
+    return NextResponse.json(await ContractsStore.getAll());
 }
 
 export async function POST(request: Request) {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Required fields: clinicId, contractType, contractTitle, contractAmount, startDate, endDate' }, { status: 400 });
         }
 
-        const contract = ContractsStore.add({
+        const contract = await ContractsStore.add({
             ...body,
             contractAmount: Number(contractAmount),
             numberOfCheques: body.numberOfCheques ? Number(body.numberOfCheques) : undefined,
@@ -46,7 +46,7 @@ export async function PUT(request: Request) {
         if (updates.numberOfCheques) updates.numberOfCheques = Number(updates.numberOfCheques);
         if (updates.cashInstallment) updates.cashInstallment = Number(updates.cashInstallment);
 
-        const updated = ContractsStore.update(id, updates);
+        const updated = await ContractsStore.update(id, updates);
         if (!updated) {
             return NextResponse.json({ error: 'Contract not found' }, { status: 404 });
         }
@@ -66,7 +66,7 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Contract ID is required' }, { status: 400 });
         }
 
-        const success = ContractsStore.remove(id);
+        const success = await ContractsStore.remove(id);
         if (!success) {
             return NextResponse.json({ error: 'Contract not found' }, { status: 404 });
         }

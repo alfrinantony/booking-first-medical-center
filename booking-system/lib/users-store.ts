@@ -1,3 +1,4 @@
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'DOCTOR' | 'STAFF';
 
@@ -248,66 +249,91 @@ const initialUsers: User[] = [
     },
 ];
 
-// In-memory store
+// In-memory cache — loaded from blob on first access
 let users: User[] = [...initialUsers];
+let loaded = false;
+
+async function ensureLoaded() {
+    if (!loaded) {
+        users = await loadFromBlob<User[]>('users', initialUsers);
+        loaded = true;
+    }
+}
 
 export const UsersStore = {
-    getUsers: () => {
+    getUsers: async () => {
+        await ensureLoaded();
         return users;
     },
 
-    getUserById: (id: string) => {
+    getUserById: async (id: string) => {
+        await ensureLoaded();
         return users.find(u => u.id === id);
     },
 
-    getUserByUsername: (username: string) => {
+    getUserByUsername: async (username: string) => {
+        await ensureLoaded();
         return users.find(u => u.username === username);
     },
 
-    addUser: (user: Omit<User, 'id'>) => {
+    addUser: async (user: Omit<User, 'id'>) => {
+        await ensureLoaded();
         const newUser: User = {
             ...user,
             id: `user-${Date.now()}`
         };
         users.push(newUser);
+        await saveToBlob('users', users);
         return newUser;
     },
 
-    updateUser: (id: string, updates: Partial<Omit<User, 'id'>>) => {
+    updateUser: async (id: string, updates: Partial<Omit<User, 'id'>>) => {
+        await ensureLoaded();
         const index = users.findIndex(u => u.id === id);
         if (index === -1) return null;
 
         const updatedUser = { ...users[index], ...updates };
         users[index] = updatedUser;
+        await saveToBlob('users', users);
         return updatedUser;
     },
 
-    deleteUser: (id: string) => {
+    deleteUser: async (id: string) => {
+        await ensureLoaded();
         const initialLen = users.length;
         users = users.filter(u => u.id !== id);
-        return users.length < initialLen;
+        if (users.length < initialLen) {
+            await saveToBlob('users', users);
+            return true;
+        }
+        return false;
     },
 
     // Simple mock authentication
-    login: (username: string, password: string): User | null => {
+    login: async (username: string, password: string): Promise<User | null> => {
+        await ensureLoaded();
         const user = users.find(u => u.username === username && u.password === password);
         if (user && !user.isActive) return null;
         return user || null;
     },
 
     // Permission helpers
-    hasPermission: (userId: string, moduleKey: string, action: PermissionAction): boolean => {
+    hasPermission: async (userId: string, moduleKey: string, action: PermissionAction): Promise<boolean> => {
+        await ensureLoaded();
         const user = users.find(u => u.id === userId);
         if (!user) return false;
-        if (user.role === 'SUPER_ADMIN') return true; // SUPER_ADMIN always has full access
+        if (user.role === 'SUPER_ADMIN') return true;
         if (!user.permissions[moduleKey]) return false;
         return user.permissions[moduleKey].includes(action);
     },
 
-    updatePermissions: (userId: string, permissions: ModulePermissions) => {
+    updatePermissions: async (userId: string, permissions: ModulePermissions) => {
+        await ensureLoaded();
         const index = users.findIndex(u => u.id === userId);
         if (index === -1) return null;
         users[index] = { ...users[index], permissions };
+        await saveToBlob('users', users);
         return users[index];
     },
 };
+

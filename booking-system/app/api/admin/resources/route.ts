@@ -6,7 +6,7 @@ export async function GET(request: Request) {
     const clinicId = searchParams.get('clinicId');
 
     // Convert null to undefined if not present, though store handles it
-    const resources = ResourcesStore.getResources(clinicId || undefined);
+    const resources = await ResourcesStore.getResources(clinicId || undefined);
     return NextResponse.json(resources);
 }
 
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const newResource = ResourcesStore.addResource(body);
+        const newResource = await ResourcesStore.addResource(body);
         return NextResponse.json(newResource);
     } catch (error) {
         return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
@@ -33,7 +33,7 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
         }
 
-        const updated = ResourcesStore.updateResource(id, updates);
+        const updated = await ResourcesStore.updateResource(id, updates);
         if (!updated) {
             return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
         }
@@ -52,7 +52,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
     }
 
-    const deleted = ResourcesStore.deleteResource(id);
+    const deleted = await ResourcesStore.deleteResource(id);
     if (!deleted) {
         return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
     }

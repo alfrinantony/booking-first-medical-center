@@ -1,5 +1,8 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+// ─────────────────────────────────────────────────────────────
+// Settings Store — App-wide settings with Azure Blob persistence
+// ─────────────────────────────────────────────────────────────
+
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 export interface AppSettings {
     companyName: string;
@@ -55,11 +58,6 @@ export interface AppSettings {
     googleReviewUrls: Record<string, string>;
 }
 
-interface SettingsState {
-    settings: AppSettings;
-    updateSettings: (updates: Partial<AppSettings>) => void;
-}
-
 const DEFAULT_SETTINGS: AppSettings = {
     companyName: 'First Medical Center LLC',
     contactEmail: 'admin@bookingfirst.com',
@@ -108,16 +106,31 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
 };
 
-export const useSettingsStore = create<SettingsState>()(
-    persist(
-        (set) => ({
-            settings: DEFAULT_SETTINGS,
-            updateSettings: (updates) => set((state) => ({
-                settings: { ...state.settings, ...updates }
-            })),
-        }),
-        {
-            name: 'app-settings-storage', // unique name
-        }
-    )
-);
+// ── In-memory store ──
+let settings: AppSettings = { ...DEFAULT_SETTINGS };
+let settingsLoaded = false;
+
+async function ensureSettingsLoaded() {
+    if (!settingsLoaded) {
+        const data = await loadFromBlob<{ settings: AppSettings }>('settings', { settings: DEFAULT_SETTINGS });
+        settings = data.settings;
+        settingsLoaded = true;
+    }
+}
+
+async function saveSettings() {
+    await saveToBlob('settings', { settings });
+}
+
+export const SettingsStore = {
+    getSettings: async (): Promise<AppSettings> => {
+        await ensureSettingsLoaded();
+        return { ...settings };
+    },
+
+    updateSettings: async (updates: Partial<AppSettings>) => {
+        await ensureSettingsLoaded();
+        settings = { ...settings, ...updates };
+        await saveSettings();
+    },
+};

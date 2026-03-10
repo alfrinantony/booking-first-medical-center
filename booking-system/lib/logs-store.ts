@@ -1,3 +1,5 @@
+import { loadFromBlob, saveToBlob } from './blob-persistence';
+
 export interface LogEntry {
     id: string;
     timestamp: string;
@@ -9,32 +11,31 @@ export interface LogEntry {
     entityType?: string; // 'Booking', 'Client', 'System'
 }
 
-// In-memory store for logs (mocking a database)
-// In a real app, this would be a database table
-const logs: LogEntry[] = [
-    {
-        id: 'log-1',
-        timestamp: new Date(Date.now() - 10000000).toISOString(),
-        userId: 'admin-1',
-        userName: 'System Admin',
-        action: 'SYSTEM_INIT',
-        details: 'System initialized',
-        entityType: 'System'
+let logs: LogEntry[] = [];
+let loaded = false;
+
+async function ensureLoaded() {
+    if (!loaded) {
+        logs = await loadFromBlob<LogEntry[]>('logs', []);
+        loaded = true;
     }
-];
+}
 
 export const LogsStore = {
-    getAll: () => {
+    getAll: async () => {
+        await ensureLoaded();
         return [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     },
 
-    add: (entry: Omit<LogEntry, 'id' | 'timestamp'>) => {
+    add: async (entry: Omit<LogEntry, 'id' | 'timestamp'>) => {
+        await ensureLoaded();
         const newLog: LogEntry = {
             id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             timestamp: new Date().toISOString(),
             ...entry
         };
         logs.unshift(newLog); // Add to beginning
+        await saveToBlob('logs', logs);
         return newLog;
     }
 };

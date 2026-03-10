@@ -6,7 +6,7 @@ import { CategoryImageStore } from '@/lib/services-store';
  * Returns all category → image URL mappings
  */
 export async function GET() {
-    return NextResponse.json(CategoryImageStore.getAll());
+    return NextResponse.json(await CategoryImageStore.getAll());
 }
 
 /**
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
         if (!category || !imageUrl) {
             return NextResponse.json({ error: 'Missing category or imageUrl' }, { status: 400 });
         }
-        CategoryImageStore.set(category, imageUrl);
+        await CategoryImageStore.set(category, imageUrl);
         return NextResponse.json({ success: true, category, imageUrl });
     } catch {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -37,6 +37,6 @@ export async function DELETE(request: Request) {
     if (!category) {
         return NextResponse.json({ error: 'Missing category param' }, { status: 400 });
     }
-    CategoryImageStore.remove(category);
+    await CategoryImageStore.remove(category);
     return NextResponse.json({ success: true });
 }

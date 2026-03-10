@@ -2,13 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
-import { usePackagesStore } from '@/lib/packages-store';
-import { useReviewDiscountStore } from '@/lib/review-discount-store';
-import { useSettingsStore } from '@/lib/settings-store';
 import { clinics as allClinics } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Package, Calendar, Clock, ChevronRight, User, X, RefreshCw, Plus, AlertCircle, Star, ExternalLink } from 'lucide-react';
+import type { CustomerPackage } from '@/types/packages';
+import type { GoogleReview, ReviewDiscountResult } from '@/lib/review-discount-store';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
 
 interface PatientBooking {
@@ -26,10 +25,13 @@ interface PatientBooking {
 
 export default function CustomerDashboard() {
     const { user, isAuthenticated, logout } = useAuthStore();
-    const { getMyPackages } = usePackagesStore();
-    const { getReviewDiscount, getCustomerReviews, submitReview, syncWithServer: syncReviews, fetchGoogleReviews } = useReviewDiscountStore();
-    const { settings } = useSettingsStore();
     const router = useRouter();
+
+    // API-fetched state
+    const [myPackages, setMyPackages] = useState<CustomerPackage[]>([]);
+    const [myReviews, setMyReviews] = useState<GoogleReview[]>([]);
+    const [reviewDiscount, setReviewDiscount] = useState<ReviewDiscountResult>({ percent: 0, reviewedBranches: 0, totalBranches: allClinics.length, hasSubFiveReview: false });
+    const [googleReviewUrls, setGoogleReviewUrls] = useState<Record<string, string>>({});
 
     const [upcomingBookings, setUpcomingBookings] = useState<PatientBooking[]>([]);
     const [loadingBookings, setLoadingBookings] = useState(false);
@@ -52,45 +54,50 @@ export default function CustomerDashboard() {
         if (!isAuthenticated) router.push('/');
     }, [isAuthenticated, router]);
 
+    // Fetch packages, reviews, and settings via API
     useEffect(() => {
-        syncReviews();
-        // Check if customer has any booking history (eligible for reviews)
-        if (user?.name || user?.phone) {
-            const customerId = user.phone || user.email;
-            const existingReviews = getCustomerReviews(customerId);
+        if (!user) return;
+        const customerId = user.phone || user.email;
 
-            const params = new URLSearchParams();
-            if (user.phone) params.set('phone', user.phone);
-            if (user.name) params.set('name', user.name);
-            params.set('includeAll', 'true');
-            fetch(`/api/bookings/by-patient?${params}`)
-                .then(r => r.json())
-                .then(data => {
-                    const bookings = data.bookings || [];
-                    const visited: string[] = data.visitedClinicIds || [];
-                    // Eligible if they have bookings OR already have reviews stored
-                    const eligible = bookings.length > 0 || existingReviews.length > 0;
-                    setHasBookingHistory(eligible);
-                    // Merge visited branches from bookings + existing reviews
-                    const reviewedClinicIds = existingReviews.map(r => r.clinicId);
-                    const allVisited = [...new Set([...visited, ...reviewedClinicIds])];
-                    setVisitedClinicIds(allVisited);
-                    // Only auto-detect Google reviews for eligible + Gmail customers
-                    if (eligible && isGmailEligible && user.name) {
-                        fetchGoogleReviews(user.name, customerId).then(count => {
-                            if (count > 0) setAutoDetectedCount(count);
-                        });
-                    }
-                })
-                .catch(() => {
-                    // If API fails, still show card if customer has existing reviews
-                    if (existingReviews.length > 0) {
-                        setHasBookingHistory(true);
-                        setVisitedClinicIds([...new Set(existingReviews.map(r => r.clinicId))]);
-                    }
+        // Fetch active packages
+        fetch(`/api/admin/packages?type=my&phone=${encodeURIComponent(user.phone)}`)
+            .then(r => r.json()).then(setMyPackages).catch(() => {});
+
+        // Fetch settings for google review URLs
+        fetch('/api/admin/settings')
+            .then(r => r.json()).then(s => setGoogleReviewUrls(s.googleReviewUrls || {})).catch(() => {});
+
+        // Fetch customer reviews
+        fetch(`/api/admin/reviews?customerPhone=${encodeURIComponent(customerId)}`)
+            .then(r => r.json()).then((reviews: GoogleReview[]) => {
+                setMyReviews(reviews);
+                // Calculate discount from reviews
+                const fiveStarBranches = new Set(reviews.filter(r => r.rating === 5).map(r => r.clinicId));
+                const hasSubFive = reviews.some(r => r.rating < 5);
+                const percent = hasSubFive ? 0 : Math.min(fiveStarBranches.size, 3);
+                setReviewDiscount({
+                    percent,
+                    reviewedBranches: fiveStarBranches.size,
+                    totalBranches: allClinics.length,
+                    hasSubFiveReview: hasSubFive,
                 });
-        }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+            }).catch(() => {});
+
+        // Check booking history
+        const params = new URLSearchParams();
+        if (user.phone) params.set('phone', user.phone);
+        if (user.name) params.set('name', user.name);
+        params.set('includeAll', 'true');
+        fetch(`/api/bookings/by-patient?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                const bookings = data.bookings || [];
+                const visited: string[] = data.visitedClinicIds || [];
+                setHasBookingHistory(bookings.length > 0);
+                setVisitedClinicIds(visited);
+            })
+            .catch(() => {});
+    }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (user?.phone) fetchUpcomingBookings();
@@ -155,7 +162,7 @@ export default function CustomerDashboard() {
 
     if (!isAuthenticated || !user) return null;
 
-    const myPackages = getMyPackages(user.phone);
+    const customerId = user.phone || user.email;
 
     const statusColors: Record<string, string> = {
         booked: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -353,9 +360,7 @@ export default function CustomerDashboard() {
                                         Your current email ({user.email}) is not a Gmail address.
                                     </div>
                                 ) : (() => {
-                                    const customerId = user.phone || user.email;
-                                    const rd = getReviewDiscount(customerId);
-                                    const myReviews = getCustomerReviews(customerId);
+                                    const rd = reviewDiscount;
                                     return (
                                         <>
                                             {/* Discount Status */}
@@ -382,7 +387,7 @@ export default function CustomerDashboard() {
                                                 {allClinics.map(clinic => {
                                                     const hasVisited = visitedClinicIds.includes(clinic.id);
                                                     const existingReview = myReviews.find(r => r.clinicId === clinic.id);
-                                                    const reviewUrl = settings.googleReviewUrls?.[clinic.id] || clinic.locationMap || '#';
+                                                    const reviewUrl = googleReviewUrls[clinic.id] || clinic.locationMap || '#';
                                                     return (
                                                         <div key={clinic.id} className={`border rounded-xl p-3 ${hasVisited ? 'border-gray-100 dark:border-gray-700' : 'border-gray-100 dark:border-gray-700 opacity-60'
                                                             }`}>
@@ -407,7 +412,7 @@ export default function CustomerDashboard() {
                                                                                 ? 'fill-yellow-500 text-yellow-500'
                                                                                 : 'text-gray-300 dark:text-gray-600'
                                                                                 }`}
-                                                                                onClick={() => submitReview(customerId, clinic.id, s)}
+                                                                                onClick={() => { fetch('/api/admin/reviews', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ customerPhone: customerId, clinicId: clinic.id, rating: s }) }).then(() => { setMyReviews(prev => { const filtered = prev.filter(r => !(r.customerPhone === customerId && r.clinicId === clinic.id)); return [...filtered, { id: `temp-${Date.now()}`, customerPhone: customerId, clinicId: clinic.id, rating: s, submittedAt: new Date().toISOString() }]; }); }); }}
                                                                             />
                                                                         ))}
                                                                     </div>
@@ -419,7 +424,7 @@ export default function CustomerDashboard() {
                                                                         {[1, 2, 3, 4, 5].map(s => (
                                                                             <Star key={s}
                                                                                 className="w-4 h-4 text-gray-300 dark:text-gray-600 cursor-pointer hover:text-yellow-500 hover:fill-yellow-500 transition-colors"
-                                                                                onClick={() => submitReview(customerId, clinic.id, s)}
+                                                                                onClick={() => { fetch('/api/admin/reviews', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ customerPhone: customerId, clinicId: clinic.id, rating: s }) }).then(() => { setMyReviews(prev => [...prev, { id: `temp-${Date.now()}`, customerPhone: customerId, clinicId: clinic.id, rating: s, submittedAt: new Date().toISOString() }]); }); }}
                                                                             />
                                                                         ))}
                                                                     </div>

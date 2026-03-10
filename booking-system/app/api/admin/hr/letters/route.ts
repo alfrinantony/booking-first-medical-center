@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') as LetterStatus | undefined;
     const letterType = searchParams.get('letterType') as LetterType | undefined;
 
-    const letters = HRLettersStore.getAll({ employeeId, status, letterType });
+    const letters = await HRLettersStore.getAll({ employeeId, status, letterType });
     return NextResponse.json(letters);
 }
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'employeeId, letterType, and issuedDate are required' }, { status: 400 });
         }
 
-        const letter = HRLettersStore.generate({
+        const letter = await HRLettersStore.generate({
             employeeId,
             letterType,
             generatedBy: generatedBy || 'HR Department',

@@ -6,11 +6,11 @@ export async function GET(request: Request) {
     const clinicId = searchParams.get('clinicId');
 
     if (clinicId) {
-        const clinic = ServicesStore.getClinic(clinicId);
+        const clinic = await ServicesStore.getClinic(clinicId);
         return NextResponse.json(clinic || {});
     }
 
-    return NextResponse.json(ServicesStore.getClinics());
+    return NextResponse.json(await ServicesStore.getClinics());
 }
 
 export async function POST(request: Request) {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const newService = ServicesStore.addService(clinicId, departmentId, {
+        const newService = await ServicesStore.addService(clinicId, departmentId, {
             name,
             description: description || '',
             preCare: preCare || '',
@@ -64,7 +64,7 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: 'Missing required IDs' }, { status: 400 });
         }
 
-        const updatedService = ServicesStore.updateService(clinicId, departmentId, serviceId, updates);
+        const updatedService = await ServicesStore.updateService(clinicId, departmentId, serviceId, updates);
 
         if (updatedService) {
             return NextResponse.json(updatedService);
@@ -87,7 +87,7 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Missing ids' }, { status: 400 });
         }
 
-        const success = ServicesStore.removeService(clinicId, departmentId, serviceId);
+        const success = await ServicesStore.removeService(clinicId, departmentId, serviceId);
 
         if (success) {
             return NextResponse.json({ success: true });

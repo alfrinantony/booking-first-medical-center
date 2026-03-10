@@ -5,7 +5,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const medicineId = searchParams.get('medicineId') || undefined;
     const clinicId = searchParams.get('clinicId') || undefined;
-    const records = DistributionStore.getByFilters({ medicineId, clinicId });
+    const records = await DistributionStore.getByFilters({ medicineId, clinicId });
     return NextResponse.json(records);
 }
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Source and destination branches must be different' }, { status: 400 });
         }
 
-        const record = DistributionStore.add({
+        const record = await DistributionStore.add({
             medicineId,
             fromClinicId: fromClinicId || undefined,
             toClinicId,

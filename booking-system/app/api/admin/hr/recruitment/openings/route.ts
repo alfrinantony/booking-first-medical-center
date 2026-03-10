@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') as OpeningStatus | null;
     const search = searchParams.get('search') || undefined;
 
-    const openings = RecruitmentStore.getAllOpenings({
+    const openings = await RecruitmentStore.getAllOpenings({
         status: status || undefined,
         search,
     });
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const opening = RecruitmentStore.addOpening(body);
+        const opening = await RecruitmentStore.addOpening(body);
         return NextResponse.json(opening, { status: 201 });
     } catch {
         return NextResponse.json({ error: 'Invalid data' }, { status: 400 });

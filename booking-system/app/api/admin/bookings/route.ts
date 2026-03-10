@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
         search: searchParams.get('search') || undefined,
     };
 
-    const bookings = BookingsStore.getByFilters(filters);
+    const bookings = await BookingsStore.getByFilters(filters);
     return NextResponse.json(bookings);
 }
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check for duplicate: same patient, same date, same slot (non-cancelled)
-        const existingBookings = BookingsStore.getAll();
+        const existingBookings = await BookingsStore.getAll();
         const duplicate = existingBookings.find(b =>
             b.patientName === body.patientName &&
             b.date === body.date &&
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const newBooking = BookingsStore.add({
+        const newBooking = await BookingsStore.add({
             ...body,
             status: 'booked'
         });

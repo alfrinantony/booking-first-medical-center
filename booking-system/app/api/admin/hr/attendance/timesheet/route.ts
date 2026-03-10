@@ -11,12 +11,12 @@ export async function GET(request: Request) {
 
     if (employeeId) {
         // Single employee timesheet
-        const employee = HRStore.getById(employeeId);
+        const employee = await HRStore.getById(employeeId);
         if (!employee) {
             return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
 
-        const timesheet = HRAttendanceStore.generateTimesheet(
+        const timesheet = await HRAttendanceStore.generateTimesheet(
             employeeId,
             month,
             year,
@@ -28,8 +28,8 @@ export async function GET(request: Request) {
     }
 
     // All employees timesheets
-    const employees = HRStore.getAll({ status: 'ACTIVE' });
-    const timesheets = employees.map(emp =>
+    const employees = await HRStore.getAll({ status: 'ACTIVE' });
+    const timesheets = await Promise.all(employees.map(emp =>
         HRAttendanceStore.generateTimesheet(
             emp.id,
             month,
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
             `${emp.firstName} ${emp.lastName}`,
             emp.employeeCode
         )
-    );
+    ));
 
     return NextResponse.json(timesheets);
 }

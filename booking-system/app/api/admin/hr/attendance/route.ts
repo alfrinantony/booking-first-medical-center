@@ -11,10 +11,10 @@ export async function GET(request: Request) {
     const endDate = searchParams.get('endDate') || undefined;
     const statusParam = searchParams.get('status') || undefined;
 
-    const records = HRAttendanceStore.getAll({ employeeId, date, startDate, endDate, status: statusParam as 'PRESENT' | 'LATE' | 'ABSENT' | 'EARLY_LEAVE' | 'HALF_DAY' | 'ON_LEAVE' | 'DAY_OFF' | undefined });
+    const records = await HRAttendanceStore.getAll({ employeeId, date, startDate, endDate, status: statusParam as 'PRESENT' | 'LATE' | 'ABSENT' | 'EARLY_LEAVE' | 'HALF_DAY' | 'ON_LEAVE' | 'DAY_OFF' | undefined });
 
     // Enrich with employee names + branch info
-    const allEmployees = HRStore.getAll();
+    const allEmployees = await HRStore.getAll();
     const enriched = records.map(r => {
         const emp = allEmployees.find(e => e.id === r.employeeId);
         return {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     // If requesting today summary
     if (searchParams.get('summary') === 'today') {
         const today = date || new Date().toISOString().split('T')[0];
-        const summary = HRAttendanceStore.getTodaySummary(
+        const summary = await HRAttendanceStore.getTodaySummary(
             today,
             allEmployees.map(e => ({ weeklyOffDay: e.weeklyOffDay }))
         );
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
         const { action, id, ...data } = body;
 
         if (action === 'update' && id) {
-            const updated = HRAttendanceStore.update(id, data);
+            const updated = await HRAttendanceStore.update(id, data);
             if (!updated) {
                 return NextResponse.json({ error: 'Record not found' }, { status: 404 });
             }
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'employeeId and date are required' }, { status: 400 });
         }
 
-        const record = HRAttendanceStore.create({
+        const record = await HRAttendanceStore.create({
             employeeId: data.employeeId,
             date: data.date,
             punchIn: data.punchIn || null,
@@ -103,7 +103,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Record id is required' }, { status: 400 });
     }
 
-    const deleted = HRAttendanceStore.delete(id);
+    const deleted = await HRAttendanceStore.delete(id);
     if (!deleted) {
         return NextResponse.json({ error: 'Record not found' }, { status: 404 });
     }

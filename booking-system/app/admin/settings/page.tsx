@@ -1,37 +1,59 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSettingsStore } from '@/lib/settings-store';
-import { useRestrictionsStore } from '@/lib/restrictions-store';
+import { AppSettings } from '@/lib/settings-store';
 import { timeSlots, clinics as allClinics } from '@/lib/data';
 import { Save, Eye, EyeOff, Bell, Activity, Loader2, CheckCircle2, XCircle, Star } from 'lucide-react';
 import Link from 'next/link';
-import { useEMRStore } from '@/lib/emr-store';
+import { EMRConfig } from '@/lib/emr-store';
+
+const DEFAULT_SETTINGS: AppSettings = {
+    companyName: 'First Medical Center LLC', contactEmail: 'admin@bookingfirst.com',
+    emailHost: 'smtp.gmail.com', emailPort: 587, emailUser: '', emailPass: '',
+    twilioSid: '', twilioAuthToken: '', twilioFrom: '',
+    metaAppId: '', metaAppSecret: '', metaPhoneId: '', messengerAccessToken: '', whatsappAccessToken: '', verifyToken: 'my_secure_verify_token',
+    stripePublishableKey: '', stripeSecretKey: '', openaiApiKey: '',
+    crmApiKey: '', crmEndpoint: '', googleMapsApiKey: '',
+    zktecoHost: '192.168.1.200', zktecoPort: 4370, zktecoUsername: 'admin', zktecoPassword: '', zktecoDeviceSn: 'SFVL-2024-00001',
+    workStartTime: '09:00', lateThresholdMinutes: 15, halfDayHours: 4, fullDayHours: 8,
+    googleReviewUrls: {},
+};
 
 export default function SettingsPage() {
-    const { settings, updateSettings } = useSettingsStore();
-    const { peakDays, peakSlots, noShowRestrictionDays, setPeakConfig, setNoShowRestrictionDays } = useRestrictionsStore();
-    const [formData, setFormData] = useState(settings);
+    const [formData, setFormData] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
     const [isClient, setIsClient] = useState(false);
-    const [localPeakDays, setLocalPeakDays] = useState<number[]>(peakDays);
-    const [localPeakSlots, setLocalPeakSlots] = useState<string[]>(peakSlots);
-    const [localRestrictionDays, setLocalRestrictionDays] = useState(noShowRestrictionDays);
+    const [localPeakDays, setLocalPeakDays] = useState<number[]>([]);
+    const [localPeakSlots, setLocalPeakSlots] = useState<string[]>([]);
+    const [localRestrictionDays, setLocalRestrictionDays] = useState(7);
 
-    // EMR Integration state (must be at top level for stable hook ordering)
-    const emrStoreState = useEMRStore.getState();
-    const [emrUrl, setEmrUrl] = useState(emrStoreState.config.endpointUrl);
-    const [emrKey, setEmrKey] = useState(emrStoreState.config.apiKey);
-    const [emrEnabled, setEmrEnabled] = useState(emrStoreState.config.enabled);
-    const [emrMaskContacts, setEmrMaskContacts] = useState(emrStoreState.config.maskContacts ?? true);
+    // EMR Integration state
+    const [emrUrl, setEmrUrl] = useState('');
+    const [emrKey, setEmrKey] = useState('');
+    const [emrEnabled, setEmrEnabled] = useState(false);
+    const [emrMaskContacts, setEmrMaskContacts] = useState(true);
     const [showEmrKey, setShowEmrKey] = useState(false);
     const [emrTesting, setEmrTesting] = useState(false);
     const [emrTestResult, setEmrTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
     useEffect(() => {
-        setFormData(settings);
         setIsClient(true);
-    }, [settings]);
+        // Load settings
+        fetch('/api/admin/settings').then(r => r.json()).then(s => setFormData(s)).catch(() => {});
+        // Load restrictions
+        fetch('/api/admin/restrictions').then(r => r.json()).then(d => {
+            setLocalPeakDays(d.peakDays || []);
+            setLocalPeakSlots(d.peakSlots || []);
+            setLocalRestrictionDays(d.noShowRestrictionDays || 7);
+        }).catch(() => {});
+        // Load EMR config
+        fetch('/api/admin/emr').then(r => r.json()).then((c: EMRConfig) => {
+            setEmrUrl(c.endpointUrl || '');
+            setEmrKey(c.apiKey || '');
+            setEmrEnabled(c.enabled || false);
+            setEmrMaskContacts(c.maskContacts ?? true);
+        }).catch(() => {});
+    }, []);
 
     if (!isClient) return <div className="p-8">Loading settings...</div>;
 
@@ -40,9 +62,13 @@ export default function SettingsPage() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        updateSettings(formData);
+        await fetch('/api/admin/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+        });
         alert('Settings saved successfully!');
     };
 
@@ -50,7 +76,7 @@ export default function SettingsPage() {
         setShowSecrets(prev => ({ ...prev, [field]: !prev[field] }));
     };
 
-    type ScalarSettingsKey = { [K in keyof typeof settings]: (typeof settings)[K] extends string | number ? K : never }[keyof typeof settings];
+    type ScalarSettingsKey = { [K in keyof AppSettings]: AppSettings[K] extends string | number ? K : never }[keyof AppSettings];
     const renderInput = (label: string, name: ScalarSettingsKey, type: 'text' | 'password' = 'text', placeholder = '') => (
         <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -160,9 +186,17 @@ export default function SettingsPage() {
                     const toggleSlot = (slot: string) => {
                         setLocalPeakSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]);
                     };
-                    const savePeakConfig = () => {
-                        setPeakConfig(localPeakDays, localPeakSlots);
-                        setNoShowRestrictionDays(localRestrictionDays);
+                    const savePeakConfig = async () => {
+                        await fetch('/api/admin/restrictions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'setPeakConfig', days: localPeakDays, slots: localPeakSlots }),
+                        });
+                        await fetch('/api/admin/restrictions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'setNoShowRestrictionDays', days: localRestrictionDays }),
+                        });
                         alert('Peak schedule & restrictions saved!');
                     };
 
@@ -227,17 +261,30 @@ export default function SettingsPage() {
 
                 {/* EMR Integration */}
                 {(() => {
-                    const saveEmrConfig = () => {
-                        useEMRStore.getState().updateConfig({ endpointUrl: emrUrl, apiKey: emrKey, enabled: emrEnabled, maskContacts: emrMaskContacts });
+                    const saveEmrConfig = async () => {
+                        await fetch('/api/admin/emr', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'updateConfig', updates: { endpointUrl: emrUrl, apiKey: emrKey, enabled: emrEnabled, maskContacts: emrMaskContacts } }),
+                        });
                         alert('EMR configuration saved!');
                     };
 
                     const testEmrConnection = async () => {
                         setEmrTesting(true);
                         setEmrTestResult(null);
-                        // Temporarily update config so test uses latest values
-                        useEMRStore.getState().updateConfig({ endpointUrl: emrUrl, apiKey: emrKey });
-                        const result = await useEMRStore.getState().testConnection();
+                        // Save latest values first, then test
+                        await fetch('/api/admin/emr', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'updateConfig', updates: { endpointUrl: emrUrl, apiKey: emrKey } }),
+                        });
+                        const res = await fetch('/api/admin/emr', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'testConnection' }),
+                        });
+                        const result = await res.json();
                         setEmrTestResult(result);
                         setEmrTesting(false);
                     };

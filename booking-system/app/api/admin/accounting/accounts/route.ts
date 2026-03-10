@@ -7,14 +7,14 @@ export async function GET(request: Request) {
     const type = searchParams.get('type') as AccountType | null;
     const search = searchParams.get('search') || undefined;
     const active = searchParams.has('active') ? searchParams.get('active') === 'true' : undefined;
-    const accounts = AccountingStore.getAllAccounts({ type: type || undefined, search, active });
+    const accounts = await AccountingStore.getAllAccounts({ type: type || undefined, search, active });
     return NextResponse.json(accounts);
 }
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const account = AccountingStore.addAccount(body);
+        const account = await AccountingStore.addAccount(body);
         return NextResponse.json(account, { status: 201 });
     } catch {
         return NextResponse.json({ error: 'Invalid data' }, { status: 400 });

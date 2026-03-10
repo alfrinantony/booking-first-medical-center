@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
     if (!employeeId) return NextResponse.json({ error: 'Missing employeeId' }, { status: 400 });
 
     return NextResponse.json({
-        requests: getLeavesByEmployee(employeeId),
-        plannings: getPlanningsByEmployee(employeeId),
-        balance: getLeaveBalance(employeeId),
+        requests: await getLeavesByEmployee(employeeId),
+        plannings: await getPlanningsByEmployee(employeeId),
+        balance: await getLeaveBalance(employeeId),
         rules: UAE_LEAVE_RULES,
     });
 }
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === 'createRequest') {
-        const lr = createLeaveRequest({
+        const lr = await createLeaveRequest({
             employeeId: body.employeeId,
             leaveType: body.leaveType as LeaveType,
             startDate: body.startDate,
@@ -42,13 +42,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'updateStatus') {
-        const lr = updateLeaveStatus(body.id, body.status as LeaveStatus, body.approvedBy, body.rejectedReason);
+        const lr = await updateLeaveStatus(body.id, body.status as LeaveStatus, body.approvedBy, body.rejectedReason);
         if (!lr) return NextResponse.json({ error: 'Not found' }, { status: 404 });
         return NextResponse.json(lr);
     }
 
     if (action === 'createPlanning') {
-        const lp = createLeavePlanning({
+        const lp = await createLeavePlanning({
             employeeId: body.employeeId,
             leaveType: body.leaveType as LeaveType,
             plannedStartDate: body.plannedStartDate,
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'deletePlanning') {
-        const ok = deleteLeavePlanning(body.id);
+        const ok = await deleteLeavePlanning(body.id);
         if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
         return NextResponse.json({ success: true });
     }

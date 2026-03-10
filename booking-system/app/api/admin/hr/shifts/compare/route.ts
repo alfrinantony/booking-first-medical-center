@@ -10,6 +10,6 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'date is required' }, { status: 400 });
     }
 
-    const comparisons = HRShiftStore.compareAttendanceVsShift(date);
+    const comparisons = await HRShiftStore.compareAttendanceVsShift(date);
     return NextResponse.json({ comparisons, date });
 }

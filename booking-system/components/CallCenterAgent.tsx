@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, PhoneOff, X, Timer, Globe } from 'lucide-react';
-import { useRestrictionsStore } from '@/lib/restrictions-store';
 import { useAuthStore } from '@/lib/store';
 
 /* ─────────────────────────────────────────────
@@ -439,14 +438,22 @@ export default function CallCenterAgent() {
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ── Toggle panel ── */
-    const toggle = useCallback(() => {
+    const toggle = useCallback(async () => {
         if (!isOpen) {
             if (user) {
                 const clientId = user.phone || user.email || user.name || '';
-                if (useRestrictionsStore.getState().isVoiceBlocked(clientId)) {
-                    alert('Voice booking is not available for your account.');
-                    return;
-                }
+                try {
+                    const res = await fetch('/api/admin/restrictions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'isVoiceBlocked', clientId }),
+                    });
+                    const data = await res.json();
+                    if (data.blocked) {
+                        alert('Voice booking is not available for your account.');
+                        return;
+                    }
+                } catch { /* allow if API fails */ }
             }
             setIsOpen(true);
         } else if (!isInCall) {

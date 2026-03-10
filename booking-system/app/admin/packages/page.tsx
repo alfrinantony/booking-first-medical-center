@@ -1,17 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { usePackagesStore } from '@/lib/packages-store';
 import { ServicesStore } from '@/lib/services-store';
-import { Package, PackageServiceItem } from '@/types/packages';
+import { Package, PackageServiceItem, CustomerPackage } from '@/types/packages';
 import { Plus, Trash2, Package as PackageIcon, Check, X, Search, User, Calendar, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function PackagesPage() {
-    const { availablePackages, createPackage, deletePackage, purchasePackage, getCustomerPackages, useSession } = usePackagesStore();
+    const [availablePackages, setAvailablePackages] = useState<Package[]>([]);
     const [isClient, setIsClient] = useState(false);
     const [activeTab, setActiveTab] = useState<'manage' | 'customers'>('manage');
-    const [clinics, setClinics] = useState(ServicesStore.getClinics());
+    const [clinics, setClinics] = useState<import('@/lib/data').Clinic[]>([]);
 
     // Create Package Form State
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -19,7 +18,7 @@ export default function PackagesPage() {
         name: '',
         description: '',
         price: 0,
-        validityInDays: 30, // Default 1 month
+        validityInDays: 30,
         items: []
     });
     const [selectedService, setSelectedService] = useState('');
@@ -30,9 +29,16 @@ export default function PackagesPage() {
     const [assignPackageId, setAssignPackageId] = useState('');
     const [customerName, setCustomerName] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
+    const [searchedCustomerPackages, setSearchedCustomerPackages] = useState<CustomerPackage[]>([]);
+
+    const fetchPackages = () => {
+        fetch('/api/admin/packages').then(r => r.json()).then(setAvailablePackages).catch(() => {});
+    };
 
     useEffect(() => {
         setIsClient(true);
+        fetchPackages();
+        ServicesStore.getClinics().then(setClinics);
     }, []);
 
     if (!isClient) return <div className="p-8">Loading packages...</div>;
@@ -78,41 +84,64 @@ export default function PackagesPage() {
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        createPackage({
-            ...formData,
-            active: true
+        await fetch('/api/admin/packages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'create', data: { ...formData, active: true } }),
         });
         setShowCreateForm(false);
         setFormData({ name: '', description: '', price: 0, validityInDays: 30, items: [] });
+        fetchPackages();
     };
 
     // --- Customer Package Handlers ---
 
-    const handleAssignPackage = (e: React.FormEvent) => {
+    const handleAssignPackage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (assignPackageId && customerName && customerPhone) {
-            purchasePackage(assignPackageId, customerName, customerPhone);
+            await fetch('/api/admin/packages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'purchase', packageId: assignPackageId, customerName, customerPhone }),
+            });
             alert(`Package assigned to ${customerName}`);
             setAssignPackageId('');
             setCustomerName('');
             setCustomerPhone('');
-            // Switch to view this customer
             setCustomerPhoneSearch(customerPhone);
         }
     };
 
-    const handleUseSession = (customerPkgId: string, serviceId: string) => {
-        const result = useSession(customerPkgId, serviceId);
+    const handleUseSession = async (customerPkgId: string, serviceId: string) => {
+        const res = await fetch('/api/admin/packages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'useSession', customerPackageId: customerPkgId, serviceId }),
+        });
+        const result = await res.json();
         if (result.success) {
             alert(`Session used! Remaining: ${result.remaining}`);
+            // Refresh customer packages
+            if (customerPhoneSearch) {
+                fetch(`/api/admin/packages?type=customer&phone=${encodeURIComponent(customerPhoneSearch)}`)
+                    .then(r => r.json()).then(setSearchedCustomerPackages).catch(() => {});
+            }
         } else {
             alert(`Error: ${result.message}`);
         }
     };
 
-    const searchedCustomerPackages = customerPhoneSearch ? getCustomerPackages(customerPhoneSearch) : [];
+    // Fetch customer packages when search changes
+    useEffect(() => {
+        if (customerPhoneSearch) {
+            fetch(`/api/admin/packages?type=customer&phone=${encodeURIComponent(customerPhoneSearch)}`)
+                .then(r => r.json()).then(setSearchedCustomerPackages).catch(() => {});
+        } else {
+            setSearchedCustomerPackages([]);
+        }
+    }, [customerPhoneSearch]);
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
@@ -327,7 +356,7 @@ export default function PackagesPage() {
                                 <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
                                     <span className="text-xs text-gray-400">Created {new Date(pkg.createdAt).toLocaleDateString()}</span>
                                     <button
-                                        onClick={() => deletePackage(pkg.id)}
+                                        onClick={async () => { await fetch('/api/admin/packages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', id: pkg.id }) }); fetchPackages(); }}
                                         className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1"
                                     >
                                         <Trash2 className="w-3 h-3" /> Delete

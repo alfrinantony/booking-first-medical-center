@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { clinics, Booking, timeSlots, Medicine } from '@/lib/data';
-import { useRestrictionsStore } from '@/lib/restrictions-store';
 import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X } from 'lucide-react';
 import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
@@ -209,7 +208,7 @@ export default function AdminAppointmentsPage() {
                 // If status changed to no_show, record the restriction
                 if (editForm.status === 'no_show' && editingBooking.status !== 'no_show') {
                     const clientId = editingBooking.whatsappNumber || editingBooking.email || editingBooking.patientName;
-                    useRestrictionsStore.getState().recordNoShow(clientId);
+                    fetch('/api/admin/restrictions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'recordNoShow', clientId }) });
                 }
                 setIsEditModalOpen(false);
                 fetchBookings(); // Refresh list

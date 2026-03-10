@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { ClientsStore, Client } from '@/lib/clients-store';
-import { useRestrictionsStore } from '@/lib/restrictions-store';
-import { useEMRStore, maskPhone, maskEmail } from '@/lib/emr-store';
+import { maskPhone, maskEmail } from '@/lib/emr-store';
+import type { EMRConfig, EMRPushRecord } from '@/lib/emr-store';
+import type { ClientRestriction } from '@/lib/restrictions-store';
 import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 /* ── Form shape ── */
@@ -111,7 +112,7 @@ export default function ClientsPage() {
     const [connDropdownOpen, setConnDropdownOpen] = useState(false);
     const [newConnRelation, setNewConnRelation] = useState('Spouse');
 
-    const refreshClients = () => setClients(ClientsStore.getAll());
+    const refreshClients = () => ClientsStore.getAll().then(setClients);
     useEffect(() => { refreshClients(); }, []);
 
     const toggleContactReveal = (clientId: string) => {
@@ -122,14 +123,23 @@ export default function ClientsPage() {
         });
     };
 
+    // EMR + Restrictions state (loaded from API)
+    const [emrConfig, setEmrConfig] = useState<EMRConfig>({ endpointUrl: '', apiKey: '', enabled: false, maskContacts: true });
+    const [emrPushRecords, setEmrPushRecords] = useState<Record<string, EMRPushRecord>>({});
+    const [clientRestrictions, setClientRestrictions] = useState<Record<string, ClientRestriction>>({});
+
+    // Fetch EMR config on mount
+    useEffect(() => {
+        fetch('/api/admin/emr').then(r => r.json()).then(data => setEmrConfig(data.config || data)).catch(() => {});
+    }, []);
+
     const handlePushToEMR = async (client: Client) => {
-        const emrConfig = useEMRStore.getState().config;
         if (!emrConfig.enabled || !emrConfig.endpointUrl) {
             alert('EMR integration is not configured. Please go to Settings to configure it.');
             return;
         }
         setPushingEMR(prev => new Set(prev).add(client.id));
-        useEMRStore.getState().setPushStatus(client.id, { status: 'pending', timestamp: new Date().toISOString() });
+        setEmrPushRecords(prev => ({ ...prev, [client.id]: { clientId: client.id, status: 'pending', timestamp: new Date().toISOString() } }));
         try {
             const res = await fetch('/api/admin/emr/push', {
                 method: 'POST',
@@ -142,31 +152,19 @@ export default function ClientsPage() {
             });
             const data = await res.json();
             if (data.success) {
-                useEMRStore.getState().setPushStatus(client.id, {
-                    status: 'success',
-                    timestamp: new Date().toISOString(),
-                    emrReferenceId: data.emrReferenceId,
-                });
+                setEmrPushRecords(prev => ({ ...prev, [client.id]: { clientId: client.id, status: 'success', timestamp: new Date().toISOString(), emrReferenceId: data.emrReferenceId } }));
             } else {
-                useEMRStore.getState().setPushStatus(client.id, {
-                    status: 'failed',
-                    timestamp: new Date().toISOString(),
-                    errorMessage: data.error,
-                });
+                setEmrPushRecords(prev => ({ ...prev, [client.id]: { clientId: client.id, status: 'failed', timestamp: new Date().toISOString(), errorMessage: data.error } }));
             }
         } catch (err: unknown) {
-            useEMRStore.getState().setPushStatus(client.id, {
-                status: 'failed',
-                timestamp: new Date().toISOString(),
-                errorMessage: err instanceof Error ? err.message : 'Network error',
-            });
+            setEmrPushRecords(prev => ({ ...prev, [client.id]: { clientId: client.id, status: 'failed', timestamp: new Date().toISOString(), errorMessage: err instanceof Error ? err.message : 'Network error' } }));
         } finally {
             setPushingEMR(prev => { const next = new Set(prev); next.delete(client.id); return next; });
         }
     };
 
     const getEmrStatusBadge = (clientId: string) => {
-        const record = useEMRStore.getState().getPushStatus(clientId);
+        const record = emrPushRecords[clientId];
         if (!record) return null;
         const icons = { pending: <Clock className="w-3 h-3" />, success: <CheckCircle2 className="w-3 h-3" />, failed: <XCircle className="w-3 h-3" /> };
         const colors = { pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300', success: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300', failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
@@ -652,9 +650,8 @@ export default function ClientsPage() {
                             {/* ── Section 5b: Booking Restrictions ── */}
                             {!isRegistering && editingClient && (() => {
                                 const clientId = editingClient.id;
-                                const store = useRestrictionsStore.getState();
-                                const restriction = store.getClientRestriction(clientId);
-                                const recentNoShows = restriction.noShowDates.filter(d => {
+                                const restriction = clientRestrictions[clientId] || { noShowDates: [], noShowExempt: false, voiceAgentBlocked: false };
+                                const recentNoShows = restriction.noShowDates.filter((d: string) => {
                                     const diff = (Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24);
                                     return diff <= 7;
                                 });
@@ -676,7 +673,10 @@ export default function ClientsPage() {
                                             <div className="grid grid-cols-2 gap-4">
                                                 <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
                                                     <input type="checkbox" checked={restriction.noShowExempt}
-                                                        onChange={e => store.setNoShowExempt(clientId, e.target.checked)}
+                                                        onChange={e => {
+                                                            fetch('/api/admin/restrictions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'setNoShowExempt', clientId, exempt: e.target.checked }) });
+                                                            setClientRestrictions(prev => ({ ...prev, [clientId]: { ...restriction, noShowExempt: e.target.checked } }));
+                                                        }}
                                                         className="w-4 h-4 text-green-600 rounded" />
                                                     <div>
                                                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Exempt from No-Show Restrictions</div>
@@ -686,7 +686,10 @@ export default function ClientsPage() {
 
                                                 <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
                                                     <input type="checkbox" checked={restriction.voiceAgentBlocked}
-                                                        onChange={e => store.setVoiceAgentBlocked(clientId, e.target.checked)}
+                                                        onChange={e => {
+                                                            fetch('/api/admin/restrictions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'setVoiceAgentBlocked', clientId, blocked: e.target.checked }) });
+                                                            setClientRestrictions(prev => ({ ...prev, [clientId]: { ...restriction, voiceAgentBlocked: e.target.checked } }));
+                                                        }}
                                                         className="w-4 h-4 text-red-600 rounded" />
                                                     <div>
                                                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">

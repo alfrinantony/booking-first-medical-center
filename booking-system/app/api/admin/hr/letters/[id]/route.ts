@@ -8,13 +8,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const { action, approvedBy, rejectedReason } = body;
 
         if (action === 'approve') {
-            const letter = HRLettersStore.approve(id, approvedBy || 'CEO');
+            const letter = await HRLettersStore.approve(id, approvedBy || 'CEO');
             if (!letter) return NextResponse.json({ error: 'Letter not found or already approved' }, { status: 404 });
             return NextResponse.json(letter);
         }
 
         if (action === 'reject') {
-            const letter = HRLettersStore.reject(id, rejectedReason || '');
+            const letter = await HRLettersStore.reject(id, rejectedReason || '');
             if (!letter) return NextResponse.json({ error: 'Letter not found' }, { status: 404 });
             return NextResponse.json(letter);
         }
@@ -28,14 +28,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const deleted = HRLettersStore.delete(id);
+    const deleted = await HRLettersStore.delete(id);
     if (!deleted) return NextResponse.json({ error: 'Letter not found' }, { status: 404 });
     return NextResponse.json({ success: true });
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const letter = HRLettersStore.getById(id);
+    const letter = await HRLettersStore.getById(id);
     if (!letter) return NextResponse.json({ error: 'Letter not found' }, { status: 404 });
     return NextResponse.json(letter);
 }

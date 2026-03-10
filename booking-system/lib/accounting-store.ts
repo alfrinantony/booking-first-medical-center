@@ -3,6 +3,8 @@
 // Organised like QuickBooks with Account Types & Detail Types
 // ─────────────────────────────────────────────────────────────
 
+import { loadFromBlob, saveToBlob } from './blob-persistence';
+
 export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' | 'COST_OF_GOODS_SOLD';
 export type TransactionType = 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'JOURNAL';
 export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'CARD' | 'ONLINE';
@@ -312,10 +314,29 @@ let accounts: Account[] = JSON.parse(JSON.stringify(initialAccounts));
 let transactions: Transaction[] = JSON.parse(JSON.stringify(initialTransactions));
 let payables: Payable[] = JSON.parse(JSON.stringify(initialPayables));
 let receivables: Receivable[] = JSON.parse(JSON.stringify(initialReceivables));
+let acctLoaded = false;
+
+interface AccountingData { accounts: Account[]; transactions: Transaction[]; payables: Payable[]; receivables: Receivable[]; }
+
+async function ensureAcctLoaded() {
+    if (!acctLoaded) {
+        const data = await loadFromBlob<AccountingData>('accounting', { accounts: initialAccounts, transactions: initialTransactions, payables: initialPayables, receivables: initialReceivables });
+        accounts = data.accounts;
+        transactions = data.transactions;
+        payables = data.payables;
+        receivables = data.receivables;
+        acctLoaded = true;
+    }
+}
+
+async function saveAccounting() {
+    await saveToBlob('accounting', { accounts, transactions, payables, receivables });
+}
 
 export const AccountingStore = {
     // ─── Accounts ───
-    getAllAccounts: (filters?: { type?: AccountType; search?: string; active?: boolean }): Account[] => {
+    getAllAccounts: async (filters?: { type?: AccountType; search?: string; active?: boolean }): Promise<Account[]> => {
+        await ensureAcctLoaded();
         let result = [...accounts];
         if (filters?.type) result = result.filter(a => a.type === filters.type);
         if (filters?.active !== undefined) result = result.filter(a => a.isActive === filters.active);
@@ -326,29 +347,36 @@ export const AccountingStore = {
         return result.sort((a, b) => a.code.localeCompare(b.code));
     },
 
-    getAccountById: (id: string): Account | undefined => accounts.find(a => a.id === id),
+    getAccountById: async (id: string): Promise<Account | undefined> => { await ensureAcctLoaded(); return accounts.find(a => a.id === id); },
 
-    addAccount: (data: Omit<Account, 'id' | 'createdAt'>): Account => {
+    addAccount: async (data: Omit<Account, 'id' | 'createdAt'>): Promise<Account> => {
+        await ensureAcctLoaded();
         const account: Account = { ...data, id: `acc-${Date.now()}`, createdAt: new Date().toISOString() };
         accounts.push(account);
+        await saveAccounting();
         return account;
     },
 
-    updateAccount: (id: string, updates: Partial<Omit<Account, 'id' | 'createdAt'>>): Account | null => {
+    updateAccount: async (id: string, updates: Partial<Omit<Account, 'id' | 'createdAt'>>): Promise<Account | null> => {
+        await ensureAcctLoaded();
         const idx = accounts.findIndex(a => a.id === id);
         if (idx === -1) return null;
         accounts[idx] = { ...accounts[idx], ...updates };
+        await saveAccounting();
         return accounts[idx];
     },
 
-    deleteAccount: (id: string): boolean => {
+    deleteAccount: async (id: string): Promise<boolean> => {
+        await ensureAcctLoaded();
         const len = accounts.length;
         accounts = accounts.filter(a => a.id !== id);
-        return accounts.length < len;
+        if (accounts.length < len) { await saveAccounting(); return true; }
+        return false;
     },
 
     // ─── Transactions ───
-    getAllTransactions: (filters?: { type?: TransactionType; accountId?: string; dateFrom?: string; dateTo?: string; search?: string; branchId?: string }): Transaction[] => {
+    getAllTransactions: async (filters?: { type?: TransactionType; accountId?: string; dateFrom?: string; dateTo?: string; search?: string; branchId?: string }): Promise<Transaction[]> => {
+        await ensureAcctLoaded();
         let result = [...transactions];
         if (filters?.type) result = result.filter(t => t.type === filters.type);
         if (filters?.accountId) result = result.filter(t => t.accountId === filters.accountId || t.toAccountId === filters.accountId);
@@ -362,57 +390,72 @@ export const AccountingStore = {
         return result.sort((a, b) => b.date.localeCompare(a.date));
     },
 
-    addTransaction: (data: Omit<Transaction, 'id' | 'createdAt'>): Transaction => {
+    addTransaction: async (data: Omit<Transaction, 'id' | 'createdAt'>): Promise<Transaction> => {
+        await ensureAcctLoaded();
         const txn: Transaction = { ...data, id: `txn-${Date.now()}`, createdAt: new Date().toISOString() };
         transactions.push(txn);
+        await saveAccounting();
         return txn;
     },
 
-    updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>): Transaction | null => {
+    updateTransaction: async (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>): Promise<Transaction | null> => {
+        await ensureAcctLoaded();
         const idx = transactions.findIndex(t => t.id === id);
         if (idx === -1) return null;
         transactions[idx] = { ...transactions[idx], ...updates };
+        await saveAccounting();
         return transactions[idx];
     },
 
-    deleteTransaction: (id: string): boolean => {
+    deleteTransaction: async (id: string): Promise<boolean> => {
+        await ensureAcctLoaded();
         const len = transactions.length;
         transactions = transactions.filter(t => t.id !== id);
-        return transactions.length < len;
+        if (transactions.length < len) { await saveAccounting(); return true; }
+        return false;
     },
 
     // ─── Payables ───
-    getAllPayables: (): Payable[] => [...payables].sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
-    addPayable: (data: Omit<Payable, 'id' | 'createdAt'>): Payable => {
+    getAllPayables: async (): Promise<Payable[]> => { await ensureAcctLoaded(); return [...payables].sort((a, b) => a.dueDate.localeCompare(b.dueDate)); },
+    addPayable: async (data: Omit<Payable, 'id' | 'createdAt'>): Promise<Payable> => {
+        await ensureAcctLoaded();
         const p: Payable = { ...data, id: `pay-${Date.now()}`, createdAt: new Date().toISOString() };
         payables.push(p);
+        await saveAccounting();
         return p;
     },
-    updatePayable: (id: string, updates: Partial<Omit<Payable, 'id' | 'createdAt'>>): Payable | null => {
+    updatePayable: async (id: string, updates: Partial<Omit<Payable, 'id' | 'createdAt'>>): Promise<Payable | null> => {
+        await ensureAcctLoaded();
         const idx = payables.findIndex(p => p.id === id);
         if (idx === -1) return null;
         payables[idx] = { ...payables[idx], ...updates };
+        await saveAccounting();
         return payables[idx];
     },
-    deletePayable: (id: string): boolean => { const l = payables.length; payables = payables.filter(p => p.id !== id); return payables.length < l; },
+    deletePayable: async (id: string): Promise<boolean> => { await ensureAcctLoaded(); const l = payables.length; payables = payables.filter(p => p.id !== id); if (payables.length < l) { await saveAccounting(); return true; } return false; },
 
     // ─── Receivables ───
-    getAllReceivables: (): Receivable[] => [...receivables].sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
-    addReceivable: (data: Omit<Receivable, 'id' | 'createdAt'>): Receivable => {
+    getAllReceivables: async (): Promise<Receivable[]> => { await ensureAcctLoaded(); return [...receivables].sort((a, b) => a.dueDate.localeCompare(b.dueDate)); },
+    addReceivable: async (data: Omit<Receivable, 'id' | 'createdAt'>): Promise<Receivable> => {
+        await ensureAcctLoaded();
         const r: Receivable = { ...data, id: `rec-${Date.now()}`, createdAt: new Date().toISOString() };
         receivables.push(r);
+        await saveAccounting();
         return r;
     },
-    updateReceivable: (id: string, updates: Partial<Omit<Receivable, 'id' | 'createdAt'>>): Receivable | null => {
+    updateReceivable: async (id: string, updates: Partial<Omit<Receivable, 'id' | 'createdAt'>>): Promise<Receivable | null> => {
+        await ensureAcctLoaded();
         const idx = receivables.findIndex(r => r.id === id);
         if (idx === -1) return null;
         receivables[idx] = { ...receivables[idx], ...updates };
+        await saveAccounting();
         return receivables[idx];
     },
-    deleteReceivable: (id: string): boolean => { const l = receivables.length; receivables = receivables.filter(r => r.id !== id); return receivables.length < l; },
+    deleteReceivable: async (id: string): Promise<boolean> => { await ensureAcctLoaded(); const l = receivables.length; receivables = receivables.filter(r => r.id !== id); if (receivables.length < l) { await saveAccounting(); return true; } return false; },
 
     // ─── Reports ───
-    getSummary: () => {
+    getSummary: async () => {
+        await ensureAcctLoaded();
         const totalIncome = transactions.filter(t => t.type === 'INCOME').reduce((s, t) => s + t.amount, 0);
         const totalExpense = transactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
         const netProfit = totalIncome - totalExpense;
@@ -435,7 +478,8 @@ export const AccountingStore = {
         };
     },
 
-    getProfitLoss: () => {
+    getProfitLoss: async () => {
+        await ensureAcctLoaded();
         const revenueAccounts = accounts.filter(a => a.type === 'REVENUE');
         const cogsAccounts = accounts.filter(a => a.type === 'COST_OF_GOODS_SOLD');
         const expenseAccounts = accounts.filter(a => a.type === 'EXPENSE');
@@ -455,22 +499,24 @@ export const AccountingStore = {
         };
     },
 
-    getBalanceSheet: () => {
-        const assets = accounts.filter(a => a.type === 'ASSET');
-        const liabilities = accounts.filter(a => a.type === 'LIABILITY');
-        const equity = accounts.filter(a => a.type === 'EQUITY');
+    getBalanceSheet: async () => {
+        await ensureAcctLoaded();
+        const assetAccts = accounts.filter(a => a.type === 'ASSET');
+        const liabilityAccts = accounts.filter(a => a.type === 'LIABILITY');
+        const equityAccts = accounts.filter(a => a.type === 'EQUITY');
         return {
-            assets: assets.map(a => ({ name: a.name, code: a.code, amount: a.balance })),
-            liabilities: liabilities.map(a => ({ name: a.name, code: a.code, amount: a.balance })),
-            equity: equity.map(a => ({ name: a.name, code: a.code, amount: a.balance })),
-            totalAssets: assets.reduce((s, a) => s + a.balance, 0),
-            totalLiabilities: liabilities.reduce((s, a) => s + a.balance, 0),
-            totalEquity: equity.reduce((s, a) => s + a.balance, 0),
+            assets: assetAccts.map(a => ({ name: a.name, code: a.code, amount: a.balance })),
+            liabilities: liabilityAccts.map(a => ({ name: a.name, code: a.code, amount: a.balance })),
+            equity: equityAccts.map(a => ({ name: a.name, code: a.code, amount: a.balance })),
+            totalAssets: assetAccts.reduce((s, a) => s + a.balance, 0),
+            totalLiabilities: liabilityAccts.reduce((s, a) => s + a.balance, 0),
+            totalEquity: equityAccts.reduce((s, a) => s + a.balance, 0),
         };
     },
 
     // ─── Employee Expenses ───
-    getEmployeeExpenses: () => {
+    getEmployeeExpenses: async () => {
+        await ensureAcctLoaded();
         const empTxns = transactions.filter(t => t.employeeId);
         const byEmployee: Record<string, { employeeId: string; employeeName: string; categories: Record<string, number>; total: number }> = {};
         empTxns.forEach(t => {
@@ -484,12 +530,14 @@ export const AccountingStore = {
         return Object.values(byEmployee).sort((a, b) => b.total - a.total);
     },
 
-    getExpensesByEmployee: (employeeId: string) => {
+    getExpensesByEmployee: async (employeeId: string) => {
+        await ensureAcctLoaded();
         return transactions.filter(t => t.employeeId === employeeId).sort((a, b) => b.date.localeCompare(a.date));
     },
 
     // ─── Branch-wise Summary ───
-    getBranchSummary: () => {
+    getBranchSummary: async () => {
+        await ensureAcctLoaded();
         const branches: Record<string, {
             branchId: string; branchName: string;
             totalIncome: number; totalExpense: number; netProfit: number;

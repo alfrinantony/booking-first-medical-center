@@ -5,7 +5,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch');
 
-    let summaries = CallAgentSummaryStore.getAll();
+    let summaries = await CallAgentSummaryStore.getAll();
 
     if (branch) {
         summaries = summaries.filter(s => s.branch === branch);
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const record = CallAgentSummaryStore.add({
+        const record = await CallAgentSummaryStore.add({
             ...body,
             callDuration: Number(body.callDuration) || 0,
             timestamp: body.timestamp || new Date().toISOString(),
@@ -49,7 +49,7 @@ export async function PUT(request: Request) {
 
         if (updates.callDuration) updates.callDuration = Number(updates.callDuration);
 
-        const updated = CallAgentSummaryStore.update(id, updates);
+        const updated = await CallAgentSummaryStore.update(id, updates);
         if (!updated) {
             return NextResponse.json({ error: 'Summary not found' }, { status: 404 });
         }
@@ -69,7 +69,7 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Summary ID is required' }, { status: 400 });
         }
 
-        const success = CallAgentSummaryStore.remove(id);
+        const success = await CallAgentSummaryStore.remove(id);
         if (!success) {
             return NextResponse.json({ error: 'Summary not found' }, { status: 404 });
         }

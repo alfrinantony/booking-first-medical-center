@@ -1,19 +1,29 @@
 import { GoogleReview } from './review-discount-store';
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 /**
- * Server-side in-memory store for Google reviews.
- * Ensures reviews persist across client sessions (same server instance).
- * Mirrors the client-side Zustand store but lives on the server.
+ * Server-side store for Google reviews with blob persistence.
  */
 let reviews: GoogleReview[] = [];
+let revLoaded = false;
+
+async function ensureRevLoaded() {
+    if (!revLoaded) {
+        reviews = await loadFromBlob<GoogleReview[]>('reviews', []);
+        revLoaded = true;
+    }
+}
 
 export const ReviewsServerStore = {
-    getAll: () => reviews,
+    getAll: async () => { await ensureRevLoaded(); return reviews; },
 
-    getByCustomer: (customerPhone: string) =>
-        reviews.filter(r => r.customerPhone === customerPhone),
+    getByCustomer: async (customerPhone: string) => {
+        await ensureRevLoaded();
+        return reviews.filter(r => r.customerPhone === customerPhone);
+    },
 
-    add: (review: Omit<GoogleReview, 'id' | 'submittedAt'>) => {
+    add: async (review: Omit<GoogleReview, 'id' | 'submittedAt'>) => {
+        await ensureRevLoaded();
         // Upsert: replace existing review for same customer+branch
         reviews = reviews.filter(
             r => !(r.customerPhone === review.customerPhone && r.clinicId === review.clinicId)
@@ -24,16 +34,19 @@ export const ReviewsServerStore = {
             submittedAt: new Date().toISOString(),
         };
         reviews.push(newReview);
+        await saveToBlob('reviews', reviews);
         return newReview;
     },
 
-    delete: (id: string) => {
+    delete: async (id: string) => {
+        await ensureRevLoaded();
         reviews = reviews.filter(r => r.id !== id);
+        await saveToBlob('reviews', reviews);
     },
 
     /** Bulk-load reviews (used to sync from client localStorage on first request) */
-    sync: (clientReviews: GoogleReview[]) => {
-        // Merge: for each client review, upsert into server store
+    sync: async (clientReviews: GoogleReview[]) => {
+        await ensureRevLoaded();
         for (const cr of clientReviews) {
             const existing = reviews.find(
                 r => r.customerPhone === cr.customerPhone && r.clinicId === cr.clinicId
@@ -45,6 +58,7 @@ export const ReviewsServerStore = {
                 reviews.push(cr);
             }
         }
+        await saveToBlob('reviews', reviews);
         return reviews;
     },
 };

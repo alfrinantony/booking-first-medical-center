@@ -9,9 +9,9 @@ import { ReviewsServerStore } from '@/lib/reviews-server-store';
 export async function GET(request: NextRequest) {
     const phone = request.nextUrl.searchParams.get('customerPhone');
     if (phone) {
-        return NextResponse.json(ReviewsServerStore.getByCustomer(phone));
+        return NextResponse.json(await ReviewsServerStore.getByCustomer(phone));
     }
-    return NextResponse.json(ReviewsServerStore.getAll());
+    return NextResponse.json(await ReviewsServerStore.getAll());
 }
 
 /**
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
         // Bulk sync from client localStorage
         if (body.sync && Array.isArray(body.reviews)) {
-            const merged = ReviewsServerStore.sync(body.reviews);
+            const merged = await ReviewsServerStore.sync(body.reviews);
             return NextResponse.json(merged);
         }
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const review = ReviewsServerStore.add({
+        const review = await ReviewsServerStore.add({
             customerPhone: body.customerPhone,
             clinicId: body.clinicId,
             rating: Math.max(1, Math.min(5, Math.round(body.rating))),
@@ -57,6 +57,6 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
         return NextResponse.json({ error: 'Missing review id' }, { status: 400 });
     }
-    ReviewsServerStore.delete(id);
+    await ReviewsServerStore.delete(id);
     return NextResponse.json({ success: true });
 }

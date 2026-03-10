@@ -2,6 +2,8 @@
 // HR Attendance Store — Employee attendance data & processing
 // ─────────────────────────────────────────────────────────────
 
+import { loadFromBlob, saveToBlob } from './blob-persistence';
+
 export type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'EARLY_LEAVE' | 'HALF_DAY' | 'ON_LEAVE' | 'DAY_OFF';
 export type PunchSource = 'BIOMETRIC' | 'MANUAL';
 
@@ -263,6 +265,26 @@ function generateSeedData(): AttendanceRecord[] {
 let attendanceRecords: AttendanceRecord[] = generateSeedData();
 let alerts: AttendanceAlert[] = [];
 let nextId = 100;
+let attLoaded = false;
+
+interface AttBlobData { records: AttendanceRecord[]; alerts: AttendanceAlert[]; nextId: number; devices: DeviceConfig[] }
+
+async function ensureAttLoaded() {
+    if (!attLoaded) {
+        const data = await loadFromBlob<AttBlobData>('hr-attendance', null as any);
+        if (data) {
+            attendanceRecords = data.records;
+            alerts = data.alerts;
+            nextId = data.nextId;
+            devices = data.devices;
+        }
+        attLoaded = true;
+    }
+}
+
+async function saveAtt() {
+    await saveToBlob<AttBlobData>('hr-attendance', { records: attendanceRecords, alerts, nextId, devices });
+}
 
 // ── Device config ──
 let devices: DeviceConfig[] = [
@@ -310,13 +332,14 @@ let devices: DeviceConfig[] = [
 // ── Store ──
 export const HRAttendanceStore = {
     // ── Attendance CRUD ──
-    getAll(filters?: {
+    async getAll(filters?: {
         employeeId?: string;
         date?: string;
         startDate?: string;
         endDate?: string;
         status?: AttendanceStatus;
-    }): AttendanceRecord[] {
+    }): Promise<AttendanceRecord[]> {
+        await ensureAttLoaded();
         let result = [...attendanceRecords];
 
         if (filters?.employeeId) {
@@ -335,11 +358,13 @@ export const HRAttendanceStore = {
         return result.sort((a, b) => b.date.localeCompare(a.date) || a.employeeId.localeCompare(b.employeeId));
     },
 
-    getById(id: string): AttendanceRecord | undefined {
+    async getById(id: string): Promise<AttendanceRecord | undefined> {
+        await ensureAttLoaded();
         return attendanceRecords.find(r => r.id === id);
     },
 
-    create(data: Omit<AttendanceRecord, 'id' | 'totalHours' | 'rawHours' | 'breakDeducted' | 'isSplitDuty' | 'shifts' | 'status' | 'createdAt' | 'updatedAt'> & { status?: AttendanceStatus; shifts?: Shift[] }): AttendanceRecord {
+    async create(data: Omit<AttendanceRecord, 'id' | 'totalHours' | 'rawHours' | 'breakDeducted' | 'isSplitDuty' | 'shifts' | 'status' | 'createdAt' | 'updatedAt'> & { status?: AttendanceStatus; shifts?: Shift[] }): Promise<AttendanceRecord> {
+        await ensureAttLoaded();
         const shifts = data.shifts || buildShifts(data.punchIn, data.punchOut);
         const { rawHours, breakDeducted, totalHours, isSplitDuty } = computeWorkingHours(shifts);
         const status = data.status || detectStatus(data.punchIn, data.punchOut, totalHours);
@@ -364,10 +389,12 @@ export const HRAttendanceStore = {
         };
 
         attendanceRecords.push(record);
+        await saveAtt();
         return record;
     },
 
-    update(id: string, updates: Partial<Pick<AttendanceRecord, 'punchIn' | 'punchOut' | 'notes' | 'status' | 'source'>> & { shifts?: Shift[] }): AttendanceRecord | null {
+    async update(id: string, updates: Partial<Pick<AttendanceRecord, 'punchIn' | 'punchOut' | 'notes' | 'status' | 'source'>> & { shifts?: Shift[] }): Promise<AttendanceRecord | null> {
+        await ensureAttLoaded();
         const idx = attendanceRecords.findIndex(r => r.id === id);
         if (idx === -1) return null;
 
@@ -388,17 +415,21 @@ export const HRAttendanceStore = {
 
         record.updatedAt = new Date().toISOString();
         attendanceRecords[idx] = record;
+        await saveAtt();
         return record;
     },
 
-    delete(id: string): boolean {
+    async delete(id: string): Promise<boolean> {
+        await ensureAttLoaded();
         const len = attendanceRecords.length;
         attendanceRecords = attendanceRecords.filter(r => r.id !== id);
-        return attendanceRecords.length < len;
+        if (attendanceRecords.length < len) { await saveAtt(); return true; }
+        return false;
     },
 
     // ── Timesheet ──
-    generateTimesheet(employeeId: string, month: number, year: number, employeeName: string, employeeCode: string): MonthlyTimesheet {
+    async generateTimesheet(employeeId: string, month: number, year: number, employeeName: string, employeeCode: string): Promise<MonthlyTimesheet> {
+        await ensureAttLoaded();
         const records = attendanceRecords.filter(r => {
             const d = new Date(r.date);
             return r.employeeId === employeeId && d.getMonth() + 1 === month && d.getFullYear() === year;
@@ -434,12 +465,14 @@ export const HRAttendanceStore = {
     },
 
     // ── Alerts ──
-    getAlerts(unreadOnly = false): AttendanceAlert[] {
+    async getAlerts(unreadOnly = false): Promise<AttendanceAlert[]> {
+        await ensureAttLoaded();
         if (unreadOnly) return alerts.filter(a => !a.read);
         return [...alerts];
     },
 
-    generateAlerts(date: string, employees: { id: string; name: string }[]): AttendanceAlert[] {
+    async generateAlerts(date: string, employees: { id: string; name: string }[]): Promise<AttendanceAlert[]> {
+        await ensureAttLoaded();
         const todayRecords = attendanceRecords.filter(r => r.date === date);
         const newAlerts: AttendanceAlert[] = [];
 
@@ -483,31 +516,38 @@ export const HRAttendanceStore = {
         }
 
         alerts.push(...newAlerts);
+        await saveAtt();
         return newAlerts;
     },
 
-    markAlertRead(id: string): void {
+    async markAlertRead(id: string): Promise<void> {
+        await ensureAttLoaded();
         const alert = alerts.find(a => a.id === id);
-        if (alert) alert.read = true;
+        if (alert) { alert.read = true; await saveAtt(); }
     },
 
     // ── Devices ──
-    getDevices(): DeviceConfig[] {
+    async getDevices(): Promise<DeviceConfig[]> {
+        await ensureAttLoaded();
         return [...devices];
     },
 
-    getDevice(id: string): DeviceConfig | undefined {
+    async getDevice(id: string): Promise<DeviceConfig | undefined> {
+        await ensureAttLoaded();
         return devices.find(d => d.id === id);
     },
 
-    updateDevice(id: string, updates: Partial<DeviceConfig>): DeviceConfig | null {
+    async updateDevice(id: string, updates: Partial<DeviceConfig>): Promise<DeviceConfig | null> {
+        await ensureAttLoaded();
         const idx = devices.findIndex(d => d.id === id);
         if (idx === -1) return null;
         devices[idx] = { ...devices[idx], ...updates };
+        await saveAtt();
         return devices[idx];
     },
 
-    addDevice(data: Omit<DeviceConfig, 'id' | 'status' | 'lastSync'>): DeviceConfig {
+    async addDevice(data: Omit<DeviceConfig, 'id' | 'status' | 'lastSync'>): Promise<DeviceConfig> {
+        await ensureAttLoaded();
         const device: DeviceConfig = {
             ...data,
             id: `dev-${Date.now()}`,
@@ -515,17 +555,21 @@ export const HRAttendanceStore = {
             lastSync: null,
         };
         devices.push(device);
+        await saveAtt();
         return device;
     },
 
-    removeDevice(id: string): boolean {
+    async removeDevice(id: string): Promise<boolean> {
+        await ensureAttLoaded();
         const len = devices.length;
         devices = devices.filter(d => d.id !== id);
-        return devices.length < len;
+        if (devices.length < len) { await saveAtt(); return true; }
+        return false;
     },
 
     // ── Today's summary ──
-    getTodaySummary(date: string, employees?: { weeklyOffDay?: string }[]) {
+    async getTodaySummary(date: string, employees?: { weeklyOffDay?: string }[]) {
+        await ensureAttLoaded();
         const records = attendanceRecords.filter(r => r.date === date);
 
         // Count employees whose weekly off day matches this date
@@ -549,16 +593,16 @@ export const HRAttendanceStore = {
     },
 
     // ── Bulk import (from device sync) ──
-    bulkImport(records: Omit<AttendanceRecord, 'id' | 'totalHours' | 'status' | 'createdAt' | 'updatedAt'>[]): number {
+    async bulkImport(records: Omit<AttendanceRecord, 'id' | 'totalHours' | 'status' | 'createdAt' | 'updatedAt'>[]): Promise<number> {
+        await ensureAttLoaded();
         let imported = 0;
         for (const data of records) {
-            // Skip if record already exists for this employee + date
             const exists = attendanceRecords.find(
                 r => r.employeeId === data.employeeId && r.date === data.date
             );
             if (exists) continue;
 
-            this.create(data);
+            await this.create(data);
             imported++;
         }
         return imported;

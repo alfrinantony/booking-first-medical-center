@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
     if (employeeId) {
         // Single employee payroll
-        const employee = HRStore.getById(employeeId);
+        const employee = await HRStore.getById(employeeId);
         if (!employee) {
             return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     }
 
     // All employees payroll summary
-    const employees = HRStore.getAll({ status: 'ACTIVE' });
+    const employees = await HRStore.getAll({ status: 'ACTIVE' });
     const payrollSummary = employees.map(emp => {
         const salary = HRPayroll.calculateSalary(emp);
         const leaveBalance = HRPayroll.calculateLeaveBalance(emp);

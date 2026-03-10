@@ -11,7 +11,8 @@ export async function GET(request: Request) {
 
     // Optionally generate fresh alerts for a given date
     if (generate) {
-        const employees = HRStore.getAll({ status: 'ACTIVE' }).map(emp => ({
+        const allEmployees = await HRStore.getAll({ status: 'ACTIVE' });
+        const employees = allEmployees.map(emp => ({
             id: emp.id,
             name: `${emp.firstName} ${emp.lastName}`,
         }));

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
         };
 
         // Build employee code → id map
-        const employees = HRStore.getAll({ status: 'ACTIVE' });
+        const employees = await HRStore.getAll({ status: 'ACTIVE' });
         const employeeMap: Record<string, string> = {};
         for (const emp of employees) {
             employeeMap[emp.employeeCode] = emp.id;
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         const result = await ZKTecoService.syncAttendance(
             config,
             employeeMap,
-            (records) => HRAttendanceStore.bulkImport(records),
+            async (records) => HRAttendanceStore.bulkImport(records),
             {
                 startDate: body.startDate,
                 endDate: body.endDate,
@@ -33,9 +33,9 @@ export async function POST(request: Request) {
         );
 
         // Update device last sync
-        const devices = HRAttendanceStore.getDevices();
+        const devices = await HRAttendanceStore.getDevices();
         if (devices.length > 0) {
-            HRAttendanceStore.updateDevice(devices[0].id, {
+            await HRAttendanceStore.updateDevice(devices[0].id, {
                 lastSync: result.syncedAt,
                 status: result.success ? 'ONLINE' : 'OFFLINE',
             });
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
 // GET /api/admin/hr/attendance/sync — Get last sync info
 export async function GET() {
-    const devices = HRAttendanceStore.getDevices();
+    const devices = await HRAttendanceStore.getDevices();
     const primaryDevice = devices[0] || null;
 
     return NextResponse.json({

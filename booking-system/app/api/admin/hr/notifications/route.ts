@@ -13,19 +13,19 @@ export async function GET(request: Request) {
     const expired = HRDocumentsStore.getExpired();
 
     // Enrich with employee names
-    const enriched = (items: typeof expiringSoon | typeof expired) =>
-        items.map(doc => {
-            const employee = HRStore.getById(doc.employeeId);
+    const enriched = async (items: typeof expiringSoon | typeof expired) =>
+        Promise.all(items.map(async doc => {
+            const employee = await HRStore.getById(doc.employeeId);
             return {
                 ...doc,
                 employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown',
                 employeeCode: employee?.employeeCode || '',
             };
-        });
+        }));
 
     return NextResponse.json({
-        expiringSoon: enriched(expiringSoon),
-        expired: enriched(expired as any),
+        expiringSoon: await enriched(expiringSoon),
+        expired: await enriched(expired as any),
         summary: {
             expiringSoonCount: expiringSoon.length,
             expiredCount: expired.length,

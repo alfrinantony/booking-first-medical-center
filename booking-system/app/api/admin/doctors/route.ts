@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
     // Return all clinics structure (containing doctors)
     // If clinicId is provided, we could filter, but returning full structure is easier for UI to parse
-    const data = DoctorsStore.getClinics();
+    const data = await DoctorsStore.getClinics();
 
     if (clinicId) {
         return NextResponse.json(data.filter(c => c.id === clinicId));
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const newDoctor = DoctorsStore.addDoctor(clinicId, departmentId, {
+        const newDoctor = await DoctorsStore.addDoctor(clinicId, departmentId, {
             name,
             specialty,
             image: image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
@@ -51,7 +51,7 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: 'Missing IDs' }, { status: 400 });
         }
 
-        const updatedDoctor = DoctorsStore.updateDoctor(clinicId, departmentId, doctorId, updates);
+        const updatedDoctor = await DoctorsStore.updateDoctor(clinicId, departmentId, doctorId, updates);
 
         if (!updatedDoctor) {
             return NextResponse.json({ error: 'Failed to update doctor' }, { status: 404 });
@@ -73,7 +73,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Missing IDs' }, { status: 400 });
     }
 
-    const success = DoctorsStore.removeDoctor(clinicId, departmentId, doctorId);
+    const success = await DoctorsStore.removeDoctor(clinicId, departmentId, doctorId);
 
     if (success) {
         return NextResponse.json({ success: true });

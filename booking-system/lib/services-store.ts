@@ -1,69 +1,94 @@
-import { clinics as initialClinics, Clinic, Service, Medicine, medicineCatalog as initialMedicines, Supplier, initialSuppliers, PurchaseRecord, PurchaseLineItem, initialPurchases, DistributionRecord, RegisteredProduct, initialRegisteredProducts } from './data';
+import { clinics as initialClinics, Clinic, Service, Medicine, medicineCatalog as initialMedicines, Supplier, initialSuppliers, PurchaseRecord, initialPurchases, DistributionRecord, RegisteredProduct, initialRegisteredProducts } from './data';
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
-// In-memory store for services (cloned from initial data)
-// We keep the clinic structure to maintain relationships
+// ── Clinics (shared backing store for Services + Doctors) ─────
 let clinicStore: Clinic[] = JSON.parse(JSON.stringify(initialClinics));
+let clinicsLoaded = false;
 
-// In-memory store for medicines
+async function ensureClinicsLoaded() {
+    if (!clinicsLoaded) {
+        clinicStore = await loadFromBlob<Clinic[]>('clinics', clinicStore);
+        clinicsLoaded = true;
+    }
+}
+
+// ── Medicines ─────────────────────────────────────────────────
 let medicineStore: Medicine[] = JSON.parse(JSON.stringify(initialMedicines));
+let medicinesLoaded = false;
+
+async function ensureMedicinesLoaded() {
+    if (!medicinesLoaded) {
+        medicineStore = await loadFromBlob<Medicine[]>('medicines', medicineStore);
+        medicinesLoaded = true;
+    }
+}
 
 export const MedicineStore = {
-    getMedicines: (): Medicine[] => {
+    getMedicines: async (): Promise<Medicine[]> => {
+        await ensureMedicinesLoaded();
         return medicineStore;
     },
 
-    getMedicine: (id: string): Medicine | undefined => {
+    getMedicine: async (id: string): Promise<Medicine | undefined> => {
+        await ensureMedicinesLoaded();
         return medicineStore.find(m => m.id === id);
     },
 
-    addMedicine: (medicine: Omit<Medicine, 'id'>): Medicine => {
-        const newMedicine: Medicine = {
-            ...medicine,
-            id: `med-${Date.now()}`
-        };
+    addMedicine: async (medicine: Omit<Medicine, 'id'>): Promise<Medicine> => {
+        await ensureMedicinesLoaded();
+        const newMedicine: Medicine = { ...medicine, id: `med-${Date.now()}` };
         medicineStore.push(newMedicine);
+        await saveToBlob('medicines', medicineStore);
         return newMedicine;
     },
 
-    updateMedicine: (id: string, updates: Partial<Omit<Medicine, 'id'>>): Medicine | null => {
+    updateMedicine: async (id: string, updates: Partial<Omit<Medicine, 'id'>>): Promise<Medicine | null> => {
+        await ensureMedicinesLoaded();
         const index = medicineStore.findIndex(m => m.id === id);
         if (index === -1) return null;
         medicineStore[index] = { ...medicineStore[index], ...updates };
+        await saveToBlob('medicines', medicineStore);
         return medicineStore[index];
     },
 
-    removeMedicine: (id: string): boolean => {
+    removeMedicine: async (id: string): Promise<boolean> => {
+        await ensureMedicinesLoaded();
         const initialLength = medicineStore.length;
         medicineStore = medicineStore.filter(m => m.id !== id);
-        return medicineStore.length < initialLength;
+        if (medicineStore.length < initialLength) {
+            await saveToBlob('medicines', medicineStore);
+            return true;
+        }
+        return false;
     },
 
-    // Deduct stock from a specific branch
-    deductStock: (id: string, qty: number = 1, clinicId?: string): boolean => {
+    deductStock: async (id: string, qty: number = 1, clinicId?: string): Promise<boolean> => {
+        await ensureMedicinesLoaded();
         const med = medicineStore.find(m => m.id === id);
         if (!med) return false;
         if (clinicId) {
             const branch = med.branchStock.find(b => b.clinicId === clinicId);
             if (!branch || branch.quantity < qty) return false;
             branch.quantity -= qty;
-            return true;
+        } else {
+            if (med.centralStock < qty) return false;
+            med.centralStock -= qty;
         }
-        // Fallback: deduct from central if no clinicId
-        if (med.centralStock < qty) return false;
-        med.centralStock -= qty;
+        await saveToBlob('medicines', medicineStore);
         return true;
     },
 
-    // Add stock to central warehouse (used by purchases)
-    addCentralStock: (id: string, qty: number): boolean => {
+    addCentralStock: async (id: string, qty: number): Promise<boolean> => {
+        await ensureMedicinesLoaded();
         const med = medicineStore.find(m => m.id === id);
         if (!med) return false;
         med.centralStock += qty;
+        await saveToBlob('medicines', medicineStore);
         return true;
     },
 
-    // Distribute stock from central to a branch
-    distributeStock: (medicineId: string, clinicId: string, qty: number): boolean => {
+    distributeStock: async (medicineId: string, clinicId: string, qty: number): Promise<boolean> => {
+        await ensureMedicinesLoaded();
         const med = medicineStore.find(m => m.id === medicineId);
         if (!med || med.centralStock < qty) return false;
         med.centralStock -= qty;
@@ -73,26 +98,27 @@ export const MedicineStore = {
         } else {
             med.branchStock.push({ clinicId, quantity: qty });
         }
+        await saveToBlob('medicines', medicineStore);
         return true;
     },
 
-    // Get stock for a specific branch
-    getBranchStock: (medicineId: string, clinicId: string): number => {
+    getBranchStock: async (medicineId: string, clinicId: string): Promise<number> => {
+        await ensureMedicinesLoaded();
         const med = medicineStore.find(m => m.id === medicineId);
         if (!med) return 0;
         const branch = med.branchStock.find(b => b.clinicId === clinicId);
         return branch?.quantity || 0;
     },
 
-    // Get total stock across all branches + central
-    getTotalStock: (medicineId: string): number => {
+    getTotalStock: async (medicineId: string): Promise<number> => {
+        await ensureMedicinesLoaded();
         const med = medicineStore.find(m => m.id === medicineId);
         if (!med) return 0;
         return med.centralStock + med.branchStock.reduce((sum, b) => sum + b.quantity, 0);
     },
 
-    // Transfer stock from one branch to another
-    transferBranchStock: (medicineId: string, fromClinicId: string, toClinicId: string, qty: number): boolean => {
+    transferBranchStock: async (medicineId: string, fromClinicId: string, toClinicId: string, qty: number): Promise<boolean> => {
+        await ensureMedicinesLoaded();
         const med = medicineStore.find(m => m.id === medicineId);
         if (!med) return false;
         const fromBranch = med.branchStock.find(b => b.clinicId === fromClinicId);
@@ -104,17 +130,30 @@ export const MedicineStore = {
         } else {
             med.branchStock.push({ clinicId: toClinicId, quantity: qty });
         }
+        await saveToBlob('medicines', medicineStore);
         return true;
     }
 };
 
-// In-memory store for distribution records
+// ── Distribution Records ──────────────────────────────────────
 let distributionStore: DistributionRecord[] = [];
+let distributionsLoaded = false;
+
+async function ensureDistributionsLoaded() {
+    if (!distributionsLoaded) {
+        distributionStore = await loadFromBlob<DistributionRecord[]>('distributions', []);
+        distributionsLoaded = true;
+    }
+}
 
 export const DistributionStore = {
-    getAll: (): DistributionRecord[] => distributionStore,
+    getAll: async (): Promise<DistributionRecord[]> => {
+        await ensureDistributionsLoaded();
+        return distributionStore;
+    },
 
-    getByFilters: (filters: { medicineId?: string; clinicId?: string }): DistributionRecord[] => {
+    getByFilters: async (filters: { medicineId?: string; clinicId?: string }): Promise<DistributionRecord[]> => {
+        await ensureDistributionsLoaded();
         return distributionStore.filter(d => {
             if (filters.medicineId && d.medicineId !== filters.medicineId) return false;
             if (filters.clinicId && d.toClinicId !== filters.clinicId && d.fromClinicId !== filters.clinicId) return false;
@@ -122,57 +161,92 @@ export const DistributionStore = {
         });
     },
 
-    add: (record: Omit<DistributionRecord, 'id'>): DistributionRecord | null => {
+    add: async (record: Omit<DistributionRecord, 'id'>): Promise<DistributionRecord | null> => {
+        await ensureDistributionsLoaded();
         let success: boolean;
         if (record.fromClinicId) {
-            // Branch-to-branch transfer
-            success = MedicineStore.transferBranchStock(record.medicineId, record.fromClinicId, record.toClinicId, record.quantity);
+            success = await MedicineStore.transferBranchStock(record.medicineId, record.fromClinicId, record.toClinicId, record.quantity);
         } else {
-            // Central-to-branch distribution
-            success = MedicineStore.distributeStock(record.medicineId, record.toClinicId, record.quantity);
+            success = await MedicineStore.distributeStock(record.medicineId, record.toClinicId, record.quantity);
         }
         if (!success) return null;
         const newRecord: DistributionRecord = { ...record, id: `dist-${Date.now()}` };
         distributionStore.push(newRecord);
+        await saveToBlob('distributions', distributionStore);
         return newRecord;
     }
 };
 
-// In-memory store for suppliers
+// ── Suppliers ─────────────────────────────────────────────────
 let supplierStore: Supplier[] = JSON.parse(JSON.stringify(initialSuppliers));
+let suppliersLoaded = false;
+
+async function ensureSuppliersLoaded() {
+    if (!suppliersLoaded) {
+        supplierStore = await loadFromBlob<Supplier[]>('suppliers', supplierStore);
+        suppliersLoaded = true;
+    }
+}
 
 export const SupplierStore = {
-    getAll: (): Supplier[] => supplierStore,
+    getAll: async (): Promise<Supplier[]> => {
+        await ensureSuppliersLoaded();
+        return supplierStore;
+    },
 
-    getById: (id: string): Supplier | undefined => supplierStore.find(s => s.id === id),
+    getById: async (id: string): Promise<Supplier | undefined> => {
+        await ensureSuppliersLoaded();
+        return supplierStore.find(s => s.id === id);
+    },
 
-    add: (supplier: Omit<Supplier, 'id'>): Supplier => {
+    add: async (supplier: Omit<Supplier, 'id'>): Promise<Supplier> => {
+        await ensureSuppliersLoaded();
         const newSupplier: Supplier = { ...supplier, id: `sup-${Date.now()}` };
         supplierStore.push(newSupplier);
+        await saveToBlob('suppliers', supplierStore);
         return newSupplier;
     },
 
-    update: (id: string, updates: Partial<Omit<Supplier, 'id'>>): Supplier | null => {
+    update: async (id: string, updates: Partial<Omit<Supplier, 'id'>>): Promise<Supplier | null> => {
+        await ensureSuppliersLoaded();
         const index = supplierStore.findIndex(s => s.id === id);
         if (index === -1) return null;
         supplierStore[index] = { ...supplierStore[index], ...updates };
+        await saveToBlob('suppliers', supplierStore);
         return supplierStore[index];
     },
 
-    remove: (id: string): boolean => {
+    remove: async (id: string): Promise<boolean> => {
+        await ensureSuppliersLoaded();
         const len = supplierStore.length;
         supplierStore = supplierStore.filter(s => s.id !== id);
-        return supplierStore.length < len;
+        if (supplierStore.length < len) {
+            await saveToBlob('suppliers', supplierStore);
+            return true;
+        }
+        return false;
     }
 };
 
-// In-memory store for purchase records
+// ── Purchase Records ──────────────────────────────────────────
 let purchaseStore: PurchaseRecord[] = JSON.parse(JSON.stringify(initialPurchases));
+let purchasesLoaded = false;
+
+async function ensurePurchasesLoaded() {
+    if (!purchasesLoaded) {
+        purchaseStore = await loadFromBlob<PurchaseRecord[]>('purchases', purchaseStore);
+        purchasesLoaded = true;
+    }
+}
 
 export const PurchaseStore = {
-    getAll: (): PurchaseRecord[] => purchaseStore,
+    getAll: async (): Promise<PurchaseRecord[]> => {
+        await ensurePurchasesLoaded();
+        return purchaseStore;
+    },
 
-    getByFilters: (filters: { medicineId?: string; supplierId?: string }): PurchaseRecord[] => {
+    getByFilters: async (filters: { medicineId?: string; supplierId?: string }): Promise<PurchaseRecord[]> => {
+        await ensurePurchasesLoaded();
         return purchaseStore.filter(p => {
             if (filters.supplierId && p.supplierId !== filters.supplierId) return false;
             if (filters.medicineId && !p.items.some(item => item.medicineId === filters.medicineId)) return false;
@@ -180,36 +254,45 @@ export const PurchaseStore = {
         });
     },
 
-    add: (record: Omit<PurchaseRecord, 'id'>): PurchaseRecord => {
+    add: async (record: Omit<PurchaseRecord, 'id'>): Promise<PurchaseRecord> => {
+        await ensurePurchasesLoaded();
         const newRecord: PurchaseRecord = { ...record, id: `pur-${Date.now()}` };
         purchaseStore.push(newRecord);
         // Auto-increase central warehouse stock for each line item
         for (const item of newRecord.items) {
             const totalQty = item.quantity + (item.focQuantity || 0);
-            MedicineStore.addCentralStock(item.medicineId, totalQty);
+            await MedicineStore.addCentralStock(item.medicineId, totalQty);
         }
+        await saveToBlob('purchases', purchaseStore);
         return newRecord;
     },
 
-    remove: (id: string): boolean => {
+    remove: async (id: string): Promise<boolean> => {
+        await ensurePurchasesLoaded();
         const len = purchaseStore.length;
         purchaseStore = purchaseStore.filter(p => p.id !== id);
-        return purchaseStore.length < len;
+        if (purchaseStore.length < len) {
+            await saveToBlob('purchases', purchaseStore);
+            return true;
+        }
+        return false;
     }
 };
 
+// ── Services (uses shared clinic store) ───────────────────────
 export const ServicesStore = {
-    // Get all clinics with their services (optionally filtered)
-    getClinics: () => {
+    getClinics: async () => {
+        await ensureClinicsLoaded();
         return clinicStore;
     },
 
-    // Get specific clinic
-    getClinic: (clinicId: string) => {
+    getClinic: async (clinicId: string) => {
+        await ensureClinicsLoaded();
         return clinicStore.find(c => c.id === clinicId);
     },
 
-    getServiceById: (serviceId: string) => {
+    getServiceById: async (serviceId: string) => {
+        await ensureClinicsLoaded();
         for (const clinic of clinicStore) {
             for (const dept of clinic.departments) {
                 const service = dept.services.find(s => s.id === serviceId);
@@ -219,8 +302,8 @@ export const ServicesStore = {
         return null;
     },
 
-    // Add a service to a specific department in a clinic
-    addService: (clinicId: string, departmentId: string, service: Omit<Service, 'id'>) => {
+    addService: async (clinicId: string, departmentId: string, service: Omit<Service, 'id'>) => {
+        await ensureClinicsLoaded();
         const clinic = clinicStore.find(c => c.id === clinicId);
         if (!clinic) return null;
 
@@ -229,17 +312,18 @@ export const ServicesStore = {
 
         const newService: Service = {
             ...service,
-            isTaxable: service.isTaxable || false, // Added line
-            id: `${departmentId}-svc-${Date.now()}`, // Unique ID
+            isTaxable: service.isTaxable || false,
+            id: `${departmentId}-svc-${Date.now()}`,
             screeningQuestions: service.screeningQuestions || []
         };
 
         department.services.push(newService);
+        await saveToBlob('clinics', clinicStore);
         return newService;
     },
 
-    // Remove a service
-    removeService: (clinicId: string, departmentId: string, serviceId: string) => {
+    removeService: async (clinicId: string, departmentId: string, serviceId: string) => {
+        await ensureClinicsLoaded();
         const clinic = clinicStore.find(c => c.id === clinicId);
         if (!clinic) return false;
 
@@ -249,11 +333,15 @@ export const ServicesStore = {
         const initialLength = department.services.length;
         department.services = department.services.filter(s => s.id !== serviceId);
 
-        return department.services.length < initialLength;
+        if (department.services.length < initialLength) {
+            await saveToBlob('clinics', clinicStore);
+            return true;
+        }
+        return false;
     },
 
-    // Update a service
-    updateService: (clinicId: string, departmentId: string, serviceId: string, updates: Partial<Omit<Service, 'id'>>) => {
+    updateService: async (clinicId: string, departmentId: string, serviceId: string, updates: Partial<Omit<Service, 'id'>>) => {
+        await ensureClinicsLoaded();
         const clinic = clinicStore.find(c => c.id === clinicId);
         if (!clinic) return null;
 
@@ -266,52 +354,93 @@ export const ServicesStore = {
         const updatedService = { ...department.services[serviceIndex], ...updates };
         department.services[serviceIndex] = updatedService;
 
+        await saveToBlob('clinics', clinicStore);
         return updatedService;
     }
 };
 
 // ── Category Image Store ──────────────────────────────────────
-// Maps category name → image URL (since categories are just strings on services)
 let categoryImageStore: Record<string, string> = {};
+let categoryImagesLoaded = false;
+
+async function ensureCategoryImagesLoaded() {
+    if (!categoryImagesLoaded) {
+        categoryImageStore = await loadFromBlob<Record<string, string>>('category-images', {});
+        categoryImagesLoaded = true;
+    }
+}
 
 export const CategoryImageStore = {
-    getAll: (): Record<string, string> => ({ ...categoryImageStore }),
-
-    get: (category: string): string | undefined => categoryImageStore[category],
-
-    set: (category: string, imageUrl: string): void => {
-        categoryImageStore[category] = imageUrl;
+    getAll: async (): Promise<Record<string, string>> => {
+        await ensureCategoryImagesLoaded();
+        return { ...categoryImageStore };
     },
 
-    remove: (category: string): void => {
+    get: async (category: string): Promise<string | undefined> => {
+        await ensureCategoryImagesLoaded();
+        return categoryImageStore[category];
+    },
+
+    set: async (category: string, imageUrl: string): Promise<void> => {
+        await ensureCategoryImagesLoaded();
+        categoryImageStore[category] = imageUrl;
+        await saveToBlob('category-images', categoryImageStore);
+    },
+
+    remove: async (category: string): Promise<void> => {
+        await ensureCategoryImagesLoaded();
         delete categoryImageStore[category];
+        await saveToBlob('category-images', categoryImageStore);
     }
 };
 
-// In-memory store for registered products
+// ── Registered Products ───────────────────────────────────────
 let registeredProductStore: RegisteredProduct[] = JSON.parse(JSON.stringify(initialRegisteredProducts));
+let registeredProductsLoaded = false;
+
+async function ensureRegisteredProductsLoaded() {
+    if (!registeredProductsLoaded) {
+        registeredProductStore = await loadFromBlob<RegisteredProduct[]>('registered-products', registeredProductStore);
+        registeredProductsLoaded = true;
+    }
+}
 
 export const RegisteredProductStore = {
-    getAll: (): RegisteredProduct[] => registeredProductStore,
+    getAll: async (): Promise<RegisteredProduct[]> => {
+        await ensureRegisteredProductsLoaded();
+        return registeredProductStore;
+    },
 
-    getById: (id: string): RegisteredProduct | undefined => registeredProductStore.find(p => p.id === id),
+    getById: async (id: string): Promise<RegisteredProduct | undefined> => {
+        await ensureRegisteredProductsLoaded();
+        return registeredProductStore.find(p => p.id === id);
+    },
 
-    add: (product: Omit<RegisteredProduct, 'id'>): RegisteredProduct => {
+    add: async (product: Omit<RegisteredProduct, 'id'>): Promise<RegisteredProduct> => {
+        await ensureRegisteredProductsLoaded();
         const newProduct: RegisteredProduct = { ...product, id: `rp-${Date.now()}` };
         registeredProductStore.push(newProduct);
+        await saveToBlob('registered-products', registeredProductStore);
         return newProduct;
     },
 
-    update: (id: string, updates: Partial<Omit<RegisteredProduct, 'id'>>): RegisteredProduct | null => {
+    update: async (id: string, updates: Partial<Omit<RegisteredProduct, 'id'>>): Promise<RegisteredProduct | null> => {
+        await ensureRegisteredProductsLoaded();
         const index = registeredProductStore.findIndex(p => p.id === id);
         if (index === -1) return null;
         registeredProductStore[index] = { ...registeredProductStore[index], ...updates };
+        await saveToBlob('registered-products', registeredProductStore);
         return registeredProductStore[index];
     },
 
-    remove: (id: string): boolean => {
+    remove: async (id: string): Promise<boolean> => {
+        await ensureRegisteredProductsLoaded();
         const len = registeredProductStore.length;
         registeredProductStore = registeredProductStore.filter(p => p.id !== id);
-        return registeredProductStore.length < len;
+        if (registeredProductStore.length < len) {
+            await saveToBlob('registered-products', registeredProductStore);
+            return true;
+        }
+        return false;
     }
 };

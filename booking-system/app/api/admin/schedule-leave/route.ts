@@ -12,10 +12,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Get all Clinical department employees
-    const clinicalEmployees = HRStore.getAll({ department: 'Clinical' });
+    const clinicalEmployees = await HRStore.getAll({ department: 'Clinical' });
 
     // Get all leaves overlapping the date range
-    const allLeaves = getLeavesByDateRange(startDate, endDate);
+    const allLeaves = await getLeavesByDateRange(startDate, endDate);
 
     // Filter leaves to only Clinical department employees
     const clinicalEmployeeIds = new Set(clinicalEmployees.map(e => e.id));

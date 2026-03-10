@@ -38,7 +38,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const record = CallAgentSummaryStore.add({
+        const record = await CallAgentSummaryStore.add({
             ...body,
             callDuration: Number(body.callDuration) || 0,
             timestamp: body.timestamp || new Date().toISOString(),
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
 
-    let summaries = CallAgentSummaryStore.getAll();
+    let summaries = await CallAgentSummaryStore.getAll();
 
     if (customerId) {
         summaries = summaries.filter(s => s.customerId === customerId);

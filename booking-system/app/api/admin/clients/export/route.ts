@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
         // ── Fetch clients ──
         const clientId = searchParams.get('clientId');
-        const allClients = ClientsStore.getAll();
+        const allClients = await ClientsStore.getAll();
 
         const clients = clientId
             ? allClients.filter(c => c.id === clientId)

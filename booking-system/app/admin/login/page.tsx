@@ -11,17 +11,11 @@ export default function AdminLoginPage() {
     const [error, setError] = useState('');
     const router = useRouter();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
-        if (username === 'admin' && password === 'password123') {
-            // Hardcoded check specifically for the initial seed if store isn't persisting across reloads well in dev
-            // In a real app, use the store.login
-            // For now, let's try the store first
-        }
-
-        const user = UsersStore.login(username, password);
+        const user = await UsersStore.login(username, password);
 
         if (user) {
             // In a real app, we'd set a cookie or JWT.
@@ -34,6 +28,7 @@ export default function AdminLoginPage() {
             setError('Invalid username or password');
         }
     };
+
 
     return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">

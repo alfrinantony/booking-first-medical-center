@@ -1,15 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useLoyaltyStore, LoyaltyTransaction } from '@/lib/loyalty-store';
-import { Gift, TrendingUp, TrendingDown, Search, Award, Plus, Minus } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { LoyaltyTransaction } from '@/lib/loyalty-store';
+import { TrendingUp, TrendingDown, Search, Award } from 'lucide-react';
 
 export default function LoyaltyPage() {
-    const { transactions, getBalance, addManualAdjustment, getHistory } = useLoyaltyStore();
+    const [transactions, setTransactions] = useState<LoyaltyTransaction[]>([]);
     const [searchPhone, setSearchPhone] = useState('');
     const [adjustPhone, setAdjustPhone] = useState('');
     const [adjustPoints, setAdjustPoints] = useState('');
     const [adjustDescription, setAdjustDescription] = useState('');
+
+    const loadTransactions = useCallback(async () => {
+        try {
+            const res = await fetch('/api/admin/loyalty');
+            if (res.ok) {
+                const data = await res.json();
+                setTransactions(data.transactions || []);
+            }
+        } catch { /* silent */ }
+    }, []);
+
+    useEffect(() => { loadTransactions(); }, [loadTransactions]);
 
     // Unique customers
     const customerPhones = Array.from(new Set(transactions.map(t => t.customerPhone)));
@@ -18,9 +30,28 @@ export default function LoyaltyPage() {
         ? customerPhones.filter(p => p.includes(searchPhone))
         : customerPhones;
 
-    const handleAdjust = () => {
+    const getBalance = (phone: string) =>
+        transactions.filter(t => t.customerPhone === phone).reduce((s, t) => s + t.points, 0);
+
+    const getHistory = (phone: string) =>
+        transactions.filter(t => t.customerPhone === phone)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const handleAdjust = async () => {
         if (!adjustPhone || !adjustPoints || !adjustDescription) return;
-        addManualAdjustment(adjustPhone, Number(adjustPoints), adjustDescription);
+        try {
+            await fetch('/api/admin/loyalty', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'manual_adjustment',
+                    customerPhone: adjustPhone,
+                    points: Number(adjustPoints),
+                    description: adjustDescription,
+                }),
+            });
+            await loadTransactions();
+        } catch { /* silent */ }
         setAdjustPhone('');
         setAdjustPoints('');
         setAdjustDescription('');

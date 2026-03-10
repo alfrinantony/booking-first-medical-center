@@ -4,6 +4,7 @@
 
 import { HRStore } from './hr-store';
 import type { Employee } from './hr-store';
+import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 export type LetterType = 'SALARY_CERTIFICATE' | 'EMPLOYMENT_CERTIFICATE' | 'EXPERIENCE_CERTIFICATE';
 export type LetterStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
@@ -263,12 +264,24 @@ function renderExperienceCertificate(
 </div>`;
 }
 
-// ── In-memory store (shared via globalThis to avoid module isolation) ──
-if (!_global.__hrLetters) _global.__hrLetters = [];
-const letters: EmployeeLetter[] = _global.__hrLetters;
+// ── In-memory store ──
+let letters: EmployeeLetter[] = [];
+let letLoaded = false;
+
+async function ensureLetLoaded() {
+    if (!letLoaded) {
+        letters = await loadFromBlob<EmployeeLetter[]>('hr-letters', []);
+        letLoaded = true;
+    }
+}
+
+async function saveLet() {
+    await saveToBlob('hr-letters', letters);
+}
 
 export const HRLettersStore = {
-    getAll: (filters?: { employeeId?: string; status?: LetterStatus; letterType?: LetterType }): EmployeeLetter[] => {
+    getAll: async (filters?: { employeeId?: string; status?: LetterStatus; letterType?: LetterType }): Promise<EmployeeLetter[]> => {
+        await ensureLetLoaded();
         let result = [...letters];
         if (filters?.employeeId) result = result.filter(l => l.employeeId === filters.employeeId);
         if (filters?.status) result = result.filter(l => l.status === filters.status);
@@ -276,11 +289,12 @@ export const HRLettersStore = {
         return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     },
 
-    getById: (id: string): EmployeeLetter | undefined => {
+    getById: async (id: string): Promise<EmployeeLetter | undefined> => {
+        await ensureLetLoaded();
         return letters.find(l => l.id === id);
     },
 
-    generate: (data: {
+    generate: async (data: {
         employeeId: string;
         letterType: LetterType;
         generatedBy: string;
@@ -288,8 +302,9 @@ export const HRLettersStore = {
         endDate?: string;
         sickLeavesTaken?: number;
         disciplinaryActions?: string;
-    }): EmployeeLetter | null => {
-        const emp = HRStore.getById(data.employeeId);
+    }): Promise<EmployeeLetter | null> => {
+        await ensureLetLoaded();
+        const emp = await HRStore.getById(data.employeeId);
         if (!emp) return null;
 
         const refNum = getNextRefNumber(data.letterType);
@@ -334,32 +349,39 @@ export const HRLettersStore = {
         };
 
         letters.push(letter);
+        await saveLet();
         return letter;
     },
 
-    approve: (id: string, approvedBy: string): EmployeeLetter | null => {
+    approve: async (id: string, approvedBy: string): Promise<EmployeeLetter | null> => {
+        await ensureLetLoaded();
         const letter = letters.find(l => l.id === id);
         if (!letter || letter.status === 'APPROVED') return null;
         letter.status = 'APPROVED';
         letter.approvedBy = approvedBy;
         letter.approvedDate = new Date().toISOString();
         letter.updatedAt = new Date().toISOString();
+        await saveLet();
         return letter;
     },
 
-    reject: (id: string, reason: string): EmployeeLetter | null => {
+    reject: async (id: string, reason: string): Promise<EmployeeLetter | null> => {
+        await ensureLetLoaded();
         const letter = letters.find(l => l.id === id);
         if (!letter) return null;
         letter.status = 'REJECTED';
         letter.rejectedReason = reason;
         letter.updatedAt = new Date().toISOString();
+        await saveLet();
         return letter;
     },
 
-    delete: (id: string): boolean => {
+    delete: async (id: string): Promise<boolean> => {
+        await ensureLetLoaded();
         const idx = letters.findIndex(l => l.id === id);
         if (idx === -1) return false;
         letters.splice(idx, 1);
+        await saveLet();
         return true;
     },
 };

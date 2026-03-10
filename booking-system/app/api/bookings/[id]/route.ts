@@ -6,7 +6,7 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params;
-    const booking = BookingsStore.getById(id);
+    const booking = await BookingsStore.getById(id);
     if (!booking) {
         return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
@@ -20,7 +20,7 @@ export async function PATCH(
     try {
         const { id } = await params;
         const body = await request.json();
-        const updatedBooking = BookingsStore.update(id, body);
+        const updatedBooking = await BookingsStore.update(id, body);
 
         if (!updatedBooking) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 });

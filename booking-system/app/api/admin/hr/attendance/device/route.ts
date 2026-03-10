@@ -4,7 +4,7 @@ import { ZKTecoService } from '@/lib/zkteco-service';
 
 // GET /api/admin/hr/attendance/device — Get device info & status
 export async function GET() {
-    const devices = HRAttendanceStore.getDevices();
+    const devices = await HRAttendanceStore.getDevices();
 
     // Get live status for each device
     const enriched = await Promise.all(
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
         // Update existing device
         if (action === 'update' && body.id) {
-            const updated = HRAttendanceStore.updateDevice(body.id, {
+            const updated = await HRAttendanceStore.updateDevice(body.id, {
                 name: body.name,
                 serialNumber: body.serialNumber,
                 host: body.host,
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
         // Add new device
         if (action === 'add') {
-            const device = HRAttendanceStore.addDevice({
+            const device = await HRAttendanceStore.addDevice({
                 name: body.name || 'New Device',
                 serialNumber: body.serialNumber || '',
                 host: body.host || '',
@@ -90,7 +90,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Device id is required' }, { status: 400 });
     }
 
-    const deleted = HRAttendanceStore.removeDevice(id);
+    const deleted = await HRAttendanceStore.removeDevice(id);
     if (!deleted) {
         return NextResponse.json({ error: 'Device not found' }, { status: 404 });
     }
