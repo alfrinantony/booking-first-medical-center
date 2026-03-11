@@ -5,7 +5,6 @@ import { Plus, Trash2, Edit2, Shield, User, Stethoscope, Lock, Search, ToggleLef
 import {
     User as UserType,
     UserRole,
-    UsersStore,
     AssignedScope,
     DESIGNATIONS_BY_DEPARTMENT,
     ALL_DESIGNATIONS,
@@ -80,7 +79,14 @@ export default function StaffPage() {
     const canManagePerms = isSuperAdmin || (currentUser?.canManagePermissions ?? false);
 
     const loadData = async () => {
-        setUsers(UsersStore.getUsers());
+        try {
+            const usersRes = await fetch('/api/admin/users');
+            if (usersRes.ok) {
+                setUsers(await usersRes.json());
+            }
+        } catch (e) {
+            console.error('Failed to load users:', e);
+        }
         try {
             const res = await fetch('/api/admin/doctors');
             if (res.ok) {
@@ -111,7 +117,7 @@ export default function StaffPage() {
         return true;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         const scope: AssignedScope = {};
@@ -120,35 +126,50 @@ export default function StaffPage() {
         }
 
         if (editingUser) {
-            UsersStore.updateUser(editingUser.id, {
-                name: formData.name,
-                username: formData.username,
-                role: formData.role,
-                designation: formData.designation,
-                department: formData.department,
-                clinicIds: formData.clinicIds,
-                isActive: formData.isActive,
-                canManagePermissions: formData.canManagePermissions,
-                scope,
-                ...(formData.password ? { password: formData.password } : {}),
+            await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update',
+                    id: editingUser.id,
+                    data: {
+                        name: formData.name,
+                        username: formData.username,
+                        role: formData.role,
+                        designation: formData.designation,
+                        department: formData.department,
+                        clinicIds: formData.clinicIds,
+                        isActive: formData.isActive,
+                        canManagePermissions: formData.canManagePermissions,
+                        scope,
+                        ...(formData.password ? { password: formData.password } : {}),
+                    },
+                }),
             });
         } else {
             if (!formData.password) {
                 alert('Password is required for new users');
                 return;
             }
-            UsersStore.addUser({
-                name: formData.name,
-                username: formData.username,
-                password: formData.password,
-                role: formData.role,
-                designation: formData.designation,
-                department: formData.department,
-                clinicIds: formData.clinicIds,
-                isActive: formData.isActive,
-                canManagePermissions: formData.canManagePermissions,
-                scope,
-                permissions: getDefaultPermissions(),
+            await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'add',
+                    data: {
+                        name: formData.name,
+                        username: formData.username,
+                        password: formData.password,
+                        role: formData.role,
+                        designation: formData.designation,
+                        department: formData.department,
+                        clinicIds: formData.clinicIds,
+                        isActive: formData.isActive,
+                        canManagePermissions: formData.canManagePermissions,
+                        scope,
+                        permissions: getDefaultPermissions(),
+                    },
+                }),
             });
         }
 
@@ -175,15 +196,23 @@ export default function StaffPage() {
         setIsModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('Are you sure you want to delete this user?')) {
-            UsersStore.deleteUser(id);
+            await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', id }),
+            });
             loadData();
         }
     };
 
-    const handleToggleActive = (user: UserType) => {
-        UsersStore.updateUser(user.id, { isActive: !user.isActive });
+    const handleToggleActive = async (user: UserType) => {
+        await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update', id: user.id, data: { isActive: !user.isActive } }),
+        });
         loadData();
     };
 
@@ -252,9 +281,13 @@ export default function StaffPage() {
         });
     };
 
-    const savePermissions = () => {
+    const savePermissions = async () => {
         if (permUser) {
-            UsersStore.updatePermissions(permUser.id, permEditing);
+            await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'updatePermissions', id: permUser.id, permissions: permEditing }),
+            });
             setPermUser(null);
             loadData();
         }

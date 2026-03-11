@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ServicesStore } from '@/lib/services-store';
+import { Clinic } from '@/lib/data';
 import { Package, PackageServiceItem, CustomerPackage } from '@/types/packages';
 import { Plus, Trash2, Package as PackageIcon, Check, X, Search, User, Calendar, Activity } from 'lucide-react';
 import { format } from 'date-fns';
@@ -10,7 +10,7 @@ export default function PackagesPage() {
     const [availablePackages, setAvailablePackages] = useState<Package[]>([]);
     const [isClient, setIsClient] = useState(false);
     const [activeTab, setActiveTab] = useState<'manage' | 'customers'>('manage');
-    const [clinics, setClinics] = useState<import('@/lib/data').Clinic[]>([]);
+    const [clinics, setClinics] = useState<Clinic[]>([]);
 
     // Create Package Form State
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -38,7 +38,7 @@ export default function PackagesPage() {
     useEffect(() => {
         setIsClient(true);
         fetchPackages();
-        ServicesStore.getClinics().then(setClinics);
+        fetch('/api/admin/doctors').then(r => r.json()).then(setClinics).catch(() => {});
     }, []);
 
     if (!isClient) return <div className="p-8">Loading packages...</div>;
