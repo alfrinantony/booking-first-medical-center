@@ -117,14 +117,31 @@ export async function GET(request: NextRequest) {
     }
 
     const conversations: DMConversation[] = [];
+    let fbNextCursor = '';
+    let igNextCursor = '';
+
+    // Accept pagination cursors from query params
+    const fbCursor = url.searchParams.get('fbCursor') || '';
+    const igCursor = url.searchParams.get('igCursor') || '';
 
     // ── 1. Facebook Messenger Conversations (metadata only — no messages) ──
     try {
+        const fbParams: Record<string, string> = {
+            fields: 'participants,updated_time,unread_count,snippet',
+            limit: '25',
+        };
+        if (fbCursor) fbParams.after = fbCursor;
+
         const fbConvos = await graphFetch(
             `/${pageId}/conversations`,
             pageAccessToken,
-            { fields: 'participants,updated_time,unread_count,snippet', limit: '25' },
+            fbParams,
         );
+
+        // Capture next-page cursor
+        if (fbConvos?.paging?.cursors?.after && fbConvos?.paging?.next) {
+            fbNextCursor = fbConvos.paging.cursors.after;
+        }
 
         if (fbConvos?.data) {
             for (let i = 0; i < fbConvos.data.length; i++) {
@@ -164,11 +181,23 @@ export async function GET(request: NextRequest) {
     // ── 2. Instagram DM Conversations (metadata only — no messages) ──
     if (igUserId) {
         try {
+            const igParams: Record<string, string> = {
+                platform: 'instagram',
+                fields: 'participants,updated_time,name',
+                limit: '25',
+            };
+            if (igCursor) igParams.after = igCursor;
+
             const igConvos = await graphFetch(
                 `/${igUserId}/conversations`,
                 pageAccessToken,
-                { platform: 'instagram', fields: 'participants,updated_time,name', limit: '25' },
+                igParams,
             );
+
+            // Capture next-page cursor
+            if (igConvos?.paging?.cursors?.after && igConvos?.paging?.next) {
+                igNextCursor = igConvos.paging.cursors.after;
+            }
 
             if (igConvos?.data) {
                 for (let i = 0; i < igConvos.data.length; i++) {
@@ -210,7 +239,11 @@ export async function GET(request: NextRequest) {
         (a, b) => new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime(),
     );
 
-    return NextResponse.json({ conversations });
+    return NextResponse.json({
+        conversations,
+        fbNextCursor: fbNextCursor || null,
+        igNextCursor: igNextCursor || null,
+    });
 }
 
 /**

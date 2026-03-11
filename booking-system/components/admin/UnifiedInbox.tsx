@@ -65,6 +65,7 @@ export default function UnifiedInbox() {
         fetchSocialInbox,
         socialInboxLoading,
     } = useInboxStore();
+    const { loadMoreConversations, fbNextCursor, igNextCursor, loadingMore } = useInboxStore();
 
     const [replyText, setReplyText] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -309,6 +310,25 @@ export default function UnifiedInbox() {
                                 {filteredConversations.length === 0 && (
                                     <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                                         No conversations found
+                                    </div>
+                                )}
+                                {/* Load More button for DM conversations */}
+                                {(fbNextCursor || igNextCursor) && (filter === 'all' || filter === 'facebook' || filter === 'instagram') && (
+                                    <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+                                        <button
+                                            onClick={loadMoreConversations}
+                                            disabled={loadingMore}
+                                            className="w-full py-2.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        >
+                                            {loadingMore ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                                                    Loading...
+                                                </>
+                                            ) : (
+                                                'Load More Conversations'
+                                            )}
+                                        </button>
                                     </div>
                                 )}
                             </>

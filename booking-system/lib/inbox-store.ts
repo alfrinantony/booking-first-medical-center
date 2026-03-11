@@ -8,6 +8,10 @@ interface InboxState {
     filter: Platform | 'all';
     socialInboxLoaded: boolean;
     socialInboxLoading: boolean;
+    // Pagination cursors for Meta DMs
+    fbNextCursor: string | null;
+    igNextCursor: string | null;
+    loadingMore: boolean;
 
     // Actions
     setFilter: (filter: Platform | 'all') => void;
@@ -15,6 +19,7 @@ interface InboxState {
     sendMessage: (conversationId: string, content: string) => void;
     receiveMessage: (message: Message) => void;
     fetchSocialInbox: () => Promise<void>;
+    loadMoreConversations: () => Promise<void>;
     // Legacy — kept for backward compat
     fetchGoogleReviewConversations: () => Promise<void>;
     replyToGoogleReview: (reviewId: string, content: string) => Promise<void>;
@@ -40,6 +45,9 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     filter: 'all',
     socialInboxLoaded: false,
     socialInboxLoading: false,
+    fbNextCursor: null,
+    igNextCursor: null,
+    loadingMore: false,
 
     setFilter: (filter) => set({ filter }),
 
@@ -322,9 +330,13 @@ export const useInboxStore = create<InboxState>((set, get) => ({
             }
 
             // ── 2. Process Meta DMs (FB Messenger + IG DMs) ──
+            let dmFbNextCursor: string | null = null;
+            let dmIgNextCursor: string | null = null;
             if (dmsRes.status === 'fulfilled' && dmsRes.value.ok) {
                 const data = await dmsRes.value.json();
                 const dmConversations = data.conversations || [];
+                dmFbNextCursor = data.fbNextCursor || null;
+                dmIgNextCursor = data.igNextCursor || null;
 
                 for (const c of dmConversations) {
                     const lastMsg: Message = {
@@ -381,10 +393,73 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                 messages: allMessages,
                 socialInboxLoaded: true,
                 socialInboxLoading: false,
+                fbNextCursor: dmFbNextCursor,
+                igNextCursor: dmIgNextCursor,
             });
         } catch (err) {
             console.error('[Inbox] Error fetching inbox:', err);
             set({ socialInboxLoading: false });
+        }
+    },
+
+    loadMoreConversations: async () => {
+        const state = get();
+        if (state.loadingMore) return;
+        if (!state.fbNextCursor && !state.igNextCursor) return;
+
+        set({ loadingMore: true });
+        try {
+            const params = new URLSearchParams();
+            if (state.fbNextCursor) params.set('fbCursor', state.fbNextCursor);
+            if (state.igNextCursor) params.set('igCursor', state.igNextCursor);
+
+            const res = await fetch(`/api/admin/meta-dms?${params}`);
+            if (!res.ok) { set({ loadingMore: false }); return; }
+            const data = await res.json();
+            const newConversations = data.conversations || [];
+
+            // Map to store format and append
+            const mapped: Conversation[] = newConversations.map((c: any) => {
+                const lastMsg: Message = {
+                    id: `last-${c.id}`,
+                    conversationId: c.id,
+                    senderId: `user-${c.participantId || c.id}`,
+                    senderName: c.participantName,
+                    content: c.lastMessageContent,
+                    timestamp: c.lastMessageTimestamp,
+                    platform: c.platform,
+                    isFromStaff: false,
+                    status: 'read' as const,
+                };
+                return {
+                    id: c.id,
+                    platform: c.platform,
+                    messageType: 'dm',
+                    participants: [{
+                        id: c.participantId || `participant-${c.id}`,
+                        name: c.participantName,
+                        avatar: c.participantAvatar,
+                    }],
+                    lastMessage: lastMsg,
+                    unreadCount: c.unreadCount || 0,
+                    updatedAt: c.lastMessageTimestamp,
+                    graphConversationId: c.graphConversationId,
+                } as any;
+            });
+
+            // Deduplicate and append
+            const existingIds = new Set(state.conversations.map(c => c.id));
+            const uniqueNew = mapped.filter(c => !existingIds.has(c.id));
+
+            set((s) => ({
+                conversations: [...s.conversations, ...uniqueNew],
+                loadingMore: false,
+                fbNextCursor: data.fbNextCursor || null,
+                igNextCursor: data.igNextCursor || null,
+            }));
+        } catch (err) {
+            console.error('[Inbox] Error loading more conversations:', err);
+            set({ loadingMore: false });
         }
     },
 
