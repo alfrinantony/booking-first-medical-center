@@ -158,7 +158,7 @@ export default function EmployeeDetailPage() {
                         {employee.firstName[0]}{employee.lastName[0]}
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{employee.firstName} {employee.lastName}</h1>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{employee.firstName} {employee.middleName ? `${employee.middleName} ` : ''}{employee.lastName}</h1>
                         <p className="text-gray-500">{employee.employeeCode} · {employee.designation} · {employee.department}</p>
                     </div>
                 </div>
@@ -187,6 +187,7 @@ export default function EmployeeDetailPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             {[
                                 { label: 'First Name', key: 'firstName' },
+                                { label: 'Middle Name', key: 'middleName' },
                                 { label: 'Last Name', key: 'lastName' },
                                 { label: 'Email', key: 'email', type: 'email' },
                                 { label: 'Phone', key: 'phone' },
@@ -290,12 +291,30 @@ export default function EmployeeDetailPage() {
                                     value={editForm.contractEndDate || ''} onChange={e => setEditForm({ ...editForm, contractEndDate: e.target.value })} />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Weekly Off Day</label>
-                                <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                    value={(editForm as any).weeklyOffDay || 'Friday'}
-                                    onChange={e => setEditForm({ ...editForm, weeklyOffDay: e.target.value as any })}>
-                                    {['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'].map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Weekly Off Days</label>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'].map(d => {
+                                        const days: string[] = (editForm as any).weeklyOffDays || (editForm as any).weeklyOffDay ? [(editForm as any).weeklyOffDay] : ['Friday'];
+                                        const checked = days.includes(d);
+                                        return (
+                                            <label key={d} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                                checked
+                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-600 dark:text-indigo-300'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                                            }`}>
+                                                <input type="checkbox" className="w-3.5 h-3.5 rounded" checked={checked}
+                                                    onChange={() => {
+                                                        const updated = checked
+                                                            ? days.filter(x => x !== d)
+                                                            : [...days, d];
+                                                        setEditForm({ ...editForm, weeklyOffDays: updated as any });
+                                                    }} />
+                                                {d.slice(0, 3)}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-1">Select 1 or 2 days</p>
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Notice Period</label>

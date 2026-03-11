@@ -12,6 +12,7 @@ import { WORKPLACES, VISA_ISSUING_BRANCHES, LABOR_CARD_STATUSES, DEPARTMENTS } f
 
 interface EmployeeFormData {
     firstName: string;
+    middleName: string;
     lastName: string;
     email: string;
     phone: string;
@@ -31,7 +32,7 @@ interface EmployeeFormData {
     contractEndDate: string;
     employmentType: EmploymentType;
     status: EmployeeStatus;
-    weeklyOffDay: string;
+    weeklyOffDays: string[];
     noticePeriod: string;
     probationPeriod: string;
     penaltyTrainingExpenses: number;
@@ -70,12 +71,12 @@ interface EmployeeFormData {
 }
 
 const emptyForm: EmployeeFormData = {
-    firstName: '', lastName: '', email: '', phone: '', whatsappNumber: '', nationality: '',
+    firstName: '', middleName: '', lastName: '', email: '', phone: '', whatsappNumber: '', nationality: '',
     dateOfBirth: '', gender: 'MALE', maritalStatus: 'SINGLE', employeeNumber: '', religion: '', ibanNumber: '', designation: '', department: '',
     clinicId: 'clinic-1', workplaceId: 'clinic-1',
     joiningDate: new Date().toISOString().split('T')[0],
     contractEndDate: '', employmentType: 'FULL_TIME', status: 'ACTIVE',
-    weeklyOffDay: 'Friday', noticePeriod: '1 Month', probationPeriod: '3 Months',
+    weeklyOffDays: ['Friday'], noticePeriod: '1 Month', probationPeriod: '3 Months',
     penaltyTrainingExpenses: 0, resignationBanDuration: '', penaltyBanDetails: '',
     basicSalary: 0, housingAllowance: 0, transportAllowance: 0,
     workAllowance: 0, trainingAllowance: 0,
@@ -230,7 +231,7 @@ export default function EmployeesPage() {
                                                 {emp.firstName[0]}{emp.lastName[0]}
                                             </div>
                                             <div>
-                                                <div className="font-medium text-gray-900 dark:text-white">{emp.firstName} {emp.lastName}</div>
+                                                <div className="font-medium text-gray-900 dark:text-white">{emp.firstName} {emp.middleName ? `${emp.middleName} ` : ''}{emp.lastName}</div>
                                                 <div className="text-xs text-gray-500">{emp.email}</div>
                                             </div>
                                         </div>
@@ -283,6 +284,11 @@ export default function EmployeesPage() {
                                         <label className="block text-sm font-medium mb-1">First Name *</label>
                                         <input required className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                                             value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Middle Name</label>
+                                        <input className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                            value={form.middleName} onChange={e => setForm({ ...form, middleName: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Last Name *</label>
@@ -406,11 +412,29 @@ export default function EmployeesPage() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Weekly Off Day</label>
-                                        <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                            value={form.weeklyOffDay} onChange={e => setForm({ ...form, weeklyOffDay: e.target.value })}>
-                                            {['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'].map(d => <option key={d} value={d}>{d}</option>)}
-                                        </select>
+                                        <label className="block text-sm font-medium mb-1">Weekly Off Days</label>
+                                        <div className="flex flex-wrap gap-2 mt-1">
+                                            {['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'].map(d => {
+                                                const checked = form.weeklyOffDays.includes(d);
+                                                return (
+                                                    <label key={d} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors ${
+                                                        checked
+                                                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-600 dark:text-indigo-300'
+                                                            : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                                                    }`}>
+                                                        <input type="checkbox" className="w-3.5 h-3.5 rounded" checked={checked}
+                                                            onChange={() => {
+                                                                const updated = checked
+                                                                    ? form.weeklyOffDays.filter(x => x !== d)
+                                                                    : [...form.weeklyOffDays, d];
+                                                                setForm({ ...form, weeklyOffDays: updated });
+                                                            }} />
+                                                        {d.slice(0, 3)}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">Select 1 or 2 days</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Notice Period</label>

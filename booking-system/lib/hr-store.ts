@@ -51,6 +51,7 @@ export interface Employee {
     id: string;
     employeeCode: string;
     firstName: string;
+    middleName?: string;
     lastName: string;
     email: string;
     phone: string;
@@ -71,7 +72,7 @@ export interface Employee {
     contractEndDate?: string;
     employmentType: EmploymentType;
     status: EmployeeStatus;
-    weeklyOffDay?: string;
+    weeklyOffDays?: string[];
     noticePeriod?: string;
     probationPeriod?: string;
     penaltyTrainingExpenses?: number;
@@ -168,7 +169,7 @@ const initialEmployees: Employee[] = [
         joiningDate: '2022-01-10',
         employmentType: 'FULL_TIME',
         status: 'ACTIVE',
-        weeklyOffDay: 'Friday',
+        weeklyOffDays: ['Friday'],
         noticePeriod: '1 Month',
         probationPeriod: '6 Months',
         basicSalary: 25000,
@@ -252,7 +253,7 @@ const initialEmployees: Employee[] = [
         joiningDate: '2023-03-01',
         employmentType: 'FULL_TIME',
         status: 'ACTIVE',
-        weeklyOffDay: 'Friday',
+        weeklyOffDays: ['Friday'],
         noticePeriod: '1 Month',
         probationPeriod: '3 Months',
         basicSalary: 8000,
@@ -309,7 +310,7 @@ const initialEmployees: Employee[] = [
         joiningDate: '2020-06-15',
         employmentType: 'FULL_TIME',
         status: 'ACTIVE',
-        weeklyOffDay: 'Saturday',
+        weeklyOffDays: ['Saturday'],
         noticePeriod: '2 Months',
         probationPeriod: '6 Months',
         basicSalary: 30000,
@@ -380,6 +381,7 @@ export const HRStore = {
             const q = filters.search.toLowerCase();
             result = result.filter(e =>
                 e.firstName.toLowerCase().includes(q) ||
+                (e.middleName || '').toLowerCase().includes(q) ||
                 e.lastName.toLowerCase().includes(q) ||
                 e.employeeCode.toLowerCase().includes(q) ||
                 e.email.toLowerCase().includes(q) ||

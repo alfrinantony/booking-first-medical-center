@@ -568,15 +568,15 @@ export const HRAttendanceStore = {
     },
 
     // ── Today's summary ──
-    async getTodaySummary(date: string, employees?: { weeklyOffDay?: string }[]) {
+    async getTodaySummary(date: string, employees?: { weeklyOffDays?: string[] }[]) {
         await ensureAttLoaded();
         const records = attendanceRecords.filter(r => r.date === date);
 
-        // Count employees whose weekly off day matches this date
+        // Count employees whose weekly off days include this date's day name
         let weeklyOff = records.filter(r => r.status === 'DAY_OFF').length;
         if (employees && employees.length > 0) {
             const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
-            weeklyOff = employees.filter(e => e.weeklyOffDay === dayName).length;
+            weeklyOff = employees.filter(e => (e.weeklyOffDays || []).includes(dayName)).length;
         }
 
         return {

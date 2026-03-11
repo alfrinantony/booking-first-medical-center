@@ -31,7 +31,7 @@ export async function GET(request: Request) {
         const today = date || new Date().toISOString().split('T')[0];
         const summary = await HRAttendanceStore.getTodaySummary(
             today,
-            allEmployees.map(e => ({ weeklyOffDay: e.weeklyOffDay }))
+            allEmployees.map(e => ({ weeklyOffDays: e.weeklyOffDays }))
         );
 
         // Build per-branch breakdown
