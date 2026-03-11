@@ -294,7 +294,11 @@ export default function EmployeeDetailPage() {
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Weekly Off Days</label>
                                 <div className="flex flex-wrap gap-2 mt-1">
                                     {['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'].map(d => {
-                                        const days: string[] = (editForm as any).weeklyOffDays || (editForm as any).weeklyOffDay ? [(editForm as any).weeklyOffDay] : ['Friday'];
+                                        const days: string[] = Array.isArray((editForm as any).weeklyOffDays)
+                                            ? (editForm as any).weeklyOffDays
+                                            : (editForm as any).weeklyOffDay
+                                                ? [(editForm as any).weeklyOffDay]
+                                                : ['Friday'];
                                         const checked = days.includes(d);
                                         return (
                                             <label key={d} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
