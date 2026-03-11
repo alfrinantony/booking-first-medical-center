@@ -126,9 +126,10 @@ export async function GET() {
     try {
         const igPosts = await metricoolFetch(token, userId, blogId, '/stats/instagram/posts', { start, end, sortcolumn: 'comments' });
         if (Array.isArray(igPosts)) {
-            for (const post of igPosts) {
+            for (let i = 0; i < igPosts.length; i++) {
+                const post = igPosts[i];
                 if ((post.comments || 0) > 0) {
-                    const convId = `ig-post-${post.postId || post.id}`;
+                    const convId = `ig-post-${post.postId || post.id || i}`;
                     const timestamp = post.created ? new Date(post.created).toISOString() : new Date().toISOString();
                     const content = post.content || post.text || '';
                     const commentCount = post.comments || 0;
@@ -152,9 +153,10 @@ export async function GET() {
     try {
         const igReels = await metricoolFetch(token, userId, blogId, '/stats/instagram/reels', { start, end, sortcolumn: 'comments' });
         if (Array.isArray(igReels)) {
-            for (const reel of igReels) {
+            for (let i = 0; i < igReels.length; i++) {
+                const reel = igReels[i];
                 if ((reel.comments || 0) > 0) {
-                    const convId = `ig-reel-${reel.postId || reel.id}`;
+                    const convId = `ig-reel-${reel.postId || reel.id || i}`;
                     const timestamp = reel.created ? new Date(reel.created).toISOString() : new Date().toISOString();
                     const content = reel.content || reel.text || '';
                     const commentCount = reel.comments || 0;
@@ -178,9 +180,10 @@ export async function GET() {
     try {
         const fbPosts = await metricoolFetch(token, userId, blogId, '/stats/facebook/posts', { start, end, sortcolumn: 'comments' });
         if (Array.isArray(fbPosts)) {
-            for (const post of fbPosts) {
+            for (let i = 0; i < fbPosts.length; i++) {
+                const post = fbPosts[i];
                 if ((post.comments || 0) > 0) {
-                    const convId = `fb-post-${post.postId || post.id}`;
+                    const convId = `fb-post-${post.postId || post.id || i}`;
                     const timestamp = post.created ? new Date(post.created).toISOString() : new Date().toISOString();
                     const content = post.text || post.content || '';
                     const commentCount = post.comments || 0;
@@ -205,8 +208,9 @@ export async function GET() {
         for (const branch of GMB_BRANCHES) {
             const reviews = await metricoolFetch(token, userId, blogId, '/stats/gmb/review', { start, end, sortcolumn: 'created' }, branch.blogId);
             if (Array.isArray(reviews)) {
-                for (const review of reviews) {
-                    const convId = `gmb-${branch.blogId}-${review.reviewname || review.id || Date.now()}`;
+                for (let i = 0; i < reviews.length; i++) {
+                    const review = reviews[i];
+                    const convId = `gmb-${branch.blogId}-${review.reviewname || review.id || i}`;
                     const timestamp = review.createTime ? new Date(review.createTime).toISOString() : review.created ? new Date(review.created).toISOString() : new Date().toISOString();
                     const reviewText = review.comment || review.text || '';
                     const rating = review.starRating || review.rating || 0;
