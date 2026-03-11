@@ -49,6 +49,7 @@ interface DMConversation {
     participantName: string;
     participantAvatar?: string;
     participantId: string;
+    graphConversationId?: string;  // original Graph API conversation ID for lazy message loading
     lastMessageContent: string;
     lastMessageTimestamp: string;
     unreadCount: number;
@@ -66,9 +67,10 @@ interface DMMessage {
 
 /**
  * GET /api/admin/meta-dms
- * Fetches Facebook Messenger and Instagram DM conversations.
+ * Without query params: returns conversation list (no messages — fast).
+ * With ?conversationId=xxx&platform=facebook: returns messages for one conversation (lazy load).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     const { pageAccessToken, pageId, igUserId } = await getMetaCreds();
 
     if (!pageAccessToken || !pageId) {
@@ -81,9 +83,42 @@ export async function GET() {
         );
     }
 
+    // ── Lazy-load messages for a single conversation ──
+    const url = new URL(request.url);
+    const conversationId = url.searchParams.get('conversationId');
+    if (conversationId) {
+        const platform = url.searchParams.get('platform') || 'facebook';
+        const ownerId = platform === 'instagram' ? igUserId : pageId;
+        try {
+            const msgData = await graphFetch(
+                `/${conversationId}/messages`,
+                pageAccessToken,
+                { fields: 'message,from,created_time', limit: '25' },
+            );
+            const messages: DMMessage[] = [];
+            if (msgData?.data) {
+                for (const m of msgData.data) {
+                    messages.push({
+                        id: m.id,
+                        from: m.from?.id || '',
+                        fromName: m.from?.name || m.from?.username || 'Unknown',
+                        message: m.message || '',
+                        timestamp: m.created_time || new Date().toISOString(),
+                        isFromPage: m.from?.id === ownerId,
+                    });
+                }
+                messages.reverse(); // oldest first
+            }
+            return NextResponse.json({ messages });
+        } catch (err) {
+            console.error(`[MetaDMs] Error fetching messages for ${conversationId}:`, err);
+            return NextResponse.json({ messages: [] });
+        }
+    }
+
     const conversations: DMConversation[] = [];
 
-    // ── 1. Facebook Messenger Conversations ──
+    // ── 1. Facebook Messenger Conversations (metadata only — no messages) ──
     try {
         const fbConvos = await graphFetch(
             `/${pageId}/conversations`,
@@ -94,7 +129,6 @@ export async function GET() {
         if (fbConvos?.data) {
             for (let i = 0; i < fbConvos.data.length; i++) {
                 const convo = fbConvos.data[i];
-                const convId = `fb-dm-${convo.id || i}`;
 
                 // Get participant (the customer, not the page)
                 let participantName = 'Facebook User';
@@ -109,44 +143,17 @@ export async function GET() {
                     }
                 }
 
-                // Fetch messages for this conversation
-                const msgs: DMMessage[] = [];
-                try {
-                    const msgData = await graphFetch(
-                        `/${convo.id}/messages`,
-                        pageAccessToken,
-                        { fields: 'message,from,created_time', limit: '20' },
-                    );
-                    if (msgData?.data) {
-                        for (const m of msgData.data) {
-                            msgs.push({
-                                id: m.id,
-                                from: m.from?.id || '',
-                                fromName: m.from?.name || 'Unknown',
-                                message: m.message || '',
-                                timestamp: m.created_time || new Date().toISOString(),
-                                isFromPage: m.from?.id === pageId,
-                            });
-                        }
-                        // Reverse so oldest first
-                        msgs.reverse();
-                    }
-                } catch (err) {
-                    console.error(`[MetaDMs] Error fetching FB messages for ${convo.id}:`, err);
-                }
-
-                const latestMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-
                 conversations.push({
-                    id: convId,
+                    id: `fb-dm-${convo.id || i}`,
                     platform: 'facebook',
                     messageType: 'dm',
                     participantName,
                     participantId,
-                    lastMessageContent: latestMsg?.message || convo.snippet || '',
+                    graphConversationId: convo.id,  // needed for lazy message loading
+                    lastMessageContent: convo.snippet || '',
                     lastMessageTimestamp: convo.updated_time || new Date().toISOString(),
                     unreadCount: convo.unread_count || 0,
-                    messages: msgs,
+                    messages: [],
                 });
             }
         }
@@ -154,7 +161,7 @@ export async function GET() {
         console.error('[MetaDMs] Facebook conversations error:', err);
     }
 
-    // ── 2. Instagram DM Conversations ──
+    // ── 2. Instagram DM Conversations (metadata only — no messages) ──
     if (igUserId) {
         try {
             const igConvos = await graphFetch(
@@ -166,7 +173,6 @@ export async function GET() {
             if (igConvos?.data) {
                 for (let i = 0; i < igConvos.data.length; i++) {
                     const convo = igConvos.data[i];
-                    const convId = `ig-dm-${convo.id || i}`;
 
                     let participantName = 'Instagram User';
                     let participantId = '';
@@ -180,43 +186,17 @@ export async function GET() {
                         }
                     }
 
-                    // Fetch messages
-                    const msgs: DMMessage[] = [];
-                    try {
-                        const msgData = await graphFetch(
-                            `/${convo.id}/messages`,
-                            pageAccessToken,
-                            { fields: 'message,from,created_time', limit: '20' },
-                        );
-                        if (msgData?.data) {
-                            for (const m of msgData.data) {
-                                msgs.push({
-                                    id: m.id,
-                                    from: m.from?.id || '',
-                                    fromName: m.from?.name || m.from?.username || 'Unknown',
-                                    message: m.message || '',
-                                    timestamp: m.created_time || new Date().toISOString(),
-                                    isFromPage: m.from?.id === igUserId,
-                                });
-                            }
-                            msgs.reverse();
-                        }
-                    } catch (err) {
-                        console.error(`[MetaDMs] Error fetching IG messages for ${convo.id}:`, err);
-                    }
-
-                    const latestMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-
                     conversations.push({
-                        id: convId,
+                        id: `ig-dm-${convo.id || i}`,
                         platform: 'instagram',
                         messageType: 'dm',
                         participantName,
                         participantId,
-                        lastMessageContent: latestMsg?.message || convo.name || '',
+                        graphConversationId: convo.id,  // needed for lazy message loading
+                        lastMessageContent: convo.name || '',
                         lastMessageTimestamp: convo.updated_time || new Date().toISOString(),
                         unreadCount: 0,
-                        messages: msgs,
+                        messages: [],
                     });
                 }
             }

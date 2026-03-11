@@ -43,7 +43,44 @@ export const useInboxStore = create<InboxState>((set, get) => ({
 
     setFilter: (filter) => set({ filter }),
 
-    setActiveConversation: (conversationId) => set({ activeConversationId: conversationId }),
+    setActiveConversation: (conversationId) => {
+        set({ activeConversationId: conversationId });
+
+        // Lazy-load messages for DM conversations that haven't been fetched yet
+        const state = get();
+        const conversation = state.conversations.find(c => c.id === conversationId);
+        if (
+            conversation &&
+            conversation.messageType === 'dm' &&
+            (!state.messages[conversationId] || state.messages[conversationId].length === 0)
+        ) {
+            // Extract the Graph API conversation ID from the store ID (e.g., "fb-dm-t_123" -> "t_123")
+            const graphConvId = (conversation as any).graphConversationId;
+            if (graphConvId) {
+                fetch(`/api/admin/meta-dms?conversationId=${graphConvId}&platform=${conversation.platform}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.messages && data.messages.length > 0) {
+                            const mapped = data.messages.map((m: any) => ({
+                                id: m.id,
+                                conversationId,
+                                senderId: m.from || `user-${conversationId}`,
+                                senderName: m.fromName || conversation.participants[0]?.name || 'Unknown',
+                                content: m.message,
+                                timestamp: m.timestamp,
+                                platform: conversation.platform,
+                                isFromStaff: m.isFromPage,
+                                status: 'read' as const,
+                            }));
+                            set((s) => ({
+                                messages: { ...s.messages, [conversationId]: mapped },
+                            }));
+                        }
+                    })
+                    .catch(err => console.error('[Inbox] Error lazy-loading messages:', err));
+            }
+        }
+    },
 
     sendMessage: (conversationId, content) => {
         const conversation = get().conversations.find(c => c.id === conversationId);
@@ -314,9 +351,10 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                         lastMessage: lastMsg,
                         unreadCount: c.unreadCount || 0,
                         updatedAt: c.lastMessageTimestamp,
-                    });
+                        graphConversationId: c.graphConversationId,
+                    } as any);
 
-                    // Convert DM messages
+                    // Convert DM messages (if any were pre-loaded — now mostly empty for lazy loading)
                     if (c.messages && c.messages.length > 0) {
                         allMessages[c.id] = c.messages.map((m: any) => ({
                             id: m.id,
