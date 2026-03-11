@@ -105,8 +105,18 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                 }),
             })
                 .then(res => res.json())
-                .then(data => console.log('[Inbox] DM reply sent:', data))
-                .catch(err => console.error('[Inbox] Error sending DM reply:', err));
+                .then(data => {
+                    if (data.sent) {
+                        console.log('[Inbox] DM reply sent:', data);
+                    } else {
+                        console.warn('[Inbox] DM reply not delivered:', data.message);
+                        alert(data.message || 'Could not send message. Please try again.');
+                    }
+                })
+                .catch(err => {
+                    console.error('[Inbox] Error sending DM reply:', err);
+                    alert('Network error — could not send message.');
+                });
         } else {
             // Comment reply via Metricool social-inbox API
             fetch('/api/admin/social-inbox', {

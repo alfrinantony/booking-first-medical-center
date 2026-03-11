@@ -253,30 +253,73 @@ export async function POST(request: NextRequest) {
         }
 
         let sent = false;
+        let errorDetail = '';
         const senderId = platform === 'instagram' ? igUserId : pageId;
+        const sendUrl = `${GRAPH_BASE}/${senderId}/messages?access_token=${pageAccessToken}`;
 
         try {
-            const res = await fetch(`${GRAPH_BASE}/${senderId}/messages?access_token=${pageAccessToken}`, {
+            // ── Attempt 1: Standard RESPONSE (works within 24h window) ──
+            const responsePayload = {
+                recipient: { id: recipientId },
+                message: { text: content },
+                messaging_type: 'RESPONSE',
+            };
+
+            const res1 = await fetch(sendUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    recipient: { id: recipientId },
-                    message: { text: content },
-                }),
+                body: JSON.stringify(responsePayload),
             });
-            sent = res.ok;
-            if (!sent) {
-                const errText = await res.text();
-                console.error(`[MetaDMs] Send failed (${platform}):`, errText);
+
+            if (res1.ok) {
+                sent = true;
+            } else {
+                const err1 = await res1.json().catch(() => ({}));
+                const errCode = err1?.error?.error_subcode;
+                console.error(`[MetaDMs] RESPONSE attempt failed (${platform}):`, JSON.stringify(err1));
+
+                // Error 2018278 = outside the allowed messaging window
+                if (platform === 'facebook' && (errCode === 2018278 || err1?.error?.code === 10)) {
+                    // ── Attempt 2: HUMAN_AGENT tag (7-day window, requires Meta approval) ──
+                    const tagPayload = {
+                        recipient: { id: recipientId },
+                        message: { text: content },
+                        messaging_type: 'MESSAGE_TAG',
+                        tag: 'HUMAN_AGENT',
+                    };
+
+                    const res2 = await fetch(sendUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(tagPayload),
+                    });
+
+                    if (res2.ok) {
+                        sent = true;
+                    } else {
+                        const err2 = await res2.json().catch(() => ({}));
+                        console.error(`[MetaDMs] HUMAN_AGENT attempt failed:`, JSON.stringify(err2));
+
+                        // Provide clear user-facing message
+                        if (err2?.error?.error_subcode === 2018276) {
+                            errorDetail = 'Cannot reply — the 24-hour messaging window has expired. The HUMAN_AGENT permission is pending Meta approval.';
+                        } else {
+                            errorDetail = err2?.error?.message || 'Message could not be delivered.';
+                        }
+                    }
+                } else {
+                    errorDetail = err1?.error?.message || 'Message could not be delivered.';
+                }
             }
         } catch (err) {
             console.error(`[MetaDMs] Send error (${platform}):`, err);
+            errorDetail = 'Network error while sending message.';
         }
 
         return NextResponse.json({
-            success: true,
+            success: sent,
             sent,
-            message: sent ? 'DM sent successfully' : 'Could not send DM (check permissions)',
+            message: sent ? 'DM sent successfully' : (errorDetail || 'Could not send DM'),
         });
     } catch (error) {
         console.error('[MetaDMs] POST error:', error);
