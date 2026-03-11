@@ -89,19 +89,39 @@ export const useInboxStore = create<InboxState>((set, get) => ({
             };
         });
 
-        // Post reply via Metricool social-inbox API
-        fetch('/api/admin/social-inbox', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                platform: conversation.platform,
-                conversationId,
-                content,
-            }),
-        })
-            .then(res => res.json())
-            .then(data => console.log('[Inbox] Reply sent:', data))
-            .catch(err => console.error('[Inbox] Error sending reply:', err));
+        // Route DM replies through Meta DMs API, comments through Metricool
+        const isDM = conversation.messageType === 'dm';
+
+        if (isDM) {
+            // DM reply via Meta Graph API
+            const participantId = conversation.participants[0]?.id?.replace('participant-', '') || '';
+            fetch('/api/admin/meta-dms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platform: conversation.platform,
+                    recipientId: participantId,
+                    content,
+                }),
+            })
+                .then(res => res.json())
+                .then(data => console.log('[Inbox] DM reply sent:', data))
+                .catch(err => console.error('[Inbox] Error sending DM reply:', err));
+        } else {
+            // Comment reply via Metricool social-inbox API
+            fetch('/api/admin/social-inbox', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platform: conversation.platform,
+                    conversationId,
+                    content,
+                }),
+            })
+                .then(res => res.json())
+                .then(data => console.log('[Inbox] Comment reply sent:', data))
+                .catch(err => console.error('[Inbox] Error sending comment reply:', err));
+        }
     },
 
     replyToGoogleReview: async (reviewId, content) => {
@@ -143,11 +163,9 @@ export const useInboxStore = create<InboxState>((set, get) => ({
             };
         });
 
-        // Find the Google review conversation to get the reviewname
         const conv = get().conversations.find(c => c.id === reviewId);
         const googleReviewId = (conv && 'googleReviewId' in conv) ? (conv as GoogleReviewConversation).googleReviewId : reviewId;
 
-        // Post reply via Metricool social-inbox API
         try {
             await fetch('/api/admin/social-inbox', {
                 method: 'POST',
@@ -172,8 +190,9 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     },
 
     /**
-     * Fetches all social inbox conversations from the unified Metricool API endpoint.
-     * Replaces the old mock data approach.
+     * Fetches all inbox data from:
+     * 1. Metricool (post comments + Google Reviews) via /api/admin/social-inbox
+     * 2. Meta Graph API (FB Messenger + IG DMs) via /api/admin/meta-dms
      */
     fetchSocialInbox: async () => {
         if (get().socialInboxLoaded || get().socialInboxLoading) return;
@@ -181,88 +200,147 @@ export const useInboxStore = create<InboxState>((set, get) => ({
         set({ socialInboxLoading: true });
 
         try {
-            const res = await fetch('/api/admin/social-inbox');
-            if (!res.ok) throw new Error('Failed to fetch social inbox');
-            const data = await res.json();
+            // Fetch both APIs in parallel
+            const [socialRes, dmsRes] = await Promise.allSettled([
+                fetch('/api/admin/social-inbox'),
+                fetch('/api/admin/meta-dms'),
+            ]);
 
-            const apiConversations = data.conversations || [];
-            const apiMessages: Record<string, Message[]> = data.messages || {};
+            let allConversations: Conversation[] = [];
+            let allMessages: Record<string, Message[]> = {};
 
-            // Convert API format to inbox Conversation format
-            const newConversations: Conversation[] = apiConversations.map((c: any) => {
-                const lastMsg: Message = {
-                    id: `last-${c.id}`,
-                    conversationId: c.id,
-                    senderId: c.platform === 'google_reviews' ? `reviewer-${c.id}` : 'post',
-                    senderName: c.participantName,
-                    content: c.lastMessageContent,
-                    timestamp: c.lastMessageTimestamp,
-                    platform: c.platform,
-                    isFromStaff: c.platform !== 'google_reviews',
-                    status: 'read',
-                };
+            // ── 1. Process Metricool data (comments + reviews) ──
+            if (socialRes.status === 'fulfilled' && socialRes.value.ok) {
+                const data = await socialRes.value.json();
+                const apiConversations = data.conversations || [];
+                const apiMessages: Record<string, any[]> = data.messages || {};
 
-                const base: Conversation = {
-                    id: c.id,
-                    platform: c.platform,
-                    participants: [{
-                        id: `participant-${c.id}`,
-                        name: c.participantName,
-                        avatar: c.participantAvatar,
-                    }],
-                    lastMessage: lastMsg,
-                    unreadCount: c.unreadCount || 0,
-                    updatedAt: c.lastMessageTimestamp,
-                };
+                for (const c of apiConversations) {
+                    const lastMsg: Message = {
+                        id: `last-${c.id}`,
+                        conversationId: c.id,
+                        senderId: c.platform === 'google_reviews' ? `reviewer-${c.id}` : 'post',
+                        senderName: c.participantName,
+                        content: c.lastMessageContent,
+                        timestamp: c.lastMessageTimestamp,
+                        platform: c.platform,
+                        isFromStaff: c.platform !== 'google_reviews',
+                        status: 'read',
+                    };
 
-                // Add Google Review specific fields
-                if (c.platform === 'google_reviews') {
-                    return {
-                        ...base,
-                        starRating: c.starRating || 0,
-                        reviewText: c.reviewText || '',
-                        clinicId: c.clinicId || '',
-                        clinicName: c.clinicName || '',
-                        replyStatus: c.replyStatus || 'unreplied',
-                        receivedAt: c.lastMessageTimestamp,
-                        googleReviewId: c.googleReviewId,
-                    } as GoogleReviewConversation;
+                    const base: Conversation = {
+                        id: c.id,
+                        platform: c.platform,
+                        messageType: c.platform === 'google_reviews' ? 'review' : 'comment',
+                        participants: [{
+                            id: `participant-${c.id}`,
+                            name: c.participantName,
+                            avatar: c.participantAvatar,
+                        }],
+                        lastMessage: lastMsg,
+                        unreadCount: c.unreadCount || 0,
+                        updatedAt: c.lastMessageTimestamp,
+                    };
+
+                    if (c.platform === 'google_reviews') {
+                        allConversations.push({
+                            ...base,
+                            starRating: c.starRating || 0,
+                            reviewText: c.reviewText || '',
+                            clinicId: c.clinicId || '',
+                            clinicName: c.clinicName || '',
+                            replyStatus: c.replyStatus || 'unreplied',
+                            receivedAt: c.lastMessageTimestamp,
+                            googleReviewId: c.googleReviewId,
+                        } as GoogleReviewConversation);
+                    } else {
+                        allConversations.push(base);
+                    }
                 }
 
-                return base;
-            });
-
-            // Convert API messages format
-            const newMessages: Record<string, Message[]> = {};
-            for (const [convId, msgs] of Object.entries(apiMessages)) {
-                newMessages[convId] = (msgs as any[]).map((m: any) => ({
-                    id: m.id,
-                    conversationId: m.conversationId,
-                    senderId: m.isFromStaff ? 'staff_1' : `user-${m.conversationId}`,
-                    senderName: m.senderName,
-                    content: m.content,
-                    timestamp: m.timestamp,
-                    platform: m.platform,
-                    isFromStaff: m.isFromStaff,
-                    status: m.status || 'read',
-                }));
+                // Convert API messages
+                for (const [convId, msgs] of Object.entries(apiMessages)) {
+                    allMessages[convId] = (msgs as any[]).map((m: any) => ({
+                        id: m.id,
+                        conversationId: m.conversationId,
+                        senderId: m.isFromStaff ? 'staff_1' : `user-${m.conversationId}`,
+                        senderName: m.senderName,
+                        content: m.content,
+                        timestamp: m.timestamp,
+                        platform: m.platform,
+                        isFromStaff: m.isFromStaff,
+                        status: m.status || 'read',
+                    }));
+                }
             }
 
+            // ── 2. Process Meta DMs (FB Messenger + IG DMs) ──
+            if (dmsRes.status === 'fulfilled' && dmsRes.value.ok) {
+                const data = await dmsRes.value.json();
+                const dmConversations = data.conversations || [];
+
+                for (const c of dmConversations) {
+                    const lastMsg: Message = {
+                        id: `last-${c.id}`,
+                        conversationId: c.id,
+                        senderId: `user-${c.participantId || c.id}`,
+                        senderName: c.participantName,
+                        content: c.lastMessageContent,
+                        timestamp: c.lastMessageTimestamp,
+                        platform: c.platform,
+                        isFromStaff: false,
+                        status: 'read',
+                    };
+
+                    allConversations.push({
+                        id: c.id,
+                        platform: c.platform,
+                        messageType: 'dm',
+                        participants: [{
+                            id: c.participantId || `participant-${c.id}`,
+                            name: c.participantName,
+                            avatar: c.participantAvatar,
+                        }],
+                        lastMessage: lastMsg,
+                        unreadCount: c.unreadCount || 0,
+                        updatedAt: c.lastMessageTimestamp,
+                    });
+
+                    // Convert DM messages
+                    if (c.messages && c.messages.length > 0) {
+                        allMessages[c.id] = c.messages.map((m: any) => ({
+                            id: m.id,
+                            conversationId: c.id,
+                            senderId: m.from || `user-${c.id}`,
+                            senderName: m.fromName || c.participantName,
+                            content: m.message,
+                            timestamp: m.timestamp,
+                            platform: c.platform,
+                            isFromStaff: m.isFromPage,
+                            status: 'read',
+                        }));
+                    }
+                }
+            }
+
+            // Sort all conversations by most recent
+            allConversations.sort(
+                (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+            );
+
             set({
-                conversations: newConversations.sort(
-                    (a: Conversation, b: Conversation) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-                ),
-                messages: newMessages,
+                conversations: allConversations,
+                messages: allMessages,
                 socialInboxLoaded: true,
                 socialInboxLoading: false,
             });
         } catch (err) {
-            console.error('[Inbox] Error fetching social inbox:', err);
+            console.error('[Inbox] Error fetching inbox:', err);
             set({ socialInboxLoading: false });
         }
     },
 
-    // Legacy method — now just calls fetchSocialInbox since Google reviews are included
+    // Legacy method
     fetchGoogleReviewConversations: async () => {
         await get().fetchSocialInbox();
     },

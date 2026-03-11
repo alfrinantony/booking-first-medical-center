@@ -11,7 +11,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     companyName: 'First Medical Center LLC', contactEmail: 'admin@bookingfirst.com',
     emailHost: 'smtp.gmail.com', emailPort: 587, emailUser: '', emailPass: '',
     twilioSid: '', twilioAuthToken: '', twilioFrom: '',
-    metaAppId: '', metaAppSecret: '', metaPhoneId: '', messengerAccessToken: '', whatsappAccessToken: '', verifyToken: 'my_secure_verify_token',
+    metaAppId: '', metaAppSecret: '', metaPhoneId: '', metaPageId: '', metaIgUserId: '', messengerAccessToken: '', whatsappAccessToken: '', verifyToken: 'my_secure_verify_token',
     stripePublishableKey: '', stripeSecretKey: '', openaiApiKey: '',
     crmApiKey: '', crmEndpoint: '', googleMapsApiKey: '',
     zktecoHost: '192.168.1.200', zktecoPort: 4370, zktecoUsername: 'admin', zktecoPassword: '', zktecoDeviceSn: 'SFVL-2024-00001',
@@ -254,13 +254,18 @@ export default function SettingsPage() {
                             </div>
                         </SubSection>
 
-                        <SubSection label="📱 Meta / Facebook (Messenger & Webhooks)">
+                        <SubSection label="📱 Meta / Facebook (Messenger, DMs & Webhooks)">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {renderInput('App ID', 'metaAppId')}
                                 {renderInput('App Secret', 'metaAppSecret', 'password')}
-                                {renderInput('Messenger Access Token', 'messengerAccessToken', 'password')}
+                                {renderInput('Page ID', 'metaPageId', 'text', 'Your Facebook Page ID')}
+                                {renderInput('IG Business User ID', 'metaIgUserId', 'text', 'Instagram Business Account ID')}
+                                {renderInput('Page Access Token (Messenger)', 'messengerAccessToken', 'password')}
                                 {renderInput('Webhook Verify Token', 'verifyToken')}
                             </div>
+                            <p className="text-xs text-gray-400 mt-2">
+                                Page ID and IG User ID are required for Facebook Messenger & Instagram DMs in the inbox.
+                            </p>
                         </SubSection>
 
                         <SubSection label="📣 Google Ads">

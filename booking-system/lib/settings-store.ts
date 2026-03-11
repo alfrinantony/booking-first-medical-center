@@ -23,6 +23,8 @@ export interface AppSettings {
     metaAppId: string;
     metaAppSecret: string;
     metaPhoneId: string;
+    metaPageId: string;          // Facebook Page ID for Messenger DMs
+    metaIgUserId: string;        // Instagram Business User ID for IG DMs
     messengerAccessToken: string;
     whatsappAccessToken: string;
     verifyToken: string;
@@ -113,6 +115,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     metaAppId: '',
     metaAppSecret: '',
     metaPhoneId: '',
+    metaPageId: '',
+    metaIgUserId: '',
     messengerAccessToken: '',
     whatsappAccessToken: '',
     verifyToken: 'my_secure_verify_token',

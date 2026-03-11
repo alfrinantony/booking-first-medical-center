@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useInboxStore } from '@/lib/inbox-store';
 import { Platform, GoogleReviewConversation, Conversation } from '@/types/inbox';
-import { Send, Search, Facebook, Instagram, Phone, MoreVertical, Star, Clock, Bot, MapPin, Linkedin, MessageCircle, Lock } from 'lucide-react';
+import { Send, Search, Facebook, Instagram, Phone, MoreVertical, Star, Clock, Bot, MapPin, Linkedin, MessageCircle, MessageSquare, Lock } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
 // Platforms not yet connected
@@ -271,8 +271,18 @@ export default function UnifiedInbox() {
                                                 </div>
                                             )}
 
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                                {conversation.lastMessage.content}
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
+                                                {conversation.messageType === 'dm' && (
+                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 shrink-0">
+                                                        <MessageSquare className="w-2.5 h-2.5" /> DM
+                                                    </span>
+                                                )}
+                                                {conversation.messageType === 'comment' && (
+                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[9px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 shrink-0">
+                                                        Comment
+                                                    </span>
+                                                )}
+                                                <span className="truncate">{conversation.lastMessage.content}</span>
                                             </p>
 
                                             {/* Google Review: auto-reply status badge */}
@@ -325,8 +335,13 @@ export default function UnifiedInbox() {
                                             {getPlatformIcon(activeConversation.platform)}
                                         </h3>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500">
+                                            <span className="text-xs text-gray-500 flex items-center gap-1">
                                                 via {getPlatformLabel(activeConversation.platform)}
+                                                {activeConversation.messageType === 'dm' && (
+                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                                        <MessageSquare className="w-3 h-3" /> DM
+                                                    </span>
+                                                )}
                                             </span>
                                             {isGoogleReview(activeConversation) && (
                                                 <>

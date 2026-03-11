@@ -20,6 +20,7 @@ export interface Message {
 export interface Conversation {
   id: string;
   platform: Platform;
+  messageType?: 'dm' | 'comment' | 'review'; // DM = private message, comment = post comment, review = Google review
   participants: {
     id: string;
     name: string;
