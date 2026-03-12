@@ -340,6 +340,7 @@ export interface Booking {
     referralEmployeeName?: string;   // Employee name (if referred by employee)
     referralEmployeeId?: string;     // Employee ID number (if referred by employee)
     anyDoctor?: boolean;             // True when booked under "Any Available Doctor"
+    billingStatus?: 'pending_bill' | 'billed'; // Set to 'pending_bill' when completed, 'billed' when invoice created
     createdAt: string;
 }
 

@@ -118,6 +118,10 @@ export const BookingsStore = {
         const booking = bookings.find(b => b.id === id);
         if (booking) {
             booking.status = status;
+            // When a booking is completed, mark it as needing a bill
+            if (status === 'completed' && booking.billingStatus !== 'billed') {
+                booking.billingStatus = 'pending_bill';
+            }
             await saveToBlob('bookings', bookings);
 
             const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};

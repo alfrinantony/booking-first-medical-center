@@ -202,6 +202,19 @@ export default function BillingPage() {
             });
             if (res.ok) {
                 await loadInvoices();
+                // Mark the booking as billed
+                if (selectedBooking) {
+                    try {
+                        await fetch(`/api/bookings/${selectedBooking.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ billingStatus: 'billed' })
+                        });
+                        // Refresh bookings list
+                        const { BookingsStore } = await import('@/lib/bookings-store');
+                        BookingsStore.getAll().then(b => setBookings(b));
+                    } catch { /* silent */ }
+                }
             }
         } catch { /* silent */ }
 
@@ -224,6 +237,32 @@ export default function BillingPage() {
                         <Plus className="w-4 h-4" /> Generate Invoice
                     </button>
                 </header>
+
+                {/* Pending Bills Alert */}
+                {(() => {
+                    const pendingBills = bookings.filter(b => b.status === 'completed' && b.billingStatus === 'pending_bill');
+                    if (pendingBills.length === 0) return null;
+                    return (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-xl p-4 mb-6 flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                                <div className="font-semibold text-amber-800 dark:text-amber-300">{pendingBills.length} Completed Procedure{pendingBills.length > 1 ? 's' : ''} Pending Billing</div>
+                                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">The following bookings have been marked as completed but no invoice has been generated yet:</p>
+                                <div className="mt-2 space-y-1">
+                                    {pendingBills.slice(0, 5).map(b => (
+                                        <div key={b.id} className="text-sm text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                                            <span className="font-medium">{b.patientName}</span>
+                                            <span className="text-amber-600 dark:text-amber-500">·</span>
+                                            <span>{b.date} {b.slot}</span>
+                                            <button onClick={() => { handleSelectBooking(b); setIsCreateModalOpen(true); }} className="ml-auto text-xs bg-amber-600 text-white px-2 py-0.5 rounded hover:bg-amber-700 transition-colors">Generate Bill</button>
+                                        </div>
+                                    ))}
+                                    {pendingBills.length > 5 && <div className="text-xs text-amber-600">... and {pendingBills.length - 5} more</div>}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Search */}
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 border border-gray-100 dark:border-gray-700">

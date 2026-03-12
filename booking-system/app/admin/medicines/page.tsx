@@ -48,7 +48,7 @@ export default function MedicinesPage() {
                 registeredProductId: rpId,
                 name: rp.tradeName,
                 itemCode: rp.itemCode,
-                price: String(rp.registeredPrice),
+                price: String(rp.consumableItemsInside && Number(rp.consumableItemsInside) > 0 ? +(Number(rp.registeredPrice) / Number(rp.consumableItemsInside)).toFixed(2) : rp.registeredPrice),
                 category: rp.category === 'em_medicine' ? 'medicine' : rp.category,
                 purchaseUnit: rp.purchaseUnit,
                 itemsPerPurchaseUnit: String(rp.consumableItemsInside),
@@ -431,7 +431,7 @@ export default function MedicinesPage() {
                                             value={newMedicine.itemCode} onChange={e => setNewMedicine({ ...newMedicine, itemCode: e.target.value })} placeholder="e.g. MED-001" disabled={!!newMedicine.registeredProductId} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Price (AED) *</label>
+                                        <label className="block text-sm font-medium mb-1">Consumable Unit Price (AED) *</label>
                                         <input required type="number" min="0" step="0.01" className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${newMedicine.registeredProductId ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-70' : ''}`}
                                             value={newMedicine.price} onChange={e => setNewMedicine({ ...newMedicine, price: e.target.value })} disabled={!!newMedicine.registeredProductId} />
                                     </div>
