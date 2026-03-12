@@ -217,7 +217,7 @@ export default function MedicinesPage() {
                     <div className="divide-y divide-gray-100 dark:divide-gray-700">
                         {medicines.length === 0 ? (
                             <div className="text-center py-12 text-gray-500">No items in the inventory yet.</div>
-                        ) : medicines.map(med => {
+                        ) : [...medicines].sort((a, b) => a.name.localeCompare(b.name)).map(med => {
                             const rp = getRegisteredProduct(med);
                             return (
                                 <div key={med.id} className="p-5 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">

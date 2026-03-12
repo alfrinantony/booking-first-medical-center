@@ -171,7 +171,7 @@ export default function ProductRegistryPage() {
             return p.tradeName.toLowerCase().includes(q) || p.genericName.toLowerCase().includes(q) || p.itemCode.toLowerCase().includes(q);
         }
         return true;
-    });
+    }).sort((a, b) => a.tradeName.localeCompare(b.tradeName));
 
     if (loading) return <div className="p-8">Loading product registry...</div>;
 
