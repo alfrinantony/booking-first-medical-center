@@ -128,6 +128,9 @@ export interface RegisteredProduct {
     pdfFileName?: string; // Registration certificate PDF (< 1MB)
     linkedMedicineId?: string; // Optional link to inventory medicine item
     minCentralStock?: number; // Minimum stock threshold for central warehouse
+    minAlMuraqabatStock?: number; // Minimum stock for Al Muraqabat branch
+    minAlQiyadahStock?: number; // Minimum stock for Al Qiyadah branch
+    minSiliconOasisStock?: number; // Minimum stock for Silicon Oasis branch
 }
 
 export interface PurchaseLineItem {

@@ -42,6 +42,9 @@ interface ProductForm {
     registeredSubAgent: string;
     pdfFileName: string;
     minCentralStock: string;
+    minAlMuraqabatStock: string;
+    minAlQiyadahStock: string;
+    minSiliconOasisStock: string;
 }
 
 const emptyForm: ProductForm = {
@@ -50,7 +53,7 @@ const emptyForm: ProductForm = {
     numberOfStoredType: '', consumableItemsInside: '', consumableUnit: '',
     registrationBody: '', registrationNumber: '', registrationExpiry: '',
     registeredSupplierId: '', registeredSubAgent: '', pdfFileName: '',
-    minCentralStock: ''
+    minCentralStock: '', minAlMuraqabatStock: '', minAlQiyadahStock: '', minSiliconOasisStock: ''
 };
 
 export default function ProductRegistryPage() {
@@ -128,6 +131,9 @@ export default function ProductRegistryPage() {
                     numberOfStoredType: Number(form.numberOfStoredType) || 0,
                     consumableItemsInside: Number(form.consumableItemsInside) || 0,
                     minCentralStock: form.minCentralStock ? Number(form.minCentralStock) : undefined,
+                    minAlMuraqabatStock: form.minAlMuraqabatStock ? Number(form.minAlMuraqabatStock) : undefined,
+                    minAlQiyadahStock: form.minAlQiyadahStock ? Number(form.minAlQiyadahStock) : undefined,
+                    minSiliconOasisStock: form.minSiliconOasisStock ? Number(form.minSiliconOasisStock) : undefined,
                 })
             });
             if (res.ok) { await fetchProducts(); setIsAddOpen(false); setForm({ ...emptyForm }); }
@@ -241,11 +247,31 @@ export default function ProductRegistryPage() {
                 </div>
             </div>
 
-            {/* Min Central Stock */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Min Central Stock</label>
-                <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                    value={values.minCentralStock} onChange={e => onChange('minCentralStock', e.target.value)} placeholder="Alert when stock falls below this" />
+            {/* Min Stock per Location */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Minimum Stock Levels</h3>
+                <div className="grid grid-cols-4 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Central</label>
+                        <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                            value={values.minCentralStock} onChange={e => onChange('minCentralStock', e.target.value)} placeholder="0" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Al Muraqabat</label>
+                        <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                            value={(values as any).minAlMuraqabatStock ?? ''} onChange={e => onChange('minAlMuraqabatStock', e.target.value)} placeholder="0" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Al Qiyadah</label>
+                        <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                            value={(values as any).minAlQiyadahStock ?? ''} onChange={e => onChange('minAlQiyadahStock', e.target.value)} placeholder="0" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Silicon Oasis</label>
+                        <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                            value={(values as any).minSiliconOasisStock ?? ''} onChange={e => onChange('minSiliconOasisStock', e.target.value)} placeholder="0" />
+                    </div>
+                </div>
             </div>
 
             {/* Registration Details */}
