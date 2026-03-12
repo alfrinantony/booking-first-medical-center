@@ -34,17 +34,20 @@ function AgentSession({
     customerName,
     onDisconnect,
     remainingSeconds,
+    chatLog,
+    setChatLog,
 }: {
     language: 'en' | 'ar';
     customerName: string;
     onDisconnect: () => void;
     remainingSeconds: number;
+    chatLog: ChatMessage[];
+    setChatLog: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }) {
     const connectionState = useConnectionState();
     const remoteParticipants = useRemoteParticipants();
     const { localParticipant } = useLocalParticipant();
     const room = useRoomContext();
-    const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
     const [isMuted, setIsMuted] = useState(false);
     const [agentStatus, setAgentStatus] = useState('Connecting...');
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -213,6 +216,7 @@ export default function VoiceAgentBubble() {
     const [serverUrl, setServerUrl] = useState('');
     const [dailyLimitReached, setDailyLimitReached] = useState(false);
     const [remainingSeconds, setRemainingSeconds] = useState(300);
+    const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
 
     const DAILY_LIMIT_SECONDS = 300;
     const sessionStartRef = useRef<number>(0);
@@ -291,10 +295,36 @@ export default function VoiceAgentBubble() {
         }
     }, [user]);
 
+    /* ── Submit call summary ── */
+    const submitCallSummary = async (durationSeconds: number) => {
+        if (chatLog.length === 0) return;
+        const transcript = chatLog
+            .map(m => `${m.role === 'user' ? 'Customer' : 'Sofia'}: ${m.content}`)
+            .join('\n');
+        try {
+            await fetch('/api/admin/call-agent-summaries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customerId: user?.phone || `anonymous-${Date.now()}`,
+                    customerName: user?.name || 'Anonymous',
+                    customerNumber: user?.phone || '',
+                    summary: transcript,
+                    callDuration: durationSeconds,
+                    timestamp: new Date().toISOString(),
+                    branch: 'Home Page — LiveKit',
+                }),
+            });
+        } catch (e) {
+            console.error('[Sofia] Failed to submit call summary:', e);
+        }
+    };
+
     /* ── End call ── */
     const endCall = useCallback(() => {
+        let elapsed = 0;
         if (sessionStartRef.current > 0) {
-            const elapsed = Math.ceil((Date.now() - sessionStartRef.current) / 1000);
+            elapsed = Math.ceil((Date.now() - sessionStartRef.current) / 1000);
             addUsedSeconds(elapsed);
             sessionStartRef.current = 0;
         }
@@ -302,12 +332,15 @@ export default function VoiceAgentBubble() {
             clearInterval(countdownRef.current);
             countdownRef.current = null;
         }
+        // Submit summary before clearing state
+        submitCallSummary(elapsed);
+        setChatLog([]);
         setIsInCall(false);
         setToken('');
         setServerUrl('');
         setSelectedLanguage(null);
         setIsOpen(false);
-    }, []);
+    }, [chatLog, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ── Toggle panel ── */
     const toggle = useCallback(() => {
@@ -369,6 +402,8 @@ export default function VoiceAgentBubble() {
                                 customerName={customerName}
                                 onDisconnect={endCall}
                                 remainingSeconds={remainingSeconds}
+                                chatLog={chatLog}
+                                setChatLog={setChatLog}
                             />
                         </LiveKitRoom>
                     )}

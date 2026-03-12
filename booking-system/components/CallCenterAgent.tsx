@@ -29,13 +29,16 @@ function ActiveCallSession({
     clientSecret,
     onDisconnect,
     remainingSeconds: initialRemaining,
+    chatLog,
+    setChatLog,
 }: {
     language: 'en' | 'ar';
     clientSecret: string;
     onDisconnect: () => void;
     remainingSeconds: number;
+    chatLog: ChatMessage[];
+    setChatLog: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }) {
-    const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
     const [isMuted, setIsMuted] = useState(false);
     const [agentStatus, setAgentStatus] = useState('Connecting...');
     const [remaining, setRemaining] = useState(initialRemaining);
@@ -342,6 +345,7 @@ export default function CallCenterAgent() {
     const [clientSecret, setClientSecret] = useState('');
     const [dailyLimitReached, setDailyLimitReached] = useState(false);
     const [remainingSeconds, setRemainingSeconds] = useState(DAILY_LIMIT_SECONDS);
+    const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
 
     const sessionStartRef = useRef<number>(0);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -420,10 +424,36 @@ export default function CallCenterAgent() {
         }
     }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    /* ── Submit call summary ── */
+    const submitCallSummary = async (durationSeconds: number) => {
+        if (chatLog.length === 0) return;
+        const transcript = chatLog
+            .map(m => `${m.role === 'user' ? 'Customer' : 'Sofia'}: ${m.content}`)
+            .join('\n');
+        try {
+            await fetch('/api/admin/call-agent-summaries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customerId: user?.phone || `anonymous-${Date.now()}`,
+                    customerName: user?.name || 'Anonymous',
+                    customerNumber: user?.phone || '',
+                    summary: transcript,
+                    callDuration: durationSeconds,
+                    timestamp: new Date().toISOString(),
+                    branch: 'Booking Page — Call Center',
+                }),
+            });
+        } catch (e) {
+            console.error('[CallCenter] Failed to submit call summary:', e);
+        }
+    };
+
     /* ── End call ── */
     const endCall = useCallback(() => {
+        let elapsed = 0;
         if (sessionStartRef.current > 0) {
-            const elapsed = Math.ceil((Date.now() - sessionStartRef.current) / 1000);
+            elapsed = Math.ceil((Date.now() - sessionStartRef.current) / 1000);
             addUsedSeconds(elapsed);
             sessionStartRef.current = 0;
         }
@@ -431,11 +461,14 @@ export default function CallCenterAgent() {
             clearInterval(countdownRef.current);
             countdownRef.current = null;
         }
+        // Submit summary before clearing state
+        submitCallSummary(elapsed);
+        setChatLog([]);
         setIsInCall(false);
         setClientSecret('');
         setSelectedLanguage(null);
         setIsOpen(false);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [chatLog, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ── Toggle panel ── */
     const toggle = useCallback(async () => {
@@ -494,6 +527,8 @@ export default function CallCenterAgent() {
                             clientSecret={clientSecret}
                             onDisconnect={endCall}
                             remainingSeconds={remainingSeconds}
+                            chatLog={chatLog}
+                            setChatLog={setChatLog}
                         />
                     )}
 
