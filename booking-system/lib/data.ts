@@ -40,6 +40,12 @@ export interface Service {
     addOns?: ServiceAddOn[]; // Optional add-on procedures with area and price
     peakDays?: number[];    // Procedure-specific peak days (0=Sun–6=Sat), overrides clinic-wide
     peakSlots?: string[];   // Procedure-specific peak time slots, overrides clinic-wide
+    productConsumptions?: ProductConsumption[]; // Products consumed by this service
+}
+
+export interface ProductConsumption {
+    registeredProductId: string; // Links to RegisteredProduct
+    quantityPerService: number; // How many consumable units used per service
 }
 
 export interface BranchStockEntry {
@@ -126,6 +132,7 @@ export interface RegisteredProduct {
 
 export interface PurchaseLineItem {
     medicineId: string;
+    registeredProductId?: string; // Links to ProductRegister for auto-fill
     quantity: number;
     unitPrice: number;
     focQuantity?: number;
@@ -145,6 +152,23 @@ export interface PurchaseRecord {
     chequeNumber?: string;
     chequeDate?: string; // ISO date
     notes?: string;
+    invoiceFileBase64?: string; // Base64-encoded invoice file (PDF/JPG/PNG)
+    invoiceFileName?: string; // Original filename
+}
+
+export interface InventoryBatch {
+    id: string;
+    registeredProductId: string; // Links to ProductRegister
+    medicineId: string; // Links to Medicine (inventory item)
+    batchNumber: string;
+    quantity: number; // Remaining quantity in consumable units
+    initialQuantity: number; // Original quantity at time of purchase
+    expiryDate: string; // ISO date YYYY-MM-DD
+    purchaseRecordId: string; // Links to the purchase that created this batch
+    invoiceNumber: string; // From the purchase record
+    purchaseDate: string; // ISO date YYYY-MM-DD
+    centralStock: number; // Central warehouse qty for this batch
+    branchStock: BranchStockEntry[]; // Per-branch stock for this batch
 }
 
 export interface Resource {

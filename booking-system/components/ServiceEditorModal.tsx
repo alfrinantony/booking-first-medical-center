@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { X, ImagePlus, FileText, DollarSign, Heart, Clock, Shield, Package, Sparkles } from 'lucide-react';
-import { ServiceAddOn, Doctor, Resource, Medicine, Clinic } from '@/lib/data';
+import { X, ImagePlus, FileText, DollarSign, Heart, Clock, Shield, Package, Sparkles, Plus, Trash2 } from 'lucide-react';
+import { ServiceAddOn, Doctor, Resource, Medicine, Clinic, RegisteredProduct } from '@/lib/data';
 
 // Section definitions for sidebar
 const SECTIONS = [
@@ -35,6 +35,7 @@ interface ServiceEditorModalProps {
     onImageUpload: (file: File, type: string, id: string) => Promise<string>;
     submitting: boolean;
     uploadingImage: boolean;
+    registeredProducts?: RegisteredProduct[];
 }
 
 function SectionHeader({ id, label, icon: Icon, color }: { id: string; label: string; icon: any; color: string }) {
@@ -50,8 +51,8 @@ export default function ServiceEditorModal({
     mode, title, formState, setFormState,
     currentClinic, doctors, resources, medicines, dayNames,
     onSubmit, onClose, onToggleDay, onToggleDoctor,
-    onImageUpload, submitting, uploadingImage,
-}: ServiceEditorModalProps) {
+    onImageUpload, submitting, uploadingImage, registeredProducts,
+}: ServiceEditorModalProps & { registeredProducts?: RegisteredProduct[] }) {
     const contentRef = useRef<HTMLDivElement>(null);
     const [activeSection, setActiveSection] = React.useState('basic');
 
@@ -394,6 +395,43 @@ export default function ServiceEditorModal({
                                     ))}
                                     {medicines.filter(m => m.category === 'consumable').length === 0 && <p className="text-xs text-gray-500">No consumables found.</p>}
                                 </div>
+                            </div>
+                            {/* Product Consumptions — links to RegisteredProduct with quantity */}
+                            <div className="mt-4 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 bg-indigo-50/50 dark:bg-indigo-900/10">
+                                <h4 className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 mb-2">📦 Product Consumption per Service</h4>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-3">Define which registered products are consumed each time this service is performed.</p>
+                                {(formState.productConsumptions || []).map((pc: any, idx: number) => (
+                                    <div key={idx} className="flex items-center gap-2 mb-2">
+                                        <select className="flex-1 p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
+                                            value={pc.registeredProductId || ''}
+                                            onChange={e => {
+                                                const u = [...(formState.productConsumptions || [])];
+                                                u[idx] = { ...u[idx], registeredProductId: e.target.value };
+                                                update({ productConsumptions: u });
+                                            }}>
+                                            <option value="">— Select Product —</option>
+                                            {(registeredProducts || []).map(rp => (
+                                                <option key={rp.id} value={rp.id}>{rp.tradeName} ({rp.category || 'Uncategorized'})</option>
+                                            ))}
+                                        </select>
+                                        <input type="number" min="0.1" step="0.1" placeholder="Qty" className="w-20 p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
+                                            value={pc.quantityPerService || ''}
+                                            onChange={e => {
+                                                const u = [...(formState.productConsumptions || [])];
+                                                u[idx] = { ...u[idx], quantityPerService: Number(e.target.value) };
+                                                update({ productConsumptions: u });
+                                            }} />
+                                        <button type="button" onClick={() => {
+                                            update({ productConsumptions: (formState.productConsumptions || []).filter((_: any, i: number) => i !== idx) });
+                                        }} className="text-red-500 hover:text-red-700 px-1">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button type="button" onClick={() => update({ productConsumptions: [...(formState.productConsumptions || []), { registeredProductId: '', quantityPerService: 1 }] })}
+                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 mt-1">
+                                    <Plus className="w-3 h-3" /> Add Product
+                                </button>
                             </div>
                         </section>
 

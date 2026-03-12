@@ -3,12 +3,17 @@
 // ─────────────────────────────────────────────────────────────
 
 import { loadFromBlob, saveToBlob } from './blob-persistence';
+import { InventoryBatchStore } from './services-store';
 
 export interface InvoiceLineItem {
     description: string;       // Service name or package name
     quantity: number;
     unitPrice: number;
     total: number;
+    // Inventory fields (optional — only for items consumed from inventory)
+    medicineId?: string;       // Links to Medicine
+    batchId?: string;          // Links to InventoryBatch
+    medicineName?: string;     // Display name
 }
 
 export interface Invoice {
@@ -74,6 +79,18 @@ export const BillingStore = {
         invoices.push(invoice);
         nextSequence++;
         await saveBilling();
+
+        // Auto-deduct inventory batches for items that reference a batchId
+        for (const item of invoice.items) {
+            if (item.batchId && item.quantity > 0) {
+                try {
+                    await InventoryBatchStore.deductFromBatch(item.batchId, item.quantity);
+                } catch (e) {
+                    console.error(`Failed to deduct batch ${item.batchId}:`, e);
+                }
+            }
+        }
+
         return invoice;
     },
 

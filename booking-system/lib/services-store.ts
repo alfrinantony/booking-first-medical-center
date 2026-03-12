@@ -1,4 +1,4 @@
-import { clinics as initialClinics, Clinic, Service, Medicine, medicineCatalog as initialMedicines, Supplier, initialSuppliers, PurchaseRecord, initialPurchases, DistributionRecord, RegisteredProduct, initialRegisteredProducts } from './data';
+import { clinics as initialClinics, Clinic, Service, Medicine, medicineCatalog as initialMedicines, Supplier, initialSuppliers, PurchaseRecord, initialPurchases, DistributionRecord, RegisteredProduct, initialRegisteredProducts, InventoryBatch, BranchStockEntry } from './data';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 // ── Clinics (shared backing store for Services + Doctors) ─────
@@ -35,11 +35,18 @@ export const MedicineStore = {
     },
 
     addMedicine: async (medicine: Omit<Medicine, 'id'>): Promise<Medicine> => {
+        // NOTE: Manual add is still available internally for purchase-driven creation
         await ensureMedicinesLoaded();
         const newMedicine: Medicine = { ...medicine, id: `med-${Date.now()}` };
         medicineStore.push(newMedicine);
         await saveToBlob('medicines', medicineStore);
         return newMedicine;
+    },
+
+    // Internal-only: find medicine by registeredProductId
+    findByProductId: async (registeredProductId: string): Promise<Medicine | undefined> => {
+        await ensureMedicinesLoaded();
+        return medicineStore.find(m => m.registeredProductId === registeredProductId);
     },
 
     updateMedicine: async (id: string, updates: Partial<Omit<Medicine, 'id'>>): Promise<Medicine | null> => {
@@ -258,10 +265,64 @@ export const PurchaseStore = {
         await ensurePurchasesLoaded();
         const newRecord: PurchaseRecord = { ...record, id: `pur-${Date.now()}` };
         purchaseStore.push(newRecord);
-        // Auto-increase central warehouse stock for each line item
+
+        // Auto-create inventory batches and medicine entries for each line item
         for (const item of newRecord.items) {
             const totalQty = item.quantity + (item.focQuantity || 0);
-            await MedicineStore.addCentralStock(item.medicineId, totalQty);
+            let targetMedicineId = item.medicineId;
+
+            // If the line links to a registered product, ensure a Medicine entry exists
+            if (item.registeredProductId) {
+                const product = await RegisteredProductStore.getById(item.registeredProductId);
+                let medicine = await MedicineStore.findByProductId(item.registeredProductId);
+
+                if (!medicine && product) {
+                    // Auto-create medicine from registered product
+                    const consumableUnitPrice = product.consumableItemsInside > 0
+                        ? +(product.registeredPrice / product.consumableItemsInside).toFixed(2) : product.registeredPrice;
+                    medicine = await MedicineStore.addMedicine({
+                        name: product.tradeName,
+                        itemCode: product.itemCode,
+                        price: consumableUnitPrice,
+                        centralStock: 0,
+                        branchStock: [],
+                        category: product.category,
+                        purchaseUnit: product.purchaseUnit,
+                        storedType: product.storedType,
+                        numberOfStoredType: product.numberOfStoredType,
+                        consumableItemsInside: product.consumableItemsInside,
+                        consumableUnit: product.consumableUnit,
+                        minCentralStock: product.minCentralStock,
+                        registeredProductId: product.id,
+                        batchNumber: item.batchNumber,
+                        expiryDate: item.expiryDate,
+                    });
+                }
+
+                if (medicine) {
+                    targetMedicineId = medicine.id;
+                }
+
+                // Create InventoryBatch (auto-generate batch number if not provided)
+                const batchNum = item.batchNumber || `AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                const batchQty = totalQty * (product?.consumableItemsInside || 1);
+                await InventoryBatchStore.add({
+                    registeredProductId: item.registeredProductId,
+                    medicineId: targetMedicineId,
+                    batchNumber: batchNum,
+                    quantity: batchQty,
+                    initialQuantity: batchQty,
+                    expiryDate: item.expiryDate || '',
+                    purchaseRecordId: newRecord.id,
+                    invoiceNumber: newRecord.billNumber,
+                    purchaseDate: newRecord.purchaseDate,
+                    centralStock: batchQty,
+                    branchStock: [],
+                });
+            }
+
+            // Always bump central stock on the medicine
+            await MedicineStore.addCentralStock(targetMedicineId, totalQty);
         }
         await saveToBlob('purchases', purchaseStore);
         return newRecord;
@@ -277,6 +338,80 @@ export const PurchaseStore = {
         }
         return false;
     }
+};
+
+// ── Inventory Batches ─────────────────────────────────────────
+let batchStore: InventoryBatch[] = [];
+let batchesLoaded = false;
+
+async function ensureBatchesLoaded() {
+    if (!batchesLoaded) {
+        batchStore = await loadFromBlob<InventoryBatch[]>('inventory-batches', []);
+        batchesLoaded = true;
+    }
+}
+
+export const InventoryBatchStore = {
+    getAll: async (): Promise<InventoryBatch[]> => {
+        await ensureBatchesLoaded();
+        return batchStore;
+    },
+
+    getByProduct: async (registeredProductId: string): Promise<InventoryBatch[]> => {
+        await ensureBatchesLoaded();
+        return batchStore.filter(b => b.registeredProductId === registeredProductId);
+    },
+
+    getByMedicine: async (medicineId: string): Promise<InventoryBatch[]> => {
+        await ensureBatchesLoaded();
+        return batchStore.filter(b => b.medicineId === medicineId);
+    },
+
+    getActiveBatches: async (medicineId: string): Promise<InventoryBatch[]> => {
+        await ensureBatchesLoaded();
+        const today = new Date().toISOString().split('T')[0];
+        return batchStore.filter(b => b.medicineId === medicineId && b.quantity > 0 && b.expiryDate >= today);
+    },
+
+    add: async (batch: Omit<InventoryBatch, 'id'>): Promise<InventoryBatch> => {
+        await ensureBatchesLoaded();
+        const newBatch: InventoryBatch = { ...batch, id: `batch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` };
+        batchStore.push(newBatch);
+        await saveToBlob('inventory-batches', batchStore);
+        return newBatch;
+    },
+
+    deductFromBatch: async (batchId: string, qty: number, clinicId?: string): Promise<{ success: boolean; message: string }> => {
+        await ensureBatchesLoaded();
+        const batch = batchStore.find(b => b.id === batchId);
+        if (!batch) return { success: false, message: 'Batch not found' };
+        // Safety: check expiry
+        const today = new Date().toISOString().split('T')[0];
+        if (batch.expiryDate && batch.expiryDate < today) return { success: false, message: 'Batch is expired' };
+        // Deduct from branch or central
+        if (clinicId) {
+            const branch = batch.branchStock.find(b => b.clinicId === clinicId);
+            if (!branch || branch.quantity < qty) return { success: false, message: 'Insufficient branch stock for this batch' };
+            branch.quantity -= qty;
+        } else {
+            if (batch.centralStock < qty) return { success: false, message: 'Insufficient central stock for this batch' };
+            batch.centralStock -= qty;
+        }
+        batch.quantity -= qty;
+        await saveToBlob('inventory-batches', batchStore);
+        return { success: true, message: 'Stock deducted' };
+    },
+
+    getAlerts: async (): Promise<{ lowStock: InventoryBatch[]; expiringSoon: InventoryBatch[] }> => {
+        await ensureBatchesLoaded();
+        const today = new Date();
+        const sixtyDaysFromNow = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const todayStr = today.toISOString().split('T')[0];
+        return {
+            lowStock: batchStore.filter(b => b.quantity > 0 && b.quantity <= 5),
+            expiringSoon: batchStore.filter(b => b.quantity > 0 && b.expiryDate >= todayStr && b.expiryDate <= sixtyDaysFromNow),
+        };
+    },
 };
 
 // ── Services (uses shared clinic store) ───────────────────────

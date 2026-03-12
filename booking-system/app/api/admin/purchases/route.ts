@@ -12,13 +12,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { supplierId, billNumber, purchaseDate, items, subtotal, taxAmount, totalAmount, chequeNumber, chequeDate, notes } = body;
+        const { supplierId, billNumber, purchaseDate, items, subtotal, taxAmount, totalAmount, chequeNumber, chequeDate, notes, invoiceFileBase64, invoiceFileName } = body;
 
         if (!supplierId || !billNumber || !purchaseDate || !items || !Array.isArray(items) || items.length === 0) {
             return NextResponse.json({ error: 'supplierId, billNumber, purchaseDate, and at least one item are required' }, { status: 400 });
         }
 
-        // Validate each line item
         for (const item of items) {
             if (!item.medicineId || !item.quantity || item.quantity <= 0) {
                 return NextResponse.json({ error: 'Each item must have a medicineId and quantity > 0' }, { status: 400 });
@@ -29,8 +28,9 @@ export async function POST(request: Request) {
             supplierId,
             billNumber,
             purchaseDate,
-            items: items.map((item: { medicineId: string; quantity: number; unitPrice: number; focQuantity?: number; batchNumber?: string; expiryDate?: string }) => ({
+            items: items.map((item: { medicineId: string; registeredProductId?: string; quantity: number; unitPrice: number; focQuantity?: number; batchNumber?: string; expiryDate?: string }) => ({
                 medicineId: item.medicineId,
+                registeredProductId: item.registeredProductId || undefined,
                 quantity: Number(item.quantity),
                 unitPrice: Number(item.unitPrice) || 0,
                 focQuantity: item.focQuantity !== undefined ? Number(item.focQuantity) : 0,
@@ -42,7 +42,9 @@ export async function POST(request: Request) {
             totalAmount: Number(totalAmount) || 0,
             chequeNumber: chequeNumber || undefined,
             chequeDate: chequeDate || undefined,
-            notes: notes || undefined
+            notes: notes || undefined,
+            invoiceFileBase64: invoiceFileBase64 || undefined,
+            invoiceFileName: invoiceFileName || undefined,
         });
         return NextResponse.json(record);
     } catch {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, FileText, Package, CreditCard, Filter, ChevronDown, ChevronRight, Receipt, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, FileText, Package, CreditCard, Filter, ChevronDown, ChevronRight, Receipt, AlertTriangle, Upload, Download, Eye } from 'lucide-react';
 import { Medicine, Supplier, PurchaseRecord, PurchaseLineItem, RegisteredProduct } from '@/lib/data';
 
 interface LineItemForm {
@@ -30,6 +30,7 @@ export default function PurchasesPage() {
     const [submitting, setSubmitting] = useState(false);
     const [expandedBill, setExpandedBill] = useState<string | null>(null);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
+    const [invoiceFile, setInvoiceFile] = useState<{ base64: string; name: string } | null>(null);
 
     // Filters
     const [filterMedicine, setFilterMedicine] = useState('');
@@ -122,6 +123,7 @@ export default function PurchasesPage() {
                     ...billForm,
                     items: validItems.map(li => ({
                         medicineId: li.medicineId || li.registeredProductId,
+                        registeredProductId: li.registeredProductId || undefined,
                         quantity: Number(li.quantity),
                         unitPrice: Number(li.unitPrice) || 0,
                         focQuantity: Number(li.focQuantity) || 0,
@@ -130,7 +132,9 @@ export default function PurchasesPage() {
                     })),
                     subtotal,
                     taxAmount: Number(billForm.taxAmount) || 0,
-                    totalAmount
+                    totalAmount,
+                    invoiceFileBase64: invoiceFile?.base64 || undefined,
+                    invoiceFileName: invoiceFile?.name || undefined,
                 })
             });
             if (res.ok) {
@@ -138,6 +142,7 @@ export default function PurchasesPage() {
                 setIsAddOpen(false);
                 setBillForm({ supplierId: '', billNumber: '', purchaseDate: '', chequeNumber: '', chequeDate: '', taxAmount: '', notes: '' });
                 setLineItems([{ ...emptyLineItem }]);
+                setInvoiceFile(null);
             } else alert('Failed to add purchase');
         } catch (e) { console.error(e); } finally { setSubmitting(false); }
     };
@@ -187,6 +192,48 @@ export default function PurchasesPage() {
         setLineItems(prev => prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx));
     };
     const addLineItem = () => setLineItems(prev => [...prev, { ...emptyLineItem }]);
+
+    const handleInvoiceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { alert('Invoice file must be under 5MB'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64 = (reader.result as string).split(',')[1];
+            setInvoiceFile({ base64, name: file.name });
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const downloadInvoice = (purchase: PurchaseRecord) => {
+        if (!purchase.invoiceFileBase64 || !purchase.invoiceFileName) return;
+        const ext = purchase.invoiceFileName.split('.').pop()?.toLowerCase();
+        const mimeMap: Record<string, string> = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+        const mime = mimeMap[ext || ''] || 'application/octet-stream';
+        const byteChars = atob(purchase.invoiceFileBase64);
+        const byteArr = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([byteArr], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = purchase.invoiceFileName;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const viewInvoice = (purchase: PurchaseRecord) => {
+        if (!purchase.invoiceFileBase64 || !purchase.invoiceFileName) return;
+        const ext = purchase.invoiceFileName.split('.').pop()?.toLowerCase();
+        const mimeMap: Record<string, string> = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+        const mime = mimeMap[ext || ''] || 'application/octet-stream';
+        const byteChars = atob(purchase.invoiceFileBase64);
+        const byteArr = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([byteArr], { type: mime });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    };
 
     // Filter registered products by selected supplier
     const getAvailableProducts = () => {
@@ -243,12 +290,13 @@ export default function PurchasesPage() {
                                     <th className="text-right p-4 font-medium text-gray-500">Tax</th>
                                     <th className="text-right p-4 font-medium text-gray-500">Total (AED)</th>
                                     <th className="text-left p-4 font-medium text-gray-500">Cheque</th>
+                                    <th className="text-center p-4 font-medium text-gray-500">Invoice</th>
                                     <th className="text-center p-4 font-medium text-gray-500"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {purchases.length === 0 ? (
-                                    <tr><td colSpan={10} className="text-center py-12 text-gray-500">No purchase records found.</td></tr>
+                                    <tr><td colSpan={11} className="text-center py-12 text-gray-500">No purchase records found.</td></tr>
                                 ) : purchases.map(p => (
                                     <React.Fragment key={p.id}>
                                         <tr className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer" onClick={() => setExpandedBill(expandedBill === p.id ? null : p.id)}>
@@ -280,6 +328,18 @@ export default function PurchasesPage() {
                                                 ) : <span className="text-gray-400">—</span>}
                                             </td>
                                             <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
+                                                {p.invoiceFileBase64 ? (
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <button onClick={() => viewInvoice(p)} className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20" title="View Invoice">
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => downloadInvoice(p)} className="text-green-500 hover:text-green-700 p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/20" title="Download Invoice">
+                                                            <Download className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : <span className="text-gray-400 text-xs">—</span>}
+                                            </td>
+                                            <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
                                                 <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -288,7 +348,7 @@ export default function PurchasesPage() {
                                         {/* Expanded line items */}
                                         {expandedBill === p.id && (
                                             <tr>
-                                                <td colSpan={10} className="bg-gray-50/80 dark:bg-gray-700/30 p-0">
+                                                <td colSpan={11} className="bg-gray-50/80 dark:bg-gray-700/30 p-0">
                                                     <div className="px-12 py-3">
                                                         <table className="w-full text-xs">
                                                             <thead>
@@ -488,6 +548,23 @@ export default function PurchasesPage() {
                                         <label className="block text-sm font-medium mb-1">Notes</label>
                                         <input type="text" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                                             value={billForm.notes} onChange={e => setBillForm({ ...billForm, notes: e.target.value })} placeholder="Optional..." />
+                                    </div>
+                                </div>
+
+                                {/* Invoice Upload */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Invoice File (PDF/JPG/PNG)</label>
+                                    <div className="flex items-center gap-3">
+                                        <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors">
+                                            <Upload className="w-4 h-4 text-gray-400" />
+                                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                                                {invoiceFile ? invoiceFile.name : 'Choose file...'}
+                                            </span>
+                                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleInvoiceUpload} />
+                                        </label>
+                                        {invoiceFile && (
+                                            <button type="button" onClick={() => setInvoiceFile(null)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                                        )}
                                     </div>
                                 </div>
 

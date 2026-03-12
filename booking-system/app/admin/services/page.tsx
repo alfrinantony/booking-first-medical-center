@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill, ImagePlus, FolderOpen, X } from 'lucide-react';
-import { Clinic, Department, Service, ServiceAddOn, ServicePackageTier, Doctor, Resource, Medicine } from '@/lib/data';
+import { Clinic, Department, Service, ServiceAddOn, ServicePackageTier, Doctor, Resource, Medicine, RegisteredProduct, ProductConsumption } from '@/lib/data';
 import ServiceEditorModal from '@/components/ServiceEditorModal';
 
 interface ServiceFormState {
@@ -37,6 +37,7 @@ interface ServiceFormState {
     consumableIds: string[];
     addOns: ServiceAddOn[];
     image: string;
+    productConsumptions: { registeredProductId: string; quantityPerService: number }[];
 }
 
 export default function ServicesPage() {
@@ -78,7 +79,8 @@ export default function ServicesPage() {
         medicineSelectionMode: 'choose',
         consumableIds: [],
         addOns: [],
-        image: ''
+        image: '',
+        productConsumptions: [],
     };
     const [newService, setNewService] = useState<ServiceFormState>(emptyServiceForm);
 
@@ -192,7 +194,8 @@ export default function ServicesPage() {
             allowedGender: formState.allowedGender,
             allowedDays: formState.allowedDays,
             requiredResourceIds: formState.requiredResourceIds,
-            consumableIds: 'consumableIds' in formState ? (formState as any).consumableIds || [] : []
+            consumableIds: 'consumableIds' in formState ? (formState as any).consumableIds || [] : [],
+            productConsumptions: 'productConsumptions' in formState ? (formState as any).productConsumptions || [] : []
         };
 
         if ('serviceId' in formState) { // It's an update (hacky check, better to separate)
@@ -253,6 +256,7 @@ export default function ServicesPage() {
                 medicineIds: newService.medicineIds,
                 medicineSelectionMode: newService.medicineIds.length > 0 ? newService.medicineSelectionMode : undefined,
                 consumableIds: newService.consumableIds,
+                productConsumptions: newService.productConsumptions.length > 0 ? newService.productConsumptions : undefined,
                 addOns: newService.addOns,
                 image: newService.image || undefined
             };
@@ -312,6 +316,7 @@ export default function ServicesPage() {
                 medicineIds: editingService.medicineIds || [],
                 medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : undefined,
                 consumableIds: editingService.consumableIds || [],
+                productConsumptions: editingService.productConsumptions || [],
                 addOns: editingService.addOns || [],
                 image: editingService.image || undefined
             };
@@ -366,9 +371,13 @@ export default function ServicesPage() {
     };
 
     // Fetch medicines for consumable selection
+    const [registeredProducts, setRegisteredProducts] = useState<RegisteredProduct[]>([]);
     useEffect(() => {
         fetch('/api/admin/medicines').then(r => r.json()).then(data => {
             if (Array.isArray(data)) setMedicines(data);
+        }).catch(() => { });
+        fetch('/api/admin/registered-products').then(r => r.json()).then(data => {
+            if (Array.isArray(data)) setRegisteredProducts(data);
         }).catch(() => { });
     }, []);
 
@@ -712,6 +721,7 @@ export default function ServicesPage() {
                         doctors={newService.departmentId ? getDepartmentDoctors(newService.departmentId) : []}
                         resources={resources}
                         medicines={medicines}
+                        registeredProducts={registeredProducts}
                         dayNames={dayNames}
                         onSubmit={handleAddService}
                         onClose={() => setIsAddModalOpen(false)}
@@ -733,6 +743,7 @@ export default function ServicesPage() {
                         doctors={getDepartmentDoctors(editingService.departmentId)}
                         resources={resources}
                         medicines={medicines}
+                        registeredProducts={registeredProducts}
                         dayNames={dayNames}
                         onSubmit={handleUpdateService}
                         onClose={() => setIsEditModalOpen(false)}
