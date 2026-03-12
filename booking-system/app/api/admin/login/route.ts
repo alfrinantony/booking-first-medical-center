@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // ── Enforce login restrictions ──
+        // ── Enforce login restrictions (SUPER_ADMIN is always exempt) ──
         const r = user.loginRestrictions;
-        if (r && r.enabled) {
+        if (r && r.enabled && user.role !== 'SUPER_ADMIN') {
             // Get client IP from headers
             const clientIP =
                 req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
