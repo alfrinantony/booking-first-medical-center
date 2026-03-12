@@ -321,8 +321,14 @@ export const PurchaseStore = {
                 });
             }
 
-            // Always bump central stock on the medicine
-            await MedicineStore.addCentralStock(targetMedicineId, totalQty);
+            // Always bump central stock on the medicine (multiply by numberOfStoredType)
+            if (item.registeredProductId) {
+                const prod = await RegisteredProductStore.getById(item.registeredProductId);
+                const storedMultiplier = prod?.numberOfStoredType || 1;
+                await MedicineStore.addCentralStock(targetMedicineId, totalQty * storedMultiplier);
+            } else {
+                await MedicineStore.addCentralStock(targetMedicineId, totalQty);
+            }
         }
         await saveToBlob('purchases', purchaseStore);
         return newRecord;
