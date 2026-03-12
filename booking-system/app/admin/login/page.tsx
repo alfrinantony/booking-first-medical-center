@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLoginPage() {
@@ -10,6 +10,8 @@ export default function AdminLoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const wasKicked = searchParams.get('kicked') === '1';
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,6 +46,12 @@ export default function AdminLoginPage() {
                     <h1 className="text-2xl font-bold text-gray-800">Staff Login</h1>
                     <p className="text-gray-500 text-sm mt-1">First Medical Center LLC</p>
                 </div>
+
+                {wasKicked && (
+                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm text-center">
+                        ⚠️ You were logged out because your account was signed in on another device.
+                    </div>
+                )}
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>

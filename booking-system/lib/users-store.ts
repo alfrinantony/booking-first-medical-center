@@ -189,12 +189,27 @@ export const UsersStore = {
         return false;
     },
 
-    // Simple mock authentication
+    // Simple mock authentication — generates a session token for single-device enforcement
     login: async (username: string, password: string): Promise<User | null> => {
         await ensureLoaded();
-        const user = users.find(u => u.username === username && u.password === password);
-        if (user && !user.isActive) return null;
-        return user || null;
+        const index = users.findIndex(u => u.username === username && u.password === password);
+        if (index === -1) return null;
+        if (!users[index].isActive) return null;
+
+        // Generate a unique session token and persist it
+        const token = `sess-${Date.now()}-${Math.random().toString(36).substring(2, 12)}`;
+        users[index] = { ...users[index], sessionToken: token };
+        await saveToBlob('users', users);
+
+        return users[index];
+    },
+
+    // Validate that a session token is still the active session for this user
+    validateSession: async (userId: string, token: string): Promise<boolean> => {
+        await ensureLoaded();
+        const user = users.find(u => u.id === userId);
+        if (!user) return false;
+        return user.sessionToken === token;
     },
 
     // Permission helpers

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Return user without password
+        // Return user without password (sessionToken is included)
         const { password: _pw, ...safeUser } = user;
         return NextResponse.json(safeUser);
     } catch {

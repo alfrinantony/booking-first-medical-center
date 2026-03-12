@@ -147,4 +147,5 @@ export interface User {
     scope?: AssignedScope;
     permissions: ModulePermissions;
     canManagePermissions: boolean;
+    sessionToken?: string; // Active session token for single-device enforcement
 }
