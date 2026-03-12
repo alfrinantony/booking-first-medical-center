@@ -646,7 +646,8 @@ export default function StaffPage() {
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{formData.isActive ? 'Account Active' : 'Account Inactive'}</span>
                             </div>
 
-                            {/* ══════ LOGIN RESTRICTIONS ══════ */}
+                            {/* ══════ LOGIN RESTRICTIONS (Super Admin only) ══════ */}
+                            {isSuperAdmin && (
                             <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                                 <button
                                     type="button"
@@ -822,6 +823,7 @@ export default function StaffPage() {
                                     </div>
                                 )}
                             </div>
+                            )}
 
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">Cancel</button>
