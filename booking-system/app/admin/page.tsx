@@ -10,6 +10,7 @@ import {
     ClipboardList, Zap, TrendingUp, Briefcase
 } from 'lucide-react';
 import { Medicine, Clinic } from '@/lib/data';
+import { User, ModulePermissions } from '@/lib/users-store';
 
 interface LowStockAlert {
     medicineId: string;
@@ -45,6 +46,7 @@ export default function AdminPage() {
     const [medicines, setMedicines] = useState<Medicine[]>([]);
     const [clinics, setClinics] = useState<Clinic[]>([]);
     const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState<User | null>(null);
 
     // Live data
     const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
@@ -53,21 +55,49 @@ export default function AdminPage() {
 
     const today = new Date().toISOString().split('T')[0];
 
+    // Permission helper
+    const hasRead = (moduleKey: string): boolean => {
+        if (!user) return false;
+        if (user.role === 'SUPER_ADMIN') return true;
+        return user.permissions?.[moduleKey]?.includes('read') ?? false;
+    };
+
     useEffect(() => {
-        Promise.all([
-            fetch('/api/admin/medicines').then(r => r.json()),
-            fetch('/api/admin/clinics').then(r => r.json()),
-            fetch('/api/admin/hr/attendance?summary=true').then(r => r.json()).catch(() => null),
-            fetch('/api/admin/bookings').then(r => r.json()).catch(() => []),
-            fetch(`/api/admin/hr/shifts?date=${today}&summary=true`).then(r => r.json()).catch(() => null),
-        ]).then(([meds, cls, att, bk, shifts]) => {
-            setMedicines(Array.isArray(meds) ? meds : []);
-            setClinics(Array.isArray(cls) ? cls : []);
-            if (att?.summary) setAttendance(att.summary);
-            setBookings(Array.isArray(bk) ? bk.slice(0, 8) : []);
-            if (shifts?.summary) setShiftSummary(shifts.summary);
-        }).catch(e => console.error(e)).finally(() => setLoading(false));
-    }, [today]);
+        const stored = sessionStorage.getItem('adminUser');
+        if (stored) setUser(JSON.parse(stored));
+    }, []);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const fetches: Promise<void>[] = [];
+
+        // Only fetch data the user has permission to see
+        if (hasRead('inventory')) {
+            fetches.push(
+                fetch('/api/admin/medicines').then(r => r.json()).then(meds => setMedicines(Array.isArray(meds) ? meds : [])).catch(() => {})
+            );
+        }
+        if (hasRead('branches')) {
+            fetches.push(
+                fetch('/api/admin/clinics').then(r => r.json()).then(cls => setClinics(Array.isArray(cls) ? cls : [])).catch(() => {})
+            );
+        }
+        if (hasRead('hr')) {
+            fetches.push(
+                fetch('/api/admin/hr/attendance?summary=true').then(r => r.json()).then(att => { if (att?.summary) setAttendance(att.summary); }).catch(() => {}),
+                fetch(`/api/admin/hr/shifts?date=${today}&summary=true`).then(r => r.json()).then(shifts => { if (shifts?.summary) setShiftSummary(shifts.summary); }).catch(() => {})
+            );
+        }
+        if (hasRead('appointments')) {
+            fetches.push(
+                fetch('/api/admin/bookings').then(r => r.json()).then(bk => setBookings(Array.isArray(bk) ? bk.slice(0, 8) : [])).catch(() => {})
+            );
+        }
+
+        Promise.all(fetches).catch(e => console.error(e)).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, today]);
 
     const getClinicName = (id: string) => clinics.find(c => c.id === id)?.name || id;
 
@@ -119,23 +149,27 @@ export default function AdminPage() {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Link href="/admin/doctors" className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors flex items-center gap-1.5">
-                            <Stethoscope className="w-3.5 h-3.5" /> Manage Doctors
-                        </Link>
-                        <Link href="/admin/hr/shifts" className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 transition-colors flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" /> Shift Schedule
-                        </Link>
+                        {hasRead('doctors') && (
+                            <Link href="/admin/doctors" className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors flex items-center gap-1.5">
+                                <Stethoscope className="w-3.5 h-3.5" /> Manage Doctors
+                            </Link>
+                        )}
+                        {hasRead('hr') && (
+                            <Link href="/admin/hr/shifts" className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 transition-colors flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" /> Shift Schedule
+                            </Link>
+                        )}
                     </div>
                 </div>
 
                 {/* ═══ KPI Row ═══ */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-                    <KPICard icon={<Building className="w-4 h-4" />} label="Branches" value={totalBranches} color="indigo" />
-                    <KPICard icon={<Stethoscope className="w-4 h-4" />} label="Doctors" value={totalDoctors} color="blue" />
-                    <KPICard icon={<Calendar className="w-4 h-4" />} label="Today's Bookings" value={todaysBookings} color="emerald" />
-                    <KPICard icon={<UserCheck className="w-4 h-4" />} label="Staff Present" value={attendance?.present ?? '—'} color="green" />
-                    <KPICard icon={<UserX className="w-4 h-4" />} label="Absent / Late" value={attendance ? `${attendance.absent}/${attendance.late}` : '—'} color="red" />
-                    <KPICard icon={<ClipboardList className="w-4 h-4" />} label="Shifts Today" value={shiftSummary?.total ?? '—'} color="purple" />
+                    {hasRead('branches') && <KPICard icon={<Building className="w-4 h-4" />} label="Branches" value={totalBranches} color="indigo" />}
+                    {hasRead('doctors') && <KPICard icon={<Stethoscope className="w-4 h-4" />} label="Doctors" value={totalDoctors} color="blue" />}
+                    {hasRead('appointments') && <KPICard icon={<Calendar className="w-4 h-4" />} label="Today's Bookings" value={todaysBookings} color="emerald" />}
+                    {hasRead('hr') && <KPICard icon={<UserCheck className="w-4 h-4" />} label="Staff Present" value={attendance?.present ?? '—'} color="green" />}
+                    {hasRead('hr') && <KPICard icon={<UserX className="w-4 h-4" />} label="Absent / Late" value={attendance ? `${attendance.absent}/${attendance.late}` : '—'} color="red" />}
+                    {hasRead('hr') && <KPICard icon={<ClipboardList className="w-4 h-4" />} label="Shifts Today" value={shiftSummary?.total ?? '—'} color="purple" />}
                 </div>
 
                 {/* ═══ Main Grid: 2-column ═══ */}
@@ -145,7 +179,7 @@ export default function AdminPage() {
                     <div className="space-y-5">
 
                         {/* Alerts Row: Low Stock + Expiry side by side */}
-                        {(lowStockAlerts.length > 0 || nearExpiryItems.length > 0) && (
+                        {hasRead('inventory') && (lowStockAlerts.length > 0 || nearExpiryItems.length > 0) && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                                 {/* Low Stock */}
                                 {lowStockAlerts.length > 0 && (
@@ -228,6 +262,7 @@ export default function AdminPage() {
                         )}
 
                         {/* Recent Bookings */}
+                        {hasRead('appointments') && (
                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                                 <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -276,13 +311,14 @@ export default function AdminPage() {
                                 </table>
                             </div>
                         </div>
+                        )}
                     </div>
 
                     {/* ── Right Sidebar: Quick Links ── */}
                     <div className="space-y-4">
 
                         {/* Attendance Snapshot */}
-                        {attendance && (
+                        {hasRead('hr') && attendance && (
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                                 <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                                     <Activity className="w-3.5 h-3.5" /> Today&apos;s Attendance
@@ -303,22 +339,22 @@ export default function AdminPage() {
                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Quick Access</h3>
                             <div className="space-y-1">
-                                <QuickLink href="/admin/clinics" icon={<Building className="w-4 h-4" />} label="Manage Branches" desc="Locations & hours" color="text-indigo-600" />
-                                <QuickLink href="/admin/services" icon={<Heart className="w-4 h-4" />} label="Services & Pricing" desc="Medical services" color="text-pink-600" />
-                                <QuickLink href="/admin/doctors" icon={<Stethoscope className="w-4 h-4" />} label="Doctors" desc="Specialists & staff" color="text-blue-600" />
-                                <QuickLink href="/admin/schedule" icon={<Calendar className="w-4 h-4" />} label="Clinician Schedule" desc="Availability & slots" color="text-emerald-600" />
-                                <QuickLink href="/admin/hr/shifts" icon={<Clock className="w-4 h-4" />} label="Shift Schedule" desc="Employee shifts" color="text-purple-600" />
-                                <QuickLink href="/admin/promos" icon={<Tag className="w-4 h-4" />} label="Promo Codes" desc="Discounts & offers" color="text-amber-600" />
-                                <QuickLink href="/admin/medicines" icon={<Package className="w-4 h-4" />} label="Inventory" desc="Medicines & supplies" color="text-teal-600" />
-                                <QuickLink href="/admin/resources" icon={<Briefcase className="w-4 h-4" />} label="Resources" desc="Equipment & rooms" color="text-orange-600" />
-                                <QuickLink href="/admin/hr/employees" icon={<Users className="w-4 h-4" />} label="HR — Employees" desc="Staff management" color="text-violet-600" />
-                                <QuickLink href="/admin/hr/payroll" icon={<DollarSign className="w-4 h-4" />} label="HR — Payroll" desc="Salary & timesheets" color="text-green-600" />
-                                <QuickLink href="/admin/settings" icon={<ShieldCheck className="w-4 h-4" />} label="Settings" desc="Config & permissions" color="text-gray-600" />
+                                {hasRead('branches') && <QuickLink href="/admin/clinics" icon={<Building className="w-4 h-4" />} label="Manage Branches" desc="Locations & hours" color="text-indigo-600" />}
+                                {hasRead('services') && <QuickLink href="/admin/services" icon={<Heart className="w-4 h-4" />} label="Services & Pricing" desc="Medical services" color="text-pink-600" />}
+                                {hasRead('doctors') && <QuickLink href="/admin/doctors" icon={<Stethoscope className="w-4 h-4" />} label="Doctors" desc="Specialists & staff" color="text-blue-600" />}
+                                {hasRead('schedule') && <QuickLink href="/admin/schedule" icon={<Calendar className="w-4 h-4" />} label="Clinician Schedule" desc="Availability & slots" color="text-emerald-600" />}
+                                {hasRead('hr') && <QuickLink href="/admin/hr/shifts" icon={<Clock className="w-4 h-4" />} label="Shift Schedule" desc="Employee shifts" color="text-purple-600" />}
+                                {hasRead('promos') && <QuickLink href="/admin/promos" icon={<Tag className="w-4 h-4" />} label="Promo Codes" desc="Discounts & offers" color="text-amber-600" />}
+                                {hasRead('inventory') && <QuickLink href="/admin/medicines" icon={<Package className="w-4 h-4" />} label="Inventory" desc="Medicines & supplies" color="text-teal-600" />}
+                                {hasRead('inventory') && <QuickLink href="/admin/resources" icon={<Briefcase className="w-4 h-4" />} label="Resources" desc="Equipment & rooms" color="text-orange-600" />}
+                                {hasRead('hr') && <QuickLink href="/admin/hr/employees" icon={<Users className="w-4 h-4" />} label="HR — Employees" desc="Staff management" color="text-violet-600" />}
+                                {hasRead('hr') && <QuickLink href="/admin/hr/payroll" icon={<DollarSign className="w-4 h-4" />} label="HR — Payroll" desc="Salary & timesheets" color="text-green-600" />}
+                                {hasRead('settings') && <QuickLink href="/admin/settings" icon={<ShieldCheck className="w-4 h-4" />} label="Settings" desc="Config & permissions" color="text-gray-600" />}
                             </div>
                         </div>
 
                         {/* Shift Summary */}
-                        {shiftSummary && (
+                        {hasRead('hr') && shiftSummary && (
                             <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-200 dark:border-purple-800 p-4">
                                 <h3 className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                     <Zap className="w-3.5 h-3.5" /> Today&apos;s Shifts

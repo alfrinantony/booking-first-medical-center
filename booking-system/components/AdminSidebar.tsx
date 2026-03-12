@@ -27,313 +27,216 @@ export default function AdminSidebar() {
     // Simple check for active link
     const isActive = (path: string) => pathname === path || pathname?.startsWith(path + '/');
 
-    const canManageStaff = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+    // Permission-based visibility: returns true if user has 'read' access for a module
+    const hasRead = (moduleKey: string): boolean => {
+        if (!user) return false;
+        if (user.role === 'SUPER_ADMIN') return true;
+        return user.permissions?.[moduleKey]?.includes('read') ?? false;
+    };
 
     const handleSignOut = () => {
         sessionStorage.removeItem('adminUser');
         router.push('/admin/login');
     };
 
+    // Reusable link style helpers
+    const mainLinkClass = (path: string, exact?: boolean) =>
+        `flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${
+            (exact ? pathname === path : isActive(path))
+                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+        }`;
+    const subLinkClass = (path: string) =>
+        `flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${
+            isActive(path)
+                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+        }`;
+    const deepSubLinkClass = (path: string) =>
+        `flex items-center gap-3 px-4 py-2 pl-14 rounded-lg font-medium text-[11px] transition-colors ${
+            isActive(path)
+                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                : 'text-gray-500 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+        }`;
+
     const navContent = (
         <>
-            <Link
-                href="/admin"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${pathname === '/admin'
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Activity className="w-4 h-4 shrink-0" />
-                Dashboard
-            </Link>
+            {hasRead('dashboard') && (
+                <Link href="/admin" className={mainLinkClass('/admin', true)}>
+                    <Activity className="w-4 h-4 shrink-0" />
+                    Dashboard
+                </Link>
+            )}
 
-            <Link
-                href="/admin/appointments"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/appointments')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Calendar className="w-4 h-4 shrink-0" />
-                Appointments
-            </Link>
+            {hasRead('appointments') && (
+                <Link href="/admin/appointments" className={mainLinkClass('/admin/appointments')}>
+                    <Calendar className="w-4 h-4 shrink-0" />
+                    Appointments
+                </Link>
+            )}
 
-            <Link
-                href="/admin/clients"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/clients')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Users className="w-4 h-4 shrink-0" />
-                Clients
-            </Link>
+            {hasRead('clients') && (
+                <Link href="/admin/clients" className={mainLinkClass('/admin/clients')}>
+                    <Users className="w-4 h-4 shrink-0" />
+                    Clients
+                </Link>
+            )}
 
-            <Link
-                href="/admin/registered-users"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/registered-users')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                Registered Users
-            </Link>
+            {hasRead('registered_users') && (
+                <Link href="/admin/registered-users" className={mainLinkClass('/admin/registered-users')}>
+                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    Registered Users
+                </Link>
+            )}
 
-            <Link
-                href="/admin/schedule"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/schedule')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Calendar className="w-4 h-4 shrink-0" />
-                Clinicians Schedule
-            </Link>
+            {hasRead('schedule') && (
+                <Link href="/admin/schedule" className={mainLinkClass('/admin/schedule')}>
+                    <Calendar className="w-4 h-4 shrink-0" />
+                    Clinicians Schedule
+                </Link>
+            )}
 
-            <Link
-                href="/admin/doctors"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/doctors')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Stethoscope className="w-4 h-4 shrink-0" />
-                Doctors
-            </Link>
+            {hasRead('doctors') && (
+                <Link href="/admin/doctors" className={mainLinkClass('/admin/doctors')}>
+                    <Stethoscope className="w-4 h-4 shrink-0" />
+                    Doctors
+                </Link>
+            )}
 
-            <Link
-                href="/admin/services"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/services')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Activity className="w-4 h-4 shrink-0" />
-                Services
-            </Link>
+            {hasRead('services') && (
+                <Link href="/admin/services" className={mainLinkClass('/admin/services')}>
+                    <Activity className="w-4 h-4 shrink-0" />
+                    Services
+                </Link>
+            )}
 
-            <Link
-                href="/admin/medicines"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/medicines')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Pill className="w-4 h-4 shrink-0" />
-                Inventory
-            </Link>
+            {hasRead('inventory') && (
+                <>
+                    <Link href="/admin/medicines" className={mainLinkClass('/admin/medicines')}>
+                        <Pill className="w-4 h-4 shrink-0" />
+                        Inventory
+                    </Link>
+                    <Link href="/admin/suppliers" className={subLinkClass('/admin/suppliers')}>
+                        <Truck className="w-3.5 h-3.5 shrink-0" />
+                        Suppliers
+                    </Link>
+                    <Link href="/admin/product-registry" className={subLinkClass('/admin/product-registry')}>
+                        <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                        Product Registry
+                    </Link>
+                    <Link href="/admin/purchases" className={subLinkClass('/admin/purchases')}>
+                        <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
+                        Purchases
+                    </Link>
+                </>
+            )}
 
-            <Link
-                href="/admin/suppliers"
-                className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/suppliers')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Truck className="w-3.5 h-3.5 shrink-0" />
-                Suppliers
-            </Link>
+            {hasRead('branches') && (
+                <>
+                    <Link href="/admin/clinics" className={mainLinkClass('/admin/clinics')}>
+                        <MapPin className="w-4 h-4 shrink-0" />
+                        Branches
+                    </Link>
+                    <Link href="/admin/contracts" className={subLinkClass('/admin/contracts')}>
+                        <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                        Contracts
+                    </Link>
+                </>
+            )}
 
-            <Link
-                href="/admin/product-registry"
-                className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/product-registry')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <ClipboardList className="w-3.5 h-3.5 shrink-0" />
-                Product Registry
-            </Link>
+            {hasRead('packages') && (
+                <Link href="/admin/packages" className={mainLinkClass('/admin/packages')}>
+                    <PackageIcon className="w-4 h-4 shrink-0" />
+                    Packages
+                </Link>
+            )}
 
-            <Link
-                href="/admin/purchases"
-                className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/purchases')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
-                Purchases
-            </Link>
+            {hasRead('loyalty') && (
+                <Link href="/admin/loyalty" className={mainLinkClass('/admin/loyalty')}>
+                    <Gift className="w-4 h-4 shrink-0" />
+                    Loyalty Points
+                </Link>
+            )}
 
-            <Link
-                href="/admin/clinics"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/clinics')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <MapPin className="w-4 h-4 shrink-0" />
-                Branches
-            </Link>
+            {hasRead('billing') && (
+                <>
+                    <Link href="/admin/billing" className={mainLinkClass('/admin/billing')}>
+                        <Receipt className="w-4 h-4 shrink-0" />
+                        Billing
+                    </Link>
+                    <Link href="/admin/vat-report" className={subLinkClass('/admin/vat-report')}>
+                        <FileText className="w-3.5 h-3.5 shrink-0" />
+                        VAT Report
+                    </Link>
+                </>
+            )}
 
-            <Link
-                href="/admin/contracts"
-                className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/contracts')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <ClipboardList className="w-3.5 h-3.5 shrink-0" />
-                Contracts
-            </Link>
+            {hasRead('client_grouping') && (
+                <Link href="/admin/client-grouping" className={mainLinkClass('/admin/client-grouping')}>
+                    <Link2 className="w-4 h-4 shrink-0" />
+                    Client Grouping
+                </Link>
+            )}
 
-            <Link
-                href="/admin/packages"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/packages')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <PackageIcon className="w-4 h-4 shrink-0" />
-                Packages
-            </Link>
+            {hasRead('inbox') && (
+                <Link href="/admin/inbox" className={mainLinkClass('/admin/inbox')}>
+                    <Inbox className="w-4 h-4 shrink-0" />
+                    Inbox
+                </Link>
+            )}
 
-            <Link
-                href="/admin/loyalty"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/loyalty')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Gift className="w-4 h-4 shrink-0" />
-                Loyalty Points
-            </Link>
+            {hasRead('promos') && (
+                <>
+                    <Link href="/admin/promos" className={mainLinkClass('/admin/promos')}>
+                        <Tag className="w-4 h-4 shrink-0" />
+                        Promo Codes
+                    </Link>
+                    <Link href="/admin/marketing" className={mainLinkClass('/admin/marketing')}>
+                        <TrendingUp className="w-4 h-4 shrink-0" />
+                        Marketing
+                    </Link>
+                    <Link href="/admin/social" className={mainLinkClass('/admin/social')}>
+                        <BarChart3 className="w-4 h-4 shrink-0" />
+                        Social
+                    </Link>
+                </>
+            )}
 
-            <Link
-                href="/admin/billing"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/billing')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Receipt className="w-4 h-4 shrink-0" />
-                Billing
-            </Link>
+            {hasRead('settings') && (
+                <>
+                    <Link href="/admin/settings" className={mainLinkClass('/admin/settings')}>
+                        <Settings className="w-4 h-4 shrink-0" />
+                        Settings
+                    </Link>
+                    <Link href="/admin/settings/notifications" className={mainLinkClass('/admin/settings/notifications')}>
+                        <Bell className="w-4 h-4 shrink-0" />
+                        Notifications
+                    </Link>
+                </>
+            )}
 
-            <Link
-                href="/admin/vat-report"
-                className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/vat-report')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <FileText className="w-3.5 h-3.5 shrink-0" />
-                VAT Report
-            </Link>
+            {hasRead('audit_logs') && (
+                <Link href="/admin/logs" className={mainLinkClass('/admin/logs')}>
+                    <ClipboardList className="w-4 h-4 shrink-0" />
+                    Audit Logs
+                </Link>
+            )}
 
-            <Link
-                href="/admin/client-grouping"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/client-grouping')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Link2 className="w-4 h-4 shrink-0" />
-                Client Grouping
-            </Link>
+            {hasRead('call_agent') && (
+                <Link href="/admin/call-agent-summaries" className={mainLinkClass('/admin/call-agent-summaries')}>
+                    <Phone className="w-4 h-4 shrink-0" />
+                    Call Agent Summary
+                </Link>
+            )}
 
-            <Link
-                href="/admin/inbox"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/inbox')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Inbox className="w-4 h-4 shrink-0" />
-                Inbox
-            </Link>
+            {hasRead('reports') && (
+                <Link href="/admin/reports" className={mainLinkClass('/admin/reports')}>
+                    <BarChart2 className="w-4 h-4 shrink-0" />
+                    Clinical Reports
+                </Link>
+            )}
 
-            <Link
-                href="/admin/promos"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/promos')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Tag className="w-4 h-4 shrink-0" />
-                Promo Codes
-            </Link>
-
-            <Link
-                href="/admin/marketing"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/marketing')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <TrendingUp className="w-4 h-4 shrink-0" />
-                Marketing
-            </Link>
-
-            <Link
-                href="/admin/social"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/social')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <BarChart3 className="w-4 h-4 shrink-0" />
-                Social
-            </Link>
-
-            <Link
-                href="/admin/settings"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/settings')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Settings className="w-4 h-4 shrink-0" />
-                Settings
-            </Link>
-
-            <Link
-                href="/admin/settings/notifications"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/settings/notifications')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Bell className="w-4 h-4 shrink-0" />
-                Notifications
-            </Link>
-
-            <Link
-                href="/admin/logs"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/logs')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <ClipboardList className="w-4 h-4 shrink-0" />
-                Audit Logs
-            </Link>
-
-            <Link
-                href="/admin/call-agent-summaries"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/call-agent-summaries')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Phone className="w-4 h-4 shrink-0" />
-                Call Agent Summary
-            </Link>
-
-            <Link
-                href="/admin/reports"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/reports')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <BarChart2 className="w-4 h-4 shrink-0" />
-                Clinical Reports
-            </Link>
-
-            {canManageStaff && (
+            {hasRead('hr') && (
                 <>
                     <Link
                         href="/admin/hr"
@@ -345,51 +248,22 @@ export default function AdminSidebar() {
                         <Briefcase className="w-4 h-4 shrink-0" />
                         HR Management
                     </Link>
-
-                    <Link
-                        href="/admin/hr/employees"
-                        className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/hr/employees')
-                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                    >
+                    <Link href="/admin/hr/employees" className={subLinkClass('/admin/hr/employees')}>
                         <Users className="w-3.5 h-3.5 shrink-0" />
                         Employees
                     </Link>
-
-                    <Link
-                        href="/admin/hr/payroll"
-                        className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/hr/payroll')
-                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                    >
+                    <Link href="/admin/hr/payroll" className={subLinkClass('/admin/hr/payroll')}>
                         <Calculator className="w-3.5 h-3.5 shrink-0" />
                         Payroll
                     </Link>
-
-                    <Link
-                        href="/admin/hr/letters"
-                        className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/hr/letters')
-                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                    >
+                    <Link href="/admin/hr/letters" className={subLinkClass('/admin/hr/letters')}>
                         <ClipboardList className="w-3.5 h-3.5 shrink-0" />
                         Letters
                     </Link>
-
-                    <Link
-                        href="/admin/hr/recruitment"
-                        className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/hr/recruitment')
-                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                    >
+                    <Link href="/admin/hr/recruitment" className={subLinkClass('/admin/hr/recruitment')}>
                         <UserPlus className="w-3.5 h-3.5 shrink-0" />
                         Recruitment
                     </Link>
-
                     <Link
                         href="/admin/hr/attendance"
                         className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/hr/attendance') && !isActive('/admin/hr/attendance/')
@@ -400,61 +274,30 @@ export default function AdminSidebar() {
                         <Clock className="w-3.5 h-3.5 shrink-0" />
                         Attendance
                     </Link>
-
-                    <Link
-                        href="/admin/hr/attendance/timesheet"
-                        className={`flex items-center gap-3 px-4 py-2 pl-14 rounded-lg font-medium text-[11px] transition-colors ${isActive('/admin/hr/attendance/timesheet')
-                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                            : 'text-gray-500 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                    >
+                    <Link href="/admin/hr/attendance/timesheet" className={deepSubLinkClass('/admin/hr/attendance/timesheet')}>
                         <FileSpreadsheet className="w-3 h-3 shrink-0" />
                         Timesheet
                     </Link>
-
-                    <Link
-                        href="/admin/hr/attendance/devices"
-                        className={`flex items-center gap-3 px-4 py-2 pl-14 rounded-lg font-medium text-[11px] transition-colors ${isActive('/admin/hr/attendance/devices')
-                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                            : 'text-gray-500 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                    >
+                    <Link href="/admin/hr/attendance/devices" className={deepSubLinkClass('/admin/hr/attendance/devices')}>
                         <Cpu className="w-3 h-3 shrink-0" />
                         Devices
                     </Link>
-
-                    <Link
-                        href="/admin/hr/shifts"
-                        className={`flex items-center gap-3 px-4 py-2 pl-10 rounded-lg font-medium text-xs transition-colors ${isActive('/admin/hr/shifts')
-                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                    >
+                    <Link href="/admin/hr/shifts" className={subLinkClass('/admin/hr/shifts')}>
                         <Calendar className="w-3.5 h-3.5 shrink-0" />
                         Shift Schedule
                     </Link>
                 </>
             )}
 
-            <Link
-                href="/admin/accounting"
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/accounting')
-                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-            >
-                <Wallet className="w-4 h-4 shrink-0" />
-                Accounting
-            </Link>
+            {hasRead('accounting') && (
+                <Link href="/admin/accounting" className={mainLinkClass('/admin/accounting')}>
+                    <Wallet className="w-4 h-4 shrink-0" />
+                    Accounting
+                </Link>
+            )}
 
-            {canManageStaff && (
-                <Link
-                    href="/admin/staff"
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive('/admin/staff')
-                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        }`}
-                >
+            {hasRead('staff_access') && (
+                <Link href="/admin/staff" className={mainLinkClass('/admin/staff')}>
                     <Lock className="w-4 h-4 shrink-0" />
                     Staff Access
                 </Link>
