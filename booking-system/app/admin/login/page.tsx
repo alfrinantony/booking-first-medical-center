@@ -2,26 +2,49 @@
 
 import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, User, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, MapPin, Loader2 } from 'lucide-react';
 
 export default function AdminLoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
     const wasKicked = searchParams.get('kicked') === '1';
 
+    const getGeolocation = (): Promise<{ latitude: number; longitude: number } | null> => {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                resolve(null);
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                () => resolve(null), // Denied or error — resolve null
+                { timeout: 5000, maximumAge: 60000 }
+            );
+        });
+    };
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
 
         try {
+            // Try to get geolocation for geofence validation
+            const geo = await getGeolocation();
+
             const res = await fetch('/api/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({
+                    username,
+                    password,
+                    ...(geo ? { latitude: geo.latitude, longitude: geo.longitude } : {}),
+                }),
             });
 
             if (res.ok) {
@@ -31,13 +54,15 @@ export default function AdminLoginPage() {
                 }
                 router.push('/admin');
             } else {
-                setError('Invalid username or password');
+                const data = await res.json().catch(() => null);
+                setError(data?.error || 'Invalid username or password');
             }
         } catch {
             setError('Login failed. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
-
 
     return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -97,16 +122,31 @@ export default function AdminLoginPage() {
                     </div>
 
                     {error && (
-                        <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">
-                            {error}
+                        <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-200">
+                            {error.startsWith('Login restricted:') ? (
+                                <div className="flex items-start gap-2 justify-center">
+                                    <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                                    <span>{error}</span>
+                                </div>
+                            ) : (
+                                error
+                            )}
                         </div>
                     )}
 
                     <button
                         type="submit"
-                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        disabled={loading}
+                        className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                     >
-                        Sign in
+                        {loading ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Signing in...
+                            </>
+                        ) : (
+                            'Sign in'
+                        )}
                     </button>
                 </form>
             </div>

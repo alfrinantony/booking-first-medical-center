@@ -19,6 +19,7 @@ export {
     DEPARTMENTS,
     type Department,
     CLINICS,
+    type LoginRestrictions,
     type User,
 } from './users-types';
 

@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Shield, User, Stethoscope, Lock, Search, ToggleLeft, ToggleRight, Building2, Check, Key, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Shield, User, Stethoscope, Lock, Search, ToggleLeft, ToggleRight, Building2, Check, Key, X, MapPin, Clock, Globe, Wifi, Fingerprint } from 'lucide-react';
 import {
     User as UserType,
     UserRole,
     AssignedScope,
+    LoginRestrictions,
     DESIGNATIONS_BY_DEPARTMENT,
     ALL_DESIGNATIONS,
     DEPARTMENTS,
@@ -21,6 +22,17 @@ import {
 } from '@/lib/users-types';
 import { Doctor } from '@/lib/data';
 
+interface HREmployee { id: string; firstName: string; lastName: string; employeeCode: string; }
+
+const DEFAULT_RESTRICTIONS: LoginRestrictions = {
+    enabled: false,
+    allowedCountries: [],
+    allowedIPs: [],
+    geofence: { enabled: false, radiusMeters: 500, branchId: 'clinic-1' },
+    timeWindow: { enabled: false, startTime: '08:00', endTime: '20:00', allowedDays: [0, 1, 2, 3, 4] },
+    requireAttendance: false,
+};
+
 interface UserFormState {
     name: string;
     username: string;
@@ -32,6 +44,8 @@ interface UserFormState {
     isActive: boolean;
     scopeDoctorId?: string;
     canManagePermissions: boolean;
+    employeeId: string;
+    loginRestrictions: LoginRestrictions;
 }
 
 const EMPTY_FORM: UserFormState = {
@@ -45,11 +59,14 @@ const EMPTY_FORM: UserFormState = {
     isActive: true,
     scopeDoctorId: '',
     canManagePermissions: false,
+    employeeId: '',
+    loginRestrictions: { ...DEFAULT_RESTRICTIONS },
 };
 
 export default function StaffPage() {
     const [users, setUsers] = useState<UserType[]>([]);
     const [doctors, setDoctors] = useState<Doctor[]>([]);
+    const [hrEmployees, setHREmployees] = useState<HREmployee[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<UserType | null>(null);
     const [currentUser, setCurrentUser] = useState<UserType | null>(null);
@@ -102,6 +119,16 @@ export default function StaffPage() {
         } catch (e) {
             console.error(e);
         }
+        // Load HR employees for attendance linking
+        try {
+            const res = await fetch('/api/admin/hr/employees');
+            if (res.ok) {
+                const data = await res.json();
+                setHREmployees(Array.isArray(data) ? data.map((e: any) => ({ id: e.id, firstName: e.firstName, lastName: e.lastName, employeeCode: e.employeeCode })) : []);
+            }
+        } catch (e) {
+            console.error(e);
+        }
     };
 
     const canManage = (targetUser: UserType) => {
@@ -142,6 +169,8 @@ export default function StaffPage() {
                         isActive: formData.isActive,
                         canManagePermissions: formData.canManagePermissions,
                         scope,
+                        employeeId: formData.employeeId || undefined,
+                        loginRestrictions: formData.loginRestrictions,
                         ...(formData.password ? { password: formData.password } : {}),
                     },
                 }),
@@ -168,6 +197,8 @@ export default function StaffPage() {
                         canManagePermissions: formData.canManagePermissions,
                         scope,
                         permissions: getDefaultPermissions(),
+                        employeeId: formData.employeeId || undefined,
+                        loginRestrictions: formData.loginRestrictions,
                     },
                 }),
             });
@@ -192,9 +223,20 @@ export default function StaffPage() {
             scopeDoctorId: user.scope?.doctorId || '',
             password: '',
             canManagePermissions: user.canManagePermissions,
+            employeeId: user.employeeId || '',
+            loginRestrictions: user.loginRestrictions || { ...DEFAULT_RESTRICTIONS },
         });
         setIsModalOpen(true);
     };
+
+    const updateRestrictions = (updates: Partial<LoginRestrictions>) => {
+        setFormData(prev => ({
+            ...prev,
+            loginRestrictions: { ...prev.loginRestrictions, ...updates },
+        }));
+    };
+
+    const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     const handleDelete = async (id: string) => {
         if (confirm('Are you sure you want to delete this user?')) {
@@ -602,6 +644,183 @@ export default function StaffPage() {
                                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{formData.isActive ? 'Account Active' : 'Account Inactive'}</span>
+                            </div>
+
+                            {/* ══════ LOGIN RESTRICTIONS ══════ */}
+                            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                                <button
+                                    type="button"
+                                    onClick={() => updateRestrictions({ enabled: !formData.loginRestrictions.enabled })}
+                                    className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="w-4 h-4 text-red-500" />
+                                        <span className="text-sm font-semibold text-gray-800 dark:text-white">Login Restrictions</span>
+                                    </div>
+                                    <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${formData.loginRestrictions.enabled ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${formData.loginRestrictions.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                    </div>
+                                </button>
+
+                                {formData.loginRestrictions.enabled && (
+                                    <div className="p-3 space-y-3 border-t border-gray-200 dark:border-gray-700">
+                                        {/* Country Restriction */}
+                                        <div className="space-y-1.5">
+                                            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
+                                                <Globe className="w-3.5 h-3.5" /> Allowed Countries
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="Country codes: AE, US, IN (comma-separated)"
+                                                className="w-full p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                                value={(formData.loginRestrictions.allowedCountries || []).join(', ')}
+                                                onChange={e => updateRestrictions({
+                                                    allowedCountries: e.target.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+                                                })}
+                                            />
+                                        </div>
+
+                                        {/* IP Restriction */}
+                                        <div className="space-y-1.5">
+                                            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
+                                                <Wifi className="w-3.5 h-3.5" /> Allowed IP Addresses
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="IPs: 192.168.1.1, 10.0.0.1 (comma-separated)"
+                                                className="w-full p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                                value={(formData.loginRestrictions.allowedIPs || []).join(', ')}
+                                                onChange={e => updateRestrictions({
+                                                    allowedIPs: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                                                })}
+                                            />
+                                        </div>
+
+                                        {/* Geofence */}
+                                        <div className="space-y-1.5 p-2.5 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                                            <div className="flex items-center justify-between">
+                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase">
+                                                    <MapPin className="w-3.5 h-3.5" /> Geofence (Location)
+                                                </label>
+                                                <button type="button" onClick={() => updateRestrictions({
+                                                    geofence: { ...formData.loginRestrictions.geofence!, enabled: !formData.loginRestrictions.geofence?.enabled }
+                                                })} className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${formData.loginRestrictions.geofence?.enabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                                    <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.loginRestrictions.geofence?.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                                </button>
+                                            </div>
+                                            {formData.loginRestrictions.geofence?.enabled && (
+                                                <div className="grid grid-cols-2 gap-2 mt-1">
+                                                    <div>
+                                                        <label className="text-[11px] text-gray-500">Branch</label>
+                                                        <select className="w-full p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
+                                                            value={formData.loginRestrictions.geofence.branchId}
+                                                            onChange={e => updateRestrictions({ geofence: { ...formData.loginRestrictions.geofence!, branchId: e.target.value } })}
+                                                        >
+                                                            {CLINICS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[11px] text-gray-500">Radius (meters)</label>
+                                                        <input type="number" min={50} max={10000} className="w-full p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
+                                                            value={formData.loginRestrictions.geofence.radiusMeters}
+                                                            onChange={e => updateRestrictions({ geofence: { ...formData.loginRestrictions.geofence!, radiusMeters: parseInt(e.target.value) || 500 } })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Time Window */}
+                                        <div className="space-y-1.5 p-2.5 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-800">
+                                            <div className="flex items-center justify-between">
+                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase">
+                                                    <Clock className="w-3.5 h-3.5" /> Time & Day Restriction
+                                                </label>
+                                                <button type="button" onClick={() => updateRestrictions({
+                                                    timeWindow: { ...formData.loginRestrictions.timeWindow!, enabled: !formData.loginRestrictions.timeWindow?.enabled }
+                                                })} className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${formData.loginRestrictions.timeWindow?.enabled ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                                    <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.loginRestrictions.timeWindow?.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                                </button>
+                                            </div>
+                                            {formData.loginRestrictions.timeWindow?.enabled && (
+                                                <div className="space-y-2 mt-1">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <label className="text-[11px] text-gray-500">Start Time</label>
+                                                            <input type="time" className="w-full p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
+                                                                value={formData.loginRestrictions.timeWindow.startTime}
+                                                                onChange={e => updateRestrictions({ timeWindow: { ...formData.loginRestrictions.timeWindow!, startTime: e.target.value } })}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[11px] text-gray-500">End Time</label>
+                                                            <input type="time" className="w-full p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
+                                                                value={formData.loginRestrictions.timeWindow.endTime}
+                                                                onChange={e => updateRestrictions({ timeWindow: { ...formData.loginRestrictions.timeWindow!, endTime: e.target.value } })}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[11px] text-gray-500 mb-1 block">Allowed Days</label>
+                                                        <div className="flex gap-1">
+                                                            {DAY_NAMES.map((name, idx) => {
+                                                                const isAllowed = (formData.loginRestrictions.timeWindow?.allowedDays || []).includes(idx);
+                                                                return (
+                                                                    <button type="button" key={idx}
+                                                                        onClick={() => {
+                                                                            const days = formData.loginRestrictions.timeWindow?.allowedDays || [];
+                                                                            updateRestrictions({
+                                                                                timeWindow: {
+                                                                                    ...formData.loginRestrictions.timeWindow!,
+                                                                                    allowedDays: isAllowed ? days.filter(d => d !== idx) : [...days, idx]
+                                                                                }
+                                                                            });
+                                                                        }}
+                                                                        className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${isAllowed
+                                                                            ? 'bg-purple-600 text-white'
+                                                                            : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                                                                        }`}
+                                                                    >
+                                                                        {name}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Attendance Restriction */}
+                                        <div className="space-y-1.5 p-2.5 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
+                                            <div className="flex items-center justify-between">
+                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-green-300 uppercase">
+                                                    <Fingerprint className="w-3.5 h-3.5" /> Require Attendance
+                                                </label>
+                                                <button type="button" onClick={() => updateRestrictions({
+                                                    requireAttendance: !formData.loginRestrictions.requireAttendance
+                                                })} className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${formData.loginRestrictions.requireAttendance ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                                    <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.loginRestrictions.requireAttendance ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                                </button>
+                                            </div>
+                                            {formData.loginRestrictions.requireAttendance && (
+                                                <div className="mt-1">
+                                                    <label className="text-[11px] text-gray-500">Linked Employee (for attendance check)</label>
+                                                    <select className="w-full p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
+                                                        value={formData.employeeId}
+                                                        onChange={e => setFormData({ ...formData, employeeId: e.target.value })}
+                                                    >
+                                                        <option value="">Select Employee</option>
+                                                        {hrEmployees.map(emp => (
+                                                            <option key={emp.id} value={emp.id}>{emp.employeeCode} — {emp.firstName} {emp.lastName}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">Staff must punch in (biometric/manual) before logging in</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">

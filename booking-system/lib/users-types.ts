@@ -127,11 +127,30 @@ export const ALL_DESIGNATIONS = Object.values(DESIGNATIONS_BY_DEPARTMENT).flat()
 export const DEPARTMENTS = ['Clinical', 'Administration', 'Operation'] as const;
 export type Department = (typeof DEPARTMENTS)[number];
 
+// ── Login Restrictions ──
+export interface LoginRestrictions {
+    enabled: boolean;
+    allowedCountries?: string[];          // ISO 3166-1 alpha-2 codes (e.g. ['AE'])
+    allowedIPs?: string[];                // Exact IP addresses
+    geofence?: {
+        enabled: boolean;
+        radiusMeters: number;             // Max distance from branch
+        branchId: string;                 // Branch to anchor the fence
+    };
+    timeWindow?: {
+        enabled: boolean;
+        startTime: string;                // HH:mm (24h)
+        endTime: string;                  // HH:mm (24h)
+        allowedDays: number[];            // 0=Sun .. 6=Sat
+    };
+    requireAttendance?: boolean;          // Must have punched in today
+}
+
 export const CLINICS = [
-    { id: 'clinic-1', name: 'Al Muraqabat Branch' },
-    { id: 'clinic-2', name: 'Al Qiyadah Branch' },
-    { id: 'clinic-3', name: 'Silicon Oasis Branch' },
-    { id: 'head-office', name: 'Head Office' },
+    { id: 'clinic-1', name: 'Al Muraqabat Branch', lat: 25.2697, lng: 55.3095 },
+    { id: 'clinic-2', name: 'Al Qiyadah Branch', lat: 25.2756, lng: 55.3364 },
+    { id: 'clinic-3', name: 'Silicon Oasis Branch', lat: 25.1264, lng: 55.3849 },
+    { id: 'head-office', name: 'Head Office', lat: 25.2048, lng: 55.2708 },
 ] as const;
 
 export interface User {
@@ -147,5 +166,7 @@ export interface User {
     scope?: AssignedScope;
     permissions: ModulePermissions;
     canManagePermissions: boolean;
-    sessionToken?: string; // Active session token for single-device enforcement
+    sessionToken?: string;               // Active session token for single-device enforcement
+    employeeId?: string;                 // Link to HR employee record for attendance check
+    loginRestrictions?: LoginRestrictions;
 }
