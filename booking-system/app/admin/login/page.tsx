@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UsersStore } from '@/lib/users-store';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLoginPage() {
@@ -16,17 +15,24 @@ export default function AdminLoginPage() {
         e.preventDefault();
         setError('');
 
-        const user = await UsersStore.login(username, password);
+        try {
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
 
-        if (user) {
-            // In a real app, we'd set a cookie or JWT.
-            // For this demo, we'll simple set a session storage item
-            if (typeof window !== 'undefined') {
-                sessionStorage.setItem('adminUser', JSON.stringify(user));
+            if (res.ok) {
+                const user = await res.json();
+                if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('adminUser', JSON.stringify(user));
+                }
+                router.push('/admin');
+            } else {
+                setError('Invalid username or password');
             }
-            router.push('/admin');
-        } else {
-            setError('Invalid username or password');
+        } catch {
+            setError('Login failed. Please try again.');
         }
     };
 
