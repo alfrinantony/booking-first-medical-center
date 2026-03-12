@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { User } from '@/lib/users-store';
+import { User } from '@/lib/users-types';
 
 export default function AdminAuthGuard({ children }: { children: React.ReactNode }) {
     const router = useRouter();

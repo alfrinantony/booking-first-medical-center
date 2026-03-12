@@ -1,22 +1,34 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { LogsStore, LogEntry } from '@/lib/logs-store';
 import { ClipboardList, Search, Filter, Clock } from 'lucide-react';
+
+interface LogEntry {
+    id: string;
+    timestamp: string;
+    userId: string;
+    userName?: string;
+    action: string;
+    details: string;
+    entityId?: string;
+    entityType?: string;
+}
 
 export default function LogsPage() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterAction, setFilterAction] = useState('ALL');
 
+    const fetchLogs = () => {
+        fetch('/api/admin/logs')
+            .then(r => r.json())
+            .then(data => setLogs(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    };
+
     useEffect(() => {
-        // In a real app, we might poll or use a specialized hook
-        const interval = setInterval(() => {
-            setLogs(LogsStore.getAll());
-        }, 2000); // Auto-refresh every 2s for "live" feel
-
-        setLogs(LogsStore.getAll());
-
+        fetchLogs();
+        const interval = setInterval(fetchLogs, 5000); // Auto-refresh every 5s
         return () => clearInterval(interval);
     }, []);
 

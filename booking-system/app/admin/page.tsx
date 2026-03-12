@@ -10,7 +10,7 @@ import {
     ClipboardList, Zap, TrendingUp, Briefcase
 } from 'lucide-react';
 import { Medicine, Clinic } from '@/lib/data';
-import { User, ModulePermissions } from '@/lib/users-store';
+import { User, ModulePermissions } from '@/lib/users-types';
 
 interface LowStockAlert {
     medicineId: string;

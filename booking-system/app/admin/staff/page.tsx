@@ -18,7 +18,7 @@ import {
     PermissionAction,
     getDefaultPermissions,
     getFullPermissions,
-} from '@/lib/users-store';
+} from '@/lib/users-types';
 import { Doctor } from '@/lib/data';
 
 interface UserFormState {
