@@ -339,6 +339,15 @@ export const PurchaseStore = {
         return newRecord;
     },
 
+    update: async (id: string, updates: Partial<Omit<PurchaseRecord, 'id'>>): Promise<PurchaseRecord | null> => {
+        await ensurePurchasesLoaded();
+        const idx = purchaseStore.findIndex(p => p.id === id);
+        if (idx === -1) return null;
+        purchaseStore[idx] = { ...purchaseStore[idx], ...updates };
+        await saveToBlob('purchases', purchaseStore);
+        return purchaseStore[idx];
+    },
+
     remove: async (id: string): Promise<boolean> => {
         await ensurePurchasesLoaded();
         const len = purchaseStore.length;

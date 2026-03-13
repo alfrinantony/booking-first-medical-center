@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, FileText, Package, CreditCard, Filter, ChevronDown, ChevronRight, Receipt, AlertTriangle, Upload, Download, Eye } from 'lucide-react';
+import { Plus, Trash2, FileText, Package, CreditCard, Filter, ChevronDown, ChevronRight, Receipt, AlertTriangle, Upload, Download, Eye, Edit2 } from 'lucide-react';
 import { Medicine, Supplier, PurchaseRecord, PurchaseLineItem, RegisteredProduct } from '@/lib/data';
 
 interface LineItemForm {
@@ -31,6 +31,8 @@ export default function PurchasesPage() {
     const [expandedBill, setExpandedBill] = useState<string | null>(null);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [invoiceFile, setInvoiceFile] = useState<{ base64: string; name: string } | null>(null);
+    const [editingPurchase, setEditingPurchase] = useState<PurchaseRecord | null>(null);
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
     // Filters
     const [filterMedicine, setFilterMedicine] = useState('');
@@ -43,6 +45,16 @@ export default function PurchasesPage() {
     });
     // Line items
     const [lineItems, setLineItems] = useState<LineItemForm[]>([{ ...emptyLineItem }]);
+
+    useEffect(() => {
+        try {
+            const stored = sessionStorage.getItem('adminUser');
+            if (stored) {
+                const u = JSON.parse(stored);
+                setIsSuperAdmin(u.role === 'SUPER_ADMIN');
+            }
+        } catch { /* ignore */ }
+    }, []);
 
     useEffect(() => {
         Promise.all([
@@ -144,6 +156,75 @@ export default function PurchasesPage() {
                 setLineItems([{ ...emptyLineItem }]);
                 setInvoiceFile(null);
             } else alert('Failed to add purchase');
+        } catch (e) { console.error(e); } finally { setSubmitting(false); }
+    };
+
+    const handleStartEdit = (p: PurchaseRecord) => {
+        setEditingPurchase(p);
+        setBillForm({
+            supplierId: p.supplierId,
+            billNumber: p.billNumber,
+            purchaseDate: p.purchaseDate,
+            chequeNumber: p.chequeNumber || '',
+            chequeDate: p.chequeDate || '',
+            taxAmount: String(p.taxAmount || ''),
+            notes: p.notes || '',
+        });
+        setLineItems(p.items.map(item => ({
+            registeredProductId: item.registeredProductId || '',
+            medicineId: item.medicineId,
+            quantity: String(item.quantity),
+            unitPrice: String(item.unitPrice),
+            focQuantity: String(item.focQuantity || 0),
+            batchNumber: item.batchNumber || '',
+            expiryDate: item.expiryDate || '',
+        })));
+        setInvoiceFile(p.invoiceFileBase64 ? { base64: p.invoiceFileBase64, name: p.invoiceFileName || 'invoice' } : null);
+        setValidationErrors([]);
+        setIsAddOpen(true);
+    };
+
+    const handleEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingPurchase) return;
+        const validItems = lineItems.filter(li => li.registeredProductId && Number(li.quantity) > 0);
+        if (validItems.length === 0) { alert('Add at least one item with a product and quantity'); return; }
+        const errors = validatePurchase();
+        if (errors.length > 0) { setValidationErrors(errors); return; }
+        setValidationErrors([]);
+        setSubmitting(true);
+        try {
+            const subtotal = calcSubtotal();
+            const totalAmount = calcTotal();
+            const res = await fetch('/api/admin/purchases', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editingPurchase.id,
+                    ...billForm,
+                    items: validItems.map(li => ({
+                        medicineId: li.medicineId || li.registeredProductId,
+                        registeredProductId: li.registeredProductId || undefined,
+                        quantity: Number(li.quantity),
+                        unitPrice: Number(li.unitPrice) || 0,
+                        focQuantity: Number(li.focQuantity) || 0,
+                        batchNumber: li.batchNumber || undefined,
+                        expiryDate: li.expiryDate || undefined
+                    })),
+                    subtotal,
+                    taxAmount: Number(billForm.taxAmount) || 0,
+                    totalAmount,
+                    invoiceFileBase64: invoiceFile?.base64 || undefined,
+                    invoiceFileName: invoiceFile?.name || undefined,
+                })
+            });
+            if (res.ok) {
+                await fetchPurchases();
+                setIsAddOpen(false);
+                setEditingPurchase(null);
+                setBillForm({ supplierId: '', billNumber: '', purchaseDate: '', chequeNumber: '', chequeDate: '', taxAmount: '', notes: '' });
+                setLineItems([{ ...emptyLineItem }]);
+                setInvoiceFile(null);
+            } else alert('Failed to update purchase');
         } catch (e) { console.error(e); } finally { setSubmitting(false); }
     };
 
@@ -251,7 +332,7 @@ export default function PurchasesPage() {
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Purchase Records</h1>
                         <p className="text-gray-600 dark:text-gray-400">Track purchases from suppliers. Only registered products can be purchased.</p>
                     </div>
-                    <button onClick={() => setIsAddOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-indigo-700 transition-colors">
+                    <button onClick={() => { setEditingPurchase(null); setBillForm({ supplierId: '', billNumber: '', purchaseDate: '', chequeNumber: '', chequeDate: '', taxAmount: '', notes: '' }); setLineItems([{ ...emptyLineItem }]); setInvoiceFile(null); setIsAddOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-indigo-700 transition-colors">
                         <Plus className="w-4 h-4" /> Record New Purchase
                     </button>
                 </header>
@@ -340,9 +421,16 @@ export default function PurchasesPage() {
                                                 ) : <span className="text-gray-400 text-xs">—</span>}
                                             </td>
                                             <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
-                                                <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <div className="flex items-center justify-center gap-1">
+                                                    {isSuperAdmin && (
+                                                        <button onClick={() => handleStartEdit(p)} className="text-indigo-500 hover:text-indigo-700 p-1.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Edit Purchase">
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                         {/* Expanded line items */}
@@ -396,9 +484,9 @@ export default function PurchasesPage() {
                                 <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
                                     <Receipt className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                                 </div>
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Record New Purchase</h2>
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{editingPurchase ? 'Edit Purchase' : 'Record New Purchase'}</h2>
                             </div>
-                            <form onSubmit={handleAdd} className="space-y-5">
+                            <form onSubmit={editingPurchase ? handleEdit : handleAdd} className="space-y-5">
                                 {/* Bill-level fields */}
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div>
@@ -591,9 +679,9 @@ export default function PurchasesPage() {
                                 </div>
 
                                 <div className="flex justify-end gap-3">
-                                    <button type="button" onClick={() => { setIsAddOpen(false); setValidationErrors([]); }} className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
+                                    <button type="button" onClick={() => { setIsAddOpen(false); setEditingPurchase(null); setValidationErrors([]); }} className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
                                     <button type="submit" disabled={submitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                                        {submitting ? 'Recording...' : 'Record Purchase'}
+                                        {submitting ? (editingPurchase ? 'Updating...' : 'Recording...') : (editingPurchase ? 'Update Purchase' : 'Record Purchase')}
                                     </button>
                                 </div>
                             </form>
