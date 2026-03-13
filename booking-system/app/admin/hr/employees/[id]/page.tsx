@@ -248,16 +248,33 @@ export default function EmployeeDetailPage() {
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Place of Work</label>
-                                <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                    value={editForm.workplaceId || 'clinic-1'}
-                                    onChange={e => {
-                                        const wp = WORKPLACES.find(w => w.id === e.target.value);
-                                        setEditForm({ ...editForm, workplaceId: e.target.value, workplaceName: wp?.name || '' });
-                                    }}>
-                                    {WORKPLACES.map(w => (
-                                        <option key={w.id} value={w.id}>{w.name}</option>
-                                    ))}
-                                </select>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {WORKPLACES.map(w => {
+                                        const ids: string[] = (editForm as any).workplaceIds?.length
+                                            ? (editForm as any).workplaceIds
+                                            : editForm.workplaceId ? [editForm.workplaceId] : ['clinic-1'];
+                                        const checked = ids.includes(w.id);
+                                        return (
+                                            <label key={w.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                                checked
+                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-600 dark:text-indigo-300'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                                            }`}>
+                                                <input type="checkbox" className="w-3.5 h-3.5 rounded" checked={checked}
+                                                    onChange={() => {
+                                                        const updated = checked
+                                                            ? ids.filter(x => x !== w.id)
+                                                            : [...ids, w.id];
+                                                        const primary = updated[0] || 'clinic-1';
+                                                        const primaryName = WORKPLACES.find(wp => wp.id === primary)?.name || '';
+                                                        setEditForm({ ...editForm, workplaceIds: updated, workplaceId: primary, workplaceName: primaryName });
+                                                    }} />
+                                                {w.name}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-1">Select one or more branches</p>
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Joining Date</label>

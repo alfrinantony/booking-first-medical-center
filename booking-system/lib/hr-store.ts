@@ -103,8 +103,9 @@ export interface Employee {
     sickLeavesTaken: number;
 
     // Place of Work
-    workplaceId: string; // matches WORKPLACES[].id
-    workplaceName?: string; // display label
+    workplaceId: string; // matches WORKPLACES[].id (primary / backward-compat)
+    workplaceIds?: string[]; // multi-branch support
+    workplaceName?: string; // display label (legacy)
 
     // Visa / Emirates ID / Passport
     visaStatus: string;

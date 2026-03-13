@@ -27,7 +27,7 @@ interface EmployeeFormData {
     designation: string;
     department: string;
     clinicId: string;
-    workplaceId: string;
+    workplaceIds: string[];
     joiningDate: string;
     contractEndDate: string;
     employmentType: EmploymentType;
@@ -73,7 +73,7 @@ interface EmployeeFormData {
 const emptyForm: EmployeeFormData = {
     firstName: '', middleName: '', lastName: '', email: '', phone: '', whatsappNumber: '', nationality: '',
     dateOfBirth: '', gender: 'MALE', maritalStatus: 'SINGLE', employeeNumber: '', religion: '', ibanNumber: '', designation: '', department: '',
-    clinicId: 'clinic-1', workplaceId: 'clinic-1',
+    clinicId: 'clinic-1', workplaceIds: ['clinic-1'],
     joiningDate: new Date().toISOString().split('T')[0],
     contractEndDate: '', employmentType: 'FULL_TIME', status: 'ACTIVE',
     weeklyOffDays: ['Friday'], noticePeriod: '1 Month', probationPeriod: '3 Months',
@@ -125,7 +125,7 @@ export default function EmployeesPage() {
             const res = await fetch('/api/admin/hr/employees', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
+                body: JSON.stringify({ ...form, workplaceId: form.workplaceIds[0] || 'clinic-1' }),
             });
             if (res.ok) {
                 setShowModal(false);
@@ -238,7 +238,7 @@ export default function EmployeesPage() {
                                     </td>
                                     <td className="px-6 py-4 text-sm font-mono text-gray-600 dark:text-gray-400">{emp.employeeCode}</td>
                                     <td className="px-6 py-4 text-sm">{emp.designation}</td>
-                                    <td className="px-6 py-4 text-sm">{emp.workplaceName || WORKPLACES.find(w => w.id === emp.workplaceId)?.name || emp.department}</td>
+                                    <td className="px-6 py-4 text-sm">{(emp.workplaceIds?.length ? emp.workplaceIds : [emp.workplaceId]).map(id => WORKPLACES.find(w => w.id === id)?.name).filter(Boolean).join(', ') || emp.workplaceName || emp.department}</td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(emp.status)}`}>
                                             {emp.status.replace('_', ' ')}
@@ -404,12 +404,28 @@ export default function EmployeesPage() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Place of Work *</label>
-                                        <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                            value={form.workplaceId} onChange={e => setForm({ ...form, workplaceId: e.target.value })}>
-                                            {WORKPLACES.map(w => (
-                                                <option key={w.id} value={w.id}>{w.name}</option>
-                                            ))}
-                                        </select>
+                                        <div className="flex flex-wrap gap-2 mt-1">
+                                            {WORKPLACES.map(w => {
+                                                const checked = form.workplaceIds.includes(w.id);
+                                                return (
+                                                    <label key={w.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors ${
+                                                        checked
+                                                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-600 dark:text-indigo-300'
+                                                            : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                                                    }`}>
+                                                        <input type="checkbox" className="w-3.5 h-3.5 rounded" checked={checked}
+                                                            onChange={() => {
+                                                                const updated = checked
+                                                                    ? form.workplaceIds.filter(x => x !== w.id)
+                                                                    : [...form.workplaceIds, w.id];
+                                                                setForm({ ...form, workplaceIds: updated });
+                                                            }} />
+                                                        {w.name}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">Select one or more branches</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Weekly Off Days</label>
