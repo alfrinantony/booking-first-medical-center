@@ -239,10 +239,10 @@ export default function EmployeeDetailPage() {
                                     value={editForm.designation || ''} onChange={e => setEditForm({ ...editForm, designation: e.target.value })} />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Business Department</label>
                                 <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
                                     value={editForm.department || ''} onChange={e => setEditForm({ ...editForm, department: e.target.value })}>
-                                    <option value="">Select department...</option>
+                                    <option value="">Select business department...</option>
                                     {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                                 </select>
                             </div>
