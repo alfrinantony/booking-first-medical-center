@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation'; // Correct import for App Router
-import { clinics, timeSlots, Clinic, Department, Service, Doctor, PromoCode, Medicine } from '@/lib/data';
+import { clinics as staticClinics, timeSlots, Clinic, Department, Service, Doctor, PromoCode, Medicine, BOOKING_CATEGORIES } from '@/lib/data';
 import { useAuthStore } from '@/lib/store';
 import CustomerAuth from './auth/CustomerAuth';
 import { Calendar, Clock, User, ChevronRight, ChevronDown, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill, Phone, Mail, ExternalLink, Map as MapIcon } from 'lucide-react';
@@ -77,7 +77,7 @@ export default function BookingWizard() {
     // Prevent hydration mismatch by not rendering until mounted
     // if (!isMounted) return null; // MOVED TO END OF HOOKS
 
-    // Steps: 0: Clinic, 1: Dept, 2: Category, 3: Service, 4: Doctor, 5: Date/Time, 6: Review
+    // Steps: 0: Category, 1: Service, 2: Date, 3: Clinic, 4: Doctor, 5: Time, 6: Confirm
     const [step, setStep] = useState(0);
     const [whatsappNumber, setWhatsappNumber] = useState('');
     // Referral fields
@@ -88,23 +88,33 @@ export default function BookingWizard() {
     const [referralEmployeeId, setReferralEmployeeId] = useState('');
 
     const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
-    const [selectedDept, setSelectedDept] = useState<Department | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const [selectedService, setSelectedService] = useState<Service | null>(null);
+    const [selectedService, setSelectedService] = useState<any | null>(null); // CatalogService with availability
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
     const [isAnyDoctor, setIsAnyDoctor] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [selectedDeviceGroup, setSelectedDeviceGroup] = useState<string | null>(null);
+
+    // Catalog state (aggregated across all clinics)
+    const [catalogData, setCatalogData] = useState<{ categories: string[]; services: any[]; clinics: any[] }>({ categories: [], services: [], clinics: [] });
+    const [catalogLoading, setCatalogLoading] = useState(true);
     const [expandedMapId, setExpandedMapId] = useState<string | null>(null);
 
     // Dynamic slots state
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
-    // Dynamic Services State
-    const [clinicDepts, setClinicDepts] = useState<Department[]>([]);
-    const [isLoadingServices, setIsLoadingServices] = useState(false);
+    // Derive selectedDept from catalog availability (backward compat for rendering)
+    const resolvedAvailability = selectedService && selectedClinic
+        ? selectedService.availability?.find((a: any) => a.clinicId === selectedClinic.id)
+        : null;
+    const selectedDept: Department | null = resolvedAvailability
+        ? { id: resolvedAvailability.departmentId, name: '', services: [], doctors: resolvedAvailability.doctors || [] } as Department
+        : null;
+    // Clinics from catalog (full objects for branch selection)
+    const clinics = catalogData.clinics.length > 0 ? catalogData.clinics as Clinic[] : staticClinics;
 
     // Category images (from admin uploads)
     const [categoryImages, setCategoryImages] = useState<Record<string, string>>({});
@@ -130,29 +140,24 @@ export default function BookingWizard() {
         }).catch(() => { });
     }, []);
 
-    // Fetch services when clinic is selected
+    // Fetch booking catalog on mount (aggregated across all clinics)
     React.useEffect(() => {
-        if (selectedClinic) {
-            const fetchServices = async () => {
-                setIsLoadingServices(true);
-                try {
-                    const res = await fetch(`/api/admin/services?clinicId=${selectedClinic.id}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        // API returns the Clinic object with departments populated
-                        if (data && data.departments) {
-                            setClinicDepts(data.departments);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch services');
-                } finally {
-                    setIsLoadingServices(false);
+        const fetchCatalog = async () => {
+            setCatalogLoading(true);
+            try {
+                const res = await fetch('/api/booking-catalog');
+                if (res.ok) {
+                    const data = await res.json();
+                    setCatalogData(data);
                 }
-            };
-            fetchServices();
-        }
-    }, [selectedClinic]);
+            } catch (error) {
+                console.error('Failed to fetch booking catalog');
+            } finally {
+                setCatalogLoading(false);
+            }
+        };
+        fetchCatalog();
+    }, []);
 
     // Generate next 90 days (3 months) for date selection, filtering by service, clinic, and doctor
     const availableDates = Array.from({ length: 90 })
@@ -325,26 +330,19 @@ export default function BookingWizard() {
         }
     }, [selectedDoctor, selectedDate, selectedService]); // Added selectedService dependency
 
-    const handleClinicSelect = (clinic: Clinic) => {
-        setSelectedClinic(clinic);
-        setStep(1);
-        // Reset subsequent selections
-        setSelectedDept(null); setSelectedCategory(null); setSelectedService(null); setSelectedDoctor(null);
-        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 0, selected: clinic.name });
-    };
-
-    const handleDeptSelect = (dept: Department) => {
-        setSelectedDept(dept);
-        setStep(2); // → Category step
-        setSelectedCategory(null); setSelectedService(null); setSelectedDoctor(null);
-        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 1, selected: dept.name });
-    };
-
     const handleCategorySelect = (category: string) => {
         setSelectedCategory(category);
-        setStep(3); // → Service step
-        setSelectedService(null); setSelectedDoctor(null);
-        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 2, selected: category });
+        setStep(1); // → Service step
+        setSelectedService(null); setSelectedClinic(null); setSelectedDoctor(null);
+        setSelectedDate(null); setSelectedSlot(null); setSelectedDeviceGroup(null);
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 0, selected: category });
+    };
+
+    const handleClinicSelect = (clinic: any) => {
+        setSelectedClinic(clinic);
+        setStep(4); // → Doctor step
+        setSelectedDoctor(null); setSelectedSlot(null);
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 3, selected: clinic.name });
     };
 
     // Screening Questions State
@@ -353,32 +351,29 @@ export default function BookingWizard() {
     const [screeningError, setScreeningError] = useState<string | null>(null);
 
     // Determine if service needs medicine step and proceed accordingly
-    const proceedAfterScreening = (service: Service) => {
+    const proceedAfterScreening = (service: any) => {
         const mode = service.medicineSelectionMode || 'choose';
         const linkedMeds = service.medicineIds || [];
         const hasLinkedMeds = linkedMeds.length > 0;
         const maxMeds = service.maxMedicines || 0;
 
         if (mode === 'all' && hasLinkedMeds) {
-            // Auto-select all linked medicines, skip picker
             setSelectedMedicineIds([...linkedMeds]);
-            setStep(4);
-            setSelectedDoctor(null);
+            setStep(2); // → Date step
+            setSelectedClinic(null); setSelectedDoctor(null);
         } else if (mode === 'either' && hasLinkedMeds) {
-            // Show picker in radio mode
             setSelectedMedicineIds([]);
             setShowMedicinePicker(true);
         } else if (mode === 'choose' && (hasLinkedMeds || maxMeds > 0)) {
-            // Show picker in checkbox mode
             setSelectedMedicineIds([]);
             setShowMedicinePicker(true);
         } else {
-            setStep(4);
-            setSelectedDoctor(null);
+            setStep(2); // → Date step
+            setSelectedClinic(null); setSelectedDoctor(null);
         }
     };
 
-    const handleServiceSelect = (service: Service) => {
+    const handleServiceSelect = (service: any) => {
         if (service.screeningQuestions && service.screeningQuestions.length > 0) {
             setSelectedService(service);
             setShowScreening(true);
@@ -388,7 +383,7 @@ export default function BookingWizard() {
             setSelectedService(service);
             proceedAfterScreening(service);
         }
-        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 3, selected: service.name });
+        bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 1, selected: service.name });
     };
 
     const handleMedicineToggle = (medId: string) => {
@@ -410,8 +405,8 @@ export default function BookingWizard() {
 
     const handleMedicineConfirm = () => {
         setShowMedicinePicker(false);
-        setStep(4);
-        setSelectedDoctor(null);
+        setStep(2); // → Date step
+        setSelectedClinic(null); setSelectedDoctor(null);
     };
 
     const handleScreeningSubmit = () => {
@@ -441,7 +436,7 @@ export default function BookingWizard() {
         setSelectedDoctor(doc);
         setIsAnyDoctor(anyDoctor);
         setStep(5);
-        setSelectedDate(null); setSelectedSlot(null);
+        setSelectedSlot(null);
         bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 4, selected: anyDoctor ? 'Any Available Doctor' : doc.name });
     };
 
@@ -463,40 +458,37 @@ export default function BookingWizard() {
 
         let items: { id: string; name: string; price?: number }[] = [];
         switch (step) {
-            case 0: // Clinic selection
-                items = clinics.map(c => ({ id: c.id, name: c.name }));
+            case 0: // Category selection
+                items = catalogData.categories.map(c => ({ id: c, name: c }));
                 break;
-            case 1: // Department selection
-                items = clinicDepts.map(d => ({ id: d.id, name: d.name }));
-                break;
-            case 2: { // Category selection
-                if (selectedDept) {
-                    const cats = Array.from(new Set(selectedDept.services
-                        .filter(s => !s.allowedGender || s.allowedGender === 'both' || s.allowedGender === user?.gender)
-                        .map(s => s.category || 'General Services')));
-                    items = cats.map(c => ({ id: c, name: c }));
+            case 1: // Service selection
+                if (selectedCategory) {
+                    items = catalogData.services
+                        .filter((s: any) => s.category === selectedCategory)
+                        .filter((s: any) => !s.allowedGender || s.allowedGender === 'both' || s.allowedGender === user?.gender)
+                        .map((s: any) => ({ id: s.id, name: s.name, price: s.price }));
                 }
                 break;
-            }
-            case 3: // Service selection (filtered by category) — include price for voice agent
-                if (selectedDept && selectedCategory) {
-                    items = selectedDept.services
-                        .filter(s => (s.category || 'General Services') === selectedCategory)
-                        .filter(s => !s.allowedGender || s.allowedGender === 'both' || s.allowedGender === user?.gender)
-                        .map(s => ({ id: s.id, name: s.name, price: s.price }));
+            case 2: // Date selection
+                items = availableDates.map(d => ({ id: format(d, 'yyyy-MM-dd'), name: format(d, 'EEEE, MMM d') }));
+                break;
+            case 3: // Clinic selection
+                if (selectedService) {
+                    const clinicIds = new Set(selectedService.availability?.map((a: any) => a.clinicId) || []);
+                    items = clinics.filter(c => clinicIds.has(c.id)).map(c => ({ id: c.id, name: c.name }));
                 }
                 break;
             case 4: // Doctor selection
-                if (selectedDept) items = selectedDept.doctors.map(d => ({ id: d.id, name: d.name }));
+                if (selectedDept) items = selectedDept.doctors.map((d: Doctor) => ({ id: d.id, name: d.name }));
                 break;
-            case 5: // Date/Time
-                items = availableDates.map(d => ({ id: format(d, 'yyyy-MM-dd'), name: format(d, 'EEEE, MMM d') }));
+            case 5: // Time slots
+                items = availableSlots.map(s => ({ id: s, name: s }));
                 break;
         }
         if (items.length > 0) {
             bookingVoiceController.emit(WIZARD_EVENTS.OPTIONS, { step, items });
         }
-    }, [step, clinicDepts, selectedDept, selectedCategory, availableDates, user?.gender]);
+    }, [step, catalogData, selectedCategory, selectedService, selectedDept, availableDates, availableSlots, user?.gender]);
 
     // Emit slot options when available
     useEffect(() => {
@@ -512,36 +504,29 @@ export default function BookingWizard() {
     useEffect(() => {
         const unsubs: (() => void)[] = [];
 
-        unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_CLINIC, (data: { id: string; name: string }) => {
-            const clinic = clinics.find(c => c.id === data.id) || clinics.find(c => c.name.toLowerCase() === data.name?.toLowerCase());
-            if (clinic) handleClinicSelect(clinic);
-        }));
-
-        unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_DEPT, (data: { id: string; name: string }) => {
-            const dept = clinicDepts.find(d => d.id === data.id) || clinicDepts.find(d => d.name.toLowerCase() === data.name?.toLowerCase());
-            if (dept) handleDeptSelect(dept);
-        }));
-
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_CATEGORY, (data: { id: string; name: string }) => {
             if (data.name) handleCategorySelect(data.name);
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_SERVICE, (data: { id: string; name: string }) => {
-            if (selectedDept) {
-                const svc = selectedDept.services.find(s => s.id === data.id) || selectedDept.services.find(s => s.name.toLowerCase() === data.name?.toLowerCase());
-                if (svc) handleServiceSelect(svc);
-            }
+            const svcs = catalogData.services.filter((s: any) => s.category === selectedCategory);
+            const svc = svcs.find((s: any) => s.id === data.id) || svcs.find((s: any) => s.name.toLowerCase() === data.name?.toLowerCase());
+            if (svc) handleServiceSelect(svc);
+        }));
+
+        unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_CLINIC, (data: { id: string; name: string }) => {
+            const clinic = clinics.find(c => c.id === data.id) || clinics.find(c => c.name.toLowerCase() === data.name?.toLowerCase());
+            if (clinic) handleClinicSelect(clinic);
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_DOCTOR, (data: { id: string; name: string }) => {
             if (selectedDept) {
-                const doc = selectedDept.doctors.find(d => d.id === data.id) || selectedDept.doctors.find(d => d.name.toLowerCase() === data.name?.toLowerCase());
+                const doc = selectedDept.doctors.find((d: Doctor) => d.id === data.id) || selectedDept.doctors.find((d: Doctor) => d.name.toLowerCase() === data.name?.toLowerCase());
                 if (doc) handleDoctorSelect(doc);
             }
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.SELECT_DATE, (data: { date: string }) => {
-            // Try to fuzzy-match date from available dates
             const match = fuzzyMatch(data.date, availableDates.map(d => ({ id: format(d, 'yyyy-MM-dd'), name: format(d, 'EEEE, MMM d') })));
             if (match) {
                 const dateObj = availableDates.find(d => format(d, 'yyyy-MM-dd') === match.id);
@@ -563,7 +548,7 @@ export default function BookingWizard() {
         }));
 
         return () => unsubs.forEach(fn => fn());
-    }, [step, clinicDepts, selectedDept, availableDates, availableSlots]);
+    }, [step, catalogData, selectedCategory, selectedDept, availableDates, availableSlots]);
 
     // Promo Code State
     const [promoCodeInput, setPromoCodeInput] = useState('');
@@ -863,7 +848,7 @@ export default function BookingWizard() {
             {/* Progress Bar */}
             <div className="mb-8">
                 <div className="flex justify-between mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {['Clinic', 'Dept', 'Category', 'Service', 'Doctor', 'Time', 'Review'].map((label, idx) => (
+                    {['Category', 'Service', 'Date', 'Clinic Branch', 'Doctor', 'Time Slot', 'Review'].map((label, idx) => (
                         <span key={idx} className={step >= idx ? 'text-indigo-600 dark:text-indigo-400 font-bold' : ''}>{label}</span>
                     ))}
                 </div>
@@ -874,314 +859,170 @@ export default function BookingWizard() {
 
 
 
-            {/* Step 0: Select Clinic */}
+            {/* Step 0: Select Category */}
             {
                 step === 0 && (
                     <div>
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose a Branch</h2>
-                            <button
-                                onClick={() => {
-                                    if (navigator.geolocation) {
-                                        navigator.geolocation.getCurrentPosition((position) => {
-                                            const { latitude, longitude } = position.coords;
-                                            setMyCoords({ lat: latitude, lng: longitude });
-                                        }, (error) => {
-                                            alert("Unable to retrieve your location. Please ensure location services are enabled.");
-                                            console.error(error);
-                                        });
-                                    } else {
-                                        alert("Geolocation is not supported by your browser.");
-                                    }
-                                }}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
-                            >
-                                <Navigation className="w-4 h-4" />
-                                Show Distance from Me
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {clinics.map((clinic) => {
-                                // Calculate Distance
-                                let distance: string | null = null;
-                                if (myCoords && clinic.coordinates) {
-                                    const R = 6371;
-                                    const dLat = (clinic.coordinates.lat - myCoords.lat) * (Math.PI / 180);
-                                    const dLon = (clinic.coordinates.lng - myCoords.lng) * (Math.PI / 180);
-                                    const a =
-                                        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                                        Math.cos(myCoords.lat * (Math.PI / 180)) * Math.cos(clinic.coordinates.lat * (Math.PI / 180)) *
-                                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                                    distance = (R * c).toFixed(1) + ' km';
-                                }
-
-                                const isMapExpanded = expandedMapId === clinic.id;
-
-                                return (
-                                    <div key={clinic.id}
-                                        className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all duration-300 flex flex-col"
-                                    >
-                                        {/* ── Branch Photo (top of card) ── */}
-                                        <div className="relative w-full h-44 sm:h-48 bg-gray-100 dark:bg-gray-900 overflow-hidden cursor-pointer" onClick={() => handleClinicSelect(clinic)}>
-                                            <img
-                                                src={getBranchImage(clinic)}
-                                                alt={`${clinic.name} interior`}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                                            {/* Branch name overlay */}
-                                            <div className="absolute bottom-3 left-4 right-4">
-                                                <h3 className="text-lg font-bold text-white drop-shadow-lg">{clinic.name}</h3>
-                                            </div>
-                                            {/* Rating badge */}
-                                            {clinic.rating && (
-                                                <span className="absolute top-3 left-3 flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2.5 py-1 rounded-lg shadow-md">
-                                                    {clinic.rating} <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
-                                                    <span className="text-gray-500 dark:text-gray-400 font-normal ml-0.5">({clinic.reviewCount})</span>
-                                                </span>
-                                            )}
-                                            {/* Distance badge */}
-                                            {distance && (
-                                                <div className="absolute top-3 right-3 bg-white/90 dark:bg-gray-800/90 text-green-700 dark:text-green-300 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-md">
-                                                    <Navigation className="w-3 h-3" />
-                                                    {distance}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* ── Details Section ── */}
-                                        <div className="flex flex-col flex-1 p-5 cursor-pointer" onClick={() => handleClinicSelect(clinic)}>
-                                            {/* Contact Details Grid */}
-                                            <div className="space-y-2.5 text-sm mb-4">
-                                                {/* Address */}
-                                                <div className="flex items-start gap-2.5 text-gray-600 dark:text-gray-300">
-                                                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-indigo-500" />
-                                                    <span>{clinic.address}</span>
-                                                </div>
-
-                                                {/* Phone */}
-                                                {clinic.contactPhone && (
-                                                    <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-300">
-                                                        <Phone className="w-4 h-4 flex-shrink-0 text-indigo-500" />
-                                                        <a href={`tel:${clinic.contactPhone}`} onClick={e => e.stopPropagation()}
-                                                            className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                                                            {clinic.contactPhone}
-                                                        </a>
-                                                    </div>
-                                                )}
-
-                                                {/* Email */}
-                                                {clinic.email && (
-                                                    <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-300">
-                                                        <Mail className="w-4 h-4 flex-shrink-0 text-indigo-500" />
-                                                        <a href={`mailto:${clinic.email}`} onClick={e => e.stopPropagation()}
-                                                            className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors truncate">
-                                                            {clinic.email}
-                                                        </a>
-                                                    </div>
-                                                )}
-
-                                                {/* Hours */}
-                                                {clinic.operationHours && (
-                                                    <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-300">
-                                                        <Clock className="w-4 h-4 flex-shrink-0 text-indigo-500" />
-                                                        <span>{clinic.operationHours}</span>
-                                                    </div>
-                                                )}
-
-                                                {/* Parking */}
-                                                {clinic.parkingInfo && (
-                                                    <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-300">
-                                                        <Car className="w-4 h-4 flex-shrink-0 text-indigo-500" />
-                                                        <span>{clinic.parkingInfo}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Action Row: View on Maps + Select Branch */}
-                                            <div className="mt-auto pt-3 border-t border-gray-100 dark:border-gray-700">
-                                                <div className="flex items-center justify-between text-sm">
-                                                    {clinic.locationMap && (
-                                                        <a href={clinic.locationMap} target="_blank" rel="noopener noreferrer"
-                                                            onClick={e => e.stopPropagation()}
-                                                            className="flex items-center gap-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                                                            <ExternalLink className="w-3.5 h-3.5" /> View on Maps
-                                                        </a>
-                                                    )}
-                                                    <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold group-hover:gap-2 transition-all">
-                                                        Select Branch <ArrowRight className="w-4 h-4" />
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* ── Expandable Map Section ── */}
-                                        {clinic.coordinates && (
-                                            <div className="border-t border-gray-100 dark:border-gray-700">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setExpandedMapId(isMapExpanded ? null : clinic.id);
-                                                    }}
-                                                    className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                                >
-                                                    <MapIcon className="w-4 h-4" />
-                                                    {isMapExpanded ? 'Hide Map' : 'Show Map'}
-                                                    <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapExpanded ? 'rotate-180' : ''}`} />
-                                                </button>
-                                                <div
-                                                    className={`overflow-hidden transition-all duration-400 ease-in-out ${isMapExpanded ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}
-                                                >
-                                                    <div className="relative w-full h-56 sm:h-64 bg-gray-100 dark:bg-gray-900">
-                                                        {isMapExpanded && (
-                                                            <iframe
-                                                                width="100%" height="100%" frameBorder="0" scrolling="no" marginHeight={0} marginWidth={0}
-                                                                src={clinic.cid
-                                                                    ? `https://maps.google.com/maps?cid=${clinic.cid}&hl=en&z=17&output=embed`
-                                                                    : `https://maps.google.com/maps?q=${clinic.coordinates.lat},${clinic.coordinates.lng}&hl=en&z=17&output=embed`
-                                                                }
-                                                                className="w-full h-full" title={`${clinic.name} Map`}
-                                                                loading="lazy"
-                                                            />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* Step 1: Select Department */}
-            {
-                step === 1 && selectedClinic && (
-                    <div>
-                        <div className="flex items-center gap-2 mb-6">
-                            <button onClick={() => setStep(0)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Change Clinic</button>
-                            <span className="text-gray-300">/</span>
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Department</h2>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                            {isLoadingServices ? (
-                                <div className="col-span-full text-center py-8">Loading departments...</div>
-                            ) : (
-                                clinicDepts.map((dept) => (
-                                    <button
-                                        key={dept.id}
-                                        onClick={() => handleDeptSelect(dept)}
-                                        className="group overflow-hidden border border-gray-200 dark:border-gray-700 rounded-2xl hover:border-indigo-400 hover:shadow-lg transition-all duration-300 text-left"
-                                    >
-                                        <div className="relative w-full h-36 bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                                            <img
-                                                src={getDeptImage(dept)}
-                                                alt={dept.name}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                                            <span className="absolute bottom-2 right-2 bg-white/90 dark:bg-gray-900/90 text-xs font-semibold text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
-                                                {dept.services.length} Services
-                                            </span>
-                                        </div>
-                                        <div className="p-3">
-                                            <span className="block font-semibold text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors text-sm">
-                                                {dept.name}
-                                            </span>
-                                        </div>
-                                    </button>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* Step 2: Select Category */}
-            {
-                step === 2 && selectedDept && (() => {
-                    // Extract unique categories from services, filtered by gender
-                    const genderFiltered = selectedDept.services.filter(svc => {
-                        if (!svc.allowedGender || svc.allowedGender === 'both') return true;
-                        if (user?.gender) return svc.allowedGender === user.gender;
-                        return true;
-                    });
-                    const categoryMap = genderFiltered.reduce((acc, svc) => {
-                        const cat = svc.category || 'General Services';
-                        if (!acc[cat]) acc[cat] = 0;
-                        acc[cat]++;
-                        return acc;
-                    }, {} as Record<string, number>);
-                    const categories = Object.entries(categoryMap);
-
-                    return (
-                        <div>
-                            <div className="flex items-center gap-2 mb-6">
-                                <button onClick={() => setStep(1)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
-                                <span className="text-gray-300">/</span>
-                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Category</h2>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                                {categories.map(([cat, count]) => {
-                                    // Use dedicated category image, fallback to first service image in that category
-                                    const catImage = categoryImages[cat] || genderFiltered.find(s => (s.category || 'General Services') === cat)?.image;
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">What are you looking for?</h2>
+                        {catalogLoading ? (
+                            <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div><p className="mt-4 text-gray-500">Loading services...</p></div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+                                {BOOKING_CATEGORIES.map((cat) => {
+                                    const catImage = categoryImages[cat];
+                                    const count = catalogData.services.filter((s: any) => s.category === cat).length;
+                                    const isEmpty = count === 0;
                                     return (
-                                        <button
-                                            key={cat}
-                                            onClick={() => handleCategorySelect(cat)}
-                                            className="group overflow-hidden border border-gray-200 dark:border-gray-700 rounded-2xl hover:border-indigo-400 hover:shadow-lg transition-all duration-300 text-left"
-                                        >
-                                            {catImage && (
-                                                <div className="relative w-full h-32 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                                        <button key={cat} onClick={() => !isEmpty && handleCategorySelect(cat)}
+                                            disabled={isEmpty}
+                                            className={`group overflow-hidden border rounded-2xl transition-all duration-300 text-left ${isEmpty
+                                                ? 'border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed'
+                                                : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-lg'
+                                            }`}>
+                                            <div className="relative w-full h-32 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 overflow-hidden">
+                                                {catImage ? (
                                                     <img src={catImage} alt={cat} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                                                </div>
-                                            )}
-                                            <div className={`p-4 ${!catImage ? 'py-6' : ''}`}>
-                                                <span className="block font-semibold text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{cat}</span>
-                                                <span className="text-xs text-gray-500 mt-1">{count} Service{count > 1 ? 's' : ''}</span>
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-4xl">
+                                                        {cat === 'Laser & Electrolysis Hair Removal' ? '✨' : cat === 'Face Care' ? '🧖‍♀️' : cat === 'Hair Care' ? '💇' : cat === 'Body Care' ? '🧴' : cat === 'Fillers & Botox' ? '💉' : cat === 'Injectables' ? '💎' : cat === 'Weight Reduction' ? '⚖️' : cat === 'Clinical & Dermatology' ? '🩺' : cat === 'IV Fluids' ? '💧' : cat === 'Piercings' ? '👂' : '🏥'}
+                                                    </div>
+                                                )}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                                                {isEmpty && (
+                                                    <div className="absolute top-2 right-2 bg-gray-600/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Coming soon</div>
+                                                )}
+                                            </div>
+                                            <div className="p-4">
+                                                <span className="block font-semibold text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors text-sm">{cat}</span>
+                                                <span className="text-xs text-gray-500 mt-1">{isEmpty ? 'No services yet' : `${count} Service${count > 1 ? 's' : ''}`}</span>
                                             </div>
                                         </button>
                                     );
                                 })}
                             </div>
-                        </div>
-                    );
-                })()
+                        )}
+                    </div>
+                )
             }
 
-            {/* Step 3: Select Service (filtered by category + gender) */}
+            {/* Step 1: Select Service (with brand/device sub-step for Laser & Fillers categories) */}
             {
-                step === 3 && selectedDept && selectedCategory && (() => {
-                    const filteredServices = selectedDept.services
-                        .filter(svc => (svc.category || 'General Services') === selectedCategory)
-                        .filter(svc => {
+                step === 1 && selectedCategory && (() => {
+                    const allCatServices = catalogData.services
+                        .filter((svc: any) => svc.category === selectedCategory)
+                        .filter((svc: any) => {
                             if (!svc.allowedGender || svc.allowedGender === 'both') return true;
                             if (user?.gender) return svc.allowedGender === user.gender;
                             return true;
                         });
 
+                    // Sub-group definitions per category
+                    const SUB_GROUPS: Record<string, { title: string; subtitle: string; groups: { key: string; label: string; emoji: string; desc: string; prefix?: string; filter?: (s: any) => boolean }[] }> = {
+                        'Laser & Electrolysis Hair Removal': {
+                            title: 'Choose Device',
+                            subtitle: 'We use two premium laser devices. Select your preferred device to see available treatments.',
+                            groups: [
+                                { key: 'Candela', label: 'Candela GentleMax Pro', emoji: '🔴', desc: 'Dual wavelength Alexandrite & Nd:YAG', prefix: 'Candela-' },
+                                { key: 'Lumenis', label: 'Lumenis LightSheer', emoji: '🔵', desc: 'Diode laser technology', prefix: 'Lumenis-' },
+                                { key: 'Male', label: 'Male Treatments', emoji: '👨', desc: 'Specialized male hair removal', filter: (s: any) => s.name.startsWith('Male') || s.name === 'Beard' },
+                                { key: 'Electrolysis', label: 'Electrolysis', emoji: '⚡', desc: 'Permanent hair removal', filter: (s: any) => s.name.startsWith('Electrolysis') },
+                            ]
+                        },
+                        'Fillers & Botox': {
+                            title: 'Choose Procedure',
+                            subtitle: 'Select the treatment area. You\'ll then choose your preferred brand and see pricing.',
+                            groups: [
+                                { key: 'LipsFiller', label: 'Lips Filler', emoji: '👄', desc: 'Lip enhancement & volume', filter: (s: any) => s.name.startsWith('Lips Filler') },
+                                { key: 'CheeksFiller', label: 'Cheeks Filler', emoji: '✨', desc: 'Cheek contouring & volume', filter: (s: any) => s.name.startsWith('Cheeks Filler') },
+                                { key: 'JawlineFiller', label: 'Jawline Filler', emoji: '💎', desc: 'Jawline definition & sculpting', filter: (s: any) => s.name.startsWith('Jawline Filler') },
+                                { key: 'ChinFiller', label: 'Chin Filler', emoji: '🔷', desc: 'Chin reshaping & projection', filter: (s: any) => s.name.startsWith('Chin Filler') },
+                                { key: 'UnderEyeFiller', label: 'Under Eye Filler', emoji: '👁️', desc: 'Under-eye hollow correction', filter: (s: any) => s.name.startsWith('Under Eye Filler') },
+                                { key: 'NoseFiller', label: 'Nose Filler', emoji: '👃', desc: 'Non-surgical rhinoplasty', filter: (s: any) => s.name.startsWith('Nose Filler') },
+                                { key: 'ForeheadBotox', label: 'Forehead Botox', emoji: '💉', desc: 'Forehead line smoothing', filter: (s: any) => s.name.startsWith('Forehead Botox') },
+                                { key: 'CrowsFeet', label: "Crow's Feet Botox", emoji: '🌟', desc: "Crow's feet wrinkle reduction", filter: (s: any) => s.name.startsWith("Crow's Feet") },
+                                { key: 'FrownLines', label: 'Frown Lines Botox', emoji: '😊', desc: 'Frown line treatment', filter: (s: any) => s.name.startsWith('Frown Lines') },
+                                { key: 'FullFaceBotox', label: 'Full Face Botox', emoji: '🎭', desc: 'Complete facial rejuvenation', filter: (s: any) => s.name.startsWith('Full Face Botox') },
+                                { key: 'GummySmile', label: 'Gummy Smile Botox', emoji: '😁', desc: 'Gummy smile correction', filter: (s: any) => s.name.startsWith('Gummy Smile') },
+                                { key: 'MessoBotox', label: 'Messo Botox', emoji: '💧', desc: 'Meso-botox for skin texture', filter: (s: any) => s.name.startsWith('Messo Botox') },
+                            ]
+                        },
+                        'Injectables': {
+                            title: 'Choose Treatment Type',
+                            subtitle: 'Select the type of injectable treatment you\'re interested in.',
+                            groups: [
+                                { key: 'PRP', label: 'PRP Treatments', emoji: '🩸', desc: 'Platelet-Rich Plasma therapy', filter: (s: any) => s.name.startsWith('PRP') },
+                                { key: 'IPRF', label: 'IPRF Treatments', emoji: '💉', desc: 'Injectable Platelet-Rich Fibrin', filter: (s: any) => s.name.startsWith('IPRF') },
+                                { key: 'Mesotherapy', label: 'Mesotherapy', emoji: '✨', desc: 'Micro-injection rejuvenation', filter: (s: any) => s.name.startsWith('Mesotherapy') },
+                                { key: 'SkinBoosters', label: 'Skin Boosters', emoji: '💧', desc: 'Deep hydration & skin quality', filter: (s: any) => s.name.startsWith('Skin Boosters') },
+                                { key: 'Polynucleotides', label: 'Polynucleotides', emoji: '🧬', desc: 'Bio-regenerative therapy', filter: (s: any) => s.name.startsWith('Polynucleotides') },
+                                { key: 'CollagenStimulators', label: 'Collagen Stimulators', emoji: '🔬', desc: 'Collagen production boosters', filter: (s: any) => s.name.startsWith('Collagen Stimulators') },
+                                { key: 'FatDissolving', label: 'Fat Dissolving', emoji: '🔥', desc: 'Non-surgical fat reduction', filter: (s: any) => s.name.startsWith('Fat Dissolving') },
+                            ]
+                        }
+                    };
+
+                    const subGroupConfig = SUB_GROUPS[selectedCategory];
+                    const hasSubGroups = !!subGroupConfig;
+
+                    // Filter services by selected sub-group
+                    const filteredServices = hasSubGroups && selectedDeviceGroup
+                        ? (() => {
+                            const group = subGroupConfig.groups.find(g => g.key === selectedDeviceGroup);
+                            if (!group) return allCatServices;
+                            if (group.filter) return allCatServices.filter(group.filter);
+                            return allCatServices.filter((s: any) => s.name.startsWith(group.prefix || ''));
+                          })()
+                        : allCatServices;
+
+                    // Show sub-group selection if applicable and no group chosen yet
+                    if (hasSubGroups && !selectedDeviceGroup) {
+                        return (
+                            <div>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <button onClick={() => setStep(0)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Categories</button>
+                                    <span className="text-gray-300">/</span>
+                                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{subGroupConfig.title}</h2>
+                                </div>
+                                <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">{subGroupConfig.subtitle}</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {subGroupConfig.groups.map(group => {
+                                        const groupServices = group.filter
+                                            ? allCatServices.filter(group.filter)
+                                            : allCatServices.filter((s: any) => s.name.startsWith(group.prefix || ''));
+                                        return (
+                                            <button key={group.key} onClick={() => setSelectedDeviceGroup(group.key)}
+                                                className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-indigo-400 hover:shadow-lg transition-all duration-300 text-left">
+                                                <div className="text-4xl mb-3">{group.emoji}</div>
+                                                <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">{group.label}</h3>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{group.desc}</p>
+                                                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                                    <span className="text-xs text-gray-500">{groupServices.length} treatment{groupServices.length !== 1 ? 's' : ''}</span>
+                                                    <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold text-sm">View <ArrowRight className="w-4 h-4" /></span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    }
+
                     return (
                         <div>
                             <div className="flex items-center gap-2 mb-6">
-                                <button onClick={() => setStep(2)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                                <button onClick={() => { if (hasSubGroups) { setSelectedDeviceGroup(null); } else { setStep(0); } }} className="text-sm text-gray-500 hover:text-indigo-600 underline">
+                                    {hasSubGroups ? subGroupConfig.title.replace('Choose ', '') : 'Categories'}
+                                </button>
                                 <span className="text-gray-300">/</span>
                                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Service</h2>
-                                <span className="text-sm text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full ml-2">{selectedCategory}</span>
+                                <span className="text-sm text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full ml-2">
+                                    {hasSubGroups ? subGroupConfig.groups.find(g => g.key === selectedDeviceGroup)?.label : selectedCategory}
+                                </span>
                             </div>
                             <div className="space-y-3">
-                                {filteredServices.map((svc) => (
-                                    <button
-                                        key={svc.id}
-                                        onClick={() => handleServiceSelect(svc)}
-                                        className="w-full flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group"
-                                    >
-                                        {/* Service Thumbnail */}
+                                {filteredServices.map((svc: any) => (
+                                    <button key={svc.id} onClick={() => handleServiceSelect(svc)}
+                                        className="w-full flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group">
                                         {svc.image && (
                                             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
                                                 <img src={svc.image} alt={svc.name} className="w-full h-full object-cover" />
@@ -1189,24 +1030,12 @@ export default function BookingWizard() {
                                         )}
                                         <div className="flex-1 text-left min-w-0">
                                             <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
-                                            {svc.description && (
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>
-                                            )}
+                                            {svc.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>}
                                             <div className="flex flex-wrap gap-2 text-sm text-gray-500 mt-1">
                                                 <span>{svc.duration} mins</span>
-                                                {svc.isTaxable && (
-                                                    <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded font-medium">
-                                                        +VAT
-                                                    </span>
-                                                )}
-                                                {svc.followUpDuration && (
-                                                    <span className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded font-medium">
-                                                        Free Follow Up within {svc.followUpDuration}d
-                                                    </span>
-                                                )}
-                                                {svc.allowedGender && svc.allowedGender !== 'both' && (
-                                                    <span className="text-indigo-600 font-medium capitalize">({svc.allowedGender} Only)</span>
-                                                )}
+                                                {svc.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded font-medium">+VAT</span>}
+                                                {svc.followUpDuration && <span className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded font-medium">Free Follow Up within {svc.followUpDuration}d</span>}
+                                                {svc.allowedGender && svc.allowedGender !== 'both' && <span className="text-indigo-600 font-medium capitalize">({svc.allowedGender} Only)</span>}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3 flex-shrink-0">
@@ -1221,6 +1050,196 @@ export default function BookingWizard() {
                 })()
             }
 
+            {/* Step 2: Select Date */}
+            {
+                step === 2 && selectedService && (
+                    <div>
+                        <div className="flex items-center gap-2 mb-6">
+                            <button onClick={() => setStep(1)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                            <span className="text-gray-300">/</span>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Date</h2>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-6 flex items-center gap-3">
+                            <Calendar className="w-5 h-5 text-indigo-500" />
+                            <div>
+                                <span className="font-semibold text-gray-900 dark:text-white text-sm">{selectedService.name}</span>
+                                <span className="text-xs text-gray-500 ml-2">{selectedService.duration} mins • {selectedService.price} AED</span>
+                            </div>
+                        </div>
+                        <div className="mb-6">
+                            {datesByMonth.length > 0 && (
+                                <div className="flex items-center justify-between mb-4">
+                                    <button onClick={() => setCalendarMonthIndex(Math.max(0, calendarMonthIndex - 1))} disabled={calendarMonthIndex === 0}
+                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                        <ChevronRight className="w-5 h-5 rotate-180 text-gray-600 dark:text-gray-300" />
+                                    </button>
+                                    <span className="text-lg font-bold text-gray-900 dark:text-white">{currentMonthGroup?.label}</span>
+                                    <button onClick={() => setCalendarMonthIndex(Math.min(datesByMonth.length - 1, calendarMonthIndex + 1))} disabled={calendarMonthIndex >= datesByMonth.length - 1}
+                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                        <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                    </button>
+                                </div>
+                            )}
+                            <div className="grid grid-cols-7 gap-2 mb-2">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                                    <div key={d} className="text-center text-xs font-bold text-gray-400 uppercase">{d}</div>
+                                ))}
+                            </div>
+                            {currentMonthGroup && (() => {
+                                const firstDate = currentMonthGroup.dates[0];
+                                const monthStart = startOfMonth(firstDate);
+                                const startDow = monthStart.getDay();
+                                const availableSet = new Set(currentMonthGroup.dates.map((d: Date) => d.getDate()));
+                                const daysInMonth = new Date(getYear(firstDate), getMonth(firstDate) + 1, 0).getDate();
+                                const cells: (Date | null)[] = [];
+                                for (let i = 0; i < startDow; i++) cells.push(null);
+                                for (let day = 1; day <= daysInMonth; day++) {
+                                    if (availableSet.has(day)) {
+                                        cells.push(currentMonthGroup.dates.find((d: Date) => d.getDate() === day) || null);
+                                    } else {
+                                        cells.push(null);
+                                    }
+                                }
+                                return (
+                                    <div className="grid grid-cols-7 gap-2">
+                                        {cells.map((date, idx) => {
+                                            if (!date) {
+                                                const dayNum = idx - startDow + 1;
+                                                if (dayNum >= 1 && dayNum <= daysInMonth) {
+                                                    return <div key={`empty-${idx}`} className="p-2 rounded-lg text-center"><div className="text-sm text-gray-300 dark:text-gray-600">{dayNum}</div></div>;
+                                                }
+                                                return <div key={`pad-${idx}`} />;
+                                            }
+                                            const isSelected = selectedDate?.toDateString() === date.toDateString();
+                                            return (
+                                                <button key={date.toISOString()} onClick={() => { setSelectedDate(date); setSelectedClinic(null); setSelectedDoctor(null); setSelectedSlot(null); setStep(3); }}
+                                                    className={`p-2 rounded-lg border text-center transition-all ${isSelected ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-gray-900' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+                                                    <div className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400">{format(date, 'EEE')}</div>
+                                                    <div className="text-lg font-bold">{format(date, 'd')}</div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Step 3: Select Clinic Branch */}
+            {
+                step === 3 && selectedService && selectedDate && (() => {
+                    const availableClinicIds = new Set((selectedService.availability || []).map((a: any) => a.clinicId));
+                    const branchOptions = clinics.filter((c: any) => availableClinicIds.has(c.id));
+                    return (
+                        <div>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setStep(2)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                                    <span className="text-gray-300">/</span>
+                                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Branch</h2>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (navigator.geolocation) {
+                                            navigator.geolocation.getCurrentPosition((position) => {
+                                                const { latitude, longitude } = position.coords;
+                                                setMyCoords({ lat: latitude, lng: longitude });
+                                            }, () => {
+                                                alert("Unable to retrieve your location. Please ensure location services are enabled.");
+                                            });
+                                        } else {
+                                            alert("Geolocation is not supported by your browser.");
+                                        }
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
+                                >
+                                    <Navigation className="w-4 h-4" />
+                                    {myCoords ? 'Location Found ✓' : 'Find Nearest Branch'}
+                                </button>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-6 flex items-center gap-3">
+                                <Calendar className="w-5 h-5 text-indigo-500" />
+                                <div>
+                                    <span className="font-semibold text-gray-900 dark:text-white text-sm">{selectedService.name}</span>
+                                    <span className="text-xs text-gray-500 ml-2">on {format(selectedDate, 'EEEE, MMM d, yyyy')}</span>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {(() => {
+                                    // Sort by distance if location available
+                                    const sorted = [...branchOptions].sort((a: any, b: any) => {
+                                        if (!myCoords) return 0;
+                                        const distA = a.coordinates ? Math.sqrt(Math.pow(a.coordinates.lat - myCoords.lat, 2) + Math.pow(a.coordinates.lng - myCoords.lng, 2)) : 999;
+                                        const distB = b.coordinates ? Math.sqrt(Math.pow(b.coordinates.lat - myCoords.lat, 2) + Math.pow(b.coordinates.lng - myCoords.lng, 2)) : 999;
+                                        return distA - distB;
+                                    });
+                                    return sorted.map((clinic: any) => {
+                                        let distance: string | null = null;
+                                        if (myCoords && clinic.coordinates) {
+                                            const R = 6371;
+                                            const dLat = (clinic.coordinates.lat - myCoords.lat) * (Math.PI / 180);
+                                            const dLon = (clinic.coordinates.lng - myCoords.lng) * (Math.PI / 180);
+                                            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(myCoords.lat * (Math.PI / 180)) * Math.cos(clinic.coordinates.lat * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                                            distance = (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1) + ' km';
+                                        }
+                                        const isMapOpen = expandedMapId === clinic.id;
+                                        return (
+                                            <div key={clinic.id} className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all duration-300">
+                                                {/* Branch Photo */}
+                                                <div className="w-full h-36 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                                                    <img src={getBranchImage(clinic)} alt={clinic.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                </div>
+                                                <button onClick={() => handleClinicSelect(clinic)} className="w-full text-left">
+                                                    <div className="p-5">
+                                                        <div className="flex items-start justify-between">
+                                                            <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">{clinic.name}</h3>
+                                                            {distance && <span className="text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full flex items-center gap-1 flex-shrink-0"><Navigation className="w-3 h-3" />{distance}</span>}
+                                                        </div>
+                                                        <div className="space-y-2 mt-3 text-sm text-gray-600 dark:text-gray-300">
+                                                            <div className="flex items-start gap-2"><MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-indigo-500" /><span>{clinic.address}</span></div>
+                                                            {clinic.operationHours && <div className="flex items-center gap-2"><Clock className="w-4 h-4 flex-shrink-0 text-indigo-500" /><span>{clinic.operationHours}</span></div>}
+                                                            {clinic.contactPhone && <div className="flex items-center gap-2"><Phone className="w-4 h-4 flex-shrink-0 text-indigo-500" /><span>{clinic.contactPhone}</span></div>}
+                                                        </div>
+                                                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                                            {clinic.rating && <span className="text-xs font-bold text-yellow-600 flex items-center gap-1">{clinic.rating} <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" /></span>}
+                                                            <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold text-sm ml-auto">Select <ArrowRight className="w-4 h-4" /></span>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                                {/* Map toggle + embed */}
+                                                <div className="border-t border-gray-100 dark:border-gray-700">
+                                                    <button onClick={(e) => { e.stopPropagation(); setExpandedMapId(isMapOpen ? null : clinic.id); }}
+                                                        className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-gray-500 hover:text-indigo-600 transition-colors">
+                                                        <MapIcon className="w-3.5 h-3.5" />
+                                                        {isMapOpen ? 'Hide Map' : 'View on Map'}
+                                                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isMapOpen ? 'rotate-180' : ''}`} />
+                                                    </button>
+                                                    {isMapOpen && clinic.locationMap && (
+                                                        <div className="px-3 pb-3">
+                                                            <iframe src={clinic.locationMap} className="w-full h-48 rounded-lg border-0" allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+                                                        </div>
+                                                    )}
+                                                    {isMapOpen && !clinic.locationMap && clinic.coordinates && (
+                                                        <div className="px-3 pb-3">
+                                                            <iframe src={`https://www.google.com/maps?q=${clinic.coordinates.lat},${clinic.coordinates.lng}&z=15&output=embed`} className="w-full h-48 rounded-lg border-0" allowFullScreen loading="lazy" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                            {branchOptions.length === 0 && (
+                                <div className="text-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg"><p className="text-gray-500">No branches offer this service on the selected date.</p></div>
+                            )}
+                        </div>
+                    );
+                })()
+            }
+
             {/* Screening Questions Modal */}
             {
                 showScreening && selectedService && (
@@ -1230,7 +1249,7 @@ export default function BookingWizard() {
                             <p className="text-gray-500 mb-6 text-sm">Please answer the following questions to ensure you are eligible for this service.</p>
 
                             <div className="space-y-4 mb-6">
-                                {selectedService.screeningQuestions?.map((q, idx) => (
+                                {selectedService.screeningQuestions?.map((q: string, idx: number) => (
                                     <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                                         <p className="font-medium text-gray-900 dark:text-white mb-3">{q}</p>
                                         <div className="flex gap-4">
@@ -1315,7 +1334,7 @@ export default function BookingWizard() {
                                     <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 p-3 rounded-lg mb-4">
                                         <div className="text-sm font-medium text-orange-800 dark:text-orange-300 mb-1">🧴 Consumables included for this procedure:</div>
                                         <div className="flex flex-wrap gap-1.5">
-                                            {(selectedService.consumableIds || []).map(cid => {
+                                            {(selectedService.consumableIds || []).map((cid: string) => {
                                                 const cons = medicineCatalog.find(m => m.id === cid);
                                                 return cons ? (
                                                     <span key={cid} className="text-xs bg-orange-100 dark:bg-orange-800/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full">{cons.name}</span>
@@ -1450,128 +1469,66 @@ export default function BookingWizard() {
                 )
             }
 
-            {/* Step 5: Select Date & Time */}
+            {/* Step 5: Select Time Slot */}
             {
-                step === 5 && (
+                step === 5 && selectedDate && (
                     <div>
                         <div className="flex items-center gap-2 mb-6">
                             <button onClick={() => setStep(4)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
                             <span className="text-gray-300">/</span>
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Schedule Appointment</h2>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Time Slot</h2>
                         </div>
 
+                        {/* Inline Date Switcher */}
                         <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-3">Select Date</h3>
-                            {/* Month Navigation */}
-                            {datesByMonth.length > 0 && (
-                                <div className="flex items-center justify-between mb-4">
-                                    <button
-                                        onClick={() => setCalendarMonthIndex(Math.max(0, calendarMonthIndex - 1))}
-                                        disabled={calendarMonthIndex === 0}
-                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                    >
-                                        <ChevronRight className="w-5 h-5 rotate-180 text-gray-600 dark:text-gray-300" />
-                                    </button>
-                                    <span className="text-lg font-bold text-gray-900 dark:text-white">{currentMonthGroup?.label}</span>
-                                    <button
-                                        onClick={() => setCalendarMonthIndex(Math.min(datesByMonth.length - 1, calendarMonthIndex + 1))}
-                                        disabled={calendarMonthIndex >= datesByMonth.length - 1}
-                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                    >
-                                        <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                                    </button>
+                            <div className="flex items-center gap-2 mb-3">
+                                <Calendar className="w-4 h-4 text-indigo-500" />
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Selected Date:</span>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                                {availableDates.slice(0, 14).map((date) => {
+                                    const isActive = selectedDate?.toDateString() === date.toDateString();
+                                    return (
+                                        <button key={date.toISOString()} onClick={() => { setSelectedDate(date); setSelectedSlot(null); }}
+                                            className={`flex-shrink-0 px-3 py-2 rounded-lg border text-center transition-all min-w-[70px] ${
+                                                isActive
+                                                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-md'
+                                                    : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                            }`}>
+                                            <div className="text-[10px] uppercase font-bold opacity-80">{format(date, 'EEE')}</div>
+                                            <div className="text-sm font-bold">{format(date, 'd MMM')}</div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Time Slots */}
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Available times for {format(selectedDate, 'EEEE, MMM d')}</h3>
+                            {isLoadingSlots ? (
+                                <div className="flex justify-center p-8">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                                </div>
+                            ) : availableSlots.length > 0 ? (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    {availableSlots.map((slot) => (
+                                        <button key={slot} onClick={() => handleSlotSelect(slot)}
+                                            className={`py-2.5 px-1 text-sm rounded-lg border transition-all font-medium ${
+                                                selectedSlot === slot
+                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                                                    : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                            }`}>
+                                            {slot}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <p className="text-gray-500">No available slots for this date. Try another date above.</p>
                                 </div>
                             )}
-                            {/* Day-of-week header */}
-                            <div className="grid grid-cols-7 gap-2 mb-2">
-                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                                    <div key={d} className="text-center text-xs font-bold text-gray-400 uppercase">{d}</div>
-                                ))}
-                            </div>
-                            {/* Calendar grid */}
-                            {currentMonthGroup && (() => {
-                                const firstDate = currentMonthGroup.dates[0];
-                                const monthStart = startOfMonth(firstDate);
-                                const startDow = monthStart.getDay(); // 0=Sun
-                                // Build a set of available day-of-month for quick lookup
-                                const availableSet = new Set(currentMonthGroup.dates.map(d => d.getDate()));
-                                // Days in this month
-                                const daysInMonth = new Date(getYear(firstDate), getMonth(firstDate) + 1, 0).getDate();
-                                const cells: (Date | null)[] = [];
-                                // Leading empties
-                                for (let i = 0; i < startDow; i++) cells.push(null);
-                                // Day cells
-                                for (let day = 1; day <= daysInMonth; day++) {
-                                    if (availableSet.has(day)) {
-                                        cells.push(currentMonthGroup.dates.find(d => d.getDate() === day) || null);
-                                    } else {
-                                        cells.push(null); // unavailable day placeholder
-                                    }
-                                }
-                                return (
-                                    <div className="grid grid-cols-7 gap-2">
-                                        {cells.map((date, idx) => {
-                                            if (!date) {
-                                                // Show the day number but disabled
-                                                const dayNum = idx - startDow + 1;
-                                                if (dayNum >= 1 && dayNum <= daysInMonth) {
-                                                    return (
-                                                        <div key={`empty-${idx}`} className="p-2 rounded-lg text-center">
-                                                            <div className="text-sm text-gray-300 dark:text-gray-600">{dayNum}</div>
-                                                        </div>
-                                                    );
-                                                }
-                                                return <div key={`pad-${idx}`} />;
-                                            }
-                                            const isSelected = selectedDate?.toDateString() === date.toDateString();
-                                            return (
-                                                <button
-                                                    key={date.toISOString()}
-                                                    onClick={() => setSelectedDate(date)}
-                                                    className={`p-2 rounded-lg border text-center transition-all ${isSelected
-                                                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-gray-900'
-                                                        : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                                        }`}
-                                                >
-                                                    <div className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400">{format(date, 'EEE')}</div>
-                                                    <div className="text-lg font-bold">{format(date, 'd')}</div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })()}
                         </div>
-
-                        {selectedDate && (
-                            <div>
-                                <h3 className="text-lg font-semibold mb-3">Available Slots</h3>
-                                {isLoadingSlots ? (
-                                    <div className="flex justify-center p-8">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                                    </div>
-                                ) : availableSlots.length > 0 ? (
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                                        {availableSlots.map((slot) => (
-                                            <button
-                                                key={slot}
-                                                onClick={() => handleSlotSelect(slot)}
-                                                className={`py-2 px-1 text-sm rounded-md border transition-all ${selectedSlot === slot
-                                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                                    : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                                    }`}
-                                            >
-                                                {slot}
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                        <p className="text-gray-500">No available slots for this date.</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
                 )
             }

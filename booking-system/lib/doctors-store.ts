@@ -1,29 +1,19 @@
-import { clinics as initialClinics, Clinic, Doctor } from './data';
-import { loadFromBlob, saveToBlob } from './blob-persistence';
+import { Doctor } from './data';
+import { ensureClinicsLoaded, getClinicStore, saveClinicStore } from './services-store';
 
-// In-memory cache for clinics (which contain doctors)
-// Shares the same 'clinics' blob key as services-store for unified persistence
-let clinicStore: Clinic[] = JSON.parse(JSON.stringify(initialClinics));
-let loaded = false;
-
-async function ensureLoaded() {
-    if (!loaded) {
-        clinicStore = await loadFromBlob<Clinic[]>('clinics', clinicStore);
-        loaded = true;
-    }
-}
+// Uses the SHARED clinic cache from services-store to prevent stale-cache overwrites
 
 export const DoctorsStore = {
     // Get all clinics to browse doctors
     getClinics: async () => {
-        await ensureLoaded();
-        return clinicStore;
+        await ensureClinicsLoaded();
+        return getClinicStore();
     },
 
     // Add a doctor to a department
     addDoctor: async (clinicId: string, departmentId: string, doctor: Omit<Doctor, 'id'>) => {
-        await ensureLoaded();
-        const clinic = clinicStore.find(c => c.id === clinicId);
+        await ensureClinicsLoaded();
+        const clinic = getClinicStore().find(c => c.id === clinicId);
         if (!clinic) return null;
 
         const department = clinic.departments.find(d => d.id === departmentId);
@@ -35,14 +25,14 @@ export const DoctorsStore = {
         };
 
         department.doctors.push(newDoctor);
-        await saveToBlob('clinics', clinicStore);
+        await saveClinicStore();
         return newDoctor;
     },
 
     // Remove a doctor
     removeDoctor: async (clinicId: string, departmentId: string, doctorId: string) => {
-        await ensureLoaded();
-        const clinic = clinicStore.find(c => c.id === clinicId);
+        await ensureClinicsLoaded();
+        const clinic = getClinicStore().find(c => c.id === clinicId);
         if (!clinic) return false;
 
         const department = clinic.departments.find(d => d.id === departmentId);
@@ -52,7 +42,7 @@ export const DoctorsStore = {
         department.doctors = department.doctors.filter(d => d.id !== doctorId);
 
         if (department.doctors.length < initialLength) {
-            await saveToBlob('clinics', clinicStore);
+            await saveClinicStore();
             return true;
         }
         return false;
@@ -60,8 +50,8 @@ export const DoctorsStore = {
 
     // Update a doctor
     updateDoctor: async (clinicId: string, departmentId: string, doctorId: string, updates: Partial<Omit<Doctor, 'id'>>) => {
-        await ensureLoaded();
-        const clinic = clinicStore.find(c => c.id === clinicId);
+        await ensureClinicsLoaded();
+        const clinic = getClinicStore().find(c => c.id === clinicId);
         if (!clinic) return null;
 
         const department = clinic.departments.find(d => d.id === departmentId);
@@ -73,7 +63,7 @@ export const DoctorsStore = {
         const updatedDoctor = { ...department.doctors[doctorIndex], ...updates };
         department.doctors[doctorIndex] = updatedDoctor;
 
-        await saveToBlob('clinics', clinicStore);
+        await saveClinicStore();
         return updatedDoctor;
     }
 };

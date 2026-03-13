@@ -1,16 +1,21 @@
 import { clinics as initialClinics, Clinic, Service, Medicine, medicineCatalog as initialMedicines, Supplier, initialSuppliers, PurchaseRecord, initialPurchases, DistributionRecord, RegisteredProduct, initialRegisteredProducts, InventoryBatch, BranchStockEntry } from './data';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 
-// ── Clinics (shared backing store for Services + Doctors) ─────
+// ── Clinics (shared backing store for Services + Doctors + Clinics) ─────
 let clinicStore: Clinic[] = JSON.parse(JSON.stringify(initialClinics));
 let clinicsLoaded = false;
 
-async function ensureClinicsLoaded() {
+export async function ensureClinicsLoaded() {
     if (!clinicsLoaded) {
         clinicStore = await loadFromBlob<Clinic[]>('clinics', clinicStore);
         clinicsLoaded = true;
     }
 }
+
+/** Shared accessor – used by doctors-store & clinics-store to avoid stale caches */
+export function getClinicStore(): Clinic[] { return clinicStore; }
+export function setClinicStore(stores: Clinic[]) { clinicStore = stores; }
+export async function saveClinicStore() { await saveToBlob('clinics', clinicStore); }
 
 // ── Medicines ─────────────────────────────────────────────────
 let medicineStore: Medicine[] = JSON.parse(JSON.stringify(initialMedicines));

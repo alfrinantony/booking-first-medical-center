@@ -110,4 +110,4 @@ export function fuzzyMatch(query: string, options: { id: string; name: string }[
 }
 
 /* ── Step names ── */
-export const STEP_NAMES = ['Clinic', 'Department', 'Category', 'Service', 'Doctor', 'Date & Time', 'Review'] as const;
+export const STEP_NAMES = ['Category', 'Service', 'Date', 'Branch', 'Doctor', 'Time', 'Confirm'] as const;

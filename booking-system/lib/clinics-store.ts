@@ -1,63 +1,57 @@
-import { clinics as initialClinics, Clinic } from './data';
-import { loadFromBlob, saveToBlob } from './blob-persistence';
+import { Clinic } from './data';
+import { ensureClinicsLoaded, getClinicStore, setClinicStore, saveClinicStore } from './services-store';
 
-// In-memory cache for clinics — loaded from Azure Blob on first access
-let clinicStore: Clinic[] = JSON.parse(JSON.stringify(initialClinics));
-let loaded = false;
-
-async function ensureLoaded() {
-    if (!loaded) {
-        clinicStore = await loadFromBlob<Clinic[]>('clinics', clinicStore);
-        loaded = true;
-    }
-}
+// Uses the SHARED clinic cache from services-store to prevent stale-cache overwrites
 
 export const ClinicsStore = {
     // Get all clinics
     getClinics: async () => {
-        await ensureLoaded();
-        return clinicStore;
+        await ensureClinicsLoaded();
+        return getClinicStore();
     },
 
     // Get a single clinic by ID
     getClinic: async (id: string) => {
-        await ensureLoaded();
-        return clinicStore.find(c => c.id === id);
+        await ensureClinicsLoaded();
+        return getClinicStore().find(c => c.id === id);
     },
 
     // Add a new clinic
     addClinic: async (clinic: Omit<Clinic, 'id' | 'departments'>) => {
-        await ensureLoaded();
+        await ensureClinicsLoaded();
         const newClinic: Clinic = {
             ...clinic,
             id: `clinic-${Date.now()}`,
             departments: [] // Initialize with empty departments
         };
-        clinicStore.push(newClinic);
-        await saveToBlob('clinics', clinicStore);
+        getClinicStore().push(newClinic);
+        await saveClinicStore();
         return newClinic;
     },
 
     // Update a clinic
     updateClinic: async (id: string, updates: Partial<Clinic>) => {
-        await ensureLoaded();
-        const index = clinicStore.findIndex(c => c.id === id);
+        await ensureClinicsLoaded();
+        const store = getClinicStore();
+        const index = store.findIndex(c => c.id === id);
         if (index === -1) return null;
 
         // Merge updates, but preserve departments if not explicitly updated
-        const updatedClinic = { ...clinicStore[index], ...updates };
-        clinicStore[index] = updatedClinic;
-        await saveToBlob('clinics', clinicStore);
+        const updatedClinic = { ...store[index], ...updates };
+        store[index] = updatedClinic;
+        await saveClinicStore();
         return updatedClinic;
     },
 
     // Remove a clinic
     removeClinic: async (id: string) => {
-        await ensureLoaded();
-        const initialLength = clinicStore.length;
-        clinicStore = clinicStore.filter(c => c.id !== id);
-        if (clinicStore.length < initialLength) {
-            await saveToBlob('clinics', clinicStore);
+        await ensureClinicsLoaded();
+        const store = getClinicStore();
+        const initialLength = store.length;
+        const filtered = store.filter(c => c.id !== id);
+        if (filtered.length < initialLength) {
+            setClinicStore(filtered);
+            await saveClinicStore();
             return true;
         }
         return false;
