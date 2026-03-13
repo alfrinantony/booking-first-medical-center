@@ -20,12 +20,12 @@ interface DoctorFormState {
 
 export default function DoctorsPage() {
     const [clinics, setClinics] = useState<Clinic[]>([]);
-    const [selectedClinicId, setSelectedClinicId] = useState('');
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
     // Add Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [addClinicId, setAddClinicId] = useState('');
     const [newDoctor, setNewDoctor] = useState<DoctorFormState>({
         departmentId: '',
         name: '',
@@ -55,9 +55,6 @@ export default function DoctorsPage() {
             const res = await fetch('/api/admin/doctors');
             const data = await res.json();
             setClinics(data);
-            if (data.length > 0 && !selectedClinicId) {
-                setSelectedClinicId(data[0].id);
-            }
         } catch (error) {
             console.error('Failed to fetch doctors', error);
         } finally {
@@ -70,7 +67,7 @@ export default function DoctorsPage() {
         setSubmitting(true);
         try {
             const payload = {
-                clinicId: selectedClinicId,
+                clinicId: addClinicId,
                 departmentId: newDoctor.departmentId,
                 name: newDoctor.name,
                 specialty: newDoctor.specialty,
@@ -94,6 +91,7 @@ export default function DoctorsPage() {
                 await fetchDoctors();
                 setIsAddModalOpen(false);
                 setNewDoctor({ departmentId: '', name: '', specialty: '', image: '', certifications: '', maxConcurrentBookings: 1, licenseNumber: '', licenseExpiry: '', startDate: '', endDate: '', status: 'working' });
+                setAddClinicId('');
             } else {
                 alert('Failed to add doctor');
             }
@@ -110,7 +108,7 @@ export default function DoctorsPage() {
         setSubmitting(true);
         try {
             const payload = {
-                clinicId: selectedClinicId,
+                clinicId: (editingDoctor as any).clinicId || clinics[0]?.id,
                 departmentId: editingDoctor.departmentId,
                 doctorId: editingDoctor.id,
                 name: editingDoctor.name,
@@ -147,11 +145,11 @@ export default function DoctorsPage() {
         }
     };
 
-    const handleDeleteDoctor = async (departmentId: string, doctorId: string) => {
+    const handleDeleteDoctor = async (clinicId: string, departmentId: string, doctorId: string) => {
         if (!confirm('Are you sure you want to delete this doctor?')) return;
 
         try {
-            const res = await fetch(`/api/admin/doctors?clinicId=${encodeURIComponent(selectedClinicId)}&departmentId=${encodeURIComponent(departmentId)}&doctorId=${encodeURIComponent(doctorId)}`, {
+            const res = await fetch(`/api/admin/doctors?clinicId=${encodeURIComponent(clinicId)}&departmentId=${encodeURIComponent(departmentId)}&doctorId=${encodeURIComponent(doctorId)}`, {
                 method: 'DELETE'
             });
 
@@ -165,24 +163,40 @@ export default function DoctorsPage() {
         }
     };
 
-    const openEditModal = (departmentId: string, doctor: Doctor) => {
+    const openEditModal = (clinicId: string, departmentId: string, doctor: Doctor) => {
         setEditingDoctor({
             ...doctor,
+            clinicId,
             departmentId
-        });
+        } as any);
         setIsEditModalOpen(true);
     };
 
-    const currentClinic = clinics.find(c => c.id === selectedClinicId);
-
-    // Derived departments with filtered doctors
-    const filteredDepartments = currentClinic?.departments.map(dept => ({
-        ...dept,
-        doctors: dept.doctors.filter(d =>
-            d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            d.specialty.toLowerCase().includes(searchTerm.toLowerCase())
+    // Flatten all doctors from all clinics/departments
+    const allDoctors = clinics.flatMap(clinic =>
+        clinic.departments.flatMap(dept =>
+            dept.doctors.map(doctor => ({
+                ...doctor,
+                clinicId: clinic.id,
+                clinicName: clinic.name,
+                departmentId: dept.id,
+                departmentName: dept.name,
+            }))
         )
-    })).filter(dept => dept.doctors.length > 0) || [];
+    );
+
+    // Apply search filter
+    const filteredDoctors = allDoctors.filter(d =>
+        d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.departmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.clinicName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // All departments across all clinics (for Add modal)
+    const allDepartments = clinics.flatMap(c =>
+        c.departments.map(d => ({ clinicId: c.id, clinicName: c.name, deptId: d.id, deptName: d.name }))
+    );
 
     if (loading) return <div className="p-8">Loading doctors...</div>;
 
@@ -205,126 +219,115 @@ export default function DoctorsPage() {
                 </header>
 
                 {/* Filters */}
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4">
-                    <div className="md:w-1/3">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clinic Branch</label>
-                        <select
-                            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent"
-                            value={selectedClinicId}
-                            onChange={(e) => setSelectedClinicId(e.target.value)}
-                        >
-                            {clinics.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="md:w-2/3">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6">
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Doctors</label>
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by name or specialty..."
+                                placeholder="Search by name, specialty, department, or branch..."
                                 className="w-full pl-10 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
+                    <p className="text-xs text-gray-400 mt-2">{filteredDoctors.length} doctor{filteredDoctors.length !== 1 ? 's' : ''} across all branches</p>
                 </div>
 
-                {/* Doctors List */}
-                <div className="space-y-8">
-                    {filteredDepartments.map(dept => (
-                        <div key={dept.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                            <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{dept.name}</h2>
-                                <span className="text-xs font-medium text-gray-500 bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded-full">{dept.doctors.length} Doctors</span>
+                {/* Doctors Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredDoctors.map(doctor => (
+                        <div key={`${doctor.clinicId}-${doctor.departmentId}-${doctor.id}`} className={`bg-white dark:bg-gray-800 flex flex-col items-center p-6 border rounded-xl shadow-sm hover:shadow-md transition-all group relative ${doctor.status === 'not_working' ? 'border-red-200 dark:border-red-800 opacity-60' : 'border-gray-100 dark:border-gray-700'}`}>
+                            {/* Status badge */}
+                            <div className="absolute top-3 right-3">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${doctor.status === 'not_working' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                                    <CircleDot className="w-2.5 h-2.5" />
+                                    {doctor.status === 'not_working' ? 'Not Working' : 'Working'}
+                                </span>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-                                {dept.doctors.map(doctor => (
-                                    <div key={doctor.id} className={`flex flex-col items-center p-6 border rounded-xl hover:shadow-md transition-all group relative ${doctor.status === 'not_working' ? 'border-red-200 dark:border-red-800 opacity-60' : 'border-gray-100 dark:border-gray-700'}`}>
-                                        {/* Status badge */}
-                                        <div className="absolute top-3 right-3">
-                                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${doctor.status === 'not_working' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                                                <CircleDot className="w-2.5 h-2.5" />
-                                                {doctor.status === 'not_working' ? 'Not Working' : 'Working'}
+
+                            {/* Branch + Department badges */}
+                            <div className="absolute top-3 left-3 flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300">
+                                    <MapPin className="w-2.5 h-2.5" /> {doctor.clinicName.replace(' Branch', '')}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                                    <Stethoscope className="w-2.5 h-2.5" /> {doctor.departmentName}
+                                </span>
+                            </div>
+
+                            <div className="w-24 h-24 bg-gray-200 rounded-full overflow-hidden mb-4 mt-6">
+                                <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
+                            </div>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-center">{doctor.name}</h3>
+                            <p className="text-sm text-indigo-600 dark:text-indigo-400 text-center mb-2">{doctor.specialty}</p>
+
+                            {/* License info */}
+                            {doctor.licenseNumber && (
+                                <div className="flex flex-wrap gap-1 justify-center mb-2">
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+                                        <ShieldCheck className="w-3 h-3" /> Lic: {doctor.licenseNumber}
+                                    </span>
+                                    {doctor.licenseExpiry && (() => {
+                                        const daysLeft = Math.ceil((new Date(doctor.licenseExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                        return (
+                                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${daysLeft <= 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : daysLeft <= 90 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                                                <CalendarClock className="w-3 h-3" />
+                                                {daysLeft <= 0 ? 'License Expired' : daysLeft <= 90 ? `Expires ${daysLeft}d` : `Exp: ${doctor.licenseExpiry}`}
                                             </span>
-                                        </div>
+                                        );
+                                    })()}
+                                </div>
+                            )}
 
-                                        <div className="w-24 h-24 bg-gray-200 rounded-full overflow-hidden mb-4">
-                                            <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
-                                        </div>
-                                        <h3 className="font-bold text-gray-900 dark:text-white text-center">{doctor.name}</h3>
-                                        <p className="text-sm text-indigo-600 dark:text-indigo-400 text-center mb-2">{doctor.specialty}</p>
+                            {/* Employment dates */}
+                            {(doctor.startDate || doctor.endDate) && (
+                                <div className="text-[10px] text-gray-500 mb-2">
+                                    {doctor.startDate && <span>From: {doctor.startDate}</span>}
+                                    {doctor.startDate && doctor.endDate && <span> · </span>}
+                                    {doctor.endDate && <span>To: {doctor.endDate}</span>}
+                                </div>
+                            )}
 
-                                        {/* License info */}
-                                        {doctor.licenseNumber && (
-                                            <div className="flex flex-wrap gap-1 justify-center mb-2">
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
-                                                    <ShieldCheck className="w-3 h-3" /> Lic: {doctor.licenseNumber}
-                                                </span>
-                                                {doctor.licenseExpiry && (() => {
-                                                    const daysLeft = Math.ceil((new Date(doctor.licenseExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                                                    return (
-                                                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${daysLeft <= 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : daysLeft <= 90 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
-                                                            <CalendarClock className="w-3 h-3" />
-                                                            {daysLeft <= 0 ? 'License Expired' : daysLeft <= 90 ? `Expires ${daysLeft}d` : `Exp: ${doctor.licenseExpiry}`}
-                                                        </span>
-                                                    );
-                                                })()}
-                                            </div>
-                                        )}
+                            {doctor.certifications && doctor.certifications.length > 0 && (
+                                <div className="flex flex-wrap gap-1 justify-center mb-4">
+                                    {doctor.certifications.map((cert, idx) => (
+                                        <span key={idx} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                                            {cert}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
 
-                                        {/* Employment dates */}
-                                        {(doctor.startDate || doctor.endDate) && (
-                                            <div className="text-[10px] text-gray-500 mb-2">
-                                                {doctor.startDate && <span>From: {doctor.startDate}</span>}
-                                                {doctor.startDate && doctor.endDate && <span> · </span>}
-                                                {doctor.endDate && <span>To: {doctor.endDate}</span>}
-                                            </div>
-                                        )}
+                            <div className="mb-4 text-xs text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">
+                                Max Concurrent Bookings: <span className="font-bold text-gray-900 dark:text-gray-100">{doctor.maxConcurrentBookings || 1}</span>
+                            </div>
 
-                                        {doctor.certifications && doctor.certifications.length > 0 && (
-                                            <div className="flex flex-wrap gap-1 justify-center mb-4">
-                                                {doctor.certifications.map((cert, idx) => (
-                                                    <span key={idx} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">
-                                                        {cert}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <div className="mb-4 text-xs text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">
-                                            Max Concurrent Bookings: <span className="font-bold text-gray-900 dark:text-gray-100">{doctor.maxConcurrentBookings || 1}</span>
-                                        </div>
-
-                                        <div className="flex gap-2 w-full mt-auto">
-                                            <button
-                                                onClick={() => openEditModal(dept.id, doctor)}
-                                                className="flex-1 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteDoctor(dept.id, doctor.id)}
-                                                className="flex-1 py-2 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="flex gap-2 w-full mt-auto">
+                                <button
+                                    onClick={() => openEditModal(doctor.clinicId, doctor.departmentId, doctor)}
+                                    className="flex-1 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteDoctor(doctor.clinicId, doctor.departmentId, doctor.id)}
+                                    className="flex-1 py-2 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                >
+                                    Remove
+                                </button>
                             </div>
                         </div>
                     ))}
-
-                    {filteredDepartments.length === 0 && (
-                        <div className="text-center py-12 text-gray-500">
-                            No doctors found matchig your criteria.
-                        </div>
-                    )}
                 </div>
+
+                {filteredDoctors.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                        No doctors found matching your criteria.
+                    </div>
+                )}
 
                 {/* Add Doctor Modal */}
                 {isAddModalOpen && (
@@ -337,12 +340,16 @@ export default function DoctorsPage() {
                                     <select
                                         required
                                         className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                        value={newDoctor.departmentId}
-                                        onChange={(e) => setNewDoctor({ ...newDoctor, departmentId: e.target.value })}
+                                        value={`${addClinicId}||${newDoctor.departmentId}`}
+                                        onChange={(e) => {
+                                            const [cId, dId] = e.target.value.split('||');
+                                            setAddClinicId(cId);
+                                            setNewDoctor({ ...newDoctor, departmentId: dId });
+                                        }}
                                     >
-                                        <option value="">Select Department</option>
-                                        {currentClinic?.departments.map(d => (
-                                            <option key={d.id} value={d.id}>{d.name}</option>
+                                        <option value="||">Select Branch & Department</option>
+                                        {allDepartments.map(d => (
+                                            <option key={`${d.clinicId}-${d.deptId}`} value={`${d.clinicId}||${d.deptId}`}>{d.clinicName} — {d.deptName}</option>
                                         ))}
                                     </select>
                                 </div>
