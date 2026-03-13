@@ -25,7 +25,7 @@ export default function DoctorsPage() {
 
     // Add Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [addClinicId, setAddClinicId] = useState('');
+    const [addClinicIds, setAddClinicIds] = useState<string[]>([]);
     const [newDoctor, setNewDoctor] = useState<DoctorFormState>({
         departmentId: '',
         name: '',
@@ -43,13 +43,9 @@ export default function DoctorsPage() {
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingDoctor, setEditingDoctor] = useState<Doctor & { departmentId: string } | null>(null);
+    const [editClinicIds, setEditClinicIds] = useState<string[]>([]);
 
     const [submitting, setSubmitting] = useState(false);
-
-    // Assign to Branch Modal State
-    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-    const [assignDoctor, setAssignDoctor] = useState<(Doctor & { clinicId: string; clinicName: string; departmentId: string; departmentName: string }) | null>(null);
-    const [assignTarget, setAssignTarget] = useState('');
 
     useEffect(() => {
         fetchDoctors();
@@ -69,36 +65,47 @@ export default function DoctorsPage() {
 
     const handleAddDoctor = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (addClinicIds.length === 0) { alert('Please select at least one branch'); return; }
+        if (!newDoctor.departmentId) { alert('Please select a department'); return; }
         setSubmitting(true);
         try {
-            const payload = {
-                clinicId: addClinicId,
-                departmentId: newDoctor.departmentId,
-                name: newDoctor.name,
-                specialty: newDoctor.specialty,
-                image: newDoctor.image,
-                certifications: newDoctor.certifications.split(',').map(c => c.trim()).filter(Boolean),
-                maxConcurrentBookings: Number(newDoctor.maxConcurrentBookings) || 1,
-                licenseNumber: newDoctor.licenseNumber || undefined,
-                licenseExpiry: newDoctor.licenseExpiry || undefined,
-                startDate: newDoctor.startDate || undefined,
-                endDate: newDoctor.endDate || undefined,
-                status: newDoctor.status
-            };
+            const sharedId = `doc-${Date.now()}`;
+            let allSuccess = true;
+            for (const clinicId of addClinicIds) {
+                // Check if this clinic has this department
+                const clinic = clinics.find(c => c.id === clinicId);
+                const dept = clinic?.departments.find(d => d.id === newDoctor.departmentId);
+                if (!dept) continue; // skip if department doesn't exist in this branch
 
-            const res = await fetch('/api/admin/doctors', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
+                const payload = {
+                    clinicId,
+                    departmentId: newDoctor.departmentId,
+                    id: sharedId,
+                    name: newDoctor.name,
+                    specialty: newDoctor.specialty,
+                    image: newDoctor.image,
+                    certifications: newDoctor.certifications.split(',').map(c => c.trim()).filter(Boolean),
+                    maxConcurrentBookings: Number(newDoctor.maxConcurrentBookings) || 1,
+                    licenseNumber: newDoctor.licenseNumber || undefined,
+                    licenseExpiry: newDoctor.licenseExpiry || undefined,
+                    startDate: newDoctor.startDate || undefined,
+                    endDate: newDoctor.endDate || undefined,
+                    status: newDoctor.status
+                };
+                const res = await fetch('/api/admin/doctors', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) allSuccess = false;
+            }
+            if (allSuccess) {
                 await fetchDoctors();
                 setIsAddModalOpen(false);
                 setNewDoctor({ departmentId: '', name: '', specialty: '', image: '', certifications: '', maxConcurrentBookings: 1, licenseNumber: '', licenseExpiry: '', startDate: '', endDate: '', status: 'working' });
-                setAddClinicId('');
+                setAddClinicIds([]);
             } else {
-                alert('Failed to add doctor');
+                alert('Failed to add doctor to some branches');
+                await fetchDoctors();
             }
         } catch (error) {
             console.error(error);
@@ -112,37 +119,70 @@ export default function DoctorsPage() {
         if (!editingDoctor) return;
         setSubmitting(true);
         try {
-            const payload = {
-                clinicId: (editingDoctor as any).clinicId || clinics[0]?.id,
-                departmentId: editingDoctor.departmentId,
-                doctorId: editingDoctor.id,
-                name: editingDoctor.name,
-                specialty: editingDoctor.specialty,
-                image: editingDoctor.image,
-                certifications: typeof editingDoctor.certifications === 'string'
-                    ? (editingDoctor.certifications as string).split(',').map((c: string) => c.trim()).filter(Boolean)
-                    : editingDoctor.certifications,
-                maxConcurrentBookings: Number(editingDoctor.maxConcurrentBookings) || 1,
-                licenseNumber: editingDoctor.licenseNumber || undefined,
-                licenseExpiry: editingDoctor.licenseExpiry || undefined,
-                startDate: editingDoctor.startDate || undefined,
-                endDate: editingDoctor.endDate || undefined,
-                status: editingDoctor.status
-            };
+            const currentBranches = getDoctorBranches(editingDoctor.id);
+            const currentClinicIdSet = new Set(currentBranches.map(b => b.clinicId));
 
-            const res = await fetch('/api/admin/doctors', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                await fetchDoctors();
-                setIsEditModalOpen(false);
-                setEditingDoctor(null);
-            } else {
-                alert('Failed to update doctor');
+            // Add to new branches
+            for (const cId of editClinicIds) {
+                if (!currentClinicIdSet.has(cId)) {
+                    const clinic = clinics.find(c => c.id === cId);
+                    const dept = clinic?.departments.find(d => d.id === editingDoctor.departmentId);
+                    if (!dept) continue;
+                    await fetch('/api/admin/doctors', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            clinicId: cId, departmentId: editingDoctor.departmentId,
+                            id: editingDoctor.id, name: editingDoctor.name,
+                            specialty: editingDoctor.specialty, image: editingDoctor.image,
+                            certifications: typeof editingDoctor.certifications === 'string'
+                                ? (editingDoctor.certifications as string).split(',').map((c: string) => c.trim()).filter(Boolean)
+                                : editingDoctor.certifications,
+                            maxConcurrentBookings: Number(editingDoctor.maxConcurrentBookings) || 1,
+                            licenseNumber: editingDoctor.licenseNumber || undefined,
+                            licenseExpiry: editingDoctor.licenseExpiry || undefined,
+                            startDate: editingDoctor.startDate || undefined,
+                            endDate: editingDoctor.endDate || undefined,
+                            status: editingDoctor.status
+                        })
+                    });
+                }
             }
+
+            // Remove from unchecked branches
+            for (const b of currentBranches) {
+                if (!editClinicIds.includes(b.clinicId)) {
+                    await fetch(`/api/admin/doctors?clinicId=${encodeURIComponent(b.clinicId)}&departmentId=${encodeURIComponent(b.departmentId)}&doctorId=${encodeURIComponent(editingDoctor.id)}`, {
+                        method: 'DELETE'
+                    });
+                }
+            }
+
+            // Update existing branches
+            for (const b of currentBranches) {
+                if (editClinicIds.includes(b.clinicId)) {
+                    await fetch('/api/admin/doctors', {
+                        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            clinicId: b.clinicId, departmentId: b.departmentId,
+                            doctorId: editingDoctor.id, name: editingDoctor.name,
+                            specialty: editingDoctor.specialty, image: editingDoctor.image,
+                            certifications: typeof editingDoctor.certifications === 'string'
+                                ? (editingDoctor.certifications as string).split(',').map((c: string) => c.trim()).filter(Boolean)
+                                : editingDoctor.certifications,
+                            maxConcurrentBookings: Number(editingDoctor.maxConcurrentBookings) || 1,
+                            licenseNumber: editingDoctor.licenseNumber || undefined,
+                            licenseExpiry: editingDoctor.licenseExpiry || undefined,
+                            startDate: editingDoctor.startDate || undefined,
+                            endDate: editingDoctor.endDate || undefined,
+                            status: editingDoctor.status
+                        })
+                    });
+                }
+            }
+
+            await fetchDoctors();
+            setIsEditModalOpen(false);
+            setEditingDoctor(null);
         } catch (error) {
             console.error(error);
         } finally {
@@ -169,11 +209,13 @@ export default function DoctorsPage() {
     };
 
     const openEditModal = (clinicId: string, departmentId: string, doctor: Doctor) => {
+        const branches = getDoctorBranches(doctor.id);
         setEditingDoctor({
             ...doctor,
             clinicId,
             departmentId
         } as any);
+        setEditClinicIds(branches.map(b => b.clinicId));
         setIsEditModalOpen(true);
     };
 
@@ -198,10 +240,12 @@ export default function DoctorsPage() {
         d.clinicName.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // All departments across all clinics (for Add modal)
+    // All departments across all clinics (for Add modal) - unique by ID
     const allDepartments = clinics.flatMap(c =>
         c.departments.map(d => ({ clinicId: c.id, clinicName: c.name, deptId: d.id, deptName: d.name }))
     );
+    // Unique departments by ID
+    const uniqueDepartments = Array.from(new Map(allDepartments.map(d => [d.deptId, d])).values());
 
     // Helper: get all branches a doctor is assigned to (by shared ID)
     const getDoctorBranches = (doctorId: string) => {
@@ -211,7 +255,7 @@ export default function DoctorsPage() {
         }));
     };
 
-    // Deduplicate doctors for display — group by ID, show once per unique card but list all branches
+    // Deduplicate doctors for display
     const uniqueDoctorIds = new Set<string>();
     const deduplicatedDoctors = filteredDoctors.filter(d => {
         const key = d.id;
@@ -220,45 +264,9 @@ export default function DoctorsPage() {
         return true;
     });
 
-    const handleAssignToBranch = async () => {
-        if (!assignDoctor || !assignTarget) return;
-        const [cId, dId] = assignTarget.split('||');
-        if (!cId || !dId) return;
-        setSubmitting(true);
-        try {
-            const res = await fetch('/api/admin/doctors', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    clinicId: cId,
-                    departmentId: dId,
-                    id: assignDoctor.id, // reuse same ID!
-                    name: assignDoctor.name,
-                    specialty: assignDoctor.specialty,
-                    image: assignDoctor.image,
-                    certifications: assignDoctor.certifications || [],
-                    maxConcurrentBookings: assignDoctor.maxConcurrentBookings || 1,
-                    licenseNumber: assignDoctor.licenseNumber || undefined,
-                    licenseExpiry: assignDoctor.licenseExpiry || undefined,
-                    startDate: assignDoctor.startDate || undefined,
-                    endDate: assignDoctor.endDate || undefined,
-                    status: assignDoctor.status || 'working',
-                    daysOff: assignDoctor.daysOff || [],
-                })
-            });
-            if (res.ok) {
-                await fetchDoctors();
-                setIsAssignModalOpen(false);
-                setAssignDoctor(null);
-                setAssignTarget('');
-            } else {
-                alert('Failed to assign doctor to branch');
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setSubmitting(false);
-        }
+    // Helper to check if a department exists in a clinic
+    const clinicHasDept = (clinicId: string, deptId: string) => {
+        return clinics.find(c => c.id === clinicId)?.departments.some(d => d.id === deptId) ?? false;
     };
 
     if (loading) return <div className="p-8">Loading doctors...</div>;
@@ -383,13 +391,11 @@ export default function DoctorsPage() {
                                     Edit
                                 </button>
                                 <button
-                                    onClick={() => { setAssignDoctor(doctor); setAssignTarget(''); setIsAssignModalOpen(true); }}
-                                    className="flex-1 py-2 text-sm font-medium text-teal-600 bg-teal-50 dark:bg-teal-900/20 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors flex items-center justify-center gap-1"
-                                >
-                                    <GitBranch className="w-3 h-3" /> Assign
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteDoctor(doctor.clinicId, doctor.departmentId, doctor.id)}
+                                    onClick={() => {
+                                        const branches = getDoctorBranches(doctor.id);
+                                        if (!confirm(`Remove ${doctor.name} from all ${branches.length} branch(es)?`)) return;
+                                        branches.forEach(b => handleDeleteDoctor(b.clinicId, b.departmentId, doctor.id));
+                                    }}
                                     className="py-2 px-3 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
                                 >
                                     <Trash2 className="w-4 h-4" />
@@ -413,20 +419,45 @@ export default function DoctorsPage() {
                             <h2 className="text-xl font-bold mb-4">Add New Doctor</h2>
                             <form onSubmit={handleAddDoctor} className="space-y-4">
                                 <div>
+                                    <label className="block text-sm font-medium mb-2">Branches</label>
+                                    <div className="flex flex-wrap gap-3">
+                                        {clinics.map(c => {
+                                            const hasDept = !newDoctor.departmentId || clinicHasDept(c.id, newDoctor.departmentId);
+                                            return (
+                                                <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${addClinicIds.includes(c.id) ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'} ${!hasDept ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="accent-indigo-600"
+                                                        checked={addClinicIds.includes(c.id)}
+                                                        disabled={!hasDept}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setAddClinicIds([...addClinicIds, c.id]);
+                                                            else setAddClinicIds(addClinicIds.filter(id => id !== c.id));
+                                                        }}
+                                                    />
+                                                    <span className="text-sm font-medium">{c.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium mb-1">Department</label>
                                     <select
                                         required
                                         className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                        value={`${addClinicId}||${newDoctor.departmentId}`}
+                                        value={newDoctor.departmentId}
                                         onChange={(e) => {
-                                            const [cId, dId] = e.target.value.split('||');
-                                            setAddClinicId(cId);
-                                            setNewDoctor({ ...newDoctor, departmentId: dId });
+                                            setNewDoctor({ ...newDoctor, departmentId: e.target.value });
+                                            // Remove any selected branches that don't have this department
+                                            if (e.target.value) {
+                                                setAddClinicIds(addClinicIds.filter(cId => clinicHasDept(cId, e.target.value)));
+                                            }
                                         }}
                                     >
-                                        <option value="||">Select Branch & Department</option>
-                                        {allDepartments.map(d => (
-                                            <option key={`${d.clinicId}-${d.deptId}`} value={`${d.clinicId}||${d.deptId}`}>{d.clinicName} — {d.deptName}</option>
+                                        <option value="">Select Department</option>
+                                        {uniqueDepartments.map(d => (
+                                            <option key={d.deptId} value={d.deptId}>{d.deptName}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -544,6 +575,30 @@ export default function DoctorsPage() {
                             <h2 className="text-xl font-bold mb-4">Edit Doctor</h2>
                             <form onSubmit={handleUpdateDoctor} className="space-y-4">
                                 <div>
+                                    <label className="block text-sm font-medium mb-2">Branches</label>
+                                    <div className="flex flex-wrap gap-3">
+                                        {clinics.map(c => {
+                                            const hasDept = clinicHasDept(c.id, editingDoctor.departmentId);
+                                            return (
+                                                <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${editClinicIds.includes(c.id) ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'} ${!hasDept ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="accent-indigo-600"
+                                                        checked={editClinicIds.includes(c.id)}
+                                                        disabled={!hasDept}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setEditClinicIds([...editClinicIds, c.id]);
+                                                            else setEditClinicIds(editClinicIds.filter(id => id !== c.id));
+                                                        }}
+                                                    />
+                                                    <span className="text-sm font-medium">{c.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1">Schedule is shared across all branches — no conflicts</p>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium mb-1">Name</label>
                                     <input
                                         required
@@ -650,72 +705,6 @@ export default function DoctorsPage() {
                     </div>
                 )}
 
-                {/* Assign to Branch Modal */}
-                {isAssignModalOpen && assignDoctor && (() => {
-                    const currentBranches = getDoctorBranches(assignDoctor.id);
-                    const currentKeys = new Set(currentBranches.map(b => `${b.clinicId}||${b.departmentId}`));
-                    const availableTargets = allDepartments.filter(d => !currentKeys.has(`${d.clinicId}||${d.deptId}`));
-                    return (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-lg">
-                                        <GitBranch className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Assign to Another Branch</h2>
-                                        <p className="text-sm text-gray-500">{assignDoctor.name} — {assignDoctor.specialty}</p>
-                                    </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <p className="text-xs font-medium text-gray-500 mb-2">Currently assigned to:</p>
-                                    <div className="flex flex-wrap gap-1">
-                                        {currentBranches.map((b, i) => (
-                                            <span key={i} className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300">
-                                                <MapPin className="w-3 h-3" /> {b.clinicName} — {b.departmentName}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {availableTargets.length === 0 ? (
-                                    <p className="text-sm text-gray-500 py-4 text-center">This doctor is already assigned to all available branches.</p>
-                                ) : (
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium mb-1">Assign to:</label>
-                                        <select
-                                            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                            value={assignTarget}
-                                            onChange={(e) => setAssignTarget(e.target.value)}
-                                        >
-                                            <option value="">Select Branch & Department</option>
-                                            {availableTargets.map(d => (
-                                                <option key={`${d.clinicId}-${d.deptId}`} value={`${d.clinicId}||${d.deptId}`}>{d.clinicName} — {d.deptName}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-
-                                <p className="text-xs text-gray-400 mb-4">The doctor will share the same schedule across all branches. Booking a slot at one branch will automatically reduce availability at the other.</p>
-
-                                <div className="flex justify-end gap-3">
-                                    <button onClick={() => setIsAssignModalOpen(false)} className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
-                                    {availableTargets.length > 0 && (
-                                        <button
-                                            onClick={handleAssignToBranch}
-                                            disabled={!assignTarget || submitting}
-                                            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
-                                        >
-                                            <GitBranch className="w-4 h-4" />
-                                            {submitting ? 'Assigning...' : 'Assign'}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()}
             </div>
         </div>
     );
