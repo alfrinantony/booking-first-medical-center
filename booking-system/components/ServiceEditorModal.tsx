@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react';
 import { X, ImagePlus, FileText, DollarSign, Heart, Clock, Shield, Package, Sparkles, Plus, Trash2 } from 'lucide-react';
-import { ServiceAddOn, Doctor, Resource, Medicine, Clinic, RegisteredProduct } from '@/lib/data';
+import { ServiceAddOn, Doctor, Resource, Medicine, Clinic, RegisteredProduct, BOOKING_CATEGORIES } from '@/lib/data';
 
 // Section definitions for sidebar
 const SECTIONS = [
@@ -191,11 +191,13 @@ export default function ServiceEditorModal({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Category</label>
-                                    <input type="text" list={mode === 'edit' ? 'edit-categories' : 'categories'} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                        value={formState.category || ''} onChange={e => update({ category: e.target.value })} placeholder="e.g., Consultation" />
-                                    <datalist id={mode === 'edit' ? 'edit-categories' : 'categories'}>
-                                        <option value="Consultation" /><option value="Procedure" /><option value="Follow-up" /><option value="Therapy" />
-                                    </datalist>
+                                    <select className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={formState.category || ''} onChange={e => update({ category: e.target.value })}>
+                                        <option value="">Select Category</option>
+                                        {BOOKING_CATEGORIES.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Duration (min) *</label>
