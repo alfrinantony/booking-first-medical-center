@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Search, Edit2, MapPin, Stethoscope, ShieldCheck, CalendarClock, CircleDot } from 'lucide-react';
+import { Plus, Trash2, Search, Edit2, MapPin, Stethoscope, ShieldCheck, CalendarClock, CircleDot, GitBranch } from 'lucide-react';
 import { Clinic, Doctor } from '@/lib/data';
 
 interface DoctorFormState {
@@ -45,6 +45,11 @@ export default function DoctorsPage() {
     const [editingDoctor, setEditingDoctor] = useState<Doctor & { departmentId: string } | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
+
+    // Assign to Branch Modal State
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [assignDoctor, setAssignDoctor] = useState<(Doctor & { clinicId: string; clinicName: string; departmentId: string; departmentName: string }) | null>(null);
+    const [assignTarget, setAssignTarget] = useState('');
 
     useEffect(() => {
         fetchDoctors();
@@ -198,6 +203,64 @@ export default function DoctorsPage() {
         c.departments.map(d => ({ clinicId: c.id, clinicName: c.name, deptId: d.id, deptName: d.name }))
     );
 
+    // Helper: get all branches a doctor is assigned to (by shared ID)
+    const getDoctorBranches = (doctorId: string) => {
+        return allDoctors.filter(d => d.id === doctorId).map(d => ({
+            clinicId: d.clinicId, clinicName: d.clinicName,
+            departmentId: d.departmentId, departmentName: d.departmentName
+        }));
+    };
+
+    // Deduplicate doctors for display — group by ID, show once per unique card but list all branches
+    const uniqueDoctorIds = new Set<string>();
+    const deduplicatedDoctors = filteredDoctors.filter(d => {
+        const key = d.id;
+        if (uniqueDoctorIds.has(key)) return false;
+        uniqueDoctorIds.add(key);
+        return true;
+    });
+
+    const handleAssignToBranch = async () => {
+        if (!assignDoctor || !assignTarget) return;
+        const [cId, dId] = assignTarget.split('||');
+        if (!cId || !dId) return;
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/admin/doctors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clinicId: cId,
+                    departmentId: dId,
+                    id: assignDoctor.id, // reuse same ID!
+                    name: assignDoctor.name,
+                    specialty: assignDoctor.specialty,
+                    image: assignDoctor.image,
+                    certifications: assignDoctor.certifications || [],
+                    maxConcurrentBookings: assignDoctor.maxConcurrentBookings || 1,
+                    licenseNumber: assignDoctor.licenseNumber || undefined,
+                    licenseExpiry: assignDoctor.licenseExpiry || undefined,
+                    startDate: assignDoctor.startDate || undefined,
+                    endDate: assignDoctor.endDate || undefined,
+                    status: assignDoctor.status || 'working',
+                    daysOff: assignDoctor.daysOff || [],
+                })
+            });
+            if (res.ok) {
+                await fetchDoctors();
+                setIsAssignModalOpen(false);
+                setAssignDoctor(null);
+                setAssignTarget('');
+            } else {
+                alert('Failed to assign doctor to branch');
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     if (loading) return <div className="p-8">Loading doctors...</div>;
 
     return (
@@ -238,7 +301,10 @@ export default function DoctorsPage() {
 
                 {/* Doctors Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredDoctors.map(doctor => (
+                    {deduplicatedDoctors.map(doctor => {
+                        const branches = getDoctorBranches(doctor.id);
+                        const isMultiBranch = branches.length > 1;
+                        return (
                         <div key={`${doctor.clinicId}-${doctor.departmentId}-${doctor.id}`} className={`bg-white dark:bg-gray-800 flex flex-col items-center p-6 border rounded-xl shadow-sm hover:shadow-md transition-all group relative ${doctor.status === 'not_working' ? 'border-red-200 dark:border-red-800 opacity-60' : 'border-gray-100 dark:border-gray-700'}`}>
                             {/* Status badge */}
                             <div className="absolute top-3 right-3">
@@ -248,17 +314,21 @@ export default function DoctorsPage() {
                                 </span>
                             </div>
 
-                            {/* Branch + Department badges */}
+                            {/* Branch badges — show ALL branches this doctor is assigned to */}
                             <div className="absolute top-3 left-3 flex flex-col gap-1">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300">
-                                    <MapPin className="w-2.5 h-2.5" /> {doctor.clinicName.replace(' Branch', '')}
-                                </span>
-                                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                                    <Stethoscope className="w-2.5 h-2.5" /> {doctor.departmentName}
-                                </span>
+                                {branches.map((b, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300">
+                                        <MapPin className="w-2.5 h-2.5" /> {b.clinicName.replace(' Branch', '')} — {b.departmentName}
+                                    </span>
+                                ))}
+                                {isMultiBranch && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-300">
+                                        <GitBranch className="w-2.5 h-2.5" /> Multi-Branch
+                                    </span>
+                                )}
                             </div>
 
-                            <div className="w-24 h-24 bg-gray-200 rounded-full overflow-hidden mb-4 mt-6">
+                            <div className={`w-24 h-24 bg-gray-200 rounded-full overflow-hidden mb-4 ${branches.length > 2 ? 'mt-14' : branches.length > 1 ? 'mt-10' : 'mt-6'}`}>
                                 <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
                             </div>
                             <h3 className="font-bold text-gray-900 dark:text-white text-center">{doctor.name}</h3>
@@ -313,14 +383,21 @@ export default function DoctorsPage() {
                                     Edit
                                 </button>
                                 <button
-                                    onClick={() => handleDeleteDoctor(doctor.clinicId, doctor.departmentId, doctor.id)}
-                                    className="flex-1 py-2 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                    onClick={() => { setAssignDoctor(doctor); setAssignTarget(''); setIsAssignModalOpen(true); }}
+                                    className="flex-1 py-2 text-sm font-medium text-teal-600 bg-teal-50 dark:bg-teal-900/20 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors flex items-center justify-center gap-1"
                                 >
-                                    Remove
+                                    <GitBranch className="w-3 h-3" /> Assign
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteDoctor(doctor.clinicId, doctor.departmentId, doctor.id)}
+                                    className="py-2 px-3 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {filteredDoctors.length === 0 && (
@@ -572,6 +649,73 @@ export default function DoctorsPage() {
                         </div>
                     </div>
                 )}
+
+                {/* Assign to Branch Modal */}
+                {isAssignModalOpen && assignDoctor && (() => {
+                    const currentBranches = getDoctorBranches(assignDoctor.id);
+                    const currentKeys = new Set(currentBranches.map(b => `${b.clinicId}||${b.departmentId}`));
+                    const availableTargets = allDepartments.filter(d => !currentKeys.has(`${d.clinicId}||${d.deptId}`));
+                    return (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-lg">
+                                        <GitBranch className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Assign to Another Branch</h2>
+                                        <p className="text-sm text-gray-500">{assignDoctor.name} — {assignDoctor.specialty}</p>
+                                    </div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <p className="text-xs font-medium text-gray-500 mb-2">Currently assigned to:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {currentBranches.map((b, i) => (
+                                            <span key={i} className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300">
+                                                <MapPin className="w-3 h-3" /> {b.clinicName} — {b.departmentName}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {availableTargets.length === 0 ? (
+                                    <p className="text-sm text-gray-500 py-4 text-center">This doctor is already assigned to all available branches.</p>
+                                ) : (
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium mb-1">Assign to:</label>
+                                        <select
+                                            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                            value={assignTarget}
+                                            onChange={(e) => setAssignTarget(e.target.value)}
+                                        >
+                                            <option value="">Select Branch & Department</option>
+                                            {availableTargets.map(d => (
+                                                <option key={`${d.clinicId}-${d.deptId}`} value={`${d.clinicId}||${d.deptId}`}>{d.clinicName} — {d.deptName}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <p className="text-xs text-gray-400 mb-4">The doctor will share the same schedule across all branches. Booking a slot at one branch will automatically reduce availability at the other.</p>
+
+                                <div className="flex justify-end gap-3">
+                                    <button onClick={() => setIsAssignModalOpen(false)} className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
+                                    {availableTargets.length > 0 && (
+                                        <button
+                                            onClick={handleAssignToBranch}
+                                            disabled={!assignTarget || submitting}
+                                            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            <GitBranch className="w-4 h-4" />
+                                            {submitting ? 'Assigning...' : 'Assign'}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
         </div>
     );

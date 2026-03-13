@@ -19,13 +19,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { clinicId, departmentId, name, specialty, image, certifications, maxConcurrentBookings, licenseNumber, licenseExpiry, startDate, endDate, status } = body;
+        const { clinicId, departmentId, id, name, specialty, image, certifications, maxConcurrentBookings, licenseNumber, licenseExpiry, startDate, endDate, status, daysOff } = body;
 
         if (!clinicId || !departmentId || !name || !specialty) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
         const newDoctor = await DoctorsStore.addDoctor(clinicId, departmentId, {
+            ...(id ? { id } : {}),
             name,
             specialty,
             image: image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
@@ -35,7 +36,8 @@ export async function POST(request: Request) {
             licenseExpiry: licenseExpiry || undefined,
             startDate: startDate || undefined,
             endDate: endDate || undefined,
-            status: status || 'working'
+            status: status || 'working',
+            daysOff: daysOff || undefined
         });
 
         if (!newDoctor) {

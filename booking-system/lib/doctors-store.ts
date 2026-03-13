@@ -10,8 +10,8 @@ export const DoctorsStore = {
         return getClinicStore();
     },
 
-    // Add a doctor to a department
-    addDoctor: async (clinicId: string, departmentId: string, doctor: Omit<Doctor, 'id'>) => {
+    // Add a doctor to a department (pass id to reuse an existing doctor's ID for multi-branch)
+    addDoctor: async (clinicId: string, departmentId: string, doctor: Omit<Doctor, 'id'> & { id?: string }) => {
         await ensureClinicsLoaded();
         const clinic = getClinicStore().find(c => c.id === clinicId);
         if (!clinic) return null;
@@ -21,7 +21,7 @@ export const DoctorsStore = {
 
         const newDoctor: Doctor = {
             ...doctor,
-            id: `${departmentId}-doc-${Date.now()}` // Unique ID
+            id: doctor.id || `${departmentId}-doc-${Date.now()}` // reuse ID or generate new
         };
 
         department.doctors.push(newDoctor);
@@ -65,5 +65,19 @@ export const DoctorsStore = {
 
         await saveClinicStore();
         return updatedDoctor;
+    },
+
+    // Find all branch/department combos where a doctor exists (by ID)
+    findDoctorBranches: async (doctorId: string) => {
+        await ensureClinicsLoaded();
+        const branches: { clinicId: string; clinicName: string; departmentId: string; departmentName: string }[] = [];
+        for (const clinic of getClinicStore()) {
+            for (const dept of clinic.departments) {
+                if (dept.doctors.some(d => d.id === doctorId)) {
+                    branches.push({ clinicId: clinic.id, clinicName: clinic.name, departmentId: dept.id, departmentName: dept.name });
+                }
+            }
+        }
+        return branches;
     }
 };
