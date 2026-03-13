@@ -151,7 +151,7 @@ export default function DoctorsPage() {
         if (!confirm('Are you sure you want to delete this doctor?')) return;
 
         try {
-            const res = await fetch(`/api/admin/doctors?clinicId=${selectedClinicId}&departmentId=${departmentId}&doctorId=${doctorId}`, {
+            const res = await fetch(`/api/admin/doctors?clinicId=${encodeURIComponent(selectedClinicId)}&departmentId=${encodeURIComponent(departmentId)}&doctorId=${encodeURIComponent(doctorId)}`, {
                 method: 'DELETE'
             });
 
