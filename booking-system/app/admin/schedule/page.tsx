@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { clinics, timeSlots } from '@/lib/data';
+import { timeSlots, Clinic } from '@/lib/data';
 import { Calendar, Save, User, Clock, CalendarOff } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -31,7 +31,9 @@ interface LeaveEntry {
 }
 
 export default function SchedulePage() {
-    const [selectedClinicId, setSelectedClinicId] = useState(clinics[0].id);
+    const [clinics, setClinics] = useState<Clinic[]>([]);
+    const [clinicsLoading, setClinicsLoading] = useState(true);
+    const [selectedClinicId, setSelectedClinicId] = useState('');
     const [selectedDoctorId, setSelectedDoctorId] = useState('');
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -46,6 +48,25 @@ export default function SchedulePage() {
     // Staff on Leave state
     const [staffLeaves, setStaffLeaves] = useState<LeaveEntry[]>([]);
     const [leavesLoading, setLeavesLoading] = useState(false);
+
+    // Fetch live clinic data from API (same source as Doctors page)
+    useEffect(() => {
+        const fetchClinics = async () => {
+            try {
+                const res = await fetch('/api/admin/services');
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    setClinics(data);
+                    setSelectedClinicId(data[0].id);
+                }
+            } catch (error) {
+                console.error('Failed to fetch clinics', error);
+            } finally {
+                setClinicsLoading(false);
+            }
+        };
+        fetchClinics();
+    }, []);
 
     // Derived state
     const currentClinic = clinics.find(c => c.id === selectedClinicId);
@@ -210,6 +231,8 @@ export default function SchedulePage() {
             setIsLoading(false);
         }
     };
+
+    if (clinicsLoading) return <div className="p-8">Loading schedule data...</div>;
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
