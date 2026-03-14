@@ -245,7 +245,12 @@ export default function DoctorsPage() {
         c.departments.map(d => ({ clinicId: c.id, clinicName: c.name, deptId: d.id, deptName: d.name }))
     );
     // Unique departments by ID — only show allowed departments for doctors
-    const ALLOWED_DOCTOR_DEPTS = ['Dermatology & Aesthetics', 'Nursing', 'Laser Hair Removal', 'Beauty Therapy', 'Physiotherapy'];
+    const ALLOWED_DOCTOR_DEPTS = [
+        'Dermatology & Aesthetics',
+        'Nursing & Beauty Therapy',
+        'Laser & Electrolysis Hair Removal',
+        'Physiotherapy',
+    ];
     const uniqueDepartments = Array.from(new Map(allDepartments.map(d => [d.deptId, d])).values())
         .filter(d => ALLOWED_DOCTOR_DEPTS.some(name => d.deptName.toLowerCase() === name.toLowerCase()));
 
