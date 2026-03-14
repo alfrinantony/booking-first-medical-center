@@ -150,14 +150,6 @@ export default function ServiceEditorModal({
                         <section>
                             <SectionHeader id="basic" label="Basic Info" icon={FileText} color="text-gray-600" />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Department *</label>
-                                <select required className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                    value={formState.departmentId || ''} onChange={e => update({ departmentId: e.target.value, allowedDoctorIds: [] })}>
-                                    <option value="">Select Department</option>
-                                    {currentClinic?.departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                </select>
-                            </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Service Name *</label>
                                     <input required type="text" className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"

@@ -45,7 +45,6 @@ export default function ServicesPage() {
     const [selectedClinicId, setSelectedClinicId] = useState('');
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedDeptFilter, setSelectedDeptFilter] = useState('');
 
     // Add Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -426,19 +425,14 @@ export default function ServicesPage() {
     // Filter Logic
     const currentClinic = clinics.find(c => c.id === selectedClinicId);
 
-    // Derived departments with filtered services
-    const filteredDepartments = currentClinic?.departments
-        .filter(dept => !selectedDeptFilter || dept.id === selectedDeptFilter)
-        .map(dept => ({
-        ...dept,
-        services: dept.services.filter(s =>
-            s.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-    })).filter(dept => dept.services.length > 0) || [];
+    // Derived flat list of all services (no department grouping)
+    const allServices = currentClinic?.departments.flatMap(dept =>
+        dept.services.map(s => ({ ...s, _deptId: dept.id, _deptName: dept.name }))
+    ).filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) || [];
 
-    // Helpers to get doctors for a department – collects ALL doctors from ALL branches/departments
+    // Helpers to get doctors for services – collects ALL doctors from ALL branches/departments
     const getDepartmentDoctors = (deptId: string): Doctor[] => {
-        // Collect doctors from every clinic and every department, annotated with branch
+        // Collect doctors from every clinic and every department
         const seen = new Set<string>();
         const allDoctors: Doctor[] = [];
         for (const clinic of clinics) {
@@ -446,7 +440,7 @@ export default function ServicesPage() {
                 for (const doc of dept.doctors) {
                     if (!seen.has(doc.id)) {
                         seen.add(doc.id);
-                        allDoctors.push({ ...doc, name: `${doc.name} (${clinic.name.replace(' Branch', '')})` });
+                        allDoctors.push(doc);
                     }
                 }
             }
@@ -494,12 +488,12 @@ export default function ServicesPage() {
 
                 {/* Filters */}
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4">
-                    <div className="md:w-1/4">
+                    <div className="md:w-1/3">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clinic Branch</label>
                         <select
                             className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent"
                             value={selectedClinicId}
-                            onChange={(e) => { setSelectedClinicId(e.target.value); setSelectedDeptFilter(''); }}
+                            onChange={(e) => setSelectedClinicId(e.target.value)}
                         >
                             {clinics.map(c => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -509,20 +503,7 @@ export default function ServicesPage() {
                             Resources available: {resources.length}
                         </div>
                     </div>
-                    <div className="md:w-1/4">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department</label>
-                        <select
-                            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent"
-                            value={selectedDeptFilter}
-                            onChange={(e) => setSelectedDeptFilter(e.target.value)}
-                        >
-                            <option value="">All Departments</option>
-                            {currentClinic?.departments.map(d => (
-                                <option key={d.id} value={d.id}>{d.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="md:flex-1">
+                    <div className="md:w-2/3">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Services</label>
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
@@ -610,149 +591,135 @@ export default function ServicesPage() {
                     })()}
                 </div>
 
-                {/* Service List */}
-                <div className="space-y-6">
-                    {filteredDepartments.map(dept => (
-                        <div key={dept.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                            <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{dept.name}</h2>
-                            </div>
-                            <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {dept.services.map(service => (
-                                    <div key={service.id} className="p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                            {/* Service Thumbnail */}
-                                            {service.image && (
-                                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
-                                                    <img src={service.image} alt={service.name} className="w-full h-full object-cover" />
-                                                </div>
+                {/* Service List – flat, no department grouping */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {allServices.map(service => (
+                            <div key={service.id} className="p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                                <div className="flex items-center gap-4 flex-1 min-w-0">
+                                    {/* Service Thumbnail */}
+                                    {service.image && (
+                                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
+                                            <img src={service.image} alt={service.name} className="w-full h-full object-cover" />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-medium text-gray-900 dark:text-white mb-1">{service.name}</h3>
+                                        {service.description && (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-2">{service.description}</p>
+                                        )}
+                                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                                            <span className="flex items-center gap-1">
+                                                <Clock className="w-3.5 h-3.5" />
+                                                {service.duration} mins
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <span className="text-xs font-semibold">د.إ</span>
+                                                {service.regularPrice && service.discountedPrice ? (
+                                                    <><span className="line-through text-gray-400 mr-1">{service.regularPrice}</span><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
+                                                ) : service.discountedPrice ? (
+                                                    <><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
+                                                ) : (
+                                                    <>{service.regularPrice || service.price} AED</>
+                                                )}
+                                                {service.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded ml-1">+VAT</span>}
+                                            </span>
+                                            <span className="flex items-center gap-1 text-xs">
+                                                <UserCheck className="w-3 h-3" />
+                                                {getAllowedDoctorsText(service, getDepartmentDoctors(service._deptId))}
+                                            </span>
+                                            <span className="flex items-center gap-1 text-xs">
+                                                <Users className="w-3 h-3" />
+                                                {getGenderText(service.allowedGender)}
+                                            </span>
+                                            {service.allowedDays && service.allowedDays.length > 0 && (
+                                                <span className="flex items-center gap-1 text-xs">
+                                                    <Calendar className="w-3 h-3" />
+                                                    {getDaysText(service.allowedDays)}
+                                                </span>
                                             )}
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-medium text-gray-900 dark:text-white mb-1">{service.name}</h3>
-                                                {service.description && (
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-2">{service.description}</p>
-                                                )}
-                                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock className="w-3.5 h-3.5" />
-                                                        {service.duration} mins
+                                            {service.timeWindow && (
+                                                <span className="flex items-center gap-1 text-xs">
+                                                    <Clock4 className="w-3 h-3" />
+                                                    {getTimeWindowText(service.timeWindow)}
+                                                </span>
+                                            )}
+                                            {service.category && (
+                                                <span className="text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                                                    {service.category}
+                                                </span>
+                                            )}
+                                            {service.requiredResourceIds && service.requiredResourceIds.length > 0 && (
+                                                <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
+                                                    <Archive className="w-3 h-3" />
+                                                    {service.requiredResourceIds.length} Resource{service.requiredResourceIds.length > 1 ? 's' : ''}
+                                                </span>
+                                            )}
+                                            {service.maxMedicines && (
+                                                <span className="flex items-center gap-1 text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-0.5 rounded-full">
+                                                    <Pill className="w-3.5 h-3.5" />
+                                                    Up to {service.maxMedicines} Medicine{service.maxMedicines > 1 ? 's' : ''}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {/* Add-on badges */}
+                                        {service.addOns && service.addOns.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                                {service.addOns.map(ao => (
+                                                    <span key={ao.id} className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
+                                                        🔧 {ao.procedure} · {ao.area} · +{ao.price} AED
                                                     </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <span className="text-xs font-semibold">د.إ</span>
-                                                        {service.regularPrice && service.discountedPrice ? (
-                                                            <><span className="line-through text-gray-400 mr-1">{service.regularPrice}</span><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
-                                                        ) : service.discountedPrice ? (
-                                                            <><span className="text-green-600 font-semibold">{service.discountedPrice} AED</span></>
-                                                        ) : (
-                                                            <>{service.regularPrice || service.price} AED</>
-                                                        )}
-                                                        {service.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded ml-1">+VAT</span>}
-                                                    </span>
-                                                    {service.threeSessionPackage && (
-                                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 rounded-full text-xs text-blue-700 dark:text-blue-300 font-medium">
-                                                            3-Pack: {service.threeSessionPackage.discountedPrice} AED ({service.threeSessionPackage.validity}d)
-                                                        </span>
-                                                    )}
-                                                    {service.sixSessionPackage && (
-                                                        <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-full text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-                                                            6-Pack: {service.sixSessionPackage.discountedPrice} AED ({service.sixSessionPackage.validity}d)
-                                                        </span>
-                                                    )}
-                                                    {service.category && (
-                                                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs text-gray-600 dark:text-gray-300">
-                                                            {service.category}
-                                                        </span>
-                                                    )}
-                                                    {service.followUpDuration && (
-                                                        <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                                                            <Clock className="w-3.5 h-3.5" />
-                                                            Free Follow Up within {service.followUpDuration}d
-                                                        </span>
-                                                    )}
-                                                    <span className="flex items-center gap-1" title="Allowed Doctors">
-                                                        <Users className="w-3.5 h-3.5" />
-                                                        {getAllowedDoctorsText(service, dept.doctors)}
-                                                    </span>
-                                                    <span className="flex items-center gap-1" title="Gender Restriction">
-                                                        <Users2 className="w-3.5 h-3.5" />
-                                                        {getGenderText(service.allowedGender)}
-                                                    </span>
-                                                    <span className="flex items-center gap-1" title="Day Restriction">
-                                                        <Calendar className="w-3.5 h-3.5" />
-                                                        {getDaysText(service.allowedDays)}
-                                                    </span>
-                                                    <span className="flex items-center gap-1" title="Time Restriction">
-                                                        <Clock4 className="w-3.5 h-3.5" />
-                                                        {getTimeWindowText(service.timeWindow)}
-                                                    </span>
-                                                    {service.requiredResourceIds && service.requiredResourceIds.length > 0 && (
-                                                        <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400" title="Required Resources">
-                                                            <Archive className="w-3.5 h-3.5" />
-                                                            {service.requiredResourceIds.length} Resources
-                                                        </span>
-                                                    )}
-                                                    {service.maxMedicines !== undefined && service.maxMedicines > 0 && (
-                                                        <span className="flex items-center gap-1 text-teal-600 dark:text-teal-400" title="Max Medicines">
-                                                            <Pill className="w-3.5 h-3.5" />
-                                                            Up to {service.maxMedicines} Medicine{service.maxMedicines > 1 ? 's' : ''}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {/* Add-on badges */}
-                                                {service.addOns && service.addOns.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                                        {service.addOns.map(ao => (
-                                                            <span key={ao.id} className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
-                                                                🔧 {ao.procedure} · {ao.area} · +{ao.price} AED
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                ))}
                                             </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 ml-4">
-                                            <button
-                                                onClick={() => openEditModal(dept.id, service)}
-                                                className="text-indigo-500 hover:text-indigo-700 p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
-                                                title="Edit Service"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteService(dept.id, service.id)}
-                                                className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                                title="Delete Service"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                        )}
                                     </div>
-                                ))}
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                    <button
+                                        onClick={() => openEditModal(service._deptId, service)}
+                                        className="text-indigo-500 hover:text-indigo-700 p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                                        title="Edit Service"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteService(service._deptId, service.id)}
+                                        className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                        title="Delete Service"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-
-                    {filteredDepartments.length === 0 && (
-                        <div className="text-center py-12 text-gray-500">
-                            No services found matching your criteria.
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </div>
 
+                {allServices.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                        No services found matching your criteria.
+                    </div>
+                )}
                 {/* Add Service Modal */}
                 {isAddModalOpen && (
                     <ServiceEditorModal
                         mode="add"
                         title="Add New Service"
-                        formState={newService}
+                        formState={{ ...newService, departmentId: newService.departmentId || currentClinic?.departments[0]?.id || '' }}
                         setFormState={setNewService}
                         currentClinic={currentClinic}
-                        doctors={newService.departmentId ? getDepartmentDoctors(newService.departmentId) : []}
+                        doctors={getDepartmentDoctors('')}
                         resources={resources}
                         medicines={medicines}
                         registeredProducts={registeredProducts}
                         dayNames={dayNames}
-                        onSubmit={handleAddService}
+                        onSubmit={(e) => {
+                            // Auto-assign departmentId if not set
+                            if (!newService.departmentId && currentClinic?.departments[0]) {
+                                setNewService({ ...newService, departmentId: currentClinic.departments[0].id });
+                            }
+                            handleAddService(e);
+                        }}
                         onClose={() => setIsAddModalOpen(false)}
                         onToggleDay={(day) => toggleDaySelection(day, false)}
                         onToggleDoctor={(docId) => toggleDoctorSelection(docId, false)}
