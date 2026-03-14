@@ -56,14 +56,13 @@ export default function AdminAppointmentsPage() {
         const dept = allDepts.find(d => d.name === name)!;
         return { id: dept.id, name: dept.name };
     });
-    // Doctors: collect all doctors from matching filters
+    // Doctors: collect all doctors from all departments (not filtered by category)
     const allDoctors = (() => {
         const seen = new Set<string>();
         const docs: { id: string; name: string }[] = [];
         const clinicList = selectedClinicId ? [selectedClinic].filter(Boolean) as Clinic[] : clinics;
         for (const clinic of clinicList) {
             for (const dept of clinic.departments) {
-                if (selectedDeptId && dept.name !== allDepts.find(d => d.id === selectedDeptId)?.name) continue;
                 for (const doc of dept.doctors) {
                     if (!seen.has(doc.id)) {
                         seen.add(doc.id);
