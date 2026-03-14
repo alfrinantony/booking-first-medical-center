@@ -72,14 +72,15 @@ export default function DoctorsPage() {
             const sharedId = `doc-${Date.now()}`;
             let allSuccess = true;
             for (const clinicId of addClinicIds) {
-                // Check if this clinic has this department
+                // Check if this clinic has this department (by name)
+                const targetDeptId = findDeptIdInClinic(clinicId, newDoctor.departmentId);
                 const clinic = clinics.find(c => c.id === clinicId);
-                const dept = clinic?.departments.find(d => d.id === newDoctor.departmentId);
+                const dept = clinic?.departments.find(d => d.id === targetDeptId);
                 if (!dept) continue; // skip if department doesn't exist in this branch
 
                 const payload = {
                     clinicId,
-                    departmentId: newDoctor.departmentId,
+                    departmentId: targetDeptId,
                     id: sharedId,
                     name: newDoctor.name,
                     specialty: newDoctor.specialty,
@@ -125,13 +126,14 @@ export default function DoctorsPage() {
             // Add to new branches
             for (const cId of editClinicIds) {
                 if (!currentClinicIdSet.has(cId)) {
+                    const targetDeptId = findDeptIdInClinic(cId, editingDoctor.departmentId);
                     const clinic = clinics.find(c => c.id === cId);
-                    const dept = clinic?.departments.find(d => d.id === editingDoctor.departmentId);
+                    const dept = clinic?.departments.find(d => d.id === targetDeptId);
                     if (!dept) continue;
                     await fetch('/api/admin/doctors', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            clinicId: cId, departmentId: editingDoctor.departmentId,
+                            clinicId: cId, departmentId: targetDeptId,
                             id: editingDoctor.id, name: editingDoctor.name,
                             specialty: editingDoctor.specialty, image: editingDoctor.image,
                             certifications: typeof editingDoctor.certifications === 'string'
@@ -271,9 +273,21 @@ export default function DoctorsPage() {
         return true;
     });
 
-    // Helper to check if a department exists in a clinic
+    // Helper to check if a department exists in a clinic (by name, since IDs are clinic-prefixed)
+    const getDeptName = (deptId: string) => {
+        for (const c of clinics) {
+            const dept = c.departments.find(d => d.id === deptId);
+            if (dept) return dept.name;
+        }
+        return '';
+    };
     const clinicHasDept = (clinicId: string, deptId: string) => {
-        return clinics.find(c => c.id === clinicId)?.departments.some(d => d.id === deptId) ?? false;
+        const name = getDeptName(deptId);
+        return clinics.find(c => c.id === clinicId)?.departments.some(d => d.name === name) ?? false;
+    };
+    const findDeptIdInClinic = (clinicId: string, deptId: string) => {
+        const name = getDeptName(deptId);
+        return clinics.find(c => c.id === clinicId)?.departments.find(d => d.name === name)?.id || deptId;
     };
 
     if (loading) return <div className="p-8">Loading doctors...</div>;
