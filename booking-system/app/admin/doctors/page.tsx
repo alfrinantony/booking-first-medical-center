@@ -66,21 +66,18 @@ export default function DoctorsPage() {
     const handleAddDoctor = async (e: React.FormEvent) => {
         e.preventDefault();
         if (addClinicIds.length === 0) { alert('Please select at least one branch'); return; }
-        if (!newDoctor.departmentId) { alert('Please select a department'); return; }
         setSubmitting(true);
         try {
             const sharedId = `doc-${Date.now()}`;
             let allSuccess = true;
             for (const clinicId of addClinicIds) {
-                // Check if this clinic has this department (by name)
-                const targetDeptId = findDeptIdInClinic(clinicId, newDoctor.departmentId);
                 const clinic = clinics.find(c => c.id === clinicId);
-                const dept = clinic?.departments.find(d => d.id === targetDeptId);
-                if (!dept) continue; // skip if department doesn't exist in this branch
+                const firstDept = clinic?.departments[0];
+                if (!firstDept) continue;
 
                 const payload = {
                     clinicId,
-                    departmentId: targetDeptId,
+                    departmentId: firstDept.id,
                     id: sharedId,
                     name: newDoctor.name,
                     specialty: newDoctor.specialty,
@@ -126,14 +123,13 @@ export default function DoctorsPage() {
             // Add to new branches
             for (const cId of editClinicIds) {
                 if (!currentClinicIdSet.has(cId)) {
-                    const targetDeptId = findDeptIdInClinic(cId, editingDoctor.departmentId);
                     const clinic = clinics.find(c => c.id === cId);
-                    const dept = clinic?.departments.find(d => d.id === targetDeptId);
-                    if (!dept) continue;
+                    const firstDept = clinic?.departments[0];
+                    if (!firstDept) continue;
                     await fetch('/api/admin/doctors', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            clinicId: cId, departmentId: targetDeptId,
+                            clinicId: cId, departmentId: firstDept.id,
                             id: editingDoctor.id, name: editingDoctor.name,
                             specialty: editingDoctor.specialty, image: editingDoctor.image,
                             certifications: typeof editingDoctor.certifications === 'string'
@@ -442,45 +438,21 @@ export default function DoctorsPage() {
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Branches</label>
                                     <div className="flex flex-wrap gap-3">
-                                        {clinics.map(c => {
-                                            const hasDept = !newDoctor.departmentId || clinicHasDept(c.id, newDoctor.departmentId);
-                                            return (
-                                                <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${addClinicIds.includes(c.id) ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'} ${!hasDept ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="accent-indigo-600"
-                                                        checked={addClinicIds.includes(c.id)}
-                                                        disabled={!hasDept}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) setAddClinicIds([...addClinicIds, c.id]);
-                                                            else setAddClinicIds(addClinicIds.filter(id => id !== c.id));
-                                                        }}
-                                                    />
-                                                    <span className="text-sm font-medium">{c.name}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Department</label>
-                                    <select
-                                        required
-                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                        value={newDoctor.departmentId}
-                                        onChange={(e) => {
-                                            setNewDoctor({ ...newDoctor, departmentId: e.target.value });
-                                            // Remove any selected branches that don't have this department
-                                            if (e.target.value) {
-                                                setAddClinicIds(addClinicIds.filter(cId => clinicHasDept(cId, e.target.value)));
-                                            }
-                                        }}
-                                    >
-                                        <option value="">Select Department</option>
-                                        {uniqueDepartments.map(d => (
-                                            <option key={d.deptId} value={d.deptId}>{d.deptName}</option>
+                                        {clinics.map(c => (
+                                            <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${addClinicIds.includes(c.id) ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="accent-indigo-600"
+                                                    checked={addClinicIds.includes(c.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) setAddClinicIds([...addClinicIds, c.id]);
+                                                        else setAddClinicIds(addClinicIds.filter(id => id !== c.id));
+                                                    }}
+                                                />
+                                                <span className="text-sm font-medium">{c.name}</span>
+                                            </label>
                                         ))}
-                                    </select>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Name</label>
@@ -598,24 +570,20 @@ export default function DoctorsPage() {
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Branches</label>
                                     <div className="flex flex-wrap gap-3">
-                                        {clinics.map(c => {
-                                            const hasDept = clinicHasDept(c.id, editingDoctor.departmentId);
-                                            return (
-                                                <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${editClinicIds.includes(c.id) ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'} ${!hasDept ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="accent-indigo-600"
-                                                        checked={editClinicIds.includes(c.id)}
-                                                        disabled={!hasDept}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) setEditClinicIds([...editClinicIds, c.id]);
-                                                            else setEditClinicIds(editClinicIds.filter(id => id !== c.id));
-                                                        }}
-                                                    />
-                                                    <span className="text-sm font-medium">{c.name}</span>
-                                                </label>
-                                            );
-                                        })}
+                                        {clinics.map(c => (
+                                            <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${editClinicIds.includes(c.id) ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="accent-indigo-600"
+                                                    checked={editClinicIds.includes(c.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) setEditClinicIds([...editClinicIds, c.id]);
+                                                        else setEditClinicIds(editClinicIds.filter(id => id !== c.id));
+                                                    }}
+                                                />
+                                                <span className="text-sm font-medium">{c.name}</span>
+                                            </label>
+                                        ))}
                                     </div>
                                     <p className="text-xs text-gray-400 mt-1">Schedule is shared across all branches — no conflicts</p>
                                 </div>
