@@ -45,6 +45,7 @@ export default function ServicesPage() {
     const [selectedClinicId, setSelectedClinicId] = useState('');
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedDeptFilter, setSelectedDeptFilter] = useState('');
 
     // Add Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -426,7 +427,9 @@ export default function ServicesPage() {
     const currentClinic = clinics.find(c => c.id === selectedClinicId);
 
     // Derived departments with filtered services
-    const filteredDepartments = currentClinic?.departments.map(dept => ({
+    const filteredDepartments = currentClinic?.departments
+        .filter(dept => !selectedDeptFilter || dept.id === selectedDeptFilter)
+        .map(dept => ({
         ...dept,
         services: dept.services.filter(s =>
             s.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -491,12 +494,12 @@ export default function ServicesPage() {
 
                 {/* Filters */}
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4">
-                    <div className="md:w-1/3">
+                    <div className="md:w-1/4">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clinic Branch</label>
                         <select
                             className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent"
                             value={selectedClinicId}
-                            onChange={(e) => setSelectedClinicId(e.target.value)}
+                            onChange={(e) => { setSelectedClinicId(e.target.value); setSelectedDeptFilter(''); }}
                         >
                             {clinics.map(c => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -506,7 +509,20 @@ export default function ServicesPage() {
                             Resources available: {resources.length}
                         </div>
                     </div>
-                    <div className="md:w-2/3">
+                    <div className="md:w-1/4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department</label>
+                        <select
+                            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent"
+                            value={selectedDeptFilter}
+                            onChange={(e) => setSelectedDeptFilter(e.target.value)}
+                        >
+                            <option value="">All Departments</option>
+                            {currentClinic?.departments.map(d => (
+                                <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="md:flex-1">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Services</label>
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
