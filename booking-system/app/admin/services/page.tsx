@@ -433,26 +433,18 @@ export default function ServicesPage() {
         )
     })).filter(dept => dept.services.length > 0) || [];
 
-    // Helpers to get doctors for a department – collects from ALL branches
+    // Helpers to get doctors for a department – collects ALL doctors from ALL branches/departments
     const getDepartmentDoctors = (deptId: string): Doctor[] => {
-        // Find the department name for the given ID (could be in any clinic)
-        let targetDeptName = '';
-        for (const clinic of clinics) {
-            const dept = clinic.departments.find(d => d.id === deptId);
-            if (dept) { targetDeptName = dept.name; break; }
-        }
-        if (!targetDeptName) return [];
-
-        // Collect doctors from every clinic's matching department, annotated with branch
+        // Collect doctors from every clinic and every department, annotated with branch
         const seen = new Set<string>();
         const allDoctors: Doctor[] = [];
         for (const clinic of clinics) {
-            const dept = clinic.departments.find(d => d.name === targetDeptName);
-            if (!dept) continue;
-            for (const doc of dept.doctors) {
-                if (!seen.has(doc.id)) {
-                    seen.add(doc.id);
-                    allDoctors.push({ ...doc, name: `${doc.name} (${clinic.name.replace(' Branch', '')})` });
+            for (const dept of clinic.departments) {
+                for (const doc of dept.doctors) {
+                    if (!seen.has(doc.id)) {
+                        seen.add(doc.id);
+                        allDoctors.push({ ...doc, name: `${doc.name} (${clinic.name.replace(' Branch', '')})` });
+                    }
                 }
             }
         }
