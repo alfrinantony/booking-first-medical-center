@@ -456,7 +456,7 @@ export default function ServicesPage() {
                 }
             }
         }
-        return allDoctors;
+        return allDoctors.sort((a, b) => a.name.localeCompare(b.name));
     };
 
     const toggleDoctorSelection = (docId: string, isEditing: boolean) => {
