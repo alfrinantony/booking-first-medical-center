@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { clinics, Booking, timeSlots, Medicine } from '@/lib/data';
+import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
 import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X } from 'lucide-react';
 import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
@@ -15,6 +15,8 @@ export default function AdminAppointmentsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [medicineCatalog, setMedicineCatalog] = useState<Medicine[]>([]);
+    const [clinics, setClinics] = useState<Clinic[]>([]);
+    const [clinicsLoading, setClinicsLoading] = useState(true);
 
     // Filters
     const [selectedClinicId, setSelectedClinicId] = useState<string>('');
@@ -27,11 +29,51 @@ export default function AdminAppointmentsPage() {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
 
-    // Derived Data
+    // Fetch live clinic data from API
+    useEffect(() => {
+        const fetchClinics = async () => {
+            try {
+                const res = await fetch('/api/admin/services');
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    setClinics(data);
+                }
+            } catch (error) {
+                console.error('Failed to fetch clinics', error);
+            } finally {
+                setClinicsLoading(false);
+            }
+        };
+        fetchClinics();
+    }, []);
+
+    // Derived Data — work independently, not cascading
     const selectedClinic = clinics.find(c => c.id === selectedClinicId);
-    const availableDepts = selectedClinic?.departments || [];
-    const selectedDept = availableDepts.find(d => d.id === selectedDeptId);
-    const availableDoctors = selectedDept?.doctors || [];
+    // Categories: collect unique department names from all clinics or selected clinic
+    const allDepts = (selectedClinic ? selectedClinic.departments : clinics.flatMap(c => c.departments));
+    const uniqueDeptNames = Array.from(new Set(allDepts.map(d => d.name)));
+    const deptOptions = uniqueDeptNames.map(name => {
+        const dept = allDepts.find(d => d.name === name)!;
+        return { id: dept.id, name: dept.name };
+    });
+    // Doctors: collect all doctors from matching filters
+    const allDoctors = (() => {
+        const seen = new Set<string>();
+        const docs: { id: string; name: string }[] = [];
+        const clinicList = selectedClinicId ? [selectedClinic].filter(Boolean) as Clinic[] : clinics;
+        for (const clinic of clinicList) {
+            for (const dept of clinic.departments) {
+                if (selectedDeptId && dept.name !== allDepts.find(d => d.id === selectedDeptId)?.name) continue;
+                for (const doc of dept.doctors) {
+                    if (!seen.has(doc.id)) {
+                        seen.add(doc.id);
+                        docs.push({ id: doc.id, name: doc.name });
+                    }
+                }
+            }
+        }
+        return docs.sort((a, b) => a.name.localeCompare(b.name));
+    })();
 
     useEffect(() => {
         // Debounce search
@@ -298,7 +340,7 @@ export default function AdminAppointmentsPage() {
                 </div>
 
                 <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
                     <select
                         className="w-full p-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
                         value={selectedDeptId}
@@ -306,10 +348,9 @@ export default function AdminAppointmentsPage() {
                             setSelectedDeptId(e.target.value);
                             setSelectedDoctorId('');
                         }}
-                        disabled={!selectedClinicId}
                     >
-                        <option value="">All Departments</option>
-                        {availableDepts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        <option value="">All Categories</option>
+                        {deptOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
 
@@ -319,10 +360,9 @@ export default function AdminAppointmentsPage() {
                         className="w-full p-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
                         value={selectedDoctorId}
                         onChange={(e) => setSelectedDoctorId(e.target.value)}
-                        disabled={!selectedDeptId}
                     >
                         <option value="">All Doctors</option>
-                        {availableDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        {allDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
 
