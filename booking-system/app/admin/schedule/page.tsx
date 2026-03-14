@@ -41,6 +41,10 @@ export default function SchedulePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState('');
 
+    // Shift time range state
+    const [shiftStartTime, setShiftStartTime] = useState('');
+    const [shiftEndTime, setShiftEndTime] = useState('');
+
     // Days Off state
     const [daysOff, setDaysOff] = useState<number[]>([]);
     const [daysOffMessage, setDaysOffMessage] = useState('');
@@ -144,6 +148,15 @@ export default function SchedulePage() {
                 ? prev.filter(s => s !== slot)
                 : [...prev, slot].sort((a, b) => timeSlots.indexOf(a) - timeSlots.indexOf(b))
         );
+    };
+
+    // Apply time range — selects all slots between start and end time
+    const applyTimeRange = () => {
+        if (!shiftStartTime || !shiftEndTime) return;
+        const startIdx = timeSlots.indexOf(shiftStartTime);
+        const endIdx = timeSlots.indexOf(shiftEndTime);
+        if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return;
+        setAvailableSlots(timeSlots.slice(startIdx, endIdx + 1));
     };
 
     const toggleDayOff = (day: number) => {
@@ -304,6 +317,58 @@ export default function SchedulePage() {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Shift Start/End Time */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Shift Time Range</label>
+                                <div className="space-y-3">
+                                    <div>
+                                        <span className="text-xs text-gray-500 mb-1 block">Start Time</span>
+                                        <div className="relative">
+                                            <Clock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                            <select
+                                                className="w-full pl-10 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent text-sm"
+                                                value={shiftStartTime}
+                                                onChange={(e) => setShiftStartTime(e.target.value)}
+                                            >
+                                                <option value="">Select start time</option>
+                                                {timeSlots.map(slot => (
+                                                    <option key={slot} value={slot}>{slot}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-gray-500 mb-1 block">End Time</span>
+                                        <div className="relative">
+                                            <Clock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                            <select
+                                                className="w-full pl-10 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent text-sm"
+                                                value={shiftEndTime}
+                                                onChange={(e) => setShiftEndTime(e.target.value)}
+                                            >
+                                                <option value="">Select end time</option>
+                                                {timeSlots.filter(slot => !shiftStartTime || timeSlots.indexOf(slot) >= timeSlots.indexOf(shiftStartTime)).map(slot => (
+                                                    <option key={slot} value={slot}>{slot}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={applyTimeRange}
+                                    disabled={!shiftStartTime || !shiftEndTime}
+                                    className="mt-3 w-full flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <Clock className="w-3 h-3" />
+                                    Apply Time Range
+                                </button>
+                                {shiftStartTime && shiftEndTime && (
+                                    <p className="mt-2 text-xs text-indigo-600 dark:text-indigo-400">
+                                        Will select all slots from {shiftStartTime} to {shiftEndTime}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
