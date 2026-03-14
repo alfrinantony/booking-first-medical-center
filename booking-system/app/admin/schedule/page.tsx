@@ -53,6 +53,9 @@ export default function SchedulePage() {
     const [staffLeaves, setStaffLeaves] = useState<LeaveEntry[]>([]);
     const [leavesLoading, setLeavesLoading] = useState(false);
 
+    // Cross-branch conflict state
+    const [otherBranchSlots, setOtherBranchSlots] = useState<{ clinicId: string; slots: string[] }[]>([]);
+
     // Fetch live clinic data from API (same source as Doctors page)
     useEffect(() => {
         const fetchClinics = async () => {
@@ -90,14 +93,14 @@ export default function SchedulePage() {
         }
     }, [selectedDoctorId, selectedDoctor]);
 
-    // Fetch schedule when doctor or START date changes
+    // Fetch schedule when doctor, clinic, or START date changes
     useEffect(() => {
-        if (!selectedDoctorId || !startDate) return;
+        if (!selectedDoctorId || !startDate || !selectedClinicId) return;
 
         const fetchSchedule = async () => {
             setIsLoading(true);
             try {
-                const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctorId}&date=${startDate}`);
+                const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctorId}&date=${startDate}&clinicId=${selectedClinicId}&otherBranches=true`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.slots && data.slots.length > 0) {
@@ -105,6 +108,8 @@ export default function SchedulePage() {
                     } else {
                         setAvailableSlots(timeSlots);
                     }
+                    // Store other-branch conflict data
+                    setOtherBranchSlots(data.otherBranchSlots || []);
                 }
             } catch (error) {
                 console.error('Failed to fetch schedule');
@@ -114,7 +119,7 @@ export default function SchedulePage() {
         };
 
         fetchSchedule();
-    }, [selectedDoctorId, startDate]);
+    }, [selectedDoctorId, startDate, selectedClinicId]);
 
     // Fetch staff leaves when date range changes
     useEffect(() => {
@@ -222,7 +227,8 @@ export default function SchedulePage() {
                     body: JSON.stringify({
                         doctorId: selectedDoctorId,
                         date: dateStr,
-                        slots: availableSlots
+                        slots: availableSlots,
+                        clinicId: selectedClinicId
                     })
                 });
 
@@ -451,19 +457,55 @@ export default function SchedulePage() {
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                                     {timeSlots.map(slot => {
                                         const isAvailable = availableSlots.includes(slot);
+                                        // Check if this slot is scheduled in another branch
+                                        const otherBranch = otherBranchSlots.find(ob => ob.slots.includes(slot));
+                                        const otherBranchName = otherBranch ? clinics.find(c => c.id === otherBranch.clinicId)?.name?.replace(' Branch', '') || otherBranch.clinicId : '';
+                                        const isOtherBranch = !!otherBranch;
+
+                                        let slotClass = 'bg-gray-100 text-gray-400 border-2 border-transparent hover:bg-gray-200';
+                                        if (isAvailable && isOtherBranch) {
+                                            // Both current branch AND other branch
+                                            slotClass = 'bg-indigo-100 text-indigo-700 border-2 border-indigo-500 ring-2 ring-amber-400';
+                                        } else if (isAvailable) {
+                                            slotClass = 'bg-indigo-100 text-indigo-700 border-2 border-indigo-500';
+                                        } else if (isOtherBranch) {
+                                            slotClass = 'bg-amber-100 text-amber-700 border-2 border-amber-400 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600';
+                                        }
+
                                         return (
                                             <button
                                                 key={slot}
                                                 onClick={() => toggleSlot(slot)}
-                                                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${isAvailable
-                                                    ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-500'
-                                                    : 'bg-gray-100 text-gray-400 border-2 border-transparent hover:bg-gray-200'
-                                                    }`}
+                                                title={isOtherBranch ? `Scheduled at ${otherBranchName}` : undefined}
+                                                className={`py-2 px-3 rounded-md text-sm font-medium transition-all relative ${slotClass}`}
                                             >
                                                 {slot}
+                                                {isOtherBranch && (
+                                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border border-white" title={`${otherBranchName}`} />
+                                                )}
                                             </button>
                                         );
                                     })}
+                                </div>
+                            )}
+
+                            {/* Color Legend */}
+                            {otherBranchSlots.length > 0 && (
+                                <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-3 h-3 rounded bg-indigo-100 border-2 border-indigo-500 inline-block" />
+                                        This branch
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-3 h-3 rounded bg-amber-100 border-2 border-amber-400 inline-block relative">
+                                            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                                        </span>
+                                        Other branch
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-3 h-3 rounded bg-gray-100 border-2 border-transparent inline-block" />
+                                        Not scheduled
+                                    </div>
                                 </div>
                             )}
 

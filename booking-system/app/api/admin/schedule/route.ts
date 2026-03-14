@@ -8,6 +8,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const doctorId = searchParams.get('doctorId');
     const date = searchParams.get('date');
+    const clinicId = searchParams.get('clinicId') || undefined;
+    const otherBranches = searchParams.get('otherBranches') === 'true';
     const serviceId = searchParams.get('serviceId'); // Optional: Check resource availability for this service
 
     if (!doctorId || !date) {
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
     }
 
     // 1. Get Base Schedule (or default availability)
-    let slots = Scheduler.getSchedule(doctorId, date);
+    let slots = Scheduler.getSchedule(doctorId, date, clinicId);
 
     // If no custom schedule, use default slots (handled by UI falling back to all timeSlots)
     // But here we need to know the base slots to filter them. 
@@ -146,19 +148,25 @@ export async function GET(request: Request) {
         }
     }
 
-    return NextResponse.json({ slots: availableSlots });
+    // 6. Collect other-branch conflict data if requested
+    const response: any = { slots: availableSlots };
+    if (otherBranches && clinicId) {
+        response.otherBranchSlots = Scheduler.getOtherBranchSlots(doctorId, date, clinicId);
+    }
+
+    return NextResponse.json(response);
 }
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { doctorId, date, slots } = body;
+        const { doctorId, date, slots, clinicId } = body;
 
         if (!doctorId || !date || !Array.isArray(slots)) {
             return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
         }
 
-        const updatedSchedule = Scheduler.setSchedule(doctorId, date, slots);
+        const updatedSchedule = Scheduler.setSchedule(doctorId, date, slots, clinicId || 'default');
         return NextResponse.json(updatedSchedule);
     } catch (error) {
         return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
