@@ -244,8 +244,10 @@ export default function DoctorsPage() {
     const allDepartments = clinics.flatMap(c =>
         c.departments.map(d => ({ clinicId: c.id, clinicName: c.name, deptId: d.id, deptName: d.name }))
     );
-    // Unique departments by ID
-    const uniqueDepartments = Array.from(new Map(allDepartments.map(d => [d.deptId, d])).values());
+    // Unique departments by ID — only show allowed departments for doctors
+    const ALLOWED_DOCTOR_DEPTS = ['Dermatology & Aesthetics', 'Nursing', 'Laser Hair Removal', 'Beauty Therapy', 'Physiotherapy'];
+    const uniqueDepartments = Array.from(new Map(allDepartments.map(d => [d.deptId, d])).values())
+        .filter(d => ALLOWED_DOCTOR_DEPTS.some(name => d.deptName.toLowerCase() === name.toLowerCase()));
 
     // Helper: get all branches a doctor is assigned to (by shared ID)
     const getDoctorBranches = (doctorId: string) => {
