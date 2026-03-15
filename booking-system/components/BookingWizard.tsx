@@ -244,7 +244,8 @@ export default function BookingWizard() {
                 setSelectedSlot(null); // Reset slot selection
                 try {
                     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-                    const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctor.id}&date=${dateStr}&serviceId=${selectedService?.id || ''}`);
+                    const clinicParam = selectedClinic ? `&clinicId=${selectedClinic.id}` : '';
+                    const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctor.id}&date=${dateStr}&serviceId=${selectedService?.id || ''}${clinicParam}`);
                     let slots: string[] = []; // Explicit type
 
                     if (res.ok) {
@@ -719,6 +720,7 @@ export default function BookingWizard() {
             doctorId: selectedDoctor?.id,
             date: selectedDate?.toISOString().split('T')[0],
             slot: selectedSlot,
+            duration: selectedService?.duration || 30,
             patientName: user?.name || 'Guest',
             amount: finalPrice,
             promoCode: appliedPromo?.code,
@@ -804,6 +806,7 @@ export default function BookingWizard() {
                 doctorId: selectedDoctor?.id,
                 date: selectedDate?.toISOString().split('T')[0],
                 slot: selectedSlot,
+                duration: selectedService?.duration || 30,
                 patientName: user.name,
                 patientPhone: user.phone,
                 amount: 0,

@@ -4,19 +4,40 @@ import { BookingsStore } from '@/lib/bookings-store';
 import { clinics } from '@/lib/data';
 import { HRShiftStore } from '@/lib/hr-shift-store';
 
+// ── Helper: parse "10:30 AM" → minutes from midnight ──
+function parseSlotToMinutes(slot: string): number {
+    const [time, period] = slot.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+}
+
+// ── Helper: parse "17:00" (24h) → minutes from midnight ──
+function parse24hToMinutes(time: string | undefined): number | null {
+    if (!time) return null;
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + (m || 0);
+}
+
+// ── Helper: check if two time ranges overlap ──
+function rangesOverlap(startA: number, endA: number, startB: number, endB: number): boolean {
+    return startA < endB && startB < endA;
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const doctorId = searchParams.get('doctorId');
     const date = searchParams.get('date');
     const clinicId = searchParams.get('clinicId') || undefined;
     const otherBranches = searchParams.get('otherBranches') === 'true';
-    const serviceId = searchParams.get('serviceId'); // Optional: Check resource availability for this service
+    const serviceId = searchParams.get('serviceId');
 
     if (!doctorId || !date) {
         return NextResponse.json({ error: 'Missing doctorId or date' }, { status: 400 });
     }
 
-    // ── Clinician Availability Check (shift integration) ──
+    // ── 1. Clinician Availability Check (shift integration) ──
     const availability = await HRShiftStore.isClinicianAvailable(doctorId, date);
     if (!availability.available) {
         return NextResponse.json({
@@ -26,129 +47,130 @@ export async function GET(request: Request) {
         });
     }
 
-    // 1. Get Base Schedule (or default availability)
-    let slots = Scheduler.getSchedule(doctorId, date, clinicId);
-
-    // If no custom schedule, use default slots (handled by UI falling back to all timeSlots)
-    // But here we need to know the base slots to filter them. 
-    // If Scheduler returns empty, it means "Default Availability" (all slots).
-    // In that case, we should probably return the full list SO THAT we can filter it here on the server.
-    // However, the current UI logic handles "empty" as "all slots". 
-    // To properly filter server-side, we need the full list if it's empty.
-
-    const { timeSlots, Service, Resource } = require('@/lib/data'); // Lazy load
+    const { timeSlots } = require('@/lib/data');
     const { ServicesStore } = require('@/lib/services-store');
     const { ResourcesStore } = require('@/lib/resources-store');
 
+    // ── 2. Get Base Schedule Slots ──
+    let slots: string[] = Scheduler.getSchedule(doctorId, date, clinicId);
     if (slots.length === 0) {
         slots = timeSlots;
     }
 
-    // 2. Get Doctor's Capacity
+    // ── 3. Resolve Requested Service Duration ──
+    let requestedDuration = 30; // Default 30 min
+    let requestedService: any = null;
+    if (serviceId) {
+        requestedService = await ServicesStore.getServiceById(serviceId);
+        if (requestedService?.duration) {
+            requestedDuration = requestedService.duration;
+        }
+    }
+
+    // ── 4. Resolve Branch Closing Time (minutes from midnight) ──
+    let closingMinutes = 22 * 60; // Default 10 PM
+    if (clinicId) {
+        // Try dynamic store first, then fall back to static data
+        const storedClinic = await ServicesStore.getClinicById(clinicId);
+        const staticClinic = clinics.find(c => c.id === clinicId);
+        const closingStr = storedClinic?.closingTime || staticClinic?.closingTime;
+        const parsed = parse24hToMinutes(closingStr);
+        if (parsed !== null) closingMinutes = parsed;
+    }
+
+    // ── 5. Get Doctor Capacity ──
     let maxConcurrent = 1;
-    // Find doctor in clinics to get maxConcurrentBookings
-    // This optimization is O(N) but N is small.
-    let doctorFound = false;
     for (const clinic of clinics) {
+        let found = false;
         for (const dept of clinic.departments) {
             const doc = dept.doctors.find(d => d.id === doctorId);
             if (doc) {
                 maxConcurrent = doc.maxConcurrentBookings || 1;
-                doctorFound = true;
+                found = true;
                 break;
             }
         }
-        if (doctorFound) break;
+        if (found) break;
     }
 
-    // 3. Get Existing Bookings
+    // ── 6. Get Existing Bookings & Build Occupied Time Ranges ──
     const bookings = await BookingsStore.getByFilters({ doctorId, date });
+    const activeBookings = bookings.filter(b => b.status !== 'cancelled');
 
-    // 4. Filter Slots based on Capacity
-    // Count bookings per slot
-    const slotCounts: Record<string, number> = {};
-    bookings.forEach(b => {
-        if (b.status !== 'cancelled') {
-            slotCounts[b.slot] = (slotCounts[b.slot] || 0) + 1;
+    // Build occupied ranges: [startMinutes, endMinutes, serviceId]
+    const occupiedRanges: { start: number; end: number; serviceId: string; resourceIds: string[] }[] = [];
+
+    for (const b of activeBookings) {
+        const bStart = parseSlotToMinutes(b.slot);
+        // Get duration: from booking itself, or look up service duration, or default 30
+        let bDuration = b.duration || 30;
+        if (!b.duration) {
+            const bService = await ServicesStore.getServiceById(b.serviceId);
+            if (bService?.duration) bDuration = bService.duration;
         }
-    });
+        const bEnd = bStart + bDuration;
 
-    // Filter out full slots (Doctor Capacity)
+        // Also get resource IDs for this booking's service
+        let resourceIds: string[] = [];
+        const bService = await ServicesStore.getServiceById(b.serviceId);
+        if (bService?.requiredResourceIds) {
+            resourceIds = bService.requiredResourceIds;
+        }
+
+        occupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds });
+    }
+
+    // ── 7. Filter Slots with Duration-Aware Logic ──
     let availableSlots = slots.filter(slot => {
-        const count = slotCounts[slot] || 0;
-        return count < maxConcurrent;
+        const candidateStart = parseSlotToMinutes(slot);
+        const candidateEnd = candidateStart + requestedDuration;
+
+        // Check 1: Service must finish before branch closing time
+        if (candidateEnd > closingMinutes) return false;
+
+        // Check 2: Count overlapping bookings for doctor capacity
+        let overlapCount = 0;
+        for (const range of occupiedRanges) {
+            if (rangesOverlap(candidateStart, candidateEnd, range.start, range.end)) {
+                overlapCount++;
+            }
+        }
+        if (overlapCount >= maxConcurrent) return false;
+
+        return true;
     });
 
-    // 5. Check Resource Availability (if serviceId is provided)
-    if (serviceId) {
-        // Find service to get required resources
-        // We need to search all clinics/departments to find the service, or use a helper if available
-        // Since `serviceId` is unique, we can find it. 
-        // Simplification: We assume ServicesStore has a way to get by ID, or we iterate.
-        // ServicesStore breaks down by clinic. Let's assume we can find it.
-        // Actually, efficiently we might need clinicId passed in too, but let's try to find it.
+    // ── 8. Resource Availability Check (duration-aware) ──
+    if (requestedService?.requiredResourceIds && requestedService.requiredResourceIds.length > 0) {
+        // Pre-load required resources
+        const resourceMap = new Map<string, any>();
+        for (const resId of requestedService.requiredResourceIds) {
+            const resource = await ResourcesStore.getResourceById(resId);
+            if (resource) resourceMap.set(resId, resource);
+        }
 
-        // Helper to find service (inefficient but works for mock data)
-        const allServices = ServicesStore.getAllServices ? ServicesStore.getAllServices() : [];
-        // Wait, ServicesStore structure might be per-clinic.
-        // Let's assume we can fetch all. If not, we iterate clinics.
-        // For now, let's look at BookingsStore to see if we can get service details? No.
+        availableSlots = availableSlots.filter(slot => {
+            const candidateStart = parseSlotToMinutes(slot);
+            const candidateEnd = candidateStart + requestedDuration;
 
-        // Let's iterate all clinics in the store to find the service (if not easily available)
-        // OR better: Just fetch the service if we can.
+            // Check each required resource
+            return requestedService.requiredResourceIds.every((resId: string) => {
+                const resource = resourceMap.get(resId);
+                if (!resource) return true; // Resource not found, skip check
 
-        let targetService: any = null;
-        const allClinics = require('@/lib/services-store').ServicesStore.getClinics ? await require('@/lib/services-store').ServicesStore.getClinics() : [];
-        // The store might just be a flat list or map. 
-        // Let's assume we can find it.
-        // NOTE: In `lib/services-store.ts`, we probably need a `getServiceById` method.
-        // I will add that method to `lib/services-store.ts` in the next step or assume it exists.
-        // Let's try to find it via brute force on `clinics` from data if store doesn't have it, 
-        // BUT the store is mutable.
-
-        // Let's rely on `ServicesStore.getServiceById(serviceId)` which I should add.
-        // validating existence:
-        const service = await ServicesStore.getServiceById(serviceId);
-
-        if (service && service.requiredResourceIds && service.requiredResourceIds.length > 0) {
-            // Check each resource
-            const resourceCounts: Record<string, Record<string, number>> = {}; // resourceId -> slot -> count
-
-            for (const b of bookings) {
-                if (b.status !== 'cancelled') {
-                    // Look up service for every booking to check resource usage
-                    const bookedService = await ServicesStore.getServiceById(b.serviceId);
-                    if (bookedService && bookedService.requiredResourceIds) {
-                        bookedService.requiredResourceIds.forEach((resId: string) => {
-                            if (!resourceCounts[resId]) resourceCounts[resId] = {};
-                            resourceCounts[resId][b.slot] = (resourceCounts[resId][b.slot] || 0) + 1;
-                        });
+                // Count how many existing bookings use this resource during our time window
+                let usedCount = 0;
+                for (const range of occupiedRanges) {
+                    if (range.resourceIds.includes(resId) && rangesOverlap(candidateStart, candidateEnd, range.start, range.end)) {
+                        usedCount++;
                     }
                 }
-            }
-
-            // Pre-load required resources
-            const resourceMap = new Map();
-            for (const resId of service.requiredResourceIds) {
-                const resource = await ResourcesStore.getResourceById(resId);
-                if (resource) resourceMap.set(resId, resource);
-            }
-
-            // Filter slots based on resource limits
-            availableSlots = availableSlots.filter(slot => {
-                // Check if ALL required resources are available for this slot
-                return service.requiredResourceIds.every((resId: string) => {
-                    const resource = resourceMap.get(resId);
-                    if (!resource) return true; // Resource not found, ignore
-
-                    const usedCount = (resourceCounts[resId] && resourceCounts[resId][slot]) || 0;
-                    return usedCount < resource.totalQuantity;
-                });
+                return usedCount < resource.totalQuantity;
             });
-        }
+        });
     }
 
-    // 6. Collect other-branch conflict data if requested
+    // ── 9. Build Response ──
     const response: any = { slots: availableSlots };
     if (otherBranches && clinicId) {
         response.otherBranchSlots = Scheduler.getOtherBranchSlots(doctorId, date, clinicId);
