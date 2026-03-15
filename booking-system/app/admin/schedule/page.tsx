@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { timeSlots, Clinic } from '@/lib/data';
-import { Calendar, Save, User, Clock, CalendarOff } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar, Save, User, Clock, CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isToday as isTodayFn } from 'date-fns';
 
 const WEEKDAYS = [
     { value: 0, label: 'Sun', full: 'Sunday' },
@@ -35,8 +35,11 @@ export default function SchedulePage() {
     const [clinicsLoading, setClinicsLoading] = useState(true);
     const [selectedClinicId, setSelectedClinicId] = useState('');
     const [selectedDoctorId, setSelectedDoctorId] = useState('');
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDates, setSelectedDates] = useState<string[]>([new Date().toISOString().split('T')[0]]);
+    const [calendarMonth, setCalendarMonth] = useState(new Date());
+    // Derived: first/last selected for API calls
+    const startDate = selectedDates.length > 0 ? selectedDates.sort()[0] : '';
+    const endDate = selectedDates.length > 0 ? selectedDates.sort()[selectedDates.length - 1] : '';
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -202,25 +205,50 @@ export default function SchedulePage() {
         }
     };
 
+    // Toggle a date in the multi-select calendar
+    const toggleDate = (dateStr: string) => {
+        setSelectedDates(prev =>
+            prev.includes(dateStr)
+                ? prev.filter(d => d !== dateStr)
+                : [...prev, dateStr].sort()
+        );
+    };
+
+    // Calendar grid for the current month
+    const calendarDays = useMemo(() => {
+        const monthStart = startOfMonth(calendarMonth);
+        const monthEnd = endOfMonth(calendarMonth);
+        const gridStart = startOfWeek(monthStart);
+        const gridEnd = endOfWeek(monthEnd);
+        const days: Date[] = [];
+        let day = gridStart;
+        while (day <= gridEnd) {
+            days.push(day);
+            day = addDays(day, 1);
+        }
+        return days;
+    }, [calendarMonth]);
+
     const handleSave = async () => {
+        if (selectedDates.length === 0) {
+            setMessage('Please select at least one date.');
+            setTimeout(() => setMessage(''), 3000);
+            return;
+        }
         setIsLoading(true);
         setMessage('');
         try {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-
             let allSuccess = true;
             let skippedDaysOff = 0;
 
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                const dayOfWeek = d.getDay();
+            for (const dateStr of selectedDates) {
+                const dayOfWeek = new Date(dateStr).getDay();
 
                 if (daysOff.includes(dayOfWeek)) {
                     skippedDaysOff++;
                     continue;
                 }
 
-                const dateStr = d.toISOString().split('T')[0];
                 const res = await fetch('/api/admin/schedule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -239,7 +267,7 @@ export default function SchedulePage() {
 
             if (allSuccess) {
                 const skippedNote = skippedDaysOff > 0 ? ` (${skippedDaysOff} day-off${skippedDaysOff > 1 ? 's' : ''} skipped)` : '';
-                setMessage(`Schedule saved successfully!${skippedNote}`);
+                setMessage(`Schedule saved for ${selectedDates.length - skippedDaysOff} date(s)!${skippedNote}`);
                 setTimeout(() => setMessage(''), 4000);
             } else {
                 setMessage('Failed to save for some dates.');
@@ -295,34 +323,79 @@ export default function SchedulePage() {
                                 </div>
                             </div>
 
+                            {/* ── Multi-Select Calendar ── */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Range</label>
-                                <div className="space-y-3">
-                                    <div>
-                                        <span className="text-xs text-gray-500 mb-1 block">Start Date</span>
-                                        <div className="relative">
-                                            <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                            <input
-                                                type="date"
-                                                className="w-full pl-10 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent text-sm"
-                                                value={startDate}
-                                                onChange={(e) => setStartDate(e.target.value)}
-                                            />
-                                        </div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Dates</label>
+                                <div className="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden">
+                                    {/* Month navigation */}
+                                    <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50">
+                                        <button onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                            <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                                        </button>
+                                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                            {format(calendarMonth, 'MMMM yyyy')}
+                                        </span>
+                                        <button onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                            <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                                        </button>
                                     </div>
-                                    <div>
-                                        <span className="text-xs text-gray-500 mb-1 block">End Date</span>
-                                        <div className="relative">
-                                            <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                            <input
-                                                type="date"
-                                                className="w-full pl-10 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent text-sm"
-                                                value={endDate}
-                                                onChange={(e) => setEndDate(e.target.value)}
-                                            />
-                                        </div>
+                                    {/* Weekday headers */}
+                                    <div className="grid grid-cols-7 text-center">
+                                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                                            <div key={d} className="text-[10px] font-bold text-gray-400 py-1">{d}</div>
+                                        ))}
+                                    </div>
+                                    {/* Day cells */}
+                                    <div className="grid grid-cols-7">
+                                        {calendarDays.map((day, idx) => {
+                                            const dateStr = format(day, 'yyyy-MM-dd');
+                                            const inMonth = isSameMonth(day, calendarMonth);
+                                            const isSelected = selectedDates.includes(dateStr);
+                                            const isDayOff = daysOff.includes(day.getDay());
+                                            const isToday = isTodayFn(day);
+
+                                            let cellClass = 'text-gray-300 dark:text-gray-600'; // out-of-month
+                                            if (inMonth) {
+                                                if (isSelected) {
+                                                    cellClass = 'bg-indigo-600 text-white font-bold';
+                                                } else if (isDayOff) {
+                                                    cellClass = 'bg-red-50 dark:bg-red-900/20 text-red-400 line-through';
+                                                } else {
+                                                    cellClass = 'text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20';
+                                                }
+                                            }
+
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => inMonth && toggleDate(dateStr)}
+                                                    disabled={!inMonth}
+                                                    className={`relative w-full aspect-square flex items-center justify-center text-xs transition-all rounded-md m-px ${cellClass}`}
+                                                >
+                                                    {day.getDate()}
+                                                    {isToday && (
+                                                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-indigo-500 rounded-full" />
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
+                                {selectedDates.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                        <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+                                            {selectedDates.length} date{selectedDates.length > 1 ? 's' : ''} selected
+                                        </p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {selectedDates.map(d => (
+                                                <span key={d} className="inline-flex items-center gap-1 text-[10px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">
+                                                    {format(new Date(d), 'MMM d')}
+                                                    <button onClick={() => toggleDate(d)} className="hover:text-red-500">×</button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Shift Start/End Time */}
@@ -436,17 +509,16 @@ export default function SchedulePage() {
                                     Available Slots
                                 </h2>
                                 <div className="text-sm text-gray-500">
-                                    {startDate ? format(new Date(startDate), 'MMMM d, yyyy') : 'Select start date'}
+                                    {selectedDates.length > 0 ? `${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''} selected` : 'Select dates from calendar'}
                                 </div>
                             </div>
 
                             {/* Day Off Warning */}
-                            {isStartDateDayOff && (
+                            {selectedDates.some(d => daysOff.includes(new Date(d).getDay())) && (
                                 <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex items-center gap-2">
                                     <CalendarOff className="w-4 h-4 text-amber-600 shrink-0" />
                                     <p className="text-sm text-amber-700 dark:text-amber-300">
-                                        <strong>{WEEKDAYS[startDayOfWeek]?.full}</strong> is marked as a day off for this doctor.
-                                        The schedule will be skipped for this day when saving.
+                                        Some selected dates fall on days off and will be <strong>skipped</strong> when saving.
                                     </p>
                                 </div>
                             )}
