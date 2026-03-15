@@ -69,7 +69,7 @@ export const PackagesStore = {
     },
 
     // ── Client/Usage Actions ──
-    purchasePackage: async (packageId: string, customerName: string, customerPhone: string): Promise<CustomerPackage | null> => {
+    purchasePackage: async (packageId: string, customerName: string, customerPhone: string, paymentMethod: 'pay_at_clinic' | 'credit_card' = 'credit_card'): Promise<CustomerPackage | null> => {
         await ensurePackagesLoaded();
         const pkg = availablePackages.find(p => p.id === packageId);
         if (!pkg) return null;
@@ -78,9 +78,13 @@ export const PackagesStore = {
         const expiryDate = addDays(purchaseDate, pkg.validityInDays);
 
         const remainingSessions: Record<string, number> = {};
+        const totalSessions: Record<string, number> = {};
         pkg.items.forEach(item => {
             remainingSessions[item.serviceId] = item.count;
+            totalSessions[item.serviceId] = item.count;
         });
+
+        const isCardPayment = paymentMethod === 'credit_card';
 
         const newCustomerPackage: CustomerPackage = {
             id: `cpkg-${Date.now()}`,
@@ -91,7 +95,10 @@ export const PackagesStore = {
             purchaseDate: purchaseDate.toISOString(),
             expiryDate: expiryDate.toISOString(),
             remainingSessions,
-            active: true,
+            totalSessions,
+            active: isCardPayment, // Only active if paid by card
+            paymentMethod,
+            paymentStatus: isCardPayment ? 'paid' : 'pending',
             isCombo: (pkg as any).isCombo || false,
         };
 
@@ -99,6 +106,24 @@ export const PackagesStore = {
         await savePackages();
         return newCustomerPackage;
     },
+
+    confirmPayment: async (customerPackageId: string): Promise<{ success: boolean; message: string }> => {
+        await ensurePackagesLoaded();
+        const idx = customerPackages.findIndex(p => p.id === customerPackageId);
+        if (idx === -1) return { success: false, message: 'Package not found' };
+
+        const pkg = customerPackages[idx];
+        if (pkg.paymentStatus === 'paid') return { success: false, message: 'Payment already confirmed' };
+
+        customerPackages[idx] = {
+            ...pkg,
+            active: true,
+            paymentStatus: 'paid',
+        };
+        await savePackages();
+        return { success: true, message: 'Payment confirmed. Package is now active.' };
+    },
+
 
     useSession: async (customerPackageId: string, serviceId: string): Promise<{ success: boolean; message: string; remaining?: number }> => {
         await ensurePackagesLoaded();

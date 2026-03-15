@@ -38,8 +38,10 @@ export async function POST(req: NextRequest) {
             await PackagesStore.deletePackage(body.id);
             return NextResponse.json({ success: true });
         case 'purchase':
-            const result = await PackagesStore.purchasePackage(body.packageId, body.customerName, body.customerPhone);
+            const result = await PackagesStore.purchasePackage(body.packageId, body.customerName, body.customerPhone, body.paymentMethod || 'credit_card');
             return NextResponse.json(result || { error: 'Package not found' });
+        case 'confirmPayment':
+            return NextResponse.json(await PackagesStore.confirmPayment(body.customerPackageId));
         case 'useSession':
             return NextResponse.json(await PackagesStore.useSession(body.customerPackageId, body.serviceId));
         case 'transfer':

@@ -778,8 +778,27 @@ export default function BookingWizard() {
 
     // --- Package Logic ---
     const myPackages = myPackagesList;
-    const applicablePackage = selectedService ? myPackages.find(p => p.remainingSessions[selectedService.id] > 0) : null;
+    const applicablePackage = selectedService ? myPackages.find(p =>
+        p.active &&
+        p.paymentStatus === 'paid' &&
+        p.remainingSessions[selectedService.id] > 0
+    ) : null;
     const [usePackageSession, setUsePackageSession] = useState(false);
+
+    // Session tracking calculations
+    const packageTotalSessions = applicablePackage && selectedService
+        ? (applicablePackage.totalSessions?.[selectedService.id] || applicablePackage.remainingSessions[selectedService.id])
+        : 0;
+    const packageRemainingSessions = applicablePackage && selectedService
+        ? applicablePackage.remainingSessions[selectedService.id]
+        : 0;
+    const packageCurrentSession = packageTotalSessions - packageRemainingSessions + 1;
+    const packageExpiryDate = applicablePackage?.expiryDate
+        ? new Date(applicablePackage.expiryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '';
+    const packageDaysLeft = applicablePackage?.expiryDate
+        ? Math.max(0, Math.ceil((new Date(applicablePackage.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : 0;
 
     // Auto-select package if available
     useEffect(() => {
@@ -1728,25 +1747,59 @@ export default function BookingWizard() {
 
                             {/* Package Redemption Option */}
                             {applicablePackage && (
-                                <div className={`p-4 rounded-xl border-2 transition-all cursor-pointer mb-6 flex items-center justify-between ${usePackageSession
+                                <div className={`rounded-xl border-2 transition-all cursor-pointer mb-6 overflow-hidden ${usePackageSession
                                     ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
                                     : 'border-gray-200 dark:border-gray-700'
                                     }`}
                                     onClick={() => setUsePackageSession(!usePackageSession)}
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${usePackageSession ? 'border-indigo-600 bg-indigo-600' : 'border-gray-400'}`}>
-                                            {usePackageSession && <Check className="w-4 h-4 text-white" />}
+                                    <div className="p-4 flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${usePackageSession ? 'border-indigo-600 bg-indigo-600' : 'border-gray-400'}`}>
+                                                {usePackageSession && <Check className="w-4 h-4 text-white" />}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <PackageIcon className="w-4 h-4 text-indigo-600" />
+                                                    Use Package Session
+                                                </h4>
+                                                <p className="text-sm text-gray-500">{applicablePackage.packageName}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                                <PackageIcon className="w-4 h-4 text-indigo-600" />
-                                                Use Package Session
-                                            </h4>
-                                            <p className="text-sm text-gray-500">{applicablePackage.packageName} ({applicablePackage.remainingSessions[selectedService!.id]} sessions remaining)</p>
-                                        </div>
+                                        <span className="font-bold text-green-600">FREE</span>
                                     </div>
-                                    <span className="font-bold text-green-600">FREE</span>
+                                    {/* Session tracking details */}
+                                    {usePackageSession && (
+                                        <div className="px-4 pb-4 pt-0">
+                                            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800">
+                                                <div className="grid grid-cols-3 gap-4 text-center mb-3">
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 mb-1">Current Session</p>
+                                                        <p className="text-lg font-extrabold text-indigo-600">{packageCurrentSession} <span className="text-sm font-normal text-gray-400">of {packageTotalSessions}</span></p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 mb-1">Remaining</p>
+                                                        <p className="text-lg font-extrabold text-emerald-600">{packageRemainingSessions - 1} <span className="text-sm font-normal text-gray-400">sessions</span></p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 mb-1">Expires</p>
+                                                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{packageExpiryDate}</p>
+                                                        <p className="text-xs text-gray-400">{packageDaysLeft} days left</p>
+                                                    </div>
+                                                </div>
+                                                {/* Progress bar */}
+                                                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all"
+                                                        style={{ width: `${((packageCurrentSession) / packageTotalSessions) * 100}%` }}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-1 text-center">
+                                                    {packageCurrentSession - 1} of {packageTotalSessions} sessions used
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

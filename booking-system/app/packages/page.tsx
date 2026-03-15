@@ -202,7 +202,7 @@ export default function PackagesPage() {
                         {myPackages.length === 0 ? (
                             <div className="text-center py-16">
                                 <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-500">No active packages</h3>
+                                <h3 className="text-lg font-medium text-gray-500">No packages yet</h3>
                                 <p className="text-gray-400 mt-2">Purchase a session package to get started!</p>
                                 <button onClick={() => setActiveTab('browse')} className="mt-4 inline-flex items-center gap-2 text-indigo-600 font-medium hover:text-indigo-500">
                                     Browse Packages <ArrowRight className="w-4 h-4" />
@@ -212,17 +212,23 @@ export default function PackagesPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {myPackages.map(pkg => {
                                     const daysLeft = getDaysRemaining(pkg.expiryDate);
-                                    const totalSessions = getTotalRemainingSessions(pkg);
+                                    const totalRemaining = getTotalRemainingSessions(pkg);
                                     const isExpired = daysLeft <= 0;
+                                    const isPending = pkg.paymentStatus === 'pending' || (!pkg.active && pkg.paymentStatus !== 'paid');
+                                    const isActive = pkg.active && pkg.paymentStatus === 'paid';
 
                                     return (
-                                        <div key={pkg.id} className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg border overflow-hidden ${isExpired ? 'border-red-200 dark:border-red-800 opacity-60' : 'border-gray-100 dark:border-gray-700'}`}>
+                                        <div key={pkg.id} className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg border overflow-hidden ${isExpired ? 'border-red-200 dark:border-red-800 opacity-60' : isPending ? 'border-amber-200 dark:border-amber-800' : 'border-gray-100 dark:border-gray-700'}`}>
                                             {/* Package header */}
-                                            <div className={`px-6 py-4 ${isExpired ? 'bg-red-50 dark:bg-red-900/20' : 'bg-gradient-to-r from-indigo-500 to-purple-600'}`}>
+                                            <div className={`px-6 py-4 ${isExpired ? 'bg-red-50 dark:bg-red-900/20' : isPending ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-indigo-500 to-purple-600'}`}>
                                                 <div className="flex items-center justify-between">
                                                     <h3 className={`text-lg font-bold ${isExpired ? 'text-red-700 dark:text-red-400' : 'text-white'}`}>{pkg.packageName}</h3>
                                                     {isExpired ? (
                                                         <span className="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full">EXPIRED</span>
+                                                    ) : isPending ? (
+                                                        <span className="bg-white/30 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur">
+                                                            ⏳ PENDING PAYMENT
+                                                        </span>
                                                     ) : (
                                                         <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur">
                                                             {daysLeft} days left
@@ -232,51 +238,72 @@ export default function PackagesPage() {
                                             </div>
 
                                             <div className="p-6">
-                                                {/* Sessions info */}
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div>
-                                                        <span className="text-sm text-gray-500">Sessions Remaining</span>
-                                                        <div className="text-3xl font-extrabold text-gray-900 dark:text-white">{totalSessions}</div>
+                                                {/* Pending payment notice */}
+                                                {isPending && (
+                                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-4">
+                                                        <p className="text-sm font-bold text-amber-800 dark:text-amber-300 mb-1">Payment Required</p>
+                                                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                                                            Visit any clinic branch to complete payment. Your package will be activated immediately.
+                                                        </p>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <span className="text-sm text-gray-500">Purchased</span>
-                                                        <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                                            {new Date(pkg.purchaseDate).toLocaleDateString()}
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                )}
 
-                                                {/* Service breakdown */}
-                                                <div className="space-y-2 mb-6">
-                                                    {Object.entries(pkg.remainingSessions).map(([serviceId, count]) => (
-                                                        <div key={serviceId} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/30 px-4 py-2.5 rounded-lg">
-                                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                                {/* Try to get a readable name */}
-                                                                {pkg.packageName.replace(/ - \d+ Sessions$/, '')}
-                                                            </span>
-                                                            <span className={`text-sm font-bold ${count > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                                {count} session{count !== 1 ? 's' : ''} left
-                                                            </span>
+                                                {/* Session usage tracking */}
+                                                {Object.entries(pkg.remainingSessions).map(([serviceId, remaining]) => {
+                                                    const total = pkg.totalSessions?.[serviceId] || remaining;
+                                                    const used = total - remaining;
+                                                    return (
+                                                        <div key={serviceId} className="mb-4">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                    {pkg.packageName.replace(/ - \d+ Sessions$/, '')}
+                                                                </span>
+                                                                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                                                    Used {used} of {total}
+                                                                </span>
+                                                            </div>
+                                                            {/* Session usage progress bar */}
+                                                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all ${remaining > 0 ? 'bg-gradient-to-r from-indigo-500 to-emerald-500' : 'bg-red-500'}`}
+                                                                    style={{ width: `${(used / total) * 100}%` }}
+                                                                />
+                                                            </div>
+                                                            <div className="flex justify-between mt-1">
+                                                                <span className={`text-xs font-medium ${remaining > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                                    {remaining} session{remaining !== 1 ? 's' : ''} remaining
+                                                                </span>
+                                                                <span className="text-xs text-gray-400">
+                                                                    Expires: {new Date(pkg.expiryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                    ))}
-                                                </div>
+                                                    );
+                                                })}
 
-                                                {/* Book button */}
-                                                {!isExpired && totalSessions > 0 && (
+                                                {/* Book button — only for active, paid, non-expired packages */}
+                                                {!isExpired && isActive && totalRemaining > 0 && (
                                                     <button
                                                         onClick={() => {
                                                             const firstServiceId = Object.keys(pkg.remainingSessions)[0];
                                                             router.push(`/booking?packageId=${pkg.id}&serviceId=${firstServiceId}`);
                                                         }}
-                                                        className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg"
+                                                        className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg mt-2"
                                                     >
                                                         <Calendar className="w-5 h-5" />
                                                         Book Appointment
                                                     </button>
                                                 )}
 
+                                                {/* Pending: disabled book button */}
+                                                {!isExpired && isPending && (
+                                                    <div className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-bold rounded-xl cursor-not-allowed mt-2">
+                                                        Pay at Branch to Activate
+                                                    </div>
+                                                )}
+
                                                 {/* Validity bar */}
-                                                {!isExpired && (
+                                                {!isExpired && isActive && (
                                                     <div className="mt-4">
                                                         <div className="flex justify-between text-xs text-gray-400 mb-1">
                                                             <span>Validity</span>

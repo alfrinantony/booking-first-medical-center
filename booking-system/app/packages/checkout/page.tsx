@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import CustomerAuth from '@/components/auth/CustomerAuth';
-import { Package, Check, Clock, ShieldCheck, ArrowRight, ArrowLeft, Sparkles, Tag } from 'lucide-react';
+import { Package, Check, Clock, ShieldCheck, ArrowRight, ArrowLeft, Sparkles, Tag, CreditCard, Building2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 function CheckoutContent() {
@@ -24,11 +24,14 @@ function CheckoutContent() {
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
     const [purchasedPkgId, setPurchasedPkgId] = useState('');
+    const [selectedPayment, setSelectedPayment] = useState<'credit_card' | 'pay_at_clinic' | null>(null);
+    const [completedPaymentMethod, setCompletedPaymentMethod] = useState<'credit_card' | 'pay_at_clinic' | null>(null);
 
     const totalSavings = singlePrice > 0 ? (singlePrice * sessions) - price : 0;
     const perSession = price > 0 ? Math.round(price / sessions) : 0;
 
     const handlePurchase = async () => {
+        if (!selectedPayment) return;
         if (!isAuthenticated || !user) {
             setShowAuth(true);
             return;
@@ -50,12 +53,14 @@ function CheckoutContent() {
                     validity,
                     customerName: user.name,
                     customerPhone: user.phone,
+                    paymentMethod: selectedPayment,
                 }),
             });
             const result = await res.json();
             if (result.success) {
                 setSuccess(true);
                 setPurchasedPkgId(result.package?.id || '');
+                setCompletedPaymentMethod(selectedPayment);
             } else {
                 setError(result.error || 'Purchase failed. Please try again.');
             }
@@ -85,19 +90,45 @@ function CheckoutContent() {
         );
     }
 
-    // Success state
+    // ── Success State ──
     if (success) {
+        const isPaidByCard = completedPaymentMethod === 'credit_card';
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
                 <div className="max-w-lg w-full bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 text-center">
-                    <div className="w-20 h-20 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-6">
-                        <Check className="w-10 h-10 text-green-600 dark:text-green-400" />
+                    <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 ${isPaidByCard ? 'bg-green-100 dark:bg-green-900/30' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
+                        {isPaidByCard ? (
+                            <Check className="w-10 h-10 text-green-600 dark:text-green-400" />
+                        ) : (
+                            <Building2 className="w-10 h-10 text-amber-600 dark:text-amber-400" />
+                        )}
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Purchase Successful!</h1>
+
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                        {isPaidByCard ? 'Purchase Successful!' : 'Package Reserved!'}
+                    </h1>
+
                     <p className="text-gray-500 dark:text-gray-400 mb-6">
-                        Your <strong>{sessions}-session package</strong> for <strong>{serviceName}</strong> is now active.
-                        Valid for {validity} days at all branches.
+                        {isPaidByCard ? (
+                            <>Your <strong>{sessions}-session package</strong> for <strong>{serviceName}</strong> is now active. Valid for {validity} days at all branches.</>
+                        ) : (
+                            <>Your <strong>{sessions}-session package</strong> for <strong>{serviceName}</strong> has been reserved. Please visit any clinic branch to complete payment. Your package will be activated once payment is confirmed.</>
+                        )}
                     </p>
+
+                    {!isPaidByCard && (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-6">
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div className="text-left">
+                                    <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Payment Pending</p>
+                                    <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                                        Amount due: <strong>{price} AED</strong>. Visit any branch and pay at the reception. Your package will be activated immediately after payment.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-6 mb-8">
                         <div className="flex justify-between items-center mb-3">
@@ -105,8 +136,14 @@ function CheckoutContent() {
                             <span className="font-bold text-gray-900 dark:text-white">{serviceName} × {sessions}</span>
                         </div>
                         <div className="flex justify-between items-center mb-3">
-                            <span className="text-sm text-gray-500">Sessions Remaining</span>
-                            <span className="font-bold text-green-600">{sessions}</span>
+                            <span className="text-sm text-gray-500">Sessions</span>
+                            <span className="font-bold text-green-600">{sessions} of {sessions}</span>
+                        </div>
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-sm text-gray-500">Status</span>
+                            <span className={`font-bold ${isPaidByCard ? 'text-green-600' : 'text-amber-600'}`}>
+                                {isPaidByCard ? '✓ Active' : '⏳ Pending Payment'}
+                            </span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-500">Validity</span>
@@ -115,15 +152,20 @@ function CheckoutContent() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
-                        <button
-                            onClick={() => router.push(`/booking?packageId=${purchasedPkgId}&serviceId=${serviceId}`)}
-                            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg"
-                        >
-                            Book Now <ArrowRight className="w-5 h-5" />
-                        </button>
+                        {isPaidByCard ? (
+                            <button
+                                onClick={() => router.push(`/booking?packageId=${purchasedPkgId}&serviceId=${serviceId}`)}
+                                className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg"
+                            >
+                                Book Now <ArrowRight className="w-5 h-5" />
+                            </button>
+                        ) : null}
                         <button
                             onClick={() => router.push('/packages')}
-                            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:border-indigo-400 transition-colors"
+                            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 font-bold rounded-xl transition-colors ${isPaidByCard
+                                ? 'border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-indigo-400'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg'
+                            }`}
                         >
                             <Package className="w-5 h-5" /> My Packages
                         </button>
@@ -218,6 +260,50 @@ function CheckoutContent() {
                             </ul>
                         </div>
 
+                        {/* ── Payment Method Selection ── */}
+                        <div className="mb-8">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Choose Payment Method</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Credit Card */}
+                                <button
+                                    onClick={() => setSelectedPayment('credit_card')}
+                                    className={`relative p-5 rounded-2xl border-2 transition-all text-left ${
+                                        selectedPayment === 'credit_card'
+                                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 shadow-lg shadow-indigo-500/10'
+                                            : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300'
+                                    }`}
+                                >
+                                    {selectedPayment === 'credit_card' && (
+                                        <div className="absolute top-3 right-3 w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
+                                            <Check className="w-4 h-4 text-white" />
+                                        </div>
+                                    )}
+                                    <CreditCard className={`w-8 h-8 mb-3 ${selectedPayment === 'credit_card' ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">Pay by Credit Card</h4>
+                                    <p className="text-xs text-gray-500">Instant activation. Book immediately after payment.</p>
+                                </button>
+
+                                {/* Pay at Clinic */}
+                                <button
+                                    onClick={() => setSelectedPayment('pay_at_clinic')}
+                                    className={`relative p-5 rounded-2xl border-2 transition-all text-left ${
+                                        selectedPayment === 'pay_at_clinic'
+                                            ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-lg shadow-amber-500/10'
+                                            : 'border-gray-200 dark:border-gray-700 hover:border-amber-300'
+                                    }`}
+                                >
+                                    {selectedPayment === 'pay_at_clinic' && (
+                                        <div className="absolute top-3 right-3 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
+                                            <Check className="w-4 h-4 text-white" />
+                                        </div>
+                                    )}
+                                    <Building2 className={`w-8 h-8 mb-3 ${selectedPayment === 'pay_at_clinic' ? 'text-amber-600' : 'text-gray-400'}`} />
+                                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">Pay at Clinic</h4>
+                                    <p className="text-xs text-gray-500">Reserve now, pay at any branch. Active after payment.</p>
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Error */}
                         {error && (
                             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl mb-4 text-sm font-medium">
@@ -228,13 +314,23 @@ function CheckoutContent() {
                         {/* Purchase button */}
                         <button
                             onClick={handlePurchase}
-                            disabled={purchasing}
-                            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-indigo-600 text-white font-bold text-lg rounded-xl hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={purchasing || !selectedPayment}
+                            className={`w-full flex items-center justify-center gap-2 px-6 py-4 font-bold text-lg rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                                selectedPayment === 'pay_at_clinic'
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white hover:shadow-amber-500/30'
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/30'
+                            }`}
                         >
                             {purchasing ? (
                                 <>
                                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
                                     Processing...
+                                </>
+                            ) : !selectedPayment ? (
+                                'Select a Payment Method'
+                            ) : selectedPayment === 'pay_at_clinic' ? (
+                                <>
+                                    Reserve Package — {price} AED <ArrowRight className="w-5 h-5" />
                                 </>
                             ) : (
                                 <>

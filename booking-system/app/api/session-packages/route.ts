@@ -25,11 +25,13 @@ export async function POST(req: NextRequest) {
         const { action } = body;
 
         if (action === 'buy') {
-            const { serviceId, serviceName, sessionCount, price, validity, customerName, customerPhone } = body;
+            const { serviceId, serviceName, sessionCount, price, validity, customerName, customerPhone, paymentMethod } = body;
 
             if (!serviceId || !serviceName || !sessionCount || !price || !validity || !customerName || !customerPhone) {
                 return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
             }
+
+            const method = paymentMethod === 'pay_at_clinic' ? 'pay_at_clinic' : 'credit_card';
 
             // Create the package definition
             const pkgName = `${serviceName} - ${sessionCount} Sessions`;
@@ -42,8 +44,8 @@ export async function POST(req: NextRequest) {
                 active: true,
             });
 
-            // Immediately assign to the customer
-            const customerPkg = await PackagesStore.purchasePackage(pkg.id, customerName, customerPhone);
+            // Assign to the customer with payment method
+            const customerPkg = await PackagesStore.purchasePackage(pkg.id, customerName, customerPhone, method);
             if (!customerPkg) {
                 return NextResponse.json({ error: 'Failed to assign package' }, { status: 500 });
             }
@@ -51,7 +53,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
                 success: true,
                 package: customerPkg,
-                message: `Successfully purchased ${sessionCount} sessions of ${serviceName}!`,
+                paymentMethod: method,
+                message: method === 'pay_at_clinic'
+                    ? `Package reserved! Please visit any branch to complete payment.`
+                    : `Successfully purchased ${sessionCount} sessions of ${serviceName}!`,
             });
         }
 

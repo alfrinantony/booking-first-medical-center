@@ -33,7 +33,13 @@ export interface CustomerPackage {
     remainingSessions: {
         [serviceId: string]: number; // Map serviceId -> count
     };
+    totalSessions: {
+        [serviceId: string]: number; // Original count for "Session X of Y"
+    };
     active: boolean;
+    // Payment fields
+    paymentMethod: 'pay_at_clinic' | 'credit_card';
+    paymentStatus: 'pending' | 'paid';
     // Transfer fields
     transferredFrom?: string;       // Original owner phone
     transferReason?: string;        // Reason for transfer
