@@ -80,7 +80,7 @@ export default function SuppliersPage() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {suppliers.length === 0 ? (
                         <div className="col-span-full text-center py-12 text-gray-500 bg-white dark:bg-gray-800 rounded-xl">No suppliers yet.</div>
-                    ) : suppliers.map(sup => (
+                    ) : [...suppliers].sort((a, b) => a.name.localeCompare(b.name)).map(sup => (
                         <div key={sup.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
                             <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-3">
