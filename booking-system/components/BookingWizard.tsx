@@ -1038,8 +1038,23 @@ export default function BookingWizard() {
                                                 {svc.allowedGender && svc.allowedGender !== 'both' && <span className="text-indigo-600 font-medium capitalize">({svc.allowedGender} Only)</span>}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3 flex-shrink-0">
-                                            <span className="font-bold text-indigo-600 dark:text-indigo-400">{svc.price} AED</span>
+                                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                            <div className="flex items-center gap-1.5">
+                                                {svc.regularPrice && svc.discountedPrice && svc.regularPrice > svc.discountedPrice && (
+                                                    <span className="text-xs text-gray-400 line-through">{svc.regularPrice}</span>
+                                                )}
+                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{svc.discountedPrice || svc.price} AED</span>
+                                            </div>
+                                            {svc.threeSessionPackage && (
+                                                <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded font-medium">
+                                                    3 Sessions: {svc.threeSessionPackage.discountedPrice || svc.threeSessionPackage.totalCost} AED
+                                                </span>
+                                            )}
+                                            {svc.sixSessionPackage && (
+                                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded font-medium">
+                                                    6 Sessions: {svc.sixSessionPackage.discountedPrice || svc.sixSessionPackage.totalCost} AED
+                                                </span>
+                                            )}
                                             <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-500" />
                                         </div>
                                     </button>
