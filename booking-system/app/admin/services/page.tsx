@@ -299,54 +299,96 @@ export default function ServicesPage() {
         if (!editingService) return;
         setSubmitting(true);
         try {
-            const payload: any = {
-                clinicId: selectedClinicId,
-                departmentId: editingService.departmentId,
-                serviceId: editingService.id,
-                name: editingService.name,
-                description: editingService.description || '',
-                preCare: editingService.preCare || '',
-                postCare: editingService.postCare || '',
-                price: Number(editingService.price),
-                regularPrice: editingService.regularPrice ? Number(editingService.regularPrice) : undefined,
-                discountedPrice: editingService.discountedPrice ? Number(editingService.discountedPrice) : undefined,
-                threeSessionPackage: editingService.threeSessionPackage ? editingService.threeSessionPackage : undefined,
-                sixSessionPackage: editingService.sixSessionPackage ? editingService.sixSessionPackage : undefined,
-                duration: Number(editingService.duration),
-                allowedDoctorIds: editingService.allowedDoctorIds,
-                allowedGender: editingService.allowedGender,
-                allowedDays: editingService.allowedDays,
-                isTaxable: editingService.isTaxable,
-                category: editingService.category,
-                followUpDuration: editingService.followUpDurationInput ? Number(editingService.followUpDurationInput) : undefined,
-                screeningQuestions: editingService.screeningQuestions,
-                timeWindow: (editingService.timeWindowStart && editingService.timeWindowEnd) ? {
-                    start: editingService.timeWindowStart,
-                    end: editingService.timeWindowEnd
-                } : undefined,
-                requiredResourceIds: editingService.requiredResourceIds,
-                maxMedicines: editingService.maxMedicines,
-                medicineIds: editingService.medicineIds || [],
-                medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : undefined,
-                consumableIds: editingService.consumableIds || [],
-                productConsumptions: editingService.productConsumptions || [],
-                addOns: editingService.addOns || [],
-                image: editingService.image || undefined
+            const buildPayload = (clinicId: string, deptId: string, serviceId?: string) => {
+                const p: any = {
+                    clinicId,
+                    departmentId: deptId,
+                    ...(serviceId ? { serviceId } : {}),
+                    name: editingService.name,
+                    description: editingService.description || '',
+                    preCare: editingService.preCare || '',
+                    postCare: editingService.postCare || '',
+                    price: Number(editingService.price),
+                    regularPrice: editingService.regularPrice ? Number(editingService.regularPrice) : undefined,
+                    discountedPrice: editingService.discountedPrice ? Number(editingService.discountedPrice) : undefined,
+                    threeSessionPackage: editingService.threeSessionPackage ? editingService.threeSessionPackage : undefined,
+                    sixSessionPackage: editingService.sixSessionPackage ? editingService.sixSessionPackage : undefined,
+                    duration: Number(editingService.duration),
+                    allowedDoctorIds: editingService.allowedDoctorIds,
+                    allowedGender: editingService.allowedGender,
+                    allowedDays: editingService.allowedDays,
+                    isTaxable: editingService.isTaxable,
+                    category: editingService.category,
+                    followUpDuration: editingService.followUpDurationInput ? Number(editingService.followUpDurationInput) : undefined,
+                    screeningQuestions: editingService.screeningQuestions,
+                    timeWindow: (editingService.timeWindowStart && editingService.timeWindowEnd) ? {
+                        start: editingService.timeWindowStart,
+                        end: editingService.timeWindowEnd
+                    } : undefined,
+                    requiredResourceIds: editingService.requiredResourceIds,
+                    maxMedicines: editingService.maxMedicines,
+                    medicineIds: editingService.medicineIds || [],
+                    medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : undefined,
+                    consumableIds: editingService.consumableIds || [],
+                    productConsumptions: editingService.productConsumptions || [],
+                    addOns: editingService.addOns || [],
+                    image: editingService.image || undefined
+                };
+                return p;
             };
 
+            // Update the current branch
+            const mainPayload = buildPayload(selectedClinicId, editingService.departmentId, editingService.id);
             const res = await fetch('/api/admin/services', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(mainPayload)
             });
 
-            if (res.ok) {
-                await fetchServices();
-                setIsEditModalOpen(false);
-                setEditingService(null);
-            } else {
+            if (!res.ok) {
                 alert('Failed to update service');
             }
+
+            // Apply to additionally selected branches
+            const otherBranches = selectedBranchIds.filter(id => id !== selectedClinicId);
+            for (const branchId of otherBranches) {
+                const branchClinic = clinics.find(c => c.id === branchId);
+                if (!branchClinic) continue;
+
+                // Find same-named service in this branch
+                let existingServiceId: string | undefined;
+                let existingDeptId: string | undefined;
+                for (const dept of branchClinic.departments || []) {
+                    const found = (dept.services || []).find(s => s.name === editingService.name);
+                    if (found) {
+                        existingServiceId = found.id;
+                        existingDeptId = dept.id;
+                        break;
+                    }
+                }
+
+                if (existingServiceId && existingDeptId) {
+                    // Update existing service
+                    await fetch('/api/admin/services', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(buildPayload(branchId, existingDeptId, existingServiceId))
+                    });
+                } else {
+                    // Create new service in this branch
+                    const deptId = branchClinic.departments?.[0]?.id || '';
+                    await fetch('/api/admin/services', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(buildPayload(branchId, deptId))
+                    });
+                }
+            }
+
+            await fetchServices();
+            setIsEditModalOpen(false);
+            setEditingService(null);
+            setSelectedBranchIds([]);
         } catch (error) {
             console.error(error);
         } finally {
@@ -872,25 +914,77 @@ export default function ServicesPage() {
                 )}
                 {/* Edit Service Modal */}
                 {isEditModalOpen && editingService && (
-                    <ServiceEditorModal
-                        mode="edit"
-                        title="Edit Service"
-                        formState={editingService}
-                        setFormState={setEditingService}
-                        currentClinic={currentClinic}
-                        doctors={getDepartmentDoctors(editingService.departmentId)}
-                        resources={resources}
-                        medicines={medicines}
-                        registeredProducts={registeredProducts}
-                        dayNames={dayNames}
-                        onSubmit={handleUpdateService}
-                        onClose={() => setIsEditModalOpen(false)}
-                        onToggleDay={(day) => toggleDaySelection(day, true)}
-                        onToggleDoctor={(docId) => toggleDoctorSelection(docId, true)}
-                        onImageUpload={uploadImage}
-                        submitting={submitting}
-                        uploadingImage={uploadingImage}
-                    />
+                    <>
+                        {/* Branch Selection Overlay for Edit */}
+                        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-4 pointer-events-none">
+                            <div className="pointer-events-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-amber-200 dark:border-amber-800 p-4 max-w-md w-full mx-4">
+                                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                    Apply Edits to Branches
+                                </h3>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                                            checked={selectedBranchIds.length === clinics.length}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedBranchIds(clinics.map(c => c.id));
+                                                } else {
+                                                    setSelectedBranchIds([]);
+                                                }
+                                            }}
+                                        />
+                                        <span className="font-semibold text-amber-600 dark:text-amber-400">Apply to All Branches</span>
+                                    </label>
+                                    {clinics.map(clinic => (
+                                        <label key={clinic.id} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                                                checked={selectedBranchIds.includes(clinic.id) || clinic.id === selectedClinicId}
+                                                disabled={clinic.id === selectedClinicId}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedBranchIds(prev => [...prev, clinic.id]);
+                                                    } else {
+                                                        setSelectedBranchIds(prev => prev.filter(id => id !== clinic.id));
+                                                    }
+                                                }}
+                                            />
+                                            <span className="text-gray-800 dark:text-gray-200">
+                                                {clinic.name}
+                                                {clinic.id === selectedClinicId && <span className="text-xs text-gray-400 ml-1">(current)</span>}
+                                            </span>
+                                        </label>
+                                    ))}
+                                    {selectedBranchIds.filter(id => id !== selectedClinicId).length === 0 && (
+                                        <p className="text-xs text-gray-400 italic mt-1">Check additional branches to apply the same edits there too.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <ServiceEditorModal
+                            mode="edit"
+                            title="Edit Service"
+                            formState={editingService}
+                            setFormState={setEditingService}
+                            currentClinic={currentClinic}
+                            doctors={getDepartmentDoctors(editingService.departmentId)}
+                            resources={resources}
+                            medicines={medicines}
+                            registeredProducts={registeredProducts}
+                            dayNames={dayNames}
+                            onSubmit={handleUpdateService}
+                            onClose={() => { setIsEditModalOpen(false); setSelectedBranchIds([]); }}
+                            onToggleDay={(day) => toggleDaySelection(day, true)}
+                            onToggleDoctor={(docId) => toggleDoctorSelection(docId, true)}
+                            onImageUpload={uploadImage}
+                            submitting={submitting}
+                            uploadingImage={uploadingImage}
+                        />
+                    </>
                 )}
             </div>
         </div>
