@@ -46,6 +46,7 @@ export default function ServicesPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [deletingServiceId, setDeletingServiceId] = useState<string | null>(null);
+    const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
 
     // Add Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -220,61 +221,72 @@ export default function ServicesPage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const payload: any = {
-                clinicId: selectedClinicId,
-                departmentId: newService.departmentId,
-                name: newService.name,
-                description: newService.description,
-                preCare: newService.preCare,
-                postCare: newService.postCare,
-                price: Number(newService.discountedPrice) || Number(newService.regularPrice),
-                regularPrice: newService.regularPrice ? Number(newService.regularPrice) : undefined,
-                discountedPrice: newService.discountedPrice ? Number(newService.discountedPrice) : undefined,
-                threeSessionPackage: newService.threeSessionTotalCost ? {
-                    totalCost: Number(newService.threeSessionTotalCost),
-                    validity: Number(newService.threeSessionValidity) || 90,
-                    discountedPrice: Number(newService.threeSessionDiscountedPrice) || Number(newService.threeSessionTotalCost)
-                } : undefined,
-                sixSessionPackage: newService.sixSessionTotalCost ? {
-                    totalCost: Number(newService.sixSessionTotalCost),
-                    validity: Number(newService.sixSessionValidity) || 180,
-                    discountedPrice: Number(newService.sixSessionDiscountedPrice) || Number(newService.sixSessionTotalCost)
-                } : undefined,
-                duration: Number(newService.duration),
-                allowedDoctorIds: newService.allowedDoctorIds,
-                allowedGender: newService.allowedGender,
-                allowedDays: newService.allowedDays,
-                isTaxable: newService.isTaxable,
-                category: newService.category,
-                followUpDuration: newService.followUpDuration,
-                screeningQuestions: newService.screeningQuestions,
-                timeWindow: (newService.timeWindowStart && newService.timeWindowEnd) ? {
-                    start: newService.timeWindowStart,
-                    end: newService.timeWindowEnd
-                } : undefined,
-                requiredResourceIds: newService.requiredResourceIds,
-                maxMedicines: newService.maxMedicines ? Number(newService.maxMedicines) : undefined,
-                medicineIds: newService.medicineIds,
-                medicineSelectionMode: newService.medicineIds.length > 0 ? newService.medicineSelectionMode : undefined,
-                consumableIds: newService.consumableIds,
-                productConsumptions: newService.productConsumptions.length > 0 ? newService.productConsumptions : undefined,
-                addOns: newService.addOns,
-                image: newService.image || undefined
-            };
+            // Determine which branches to add to
+            const branchIds = selectedBranchIds.length > 0 ? selectedBranchIds : [selectedClinicId];
 
-            const res = await fetch('/api/admin/services', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            for (const branchId of branchIds) {
+                // Find the matching department in this branch
+                const branchClinic = clinics.find(c => c.id === branchId);
+                const deptId = newService.departmentId || branchClinic?.departments[0]?.id || '';
 
-            if (res.ok) {
-                await fetchServices();
-                setIsAddModalOpen(false);
-                setNewService(emptyServiceForm);
-            } else {
-                alert('Failed to add service');
+                const payload: any = {
+                    clinicId: branchId,
+                    departmentId: deptId,
+                    name: newService.name,
+                    description: newService.description,
+                    preCare: newService.preCare,
+                    postCare: newService.postCare,
+                    price: Number(newService.discountedPrice) || Number(newService.regularPrice),
+                    regularPrice: newService.regularPrice ? Number(newService.regularPrice) : undefined,
+                    discountedPrice: newService.discountedPrice ? Number(newService.discountedPrice) : undefined,
+                    threeSessionPackage: newService.threeSessionTotalCost ? {
+                        totalCost: Number(newService.threeSessionTotalCost),
+                        validity: Number(newService.threeSessionValidity) || 90,
+                        discountedPrice: Number(newService.threeSessionDiscountedPrice) || Number(newService.threeSessionTotalCost)
+                    } : undefined,
+                    sixSessionPackage: newService.sixSessionTotalCost ? {
+                        totalCost: Number(newService.sixSessionTotalCost),
+                        validity: Number(newService.sixSessionValidity) || 180,
+                        discountedPrice: Number(newService.sixSessionDiscountedPrice) || Number(newService.sixSessionTotalCost)
+                    } : undefined,
+                    duration: Number(newService.duration),
+                    allowedDoctorIds: newService.allowedDoctorIds,
+                    allowedGender: newService.allowedGender,
+                    allowedDays: newService.allowedDays,
+                    isTaxable: newService.isTaxable,
+                    category: newService.category,
+                    followUpDuration: newService.followUpDuration,
+                    screeningQuestions: newService.screeningQuestions,
+                    timeWindow: (newService.timeWindowStart && newService.timeWindowEnd) ? {
+                        start: newService.timeWindowStart,
+                        end: newService.timeWindowEnd
+                    } : undefined,
+                    requiredResourceIds: newService.requiredResourceIds,
+                    maxMedicines: newService.maxMedicines ? Number(newService.maxMedicines) : undefined,
+                    medicineIds: newService.medicineIds,
+                    medicineSelectionMode: newService.medicineIds.length > 0 ? newService.medicineSelectionMode : undefined,
+                    consumableIds: newService.consumableIds,
+                    productConsumptions: newService.productConsumptions.length > 0 ? newService.productConsumptions : undefined,
+                    addOns: newService.addOns,
+                    image: newService.image || undefined
+                };
+
+                const res = await fetch('/api/admin/services', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const branch = branchClinic?.name || branchId;
+                    alert(`Failed to add service to ${branch}`);
+                }
             }
+
+            await fetchServices();
+            setIsAddModalOpen(false);
+            setNewService(emptyServiceForm);
+            setSelectedBranchIds([]);
         } catch (error) {
             console.error(error);
         } finally {
@@ -784,7 +796,54 @@ export default function ServicesPage() {
                 )}
                 {/* Add Service Modal */}
                 {isAddModalOpen && (
-                    <ServiceEditorModal
+                    <>
+                        {/* Branch Selection Overlay */}
+                        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-4 pointer-events-none">
+                            <div className="pointer-events-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-indigo-200 dark:border-indigo-800 p-4 max-w-md w-full mx-4">
+                                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                    Add to Branches
+                                </h3>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            checked={selectedBranchIds.length === clinics.length}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedBranchIds(clinics.map(c => c.id));
+                                                } else {
+                                                    setSelectedBranchIds([]);
+                                                }
+                                            }}
+                                        />
+                                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">Select All Branches</span>
+                                    </label>
+                                    {clinics.map(clinic => (
+                                        <label key={clinic.id} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                checked={selectedBranchIds.includes(clinic.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedBranchIds(prev => [...prev, clinic.id]);
+                                                    } else {
+                                                        setSelectedBranchIds(prev => prev.filter(id => id !== clinic.id));
+                                                    }
+                                                }}
+                                            />
+                                            <span className="text-gray-800 dark:text-gray-200">{clinic.name}</span>
+                                        </label>
+                                    ))}
+                                    {selectedBranchIds.length === 0 && (
+                                        <p className="text-xs text-gray-400 italic mt-1">If no branches selected, service will be added to the currently selected branch only.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <ServiceEditorModal
                         mode="add"
                         title="Add New Service"
                         formState={{ ...newService, departmentId: newService.departmentId || currentClinic?.departments[0]?.id || '' }}
@@ -809,6 +868,7 @@ export default function ServicesPage() {
                         submitting={submitting}
                         uploadingImage={uploadingImage}
                     />
+                    </>
                 )}
                 {/* Edit Service Modal */}
                 {isEditModalOpen && editingService && (
