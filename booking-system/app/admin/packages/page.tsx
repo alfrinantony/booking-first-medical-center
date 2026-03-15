@@ -4,7 +4,36 @@ import React, { useState, useEffect } from 'react';
 import { Package, PackageServiceItem, CustomerPackage } from '@/types/packages';
 import { Plus, Trash2, Package as PackageIcon, Check, X, Search, User, Calendar, Activity } from 'lucide-react';
 
+class PackagesErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: Error }> {
+    constructor(props: { children: React.ReactNode }) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError(error: Error) {
+        return { hasError: true, error };
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="p-8 max-w-2xl mx-auto">
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
+                        <h2 className="text-lg font-bold text-red-700 dark:text-red-400 mb-2">Something went wrong</h2>
+                        <p className="text-sm text-red-600 dark:text-red-300 mb-4">The Packages page encountered an error. Please try refreshing.</p>
+                        <pre className="text-xs bg-red-100 dark:bg-red-900/40 p-3 rounded overflow-auto max-h-32 text-red-800 dark:text-red-300">{this.state.error?.message}</pre>
+                        <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">Reload Page</button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 export default function PackagesPage() {
+    return <PackagesErrorBoundary><PackagesPageInner /></PackagesErrorBoundary>;
+}
+
+function PackagesPageInner() {
     const [availablePackages, setAvailablePackages] = useState<Package[]>([]);
     const [isClient, setIsClient] = useState(false);
     const [activeTab, setActiveTab] = useState<'manage' | 'customers'>('manage');
@@ -30,13 +59,17 @@ export default function PackagesPage() {
     const [searchedCustomerPackages, setSearchedCustomerPackages] = useState<CustomerPackage[]>([]);
 
     const fetchPackages = () => {
-        fetch('/api/admin/packages').then(r => r.json()).then(setAvailablePackages).catch(() => {});
+        fetch('/api/admin/packages').then(r => r.json()).then(data => {
+            setAvailablePackages(Array.isArray(data) ? data : []);
+        }).catch(() => {});
     };
 
     useEffect(() => {
         setIsClient(true);
         fetchPackages();
-        fetch('/api/admin/doctors').then(r => r.json()).then(setClinics).catch(() => {});
+        fetch('/api/admin/doctors').then(r => r.json()).then(data => {
+            setClinics(Array.isArray(data) ? data : []);
+        }).catch(() => {});
     }, []);
 
     if (!isClient) return <div className="p-8">Loading packages...</div>;
