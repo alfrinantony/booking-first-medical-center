@@ -850,14 +850,34 @@ export default function ServicesPage() {
                     </div>
                 )}
 
-                {/* ═══ SESSION PACKAGES SECTION ═══ */}
-                {allServices.length > 0 && (() => {
-                    // Group ALL services by category (show packages info for each)
-                    const pkgGrouped: Record<string, typeof allServices> = {};
-                    allServices.forEach(s => {
-                        const cat = s.category || 'General';
-                        if (!pkgGrouped[cat]) pkgGrouped[cat] = [];
-                        pkgGrouped[cat].push(s);
+                {/* ═══ SESSION PACKAGES SECTION (ALL BRANCHES) ═══ */}
+                {clinics.length > 0 && (() => {
+                    // Collect services from ALL clinics, deduplicate by name (first occurrence wins)
+                    const seen = new Set<string>();
+                    const crossBranchServices: (Service & { _deptName: string; _category: string })[] = [];
+                    for (const clinic of clinics) {
+                        for (const dept of (clinic.departments || [])) {
+                            for (const svc of (dept.services || [])) {
+                                const key = svc.name.toLowerCase().trim();
+                                if (!seen.has(key)) {
+                                    seen.add(key);
+                                    crossBranchServices.push({
+                                        ...svc,
+                                        _deptName: dept.name,
+                                        _category: svc.category || 'General',
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    if (crossBranchServices.length === 0) return null;
+
+                    // Group by category
+                    const pkgGrouped: Record<string, typeof crossBranchServices> = {};
+                    crossBranchServices.forEach(s => {
+                        if (!pkgGrouped[s._category]) pkgGrouped[s._category] = [];
+                        pkgGrouped[s._category].push(s);
                     });
                     const pkgCategories = Object.keys(pkgGrouped).sort((a, b) => a === 'General' ? 1 : b === 'General' ? -1 : a.localeCompare(b));
 
@@ -867,7 +887,7 @@ export default function ServicesPage() {
                                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center text-white text-lg">📦</div>
                                 <div>
                                     <h2 className="text-xl font-bold text-gray-800 dark:text-white">Session Packages</h2>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">3-Session &amp; 6-Session pricing and validity by category</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">3-Session &amp; 6-Session pricing and validity · <span className="text-indigo-500 font-medium">Valid at all branches</span></p>
                                 </div>
                             </div>
 
@@ -880,8 +900,8 @@ export default function ServicesPage() {
                                             {pkgGrouped[cat].length}
                                         </span>
                                     </div>
-                                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                                        <table className="w-full text-sm">
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
+                                        <table className="w-full text-sm min-w-[700px]">
                                             <thead>
                                                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
                                                     <th className="text-left px-4 py-3 font-semibold">Service</th>
