@@ -48,9 +48,9 @@ export default function PackagesPage() {
 
         let serviceName = '';
         let found = false;
-        for (const clinic of clinics) {
-            for (const dept of clinic.departments) {
-                const svc = dept.services.find(s => s.id === selectedService);
+        for (const clinic of (clinics || [])) {
+            for (const dept of (clinic.departments || [])) {
+                const svc = (dept.services || []).find(s => s.id === selectedService);
                 if (svc) {
                     serviceName = svc.name;
                     found = true;
@@ -247,7 +247,7 @@ export default function PackagesPage() {
                                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
                                             >
                                                 <option value="">-- Choose a Service --</option>
-                                                {clinics.flatMap(c => c.departments.flatMap(d => d.services.map(s => (
+                                                {(clinics || []).flatMap(c => (c.departments || []).flatMap(d => (d.services || []).map(s => (
                                                     <option key={s.id} value={s.id}>
                                                         {s.name} ({d.name} - {c.name})
                                                     </option>
@@ -483,7 +483,7 @@ export default function PackagesPage() {
                                             <div className="p-6">
                                                 <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Usage Tracking</h4>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    {pkg?.items.map(item => {
+                                                    {(pkg?.items || []).map(item => {
                                                         const remaining = cp.remainingSessions[item.serviceId] ?? 0;
                                                         const total = item.count;
                                                         const percent = (remaining / total) * 100;
