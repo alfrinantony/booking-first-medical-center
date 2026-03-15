@@ -343,19 +343,27 @@ export default function ServicesPage() {
     };
 
     const handleDeleteService = async (departmentId: string, serviceId: string) => {
+        console.log('[DELETE] Attempting delete:', { clinicId: selectedClinicId, departmentId, serviceId });
         try {
-            const res = await fetch(`/api/admin/services?clinicId=${selectedClinicId}&departmentId=${departmentId}&serviceId=${serviceId}`, {
+            const url = `/api/admin/services?clinicId=${selectedClinicId}&departmentId=${departmentId}&serviceId=${serviceId}`;
+            console.log('[DELETE] URL:', url);
+            const res = await fetch(url, {
                 method: 'DELETE'
             });
+
+            console.log('[DELETE] Response status:', res.status);
 
             if (res.ok) {
                 setDeletingServiceId(null);
                 await fetchServices();
             } else {
-                alert('Failed to delete service');
+                const errBody = await res.text();
+                console.error('[DELETE] Error body:', errBody);
+                alert('Failed to delete service: ' + errBody);
             }
         } catch (error) {
-            console.error(error);
+            console.error('[DELETE] Exception:', error);
+            alert('Error deleting service');
         }
     };
 
@@ -714,6 +722,7 @@ export default function ServicesPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => {
+                                                            console.log('[DELETE] Trash clicked for:', service.id, service.name);
                                                             setDeletingServiceId(service.id);
                                                             setTimeout(() => setDeletingServiceId(prev => prev === service.id ? null : prev), 3000);
                                                         }}
