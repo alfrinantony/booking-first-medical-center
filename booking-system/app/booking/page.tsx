@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import BookingWizard from "@/components/BookingWizard";
 import VoiceAgentWrapper from "@/components/VoiceAgentWrapper";
 
@@ -13,7 +14,9 @@ export default function BookingPage() {
                         Select your preferred clinic, service, and specialist with our easy booking process.
                     </p>
                 </div>
-                <BookingWizard />
+                <Suspense fallback={<div className="flex justify-center p-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" /></div>}>
+                    <BookingWizard />
+                </Suspense>
             </div>
             <VoiceAgentWrapper />
         </div>

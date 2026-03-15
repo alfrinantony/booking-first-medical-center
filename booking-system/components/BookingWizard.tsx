@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation'; // Correct import for App Router
+import { useRouter, useSearchParams } from 'next/navigation'; // Correct import for App Router
 import { clinics as staticClinics, timeSlots, Clinic, Department, Service, Doctor, PromoCode, Medicine, BOOKING_CATEGORIES } from '@/lib/data';
 import { useAuthStore } from '@/lib/store';
 import CustomerAuth from './auth/CustomerAuth';
@@ -36,8 +36,10 @@ function getDubaiNow(): Date {
 
 export default function BookingWizard() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user, isAuthenticated } = useAuthStore();
     const [isMounted, setIsMounted] = useState(false);
+    const [packageAutoSelected, setPackageAutoSelected] = useState(false);
 
     // API-fetched state for packages and review discount
     const [myPackagesList, setMyPackagesList] = useState<import('@/types/packages').CustomerPackage[]>([]);
@@ -158,6 +160,20 @@ export default function BookingWizard() {
         };
         fetchCatalog();
     }, []);
+
+    // Auto-select service from query params (when coming from checkout/packages page)
+    React.useEffect(() => {
+        if (packageAutoSelected || catalogLoading || catalogData.services.length === 0) return;
+        const qServiceId = searchParams.get('serviceId');
+        if (!qServiceId) return;
+        const svc = catalogData.services.find((s: any) => s.id === qServiceId);
+        if (svc) {
+            setSelectedCategory(svc.category);
+            setSelectedService(svc);
+            setStep(2); // Skip to date selection
+            setPackageAutoSelected(true);
+        }
+    }, [catalogData.services, catalogLoading, packageAutoSelected, searchParams]);
 
     // Generate next 90 days (3 months) for date selection, filtering by service, clinic, and doctor
     const availableDates = Array.from({ length: 90 })
@@ -1021,43 +1037,58 @@ export default function BookingWizard() {
                             </div>
                             <div className="space-y-3">
                                 {filteredServices.map((svc: any) => (
-                                    <button key={svc.id} onClick={() => handleServiceSelect(svc)}
-                                        className="w-full flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group">
-                                        {svc.image && (
-                                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
-                                                <img src={svc.image} alt={svc.name} className="w-full h-full object-cover" />
+                                    <div key={svc.id} className="border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group overflow-hidden">
+                                        <button onClick={() => handleServiceSelect(svc)} className="w-full flex items-center gap-4 p-4 text-left">
+                                            {svc.image && (
+                                                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
+                                                    <img src={svc.image} alt={svc.name} className="w-full h-full object-cover" />
+                                                </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
+                                                {svc.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>}
+                                                <div className="flex flex-wrap gap-2 text-sm text-gray-500 mt-1">
+                                                    <span>{svc.duration} mins</span>
+                                                    {svc.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded font-medium">+VAT</span>}
+                                                    {svc.followUpDuration && <span className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded font-medium">Free Follow Up within {svc.followUpDuration}d</span>}
+                                                    {svc.allowedGender && svc.allowedGender !== 'both' && <span className="text-indigo-600 font-medium capitalize">({svc.allowedGender} Only)</span>}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    {svc.regularPrice && svc.discountedPrice && svc.regularPrice > svc.discountedPrice && (
+                                                        <span className="text-xs text-gray-400 line-through">{svc.regularPrice}</span>
+                                                    )}
+                                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{svc.discountedPrice || svc.price} AED</span>
+                                                </div>
+                                                <span className="text-[10px] text-gray-400">per session</span>
+                                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-500" />
+                                            </div>
+                                        </button>
+                                        {/* Session Package Buy Buttons */}
+                                        {(svc.threeSessionPackage || svc.sixSessionPackage) && (
+                                            <div className="flex gap-2 px-4 pb-4 pt-0">
+                                                {svc.threeSessionPackage && (
+                                                    <a
+                                                        href={`/packages/checkout?serviceId=${svc.id}&serviceName=${encodeURIComponent(svc.name)}&sessions=3&price=${svc.threeSessionPackage.discountedPrice || svc.threeSessionPackage.totalCost}&validity=${svc.threeSessionPackage.validity || 90}&singlePrice=${svc.discountedPrice || svc.price}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors border border-blue-200 dark:border-blue-800"
+                                                    >
+                                                        📦 Buy 3 Sessions — {svc.threeSessionPackage.discountedPrice || svc.threeSessionPackage.totalCost} AED
+                                                    </a>
+                                                )}
+                                                {svc.sixSessionPackage && (
+                                                    <a
+                                                        href={`/packages/checkout?serviceId=${svc.id}&serviceName=${encodeURIComponent(svc.name)}&sessions=6&price=${svc.sixSessionPackage.discountedPrice || svc.sixSessionPackage.totalCost}&validity=${svc.sixSessionPackage.validity || 180}&singlePrice=${svc.discountedPrice || svc.price}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors border border-emerald-200 dark:border-emerald-800"
+                                                    >
+                                                        📦 Buy 6 Sessions — {svc.sixSessionPackage.discountedPrice || svc.sixSessionPackage.totalCost} AED
+                                                    </a>
+                                                )}
                                             </div>
                                         )}
-                                        <div className="flex-1 text-left min-w-0">
-                                            <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
-                                            {svc.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>}
-                                            <div className="flex flex-wrap gap-2 text-sm text-gray-500 mt-1">
-                                                <span>{svc.duration} mins</span>
-                                                {svc.isTaxable && <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded font-medium">+VAT</span>}
-                                                {svc.followUpDuration && <span className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded font-medium">Free Follow Up within {svc.followUpDuration}d</span>}
-                                                {svc.allowedGender && svc.allowedGender !== 'both' && <span className="text-indigo-600 font-medium capitalize">({svc.allowedGender} Only)</span>}
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                            <div className="flex items-center gap-1.5">
-                                                {svc.regularPrice && svc.discountedPrice && svc.regularPrice > svc.discountedPrice && (
-                                                    <span className="text-xs text-gray-400 line-through">{svc.regularPrice}</span>
-                                                )}
-                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{svc.discountedPrice || svc.price} AED</span>
-                                            </div>
-                                            {svc.threeSessionPackage && (
-                                                <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded font-medium">
-                                                    3 Sessions: {svc.threeSessionPackage.discountedPrice || svc.threeSessionPackage.totalCost} AED
-                                                </span>
-                                            )}
-                                            {svc.sixSessionPackage && (
-                                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded font-medium">
-                                                    6 Sessions: {svc.sixSessionPackage.discountedPrice || svc.sixSessionPackage.totalCost} AED
-                                                </span>
-                                            )}
-                                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-500" />
-                                        </div>
-                                    </button>
+                                    </div>
                                 ))}
                             </div>
                         </div>
