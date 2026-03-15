@@ -45,6 +45,7 @@ export default function ServicesPage() {
     const [selectedClinicId, setSelectedClinicId] = useState('');
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [deletingServiceId, setDeletingServiceId] = useState<string | null>(null);
 
     // Add Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -342,14 +343,13 @@ export default function ServicesPage() {
     };
 
     const handleDeleteService = async (departmentId: string, serviceId: string) => {
-        if (!confirm('Are you sure you want to delete this service?')) return;
-
         try {
             const res = await fetch(`/api/admin/services?clinicId=${selectedClinicId}&departmentId=${departmentId}&serviceId=${serviceId}`, {
                 method: 'DELETE'
             });
 
             if (res.ok) {
+                setDeletingServiceId(null);
                 await fetchServices();
             } else {
                 alert('Failed to delete service');
@@ -684,21 +684,45 @@ export default function ServicesPage() {
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 ml-4">
+                                            <div className="flex items-center gap-2 ml-4 shrink-0">
                                                 <button
+                                                    type="button"
                                                     onClick={() => openEditModal(service._deptId, service)}
                                                     className="text-indigo-500 hover:text-indigo-700 p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
                                                     title="Edit Service"
                                                 >
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
-                                                <button
-                                                    onClick={() => handleDeleteService(service._deptId, service.id)}
-                                                    className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                                    title="Delete Service"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                {deletingServiceId === service.id ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteService(service._deptId, service.id)}
+                                                            className="text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded-md text-xs font-bold transition-colors"
+                                                        >
+                                                            Confirm
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDeletingServiceId(null)}
+                                                            className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
+                                                        >
+                                                            <X className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDeletingServiceId(service.id);
+                                                            setTimeout(() => setDeletingServiceId(prev => prev === service.id ? null : prev), 3000);
+                                                        }}
+                                                        className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                        title="Delete Service"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
