@@ -18,6 +18,7 @@ interface ServiceOption {
 
 function extractServices(clinics: any[]): ServiceOption[] {
     const result: ServiceOption[] = [];
+    const seen = new Set<string>();
     if (!Array.isArray(clinics)) return result;
     for (const clinic of clinics) {
         if (!clinic || typeof clinic !== 'object') continue;
@@ -27,6 +28,9 @@ function extractServices(clinics: any[]): ServiceOption[] {
             const svcs = Array.isArray(dept.services) ? dept.services : [];
             for (const svc of svcs) {
                 if (!svc || typeof svc !== 'object' || !svc.id) continue;
+                const key = (svc.name || '').toLowerCase().trim();
+                if (seen.has(key)) continue;
+                seen.add(key);
                 result.push({
                     id: svc.id,
                     name: svc.name || 'Unnamed',
@@ -406,7 +410,7 @@ function PackagesContent() {
                                                 <option value="">-- Choose a Service --</option>
                                                 {serviceOptions.map(svc => (
                                                     <option key={svc.id} value={svc.id}>
-                                                        {svc.name} ({svc.deptName} - {svc.clinicName})
+                                                        {svc.name}
                                                     </option>
                                                 ))}
                                             </select>
