@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill, ImagePlus, FolderOpen, X } from 'lucide-react';
+import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill, ImagePlus, FolderOpen, X, Eye, EyeOff } from 'lucide-react';
 import { Clinic, Department, Service, ServiceAddOn, ServicePackageTier, Doctor, Resource, Medicine, RegisteredProduct, ProductConsumption } from '@/lib/data';
 import ServiceEditorModal from '@/components/ServiceEditorModal';
 
@@ -367,6 +367,26 @@ export default function ServicesPage() {
         }
     };
 
+    const handleToggleVisibility = async (departmentId: string, serviceId: string, currentlyVisible: boolean) => {
+        try {
+            const res = await fetch('/api/admin/services', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clinicId: selectedClinicId,
+                    departmentId,
+                    serviceId,
+                    isVisible: !currentlyVisible
+                })
+            });
+            if (res.ok) {
+                await fetchServices();
+            }
+        } catch (error) {
+            console.error('Failed to toggle visibility', error);
+        }
+    };
+
     const openEditModal = (departmentId: string, service: Service) => {
         setEditingService({
             ...service,
@@ -619,8 +639,10 @@ export default function ServicesPage() {
                             </div>
                             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {grouped[cat].map(service => (
-                                        <div key={service.id} className="p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                                    {grouped[cat].map(service => {
+                                        const isHidden = service.isVisible === false;
+                                        return (
+                                        <div key={service.id} className={`p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors ${isHidden ? 'opacity-50' : ''}`}>
                                             <div className="flex items-center gap-4 flex-1 min-w-0">
                                                 {service.image && (
                                                     <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
@@ -628,7 +650,12 @@ export default function ServicesPage() {
                                                     </div>
                                                 )}
                                                 <div className="flex-1 min-w-0">
-                                                    <h3 className="font-medium text-gray-900 dark:text-white mb-1">{service.name}</h3>
+                                                    <h3 className="font-medium text-gray-900 dark:text-white mb-1">
+                                                        {service.name}
+                                                        {isHidden && (
+                                                            <span className="ml-2 text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-bold">Hidden from Booking</span>
+                                                        )}
+                                                    </h3>
                                                     {service.description && (
                                                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-2">{service.description}</p>
                                                     )}
@@ -695,6 +722,14 @@ export default function ServicesPage() {
                                             <div className="flex items-center gap-2 ml-4 shrink-0">
                                                 <button
                                                     type="button"
+                                                    onClick={() => handleToggleVisibility(service._deptId, service.id, service.isVisible !== false)}
+                                                    className={`p-2 rounded-full transition-colors ${isHidden ? 'text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-green-500 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20'}`}
+                                                    title={isHidden ? 'Show on Booking Portal' : 'Hide from Booking Portal'}
+                                                >
+                                                    {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     onClick={() => openEditModal(service._deptId, service)}
                                                     className="text-indigo-500 hover:text-indigo-700 p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
                                                     title="Edit Service"
@@ -734,7 +769,8 @@ export default function ServicesPage() {
                                                 )}
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

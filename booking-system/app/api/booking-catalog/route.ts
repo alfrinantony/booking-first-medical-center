@@ -21,6 +21,8 @@ export async function GET() {
     for (const clinic of clinics) {
         for (const dept of clinic.departments) {
             for (const svc of dept.services) {
+                // Skip services that are hidden from the booking portal
+                if (svc.isVisible === false) continue;
                 const category = svc.category || 'General Services';
                 const key = `${category}::${svc.name}`;
 

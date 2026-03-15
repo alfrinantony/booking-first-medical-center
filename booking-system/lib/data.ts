@@ -41,6 +41,7 @@ export interface Service {
     peakDays?: number[];    // Procedure-specific peak days (0=Sun–6=Sat), overrides clinic-wide
     peakSlots?: string[];   // Procedure-specific peak time slots, overrides clinic-wide
     productConsumptions?: ProductConsumption[]; // Products consumed by this service
+    isVisible?: boolean; // Whether the service is visible on the booking portal (default: true)
 }
 
 export interface ProductConsumption {
