@@ -849,6 +849,104 @@ export default function ServicesPage() {
                         No services found matching your criteria.
                     </div>
                 )}
+
+                {/* ═══ SESSION PACKAGES SECTION ═══ */}
+                {allServices.length > 0 && (() => {
+                    // Group ALL services by category (show packages info for each)
+                    const pkgGrouped: Record<string, typeof allServices> = {};
+                    allServices.forEach(s => {
+                        const cat = s.category || 'General';
+                        if (!pkgGrouped[cat]) pkgGrouped[cat] = [];
+                        pkgGrouped[cat].push(s);
+                    });
+                    const pkgCategories = Object.keys(pkgGrouped).sort((a, b) => a === 'General' ? 1 : b === 'General' ? -1 : a.localeCompare(b));
+
+                    return (
+                        <div className="mt-10 border-t-2 border-indigo-100 dark:border-indigo-900/30 pt-8">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center text-white text-lg">📦</div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">Session Packages</h2>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">3-Session &amp; 6-Session pricing and validity by category</p>
+                                </div>
+                            </div>
+
+                            {pkgCategories.map(cat => (
+                                <div key={cat} className="mb-6">
+                                    <div className="flex items-center gap-2 px-1 py-2 mb-2">
+                                        <FolderOpen className="w-4 h-4 text-indigo-500" />
+                                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide">{cat}</h3>
+                                        <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold">
+                                            {pkgGrouped[cat].length}
+                                        </span>
+                                    </div>
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                                                    <th className="text-left px-4 py-3 font-semibold">Service</th>
+                                                    <th className="text-center px-3 py-3 font-semibold">Single Price</th>
+                                                    <th className="text-center px-3 py-3 font-semibold border-l border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/10" colSpan={3}>
+                                                        <span className="text-blue-600 dark:text-blue-400">📦 3 Sessions</span>
+                                                    </th>
+                                                    <th className="text-center px-3 py-3 font-semibold border-l border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10" colSpan={3}>
+                                                        <span className="text-emerald-600 dark:text-emerald-400">📦 6 Sessions</span>
+                                                    </th>
+                                                </tr>
+                                                <tr className="bg-gray-50/50 dark:bg-gray-700/30 text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-wider">
+                                                    <th className="px-4 py-1"></th>
+                                                    <th className="px-3 py-1 text-center">AED</th>
+                                                    <th className="px-3 py-1 text-center border-l border-blue-100 dark:border-blue-900/30 bg-blue-50/30 dark:bg-blue-900/5">Total</th>
+                                                    <th className="px-3 py-1 text-center bg-blue-50/30 dark:bg-blue-900/5">Discounted</th>
+                                                    <th className="px-3 py-1 text-center bg-blue-50/30 dark:bg-blue-900/5">Validity</th>
+                                                    <th className="px-3 py-1 text-center border-l border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/30 dark:bg-emerald-900/5">Total</th>
+                                                    <th className="px-3 py-1 text-center bg-emerald-50/30 dark:bg-emerald-900/5">Discounted</th>
+                                                    <th className="px-3 py-1 text-center bg-emerald-50/30 dark:bg-emerald-900/5">Validity</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                                {pkgGrouped[cat].map(service => {
+                                                    const three = service.threeSessionPackage;
+                                                    const six = service.sixSessionPackage;
+                                                    return (
+                                                        <tr key={service.id} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                                                            <td className="px-4 py-3">
+                                                                <span className="font-medium text-gray-900 dark:text-white">{service.name}</span>
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                                                                {service.discountedPrice || service.regularPrice || service.price} AED
+                                                            </td>
+                                                            {/* 3-Session columns */}
+                                                            <td className="px-3 py-3 text-center border-l border-blue-100 dark:border-blue-900/30 bg-blue-50/20 dark:bg-blue-900/5">
+                                                                {three ? <span className="font-semibold text-blue-700 dark:text-blue-400">{three.totalCost} AED</span> : <span className="text-gray-300 italic text-xs">—</span>}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center bg-blue-50/20 dark:bg-blue-900/5">
+                                                                {three ? <span className="font-bold text-blue-600 dark:text-blue-300">{three.discountedPrice} AED</span> : <span className="text-gray-300 italic text-xs">—</span>}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center bg-blue-50/20 dark:bg-blue-900/5">
+                                                                {three ? <span className="text-blue-600 dark:text-blue-400 font-medium">{three.validity} days</span> : <span className="text-gray-300 italic text-xs">—</span>}
+                                                            </td>
+                                                            {/* 6-Session columns */}
+                                                            <td className="px-3 py-3 text-center border-l border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/20 dark:bg-emerald-900/5">
+                                                                {six ? <span className="font-semibold text-emerald-700 dark:text-emerald-400">{six.totalCost} AED</span> : <span className="text-gray-300 italic text-xs">—</span>}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center bg-emerald-50/20 dark:bg-emerald-900/5">
+                                                                {six ? <span className="font-bold text-emerald-600 dark:text-emerald-300">{six.discountedPrice} AED</span> : <span className="text-gray-300 italic text-xs">—</span>}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center bg-emerald-50/20 dark:bg-emerald-900/5">
+                                                                {six ? <span className="text-emerald-600 dark:text-emerald-400 font-medium">{six.validity} days</span> : <span className="text-gray-300 italic text-xs">—</span>}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
                 {/* Add Service Modal */}
                 {isAddModalOpen && (
                     <>
