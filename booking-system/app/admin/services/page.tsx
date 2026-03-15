@@ -761,16 +761,19 @@ export default function ServicesPage() {
                                                                 Up to {service.maxMedicines} Medicine{service.maxMedicines > 1 ? 's' : ''}
                                                             </span>
                                                         )}
-                                                        {service.threeSessionPackage && (
-                                                            <span className="flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                                                                📦 3 Sessions: {service.threeSessionPackage.discountedPrice || service.threeSessionPackage.totalCost} AED · {service.threeSessionPackage.validity || 90} days
-                                                            </span>
-                                                        )}
-                                                        {service.sixSessionPackage && (
-                                                            <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                                                                📦 6 Sessions: {service.sixSessionPackage.discountedPrice || service.sixSessionPackage.totalCost} AED · {service.sixSessionPackage.validity || 180} days
-                                                            </span>
-                                                        )}
+                                                    </div>
+                                                    {/* 3-Session & 6-Session Validity Row - Always visible */}
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        <span className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border ${service.threeSessionPackage ? 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
+                                                            📦 3 Sessions: {service.threeSessionPackage
+                                                                ? <><strong className="ml-0.5">{service.threeSessionPackage.discountedPrice || service.threeSessionPackage.totalCost} AED</strong> · {service.threeSessionPackage.validity || 90} days</>
+                                                                : <span className="italic">Not set</span>}
+                                                        </span>
+                                                        <span className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border ${service.sixSessionPackage ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' : 'text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
+                                                            📦 6 Sessions: {service.sixSessionPackage
+                                                                ? <><strong className="ml-0.5">{service.sixSessionPackage.discountedPrice || service.sixSessionPackage.totalCost} AED</strong> · {service.sixSessionPackage.validity || 180} days</>
+                                                                : <span className="italic">Not set</span>}
+                                                        </span>
                                                     </div>
                                                     {service.addOns && service.addOns.length > 0 && (
                                                         <div className="flex flex-wrap gap-1.5 mt-1.5">
