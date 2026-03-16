@@ -44,7 +44,7 @@ export async function PATCH(
         const newStatus = body.status;
         const customerPhone = existingBooking.whatsappNumber || existingBooking.email || '';
 
-        const updatedBooking = await BookingsStore.update(id, body);
+        const updatedBooking = await BookingsStore.update(id, { ...body });
         if (!updatedBooking) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
         }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
-import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X } from 'lucide-react';
+import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X, History } from 'lucide-react';
 import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
 import {
@@ -175,6 +175,18 @@ export default function AdminAppointmentsPage() {
     const [availableToRescheduleSlots, setAvailableToRescheduleSlots] = useState<string[]>([]);
     const [isLoadingRescheduleSlots, setIsLoadingRescheduleSlots] = useState(false);
 
+    // History Modal
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [historyBooking, setHistoryBooking] = useState<Booking | null>(null);
+
+    // Get admin user name for audit
+    const getStaffName = () => {
+        try {
+            const user = JSON.parse(sessionStorage.getItem('adminUser') || '{}');
+            return user.name || user.username || 'Admin';
+        } catch { return 'Admin'; }
+    };
+
     const getNextStatusOptions = (currentStatus: Booking['status']) => {
         const flow: Record<string, Booking['status'][]> = {
             'booked': ['confirmed', 'cancelled'],
@@ -241,7 +253,8 @@ export default function AdminAppointmentsPage() {
                     date: editForm.date,
                     slot: editForm.slot,
                     doctorId: editForm.doctorId,
-                    duration: editForm.duration
+                    duration: editForm.duration,
+                    staffName: getStaffName(),
                 })
             });
 
@@ -585,12 +598,22 @@ export default function AdminAppointmentsPage() {
                                         )}
                                     </div>
 
-                                    <button
-                                        onClick={() => handleEditClick(booking)}
-                                        className="mt-2 w-full text-center text-xs text-indigo-600 font-medium hover:underline"
-                                    >
-                                        Edit Booking
-                                    </button>
+                                    <div className="flex gap-2 mt-2">
+                                        <button
+                                            onClick={() => handleEditClick(booking)}
+                                            className="flex-1 text-center text-xs text-indigo-600 font-medium hover:underline"
+                                        >
+                                            Edit Booking
+                                        </button>
+                                        <button
+                                            onClick={() => { setHistoryBooking(booking); setIsHistoryOpen(true); }}
+                                            className="flex items-center justify-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium transition-colors"
+                                            title="View status history"
+                                        >
+                                            <History className="w-3.5 h-3.5" />
+                                            History
+                                        </button>
+                                    </div>
                                 </div>
                             ))
                         ) : (
@@ -704,18 +727,27 @@ export default function AdminAppointmentsPage() {
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 mt-6">
+                        <div className="flex justify-between items-center">
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => setIsEditModalOpen(false)}
+                                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveChanges}
+                                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
                             <button
-                                onClick={() => setIsEditModalOpen(false)}
-                                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                                onClick={() => { setHistoryBooking(editingBooking); setIsHistoryOpen(true); }}
+                                className="mt-6 flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
                             >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSaveChanges}
-                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                            >
-                                Save Changes
+                                <History className="w-4 h-4" />
+                                View History
                             </button>
                         </div>
                     </div>
@@ -783,6 +815,122 @@ export default function AdminAppointmentsPage() {
                         <div className="flex justify-end gap-3 mt-6">
                             <button onClick={() => setIsQuickRegOpen(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md">Cancel</button>
                             <button onClick={saveQuickClient} className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700">Register Client</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* History Timeline Modal */}
+            {isHistoryOpen && historyBooking && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 max-h-[80vh] flex flex-col">
+                        <div className="flex justify-between items-center mb-5">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <History className="w-5 h-5 text-indigo-600" />
+                                Booking Journey
+                            </h2>
+                            <button onClick={() => setIsHistoryOpen(false)} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4 text-sm">
+                            <div className="font-bold text-gray-900 dark:text-white">{historyBooking.patientName}</div>
+                            <div className="text-gray-500 text-xs mt-1">{historyBooking.date} • {historyBooking.slot}</div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-1">
+                            {(historyBooking.statusHistory && historyBooking.statusHistory.length > 0) ? (
+                                <div className="relative">
+                                    {/* Timeline line */}
+                                    <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-gray-200 dark:bg-gray-600"></div>
+
+                                    <div className="space-y-0">
+                                        {historyBooking.statusHistory.map((entry, idx) => {
+                                            const isFirst = idx === 0;
+                                            const isLast = idx === historyBooking.statusHistory!.length - 1;
+                                            const statusColor = {
+                                                'booked': 'bg-blue-500',
+                                                'confirmed': 'bg-green-500',
+                                                'arrived': 'bg-teal-500',
+                                                'in_service': 'bg-purple-500',
+                                                'completed': 'bg-emerald-600',
+                                                'cancelled': 'bg-red-500',
+                                                'no_show': 'bg-red-700',
+                                                'rescheduled': 'bg-amber-500',
+                                            }[entry.newStatus] || 'bg-gray-500';
+
+                                            const statusBadgeClass = {
+                                                'booked': 'bg-blue-100 text-blue-700',
+                                                'confirmed': 'bg-green-100 text-green-700',
+                                                'arrived': 'bg-teal-100 text-teal-700',
+                                                'in_service': 'bg-purple-100 text-purple-700',
+                                                'completed': 'bg-emerald-100 text-emerald-700',
+                                                'cancelled': 'bg-red-100 text-red-700',
+                                                'no_show': 'bg-red-200 text-red-800',
+                                                'rescheduled': 'bg-amber-100 text-amber-700',
+                                            }[entry.newStatus] || 'bg-gray-100 text-gray-700';
+
+                                            return (
+                                                <div key={idx} className="relative flex items-start gap-4 pb-6">
+                                                    {/* Dot */}
+                                                    <div className={`relative z-10 w-[32px] h-[32px] flex items-center justify-center shrink-0 rounded-full border-4 border-white dark:border-gray-800 ${statusColor}`}>
+                                                        {isFirst ? (
+                                                            <Plus className="w-3.5 h-3.5 text-white" />
+                                                        ) : isLast ? (
+                                                            <CheckCircle className="w-3.5 h-3.5 text-white" />
+                                                        ) : (
+                                                            <Clock className="w-3 h-3 text-white" />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Content */}
+                                                    <div className="flex-1 min-w-0 pt-1">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            {isFirst ? (
+                                                                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${statusBadgeClass}`}>
+                                                                    Booking Created
+                                                                </span>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="text-xs text-gray-400 line-through capitalize">
+                                                                        {entry.oldStatus.replace('_', ' ')}
+                                                                    </span>
+                                                                    <span className="text-gray-400">→</span>
+                                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold capitalize ${statusBadgeClass}`}>
+                                                                        {entry.newStatus.replace('_', ' ')}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-2">
+                                                            <span>🕐 {new Date(entry.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                        <div className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
+                                                            <User className="w-3 h-3" />
+                                                            <span className="font-medium text-gray-700 dark:text-gray-300">{entry.changedBy}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    <History className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                                    <p className="text-sm">No status history recorded yet.</p>
+                                    <p className="text-xs mt-1">History tracking starts from the next status change.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <button
+                                onClick={() => setIsHistoryOpen(false)}
+                                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>

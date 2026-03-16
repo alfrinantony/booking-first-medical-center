@@ -46,7 +46,13 @@ export const BookingsStore = {
         const newBooking: Booking = {
             ...booking,
             id: Math.random().toString(36).substr(2, 9),
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            statusHistory: [{
+                timestamp: new Date().toISOString(),
+                oldStatus: '',
+                newStatus: booking.status || 'booked',
+                changedBy: (booking as any).staffName || 'System',
+            }],
         };
         bookings.push(newBooking);
         await saveToBlob('bookings', bookings);
@@ -91,11 +97,28 @@ export const BookingsStore = {
         return bookings.find(b => b.id === id);
     },
 
-    update: async (id: string, updates: Partial<Booking>) => {
+    update: async (id: string, updates: Partial<Booking> & { staffName?: string }) => {
         await ensureLoaded();
         const index = bookings.findIndex(b => b.id === id);
         if (index !== -1) {
-            bookings[index] = { ...bookings[index], ...updates };
+            const oldBooking = bookings[index];
+            const staffName = updates.staffName || 'Admin';
+            // Remove staffName from updates before storing
+            const { staffName: _, ...cleanUpdates } = updates;
+
+            // Record status change in history if status changed
+            if (cleanUpdates.status && cleanUpdates.status !== oldBooking.status) {
+                const history = oldBooking.statusHistory || [];
+                history.push({
+                    timestamp: new Date().toISOString(),
+                    oldStatus: oldBooking.status,
+                    newStatus: cleanUpdates.status,
+                    changedBy: staffName,
+                });
+                cleanUpdates.statusHistory = history;
+            }
+
+            bookings[index] = { ...bookings[index], ...cleanUpdates };
             await saveToBlob('bookings', bookings);
 
             const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};
@@ -103,7 +126,7 @@ export const BookingsStore = {
                 userId: user.id || 'admin',
                 userName: user.name || 'Admin',
                 action: 'UPDATE_BOOKING',
-                details: `Updated booking ${id}. Changes: ${Object.keys(updates).join(', ')}`,
+                details: `Updated booking ${id}. Changes: ${Object.keys(cleanUpdates).join(', ')}`,
                 entityId: id,
                 entityType: 'Booking'
             });
@@ -113,10 +136,19 @@ export const BookingsStore = {
         return null;
     },
 
-    updateStatus: async (id: string, status: Booking['status']) => {
+    updateStatus: async (id: string, status: Booking['status'], staffName?: string) => {
         await ensureLoaded();
         const booking = bookings.find(b => b.id === id);
         if (booking) {
+            const oldStatus = booking.status;
+            // Record status history
+            if (!booking.statusHistory) booking.statusHistory = [];
+            booking.statusHistory.push({
+                timestamp: new Date().toISOString(),
+                oldStatus,
+                newStatus: status,
+                changedBy: staffName || 'Admin',
+            });
             booking.status = status;
             // When a booking is completed, mark it as needing a bill
             if (status === 'completed' && booking.billingStatus !== 'billed') {
