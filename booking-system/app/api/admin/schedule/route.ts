@@ -78,12 +78,14 @@ export async function GET(request: Request) {
         if (parsed !== null) closingMinutes = parsed;
     }
 
-    // ── 5. Get Doctor Capacity ──
+    // ── 5. Get Doctor Capacity (dynamic store first, fallback to static) ──
     let maxConcurrent = 1;
-    for (const clinic of clinics) {
+    const allClinics = await ServicesStore.getClinics();
+    const clinicSources = allClinics.length > 0 ? allClinics : clinics;
+    for (const c of clinicSources) {
         let found = false;
-        for (const dept of clinic.departments) {
-            const doc = dept.doctors.find(d => d.id === doctorId);
+        for (const dept of c.departments) {
+            const doc = dept.doctors.find((d: any) => d.id === doctorId);
             if (doc) {
                 maxConcurrent = doc.maxConcurrentBookings || 1;
                 found = true;
@@ -97,12 +99,11 @@ export async function GET(request: Request) {
     const bookings = await BookingsStore.getByFilters({ doctorId, date });
     const activeBookings = bookings.filter(b => b.status !== 'cancelled');
 
-    // Build occupied ranges: [startMinutes, endMinutes, serviceId]
-    const occupiedRanges: { start: number; end: number; serviceId: string; resourceIds: string[] }[] = [];
+    // Build occupied ranges for the SELECTED doctor
+    const occupiedRanges: { start: number; end: number; serviceId: string; resourceIds: string[]; doctorId: string }[] = [];
 
     for (const b of activeBookings) {
         const bStart = parseSlotToMinutes(b.slot);
-        // Get duration: from booking itself, or look up service duration, or default 30
         let bDuration = b.duration || 30;
         if (!b.duration) {
             const bService = await ServicesStore.getServiceById(b.serviceId);
@@ -110,14 +111,34 @@ export async function GET(request: Request) {
         }
         const bEnd = bStart + bDuration;
 
-        // Also get resource IDs for this booking's service
         let resourceIds: string[] = [];
         const bService = await ServicesStore.getServiceById(b.serviceId);
         if (bService?.requiredResourceIds) {
             resourceIds = bService.requiredResourceIds;
         }
 
-        occupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds });
+        occupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, doctorId: b.doctorId });
+    }
+
+    // ── 6b. Cross-Doctor Resource Check: get ALL bookings at this branch on this date ──
+    // (for shared resource blocking across different doctors)
+    let branchOccupiedRanges: typeof occupiedRanges = [];
+    if (clinicId && requestedService?.requiredResourceIds?.length > 0) {
+        const allBranchBookings = await BookingsStore.getByFilters({ clinicId, date });
+        const activeBranch = allBranchBookings.filter(b => b.status !== 'cancelled' && b.doctorId !== doctorId);
+        for (const b of activeBranch) {
+            const bStart = parseSlotToMinutes(b.slot);
+            let bDuration = b.duration || 30;
+            if (!b.duration) {
+                const bService = await ServicesStore.getServiceById(b.serviceId);
+                if (bService?.duration) bDuration = bService.duration;
+            }
+            const bEnd = bStart + bDuration;
+            let resourceIds: string[] = [];
+            const bService = await ServicesStore.getServiceById(b.serviceId);
+            if (bService?.requiredResourceIds) resourceIds = bService.requiredResourceIds;
+            branchOccupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, doctorId: b.doctorId });
+        }
     }
 
     // ── 7. Filter Slots with Duration-Aware Logic ──
@@ -140,7 +161,7 @@ export async function GET(request: Request) {
         return true;
     });
 
-    // ── 8. Resource Availability Check (duration-aware) ──
+    // ── 8. Resource Availability Check (duration-aware, cross-doctor) ──
     if (requestedService?.requiredResourceIds && requestedService.requiredResourceIds.length > 0) {
         // Pre-load required resources
         const resourceMap = new Map<string, any>();
@@ -148,6 +169,9 @@ export async function GET(request: Request) {
             const resource = await ResourcesStore.getResourceById(resId);
             if (resource) resourceMap.set(resId, resource);
         }
+
+        // Combine this doctor's ranges + all other doctors' ranges at same branch
+        const allResourceRanges = [...occupiedRanges, ...branchOccupiedRanges];
 
         availableSlots = availableSlots.filter(slot => {
             const candidateStart = parseSlotToMinutes(slot);
@@ -158,9 +182,9 @@ export async function GET(request: Request) {
                 const resource = resourceMap.get(resId);
                 if (!resource) return true; // Resource not found, skip check
 
-                // Count how many existing bookings use this resource during our time window
+                // Count how many existing bookings (ANY doctor) use this resource during our time window
                 let usedCount = 0;
-                for (const range of occupiedRanges) {
+                for (const range of allResourceRanges) {
                     if (range.resourceIds.includes(resId) && rangesOverlap(candidateStart, candidateEnd, range.start, range.end)) {
                         usedCount++;
                     }
@@ -170,8 +194,12 @@ export async function GET(request: Request) {
         });
     }
 
-    // ── 9. Build Response ──
-    const response: any = { slots: availableSlots };
+    // ── 9. Build Response with metadata ──
+    const response: any = {
+        slots: availableSlots,
+        serviceDuration: requestedDuration,
+        closingTime: closingMinutes,
+    };
     if (otherBranches && clinicId) {
         response.otherBranchSlots = Scheduler.getOtherBranchSlots(doctorId, date, clinicId);
     }

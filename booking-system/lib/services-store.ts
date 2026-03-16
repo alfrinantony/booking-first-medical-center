@@ -446,6 +446,12 @@ export const ServicesStore = {
         return clinicStore.find(c => c.id === clinicId);
     },
 
+    /** Alias used by schedule route */
+    getClinicById: async (clinicId: string) => {
+        await ensureClinicsLoaded();
+        return clinicStore.find(c => c.id === clinicId);
+    },
+
     getServiceById: async (serviceId: string) => {
         await ensureClinicsLoaded();
         for (const clinic of clinicStore) {

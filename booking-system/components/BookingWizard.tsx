@@ -250,14 +250,10 @@ export default function BookingWizard() {
 
                     if (res.ok) {
                         const data = await res.json();
-                        if (data.slots && data.slots.length > 0) {
-                            slots = data.slots;
-                        } else {
-                            // Fallback for demo: if no custom schedule, show all slots
-                            slots = timeSlots;
-                        }
+                        // Trust the server's duration-aware response
+                        slots = data.slots || [];
                     } else {
-                        slots = timeSlots;
+                        slots = timeSlots; // Fallback only on API failure
                     }
 
                     // 1. Service Time Window Filtering
@@ -305,19 +301,25 @@ export default function BookingWizard() {
                         });
                     }
 
-                    // 4. Filter out slots already booked by this patient on the same date
+                    // 4. Filter out slots that overlap with this patient's existing bookings (duration-aware)
                     if (user?.name) {
                         try {
                             const dateStr2 = format(selectedDate, 'yyyy-MM-dd');
                             const bRes = await fetch(`/api/admin/bookings?date=${dateStr2}&search=${encodeURIComponent(user.name)}`);
                             if (bRes.ok) {
                                 const myBookings = await bRes.json();
-                                const myBookedSlots = new Set(
-                                    myBookings
-                                        .filter((b: any) => b.status !== 'cancelled')
-                                        .map((b: any) => b.slot)
-                                );
-                                slots = slots.filter((slot: string) => !myBookedSlots.has(slot));
+                                const myActiveBookings = myBookings.filter((b: any) => b.status !== 'cancelled');
+                                // Build occupied ranges from patient's bookings
+                                slots = slots.filter((slot: string) => {
+                                    const candidateStart = parseTimeSlot(slot);
+                                    const candidateDur = selectedService?.duration || 30;
+                                    const candidateEnd = candidateStart + candidateDur;
+                                    return !myActiveBookings.some((b: any) => {
+                                        const bStart = parseTimeSlot(b.slot);
+                                        const bEnd = bStart + (b.duration || 30);
+                                        return candidateStart < bEnd && bStart < candidateEnd;
+                                    });
+                                });
                             }
                         } catch { /* ignore */ }
                     }
@@ -1574,22 +1576,47 @@ export default function BookingWizard() {
                         {/* Time Slots */}
                         <div>
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Available times for {format(selectedDate, 'EEEE, MMM d')}</h3>
+                            {/* Duration info badge */}
+                            {selectedService?.duration && (
+                                <div className="flex items-center gap-2 mb-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-2">
+                                    <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                    <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">
+                                        This service takes {selectedService.duration} minutes. Slots that cannot fit the full duration are hidden.
+                                    </span>
+                                </div>
+                            )}
                             {isLoadingSlots ? (
                                 <div className="flex justify-center p-8">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                                 </div>
                             ) : availableSlots.length > 0 ? (
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                                    {availableSlots.map((slot) => (
-                                        <button key={slot} onClick={() => handleSlotSelect(slot)}
-                                            className={`py-2.5 px-1 text-sm rounded-lg border transition-all font-medium ${
-                                                selectedSlot === slot
-                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                                                    : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                            }`}>
-                                            {slot}
-                                        </button>
-                                    ))}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                    {availableSlots.map((slot) => {
+                                        // Compute end time display
+                                        const dur = selectedService?.duration || 30;
+                                        const [time, period] = slot.split(' ');
+                                        let [h, m] = time.split(':').map(Number);
+                                        if (period === 'PM' && h !== 12) h += 12;
+                                        if (period === 'AM' && h === 12) h = 0;
+                                        const endTotalMins = h * 60 + m + dur;
+                                        let endH = Math.floor(endTotalMins / 60);
+                                        const endM = endTotalMins % 60;
+                                        const endPeriod = endH >= 12 ? 'PM' : 'AM';
+                                        if (endH > 12) endH -= 12;
+                                        if (endH === 0) endH = 12;
+                                        const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')} ${endPeriod}`;
+                                        return (
+                                            <button key={slot} onClick={() => handleSlotSelect(slot)}
+                                                className={`py-2.5 px-2 text-sm rounded-lg border transition-all font-medium ${
+                                                    selectedSlot === slot
+                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                                                        : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                }`}>
+                                                <span>{slot}</span>
+                                                <span className={`block text-[10px] mt-0.5 ${selectedSlot === slot ? 'text-indigo-200' : 'text-gray-400'}`}>→ {endTime}</span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="text-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -1630,6 +1657,21 @@ export default function BookingWizard() {
                                     <div>
                                         <span className="block text-gray-500">Date & Time</span>
                                         <span className="font-medium text-gray-900 dark:text-white">{selectedDate && format(selectedDate, 'MMM d, yyyy')} at {selectedSlot}</span>
+                                        {selectedService?.duration && selectedSlot && (() => {
+                                            const dur = selectedService.duration;
+                                            const [time, period] = selectedSlot.split(' ');
+                                            let [h, m] = time.split(':').map(Number);
+                                            if (period === 'PM' && h !== 12) h += 12;
+                                            if (period === 'AM' && h === 12) h = 0;
+                                            const endTotalMins = h * 60 + m + dur;
+                                            let endH = Math.floor(endTotalMins / 60);
+                                            const endM = endTotalMins % 60;
+                                            const endPeriod = endH >= 12 ? 'PM' : 'AM';
+                                            if (endH > 12) endH -= 12;
+                                            if (endH === 0) endH = 12;
+                                            const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')} ${endPeriod}`;
+                                            return <span className="block text-xs text-indigo-500 mt-0.5">Duration: {dur} min (ends at {endTime})</span>;
+                                        })()}
                                     </div>
                                     <div>
                                         <span className="block text-gray-500">Clinic</span>

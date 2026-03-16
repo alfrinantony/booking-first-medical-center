@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BookingsStore } from '@/lib/bookings-store';
 import { Booking } from '@/lib/data';
+import { ServicesStore } from '@/lib/services-store';
+
+// ── Helper: parse "10:30 AM" → minutes from midnight ──
+function parseSlotToMinutes(slot: string): number {
+    const [time, period] = slot.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+}
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -24,23 +34,38 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Check for duplicate: same patient, same date, same slot (non-cancelled)
+        // Auto-fetch duration from service module if not provided
+        let duration = body.duration;
+        if (!duration) {
+            const service = await ServicesStore.getServiceById(body.serviceId);
+            duration = service?.duration || 30;
+        }
+
+        // Duration-aware overlap check: same patient, same date, overlapping time range
         const existingBookings = await BookingsStore.getAll();
+        const newStart = parseSlotToMinutes(body.slot);
+        const newEnd = newStart + duration;
+
         const duplicate = existingBookings.find(b =>
             b.patientName === body.patientName &&
             b.date === body.date &&
-            b.slot === body.slot &&
-            b.status !== 'cancelled'
+            b.status !== 'cancelled' &&
+            (() => {
+                const bStart = parseSlotToMinutes(b.slot);
+                const bEnd = bStart + (b.duration || 30);
+                return newStart < bEnd && bStart < newEnd; // ranges overlap
+            })()
         );
         if (duplicate) {
             return NextResponse.json(
-                { error: 'You already have a booking at this date and time.' },
+                { error: 'You already have a booking that overlaps with this time slot.' },
                 { status: 409 }
             );
         }
 
         const newBooking = await BookingsStore.add({
             ...body,
+            duration,
             status: 'booked'
         });
 
