@@ -128,6 +128,7 @@ function PackagesContent() {
     const [billPaymentConfirmed, setBillPaymentConfirmed] = useState(true);
     const [isAssigning, setIsAssigning] = useState(false);
     const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+    const [confirmingCustDeleteId, setConfirmingCustDeleteId] = useState<string | null>(null);
     const [assignSuccess, setAssignSuccess] = useState('');
 
     // ── Fetch available packages ──
@@ -321,6 +322,25 @@ function PackagesContent() {
             alert('Failed to assign package. Please try again.');
         }
         setIsAssigning(false);
+    };
+
+    const handleDeleteCustomerPackage = async (customerPkgId: string) => {
+        try {
+            const res = await fetch('/api/admin/packages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'deleteCustomerPackage', customerPackageId: customerPkgId }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                setConfirmingCustDeleteId(null);
+                fetchCustomerPackages(customerPhoneSearch);
+            } else {
+                alert(result.message || 'Failed to delete');
+            }
+        } catch (err) {
+            console.error('Delete customer package failed:', err);
+        }
     };
 
     const handleUseSession = async (customerPkgId: string, serviceId: string) => {
@@ -835,6 +855,42 @@ function PackagesContent() {
                                                     </div>
                                                 ) : (
                                                     <p className="text-sm text-gray-500 italic">Package definition not found. The package may have been deleted.</p>
+                                                )}
+                                            </div>
+
+                                            {/* Footer with delete option */}
+                                            <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    {cp.paymentStatus === 'pending' && (
+                                                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">⏳ Unpaid</span>
+                                                    )}
+                                                    {cp.paymentStatus === 'paid' && (
+                                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">✅ Paid</span>
+                                                    )}
+                                                </div>
+                                                {confirmingCustDeleteId === cp.id ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-red-600 font-medium">Remove?</span>
+                                                        <button
+                                                            onClick={() => handleDeleteCustomerPackage(cp.id)}
+                                                            className="bg-red-600 text-white text-xs px-3 py-1 rounded-md hover:bg-red-700 font-bold transition-colors"
+                                                        >
+                                                            Yes, Delete
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setConfirmingCustDeleteId(null)}
+                                                            className="text-gray-500 text-xs px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setConfirmingCustDeleteId(cp.id)}
+                                                        className="text-red-500 hover:text-red-700 text-xs font-medium flex items-center gap-1 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" /> Delete Package
+                                                    </button>
                                                 )}
                                             </div>
                                         </div>

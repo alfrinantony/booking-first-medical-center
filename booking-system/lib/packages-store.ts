@@ -58,6 +58,15 @@ export const PackagesStore = {
         await savePackages();
     },
 
+    deleteCustomerPackage: async (id: string): Promise<{ success: boolean; message: string }> => {
+        await ensurePackagesLoaded();
+        const pkg = customerPackages.find(p => p.id === id);
+        if (!pkg) return { success: false, message: 'Customer package not found' };
+        customerPackages = customerPackages.filter(p => p.id !== id);
+        await savePackages();
+        return { success: true, message: `Package "${pkg.packageName}" for ${pkg.customerName} has been deleted.` };
+    },
+
     getAvailablePackages: async (): Promise<Package[]> => {
         await ensurePackagesLoaded();
         return [...availablePackages];

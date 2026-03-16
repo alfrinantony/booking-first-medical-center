@@ -56,6 +56,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(await PackagesStore.addComplimentaryService(body.customerPkgId, body.serviceId, body.serviceName));
         case 'useComplimentary':
             return NextResponse.json(await PackagesStore.useComplimentaryService(body.customerPkgId, body.serviceIndex, body.recipientPhone));
+        case 'deleteCustomerPackage':
+            return NextResponse.json(await PackagesStore.deleteCustomerPackage(body.customerPackageId));
         default:
             return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
