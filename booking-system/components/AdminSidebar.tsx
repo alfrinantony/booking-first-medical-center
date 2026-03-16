@@ -168,6 +168,10 @@ export default function AdminSidebar() {
                         <Receipt className="w-4 h-4 shrink-0" />
                         Billing
                     </Link>
+                    <Link href="/admin/transactions" className={subLinkClass('/admin/transactions')}>
+                        <Wallet className="w-3.5 h-3.5 shrink-0" />
+                        Transactions & Refunds
+                    </Link>
                     <Link href="/admin/vat-report" className={subLinkClass('/admin/vat-report')}>
                         <FileText className="w-3.5 h-3.5 shrink-0" />
                         VAT Report

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-// Billing Store — Invoice CRUD with Azure Blob persistence
+// Billing Store — Invoice CRUD + Refund with Azure Blob persistence
 // ─────────────────────────────────────────────────────────────
 
 import { loadFromBlob, saveToBlob } from './blob-persistence';
@@ -14,6 +14,7 @@ export interface InvoiceLineItem {
     medicineId?: string;       // Links to Medicine
     batchId?: string;          // Links to InventoryBatch
     medicineName?: string;     // Display name
+    isVoid?: boolean;          // Marked void after refund
 }
 
 export interface Invoice {
@@ -33,6 +34,17 @@ export interface Invoice {
     // Payment
     paymentMethod: 'cash' | 'card' | 'bank_transfer' | 'online';
     paymentConfirmed: boolean;
+    paymentReceivedBy?: string;       // Who received the payment
+    paymentReceptionStatus?: 'received' | 'pending' | 'partial';
+    // Refund fields
+    refundStatus: 'none' | 'refunded';
+    refundedAt?: string;              // ISO datetime
+    refundedBy?: string;              // Staff name who processed
+    refundAmount?: number;
+    refundReason?: string;
+    refundIban?: string;              // Required for cash/clinic refunds
+    refundBankName?: string;          // Required for cash/clinic refunds
+    isVoid?: boolean;                 // Entire invoice voided after refund
     // Meta
     clinicId?: string;
     clinicName?: string;
@@ -63,7 +75,7 @@ async function saveBilling() {
 }
 
 export const BillingStore = {
-    createInvoice: async (data: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt'>): Promise<Invoice> => {
+    createInvoice: async (data: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt' | 'refundStatus'>): Promise<Invoice> => {
         await ensureBillingLoaded();
         const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
         const seqStr = String(nextSequence).padStart(4, '0');
@@ -74,6 +86,7 @@ export const BillingStore = {
             id: `inv-${Date.now()}`,
             invoiceNumber,
             createdAt: new Date().toISOString(),
+            refundStatus: 'none',
         };
 
         invoices.push(invoice);
@@ -94,12 +107,25 @@ export const BillingStore = {
         return invoice;
     },
 
-    getInvoices: async (filters?: { clientPhone?: string; clinicId?: string; dateFrom?: string; dateTo?: string }): Promise<Invoice[]> => {
+    getInvoices: async (filters?: {
+        clientPhone?: string;
+        clientEmail?: string;
+        clinicId?: string;
+        dateFrom?: string;
+        dateTo?: string;
+        invoiceNumber?: string;
+        paymentMethod?: string;
+        search?: string;
+        refundStatus?: string;
+    }): Promise<Invoice[]> => {
         await ensureBillingLoaded();
         let result = [...invoices];
 
         if (filters?.clientPhone) {
-            result = result.filter(i => i.clientPhone === filters.clientPhone);
+            result = result.filter(i => i.clientPhone.includes(filters.clientPhone!));
+        }
+        if (filters?.clientEmail) {
+            result = result.filter(i => i.clientEmail?.toLowerCase().includes(filters.clientEmail!.toLowerCase()));
         }
         if (filters?.clinicId) {
             result = result.filter(i => i.clinicId === filters.clinicId);
@@ -110,6 +136,24 @@ export const BillingStore = {
         if (filters?.dateTo) {
             result = result.filter(i => i.date <= filters.dateTo!);
         }
+        if (filters?.invoiceNumber) {
+            result = result.filter(i => i.invoiceNumber.toLowerCase().includes(filters.invoiceNumber!.toLowerCase()));
+        }
+        if (filters?.paymentMethod) {
+            result = result.filter(i => i.paymentMethod === filters.paymentMethod);
+        }
+        if (filters?.refundStatus) {
+            result = result.filter(i => (i.refundStatus || 'none') === filters.refundStatus);
+        }
+        if (filters?.search) {
+            const q = filters.search.toLowerCase();
+            result = result.filter(i =>
+                i.clientName.toLowerCase().includes(q) ||
+                i.clientPhone.includes(q) ||
+                (i.clientEmail || '').toLowerCase().includes(q) ||
+                i.invoiceNumber.toLowerCase().includes(q)
+            );
+        }
 
         return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     },
@@ -117,5 +161,47 @@ export const BillingStore = {
     getInvoiceById: async (id: string): Promise<Invoice | undefined> => {
         await ensureBillingLoaded();
         return invoices.find(i => i.id === id);
+    },
+
+    refundInvoice: async (
+        invoiceId: string,
+        refundData: {
+            refundedBy: string;
+            refundAmount: number;
+            refundReason: string;
+            refundIban?: string;
+            refundBankName?: string;
+        }
+    ): Promise<{ success: boolean; message: string; invoice?: Invoice }> => {
+        await ensureBillingLoaded();
+        const idx = invoices.findIndex(i => i.id === invoiceId);
+        if (idx === -1) return { success: false, message: 'Invoice not found' };
+
+        const inv = invoices[idx];
+        if (inv.refundStatus === 'refunded') return { success: false, message: 'Invoice has already been refunded' };
+
+        // For cash/clinic payments, IBAN and bank name are required
+        if ((inv.paymentMethod === 'cash' || inv.paymentMethod === 'bank_transfer') && (!refundData.refundIban || !refundData.refundBankName)) {
+            return { success: false, message: 'IBAN and bank name are required for cash/bank transfer refunds' };
+        }
+
+        // Mark all items as void
+        const voidedItems = inv.items.map(item => ({ ...item, isVoid: true }));
+
+        invoices[idx] = {
+            ...inv,
+            items: voidedItems,
+            refundStatus: 'refunded',
+            refundedAt: new Date().toISOString(),
+            refundedBy: refundData.refundedBy,
+            refundAmount: refundData.refundAmount,
+            refundReason: refundData.refundReason,
+            refundIban: refundData.refundIban,
+            refundBankName: refundData.refundBankName,
+            isVoid: true,
+        };
+
+        await saveBilling();
+        return { success: true, message: 'Refund processed successfully', invoice: invoices[idx] };
     },
 };
