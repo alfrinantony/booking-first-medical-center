@@ -1,8 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { NotificationStore, NotificationConfig } from '@/lib/notification-store';
-import { Bell, Mail, MessageSquare, Plus, Trash2, Save, Send, MessageCircle } from 'lucide-react';
+import { Bell, Mail, MessageSquare, Plus, Trash2, Send, MessageCircle } from 'lucide-react';
+
+interface NotificationConfig {
+    id: string;
+    type: 'email' | 'sms' | 'whatsapp';
+    timing: number;
+    enabled: boolean;
+    template: string;
+}
 
 export default function NotificationSettingsPage() {
     const [configs, setConfigs] = useState<NotificationConfig[]>([]);
@@ -10,50 +17,78 @@ export default function NotificationSettingsPage() {
     const [isTesting, setIsTesting] = useState<string | null>(null);
 
     useEffect(() => {
-        // Simulate fetch
-        setTimeout(() => {
-            setConfigs(NotificationStore.getAll());
-            setIsLoading(false);
-        }, 500);
+        fetch('/api/admin/notifications')
+            .then(r => r.json())
+            .then(data => { if (Array.isArray(data)) setConfigs(data); })
+            .catch(() => {})
+            .finally(() => setIsLoading(false));
     }, []);
 
-    const handleToggle = (id: string, enabled: boolean) => {
-        const updated = NotificationStore.update(id, { enabled });
-        if (updated) {
-            setConfigs(configs.map(c => c.id === id ? updated : c));
-        }
-    };
-
-    const handleUpdate = (id: string, field: keyof NotificationConfig, value: any) => {
-        const updated = NotificationStore.update(id, { [field]: value });
-        if (updated) {
-            setConfigs(configs.map(c => c.id === id ? updated : c));
-        }
-    };
-
-    const handleAdd = () => {
-        const newConfig = NotificationStore.add({
-            type: 'email',
-            timing: 24,
-            enabled: true,
-            template: 'New reminder...'
+    const handleToggle = async (id: string, enabled: boolean) => {
+        const res = await fetch('/api/admin/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update', id, enabled }),
         });
-        setConfigs([...configs, newConfig]);
+        const updated = await res.json();
+        if (updated && !updated.error) {
+            setConfigs(configs.map(c => c.id === id ? updated : c));
+        }
     };
 
-    const handleDelete = (id: string) => {
-        NotificationStore.delete(id);
+    const handleUpdate = async (id: string, field: keyof NotificationConfig, value: any) => {
+        const res = await fetch('/api/admin/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update', id, [field]: value }),
+        });
+        const updated = await res.json();
+        if (updated && !updated.error) {
+            setConfigs(configs.map(c => c.id === id ? updated : c));
+        }
+    };
+
+    const handleAdd = async () => {
+        const res = await fetch('/api/admin/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', type: 'email', timing: 24, enabled: true, template: 'New reminder...' }),
+        });
+        const newConfig = await res.json();
+        if (newConfig && !newConfig.error) {
+            setConfigs([...configs, newConfig]);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        await fetch('/api/admin/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', id }),
+        });
         setConfigs(configs.filter(c => c.id !== id));
     };
 
     const handleTest = (id: string) => {
         setIsTesting(id);
-        // Simulate API call
         setTimeout(() => {
             alert(`Test notification sent for config ${id}`);
             setIsTesting(null);
         }, 1000);
     };
+
+    if (isLoading) {
+        return (
+            <div className="p-6 max-w-4xl mx-auto">
+                <div className="animate-pulse space-y-4">
+                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96"></div>
+                    <div className="h-40 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                    <div className="h-40 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 max-w-4xl mx-auto">
