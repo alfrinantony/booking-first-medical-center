@@ -127,6 +127,7 @@ function PackagesContent() {
     const [billPaymentMethod, setBillPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'online'>('card');
     const [billPaymentConfirmed, setBillPaymentConfirmed] = useState(true);
     const [isAssigning, setIsAssigning] = useState(false);
+    const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
     const [assignSuccess, setAssignSuccess] = useState('');
 
     // ── Fetch available packages ──
@@ -228,13 +229,13 @@ function PackagesContent() {
     };
 
     const handleDeletePackage = async (id: string) => {
-        if (!confirm('Delete this package?')) return;
         try {
             await fetch('/api/admin/packages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'delete', id }),
             });
+            setConfirmingDeleteId(null);
             fetchPackages();
         } catch (err) {
             console.error('Delete failed:', err);
@@ -582,12 +583,30 @@ function PackagesContent() {
                                         <span className="text-xs text-gray-400">
                                             Created {pkg.createdAt ? new Date(pkg.createdAt).toLocaleDateString() : '—'}
                                         </span>
-                                        <button
-                                            onClick={() => handleDeletePackage(pkg.id)}
-                                            className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1"
-                                        >
-                                            <Trash2 className="w-3 h-3" /> Delete
-                                        </button>
+                                        {confirmingDeleteId === pkg.id ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-red-600 font-medium">Delete?</span>
+                                                <button
+                                                    onClick={() => handleDeletePackage(pkg.id)}
+                                                    className="bg-red-600 text-white text-xs px-3 py-1 rounded-md hover:bg-red-700 font-bold transition-colors"
+                                                >
+                                                    Yes, Delete
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmingDeleteId(null)}
+                                                    className="text-gray-500 text-xs px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setConfirmingDeleteId(pkg.id)}
+                                                className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1"
+                                            >
+                                                <Trash2 className="w-3 h-3" /> Delete
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
