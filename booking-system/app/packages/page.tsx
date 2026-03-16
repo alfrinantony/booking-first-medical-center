@@ -34,43 +34,25 @@ export default function PackagesPage() {
     const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
 
     const handleBuyClick = (pkgId: string) => {
-        if (!isAuthenticated) {
-            setSelectedPackageId(pkgId);
-            setShowAuthModal(true);
-        } else {
-            executePurchase(pkgId);
-        }
-    };
-
-    const executePurchase = async (pkgId: string) => {
-        if (!user) return;
-        try {
-            const res = await fetch('/api/admin/packages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'purchase', packageId: pkgId, customerName: user.name, customerPhone: user.phone }),
-            });
-            const result = await res.json();
-            if (result && !result.error) {
-                setPurchaseSuccess(pkgId);
-                setTimeout(() => setPurchaseSuccess(null), 3000);
-                // Refresh my packages
-                if (user.phone) {
-                    fetch(`/api/session-packages?phone=${encodeURIComponent(user.phone)}`)
-                        .then(r => r.json())
-                        .then(data => { if (Array.isArray(data)) setMyPackages(data); })
-                        .catch(() => {});
-                }
-            }
-        } catch {
-            // handle error silently
-        }
+        const pkg = availablePackages.find(p => p.id === pkgId);
+        if (!pkg) return;
+        // Redirect to checkout page with package details
+        const firstItem = pkg.items[0];
+        const params = new URLSearchParams({
+            serviceId: firstItem?.serviceId || '',
+            serviceName: firstItem?.serviceName || pkg.name,
+            sessions: String(firstItem?.count || 1),
+            price: String(pkg.price),
+            validity: String(pkg.validityInDays),
+            singlePrice: '0',
+        });
+        router.push(`/packages/checkout?${params.toString()}`);
     };
 
     const onAuthSuccess = () => {
         setShowAuthModal(false);
         if (selectedPackageId) {
-            executePurchase(selectedPackageId);
+            handleBuyClick(selectedPackageId);
             setSelectedPackageId(null);
         }
     };

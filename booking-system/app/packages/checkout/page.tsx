@@ -131,23 +131,30 @@ function CheckoutContent() {
                     )}
 
                     <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-6 mb-8">
+                        {/* Session tracking grid */}
+                        <div className="grid grid-cols-3 gap-4 text-center mb-4">
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-3">
+                                <p className="text-xs text-gray-500 mb-1">Current Session</p>
+                                <p className="text-xl font-extrabold text-indigo-600">1 <span className="text-sm font-normal text-gray-400">of {sessions}</span></p>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-3">
+                                <p className="text-xs text-gray-500 mb-1">Remaining</p>
+                                <p className="text-xl font-extrabold text-emerald-600">{sessions}</p>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-3">
+                                <p className="text-xs text-gray-500 mb-1">Expires In</p>
+                                <p className="text-xl font-extrabold text-gray-700 dark:text-gray-300">{validity}<span className="text-sm font-normal text-gray-400"> days</span></p>
+                            </div>
+                        </div>
                         <div className="flex justify-between items-center mb-3">
                             <span className="text-sm text-gray-500">Package</span>
                             <span className="font-bold text-gray-900 dark:text-white">{serviceName} × {sessions}</span>
                         </div>
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="text-sm text-gray-500">Sessions</span>
-                            <span className="font-bold text-green-600">{sessions} of {sessions}</span>
-                        </div>
-                        <div className="flex justify-between items-center mb-3">
+                        <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-500">Status</span>
                             <span className={`font-bold ${isPaidByCard ? 'text-green-600' : 'text-amber-600'}`}>
-                                {isPaidByCard ? '✓ Active' : '⏳ Pending Payment'}
+                                {isPaidByCard ? '✓ Active — Ready to book' : '⏳ Pending Payment'}
                             </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-500">Validity</span>
-                            <span className="font-bold text-gray-900 dark:text-white">{validity} days</span>
                         </div>
                     </div>
 

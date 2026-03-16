@@ -298,21 +298,81 @@ export default function CustomerDashboard() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {myPackages.map(pkg => (
-                                    <div key={pkg.id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-bl-xl dark:bg-green-900/30 dark:text-green-300">ACTIVE</div>
-                                        <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">{pkg.packageName}</h3>
-                                        <p className="text-sm text-gray-500 mb-4">Expires: {format(parseISO(pkg.expiryDate), 'MMM d, yyyy')}</p>
-                                        <div className="space-y-3">
-                                            {Object.entries(pkg.remainingSessions).map(([svcId, count]) => (
-                                                <div key={svcId} className="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
-                                                    <span className="font-medium text-gray-700 dark:text-gray-300">Service ({svcId.slice(0, 5)}...)</span>
-                                                    <span className="font-bold text-indigo-600">{count} left</span>
+                                {myPackages.map(pkg => {
+                                    const daysLeft = Math.max(0, Math.ceil((new Date(pkg.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+                                    const expiryFormatted = format(parseISO(pkg.expiryDate), 'MMM d, yyyy');
+                                    const isPending = pkg.paymentStatus === 'pending' || (!pkg.active && pkg.paymentStatus !== 'paid');
+                                    return (
+                                        <div key={pkg.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                                            {/* Header badge */}
+                                            <div className={`px-5 py-3 ${isPending ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-indigo-500 to-purple-600'}`}>
+                                                <div className="flex items-center justify-between">
+                                                    <h3 className="font-bold text-white truncate">{pkg.packageName}</h3>
+                                                    <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur flex-shrink-0">
+                                                        {isPending ? '⏳ Pending' : `${daysLeft}d left`}
+                                                    </span>
                                                 </div>
-                                            ))}
+                                            </div>
+
+                                            <div className="p-5 space-y-4">
+                                                {/* Pending payment notice */}
+                                                {isPending && (
+                                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400">
+                                                        <strong>Payment Required</strong> — Visit any branch to complete payment and activate.
+                                                    </div>
+                                                )}
+
+                                                {/* Session tracking per service */}
+                                                {Object.entries(pkg.remainingSessions).map(([svcId, remaining]) => {
+                                                    const total = pkg.totalSessions?.[svcId] || remaining;
+                                                    const used = total - remaining;
+                                                    const nextSession = used + 1;
+                                                    // Show the service name from package name
+                                                    const serviceName = pkg.packageName.replace(/ - \d+ Sessions?$/i, '');
+                                                    return (
+                                                        <div key={svcId}>
+                                                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{serviceName}</p>
+                                                            {/* Session info grid */}
+                                                            <div className="grid grid-cols-3 gap-2 text-center mb-2">
+                                                                <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2">
+                                                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">Next Session</p>
+                                                                    <p className="text-lg font-extrabold text-indigo-600">{nextSession} <span className="text-xs font-normal text-gray-400">of {total}</span></p>
+                                                                </div>
+                                                                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2">
+                                                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">Remaining</p>
+                                                                    <p className="text-lg font-extrabold text-emerald-600">{remaining}</p>
+                                                                </div>
+                                                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
+                                                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">Expires</p>
+                                                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{expiryFormatted}</p>
+                                                                    <p className="text-[10px] text-gray-400">{daysLeft}d left</p>
+                                                                </div>
+                                                            </div>
+                                                            {/* Progress bar */}
+                                                            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all ${remaining > 0 ? 'bg-gradient-to-r from-indigo-500 to-emerald-500' : 'bg-red-500'}`}
+                                                                    style={{ width: `${(used / total) * 100}%` }}
+                                                                />
+                                                            </div>
+                                                            <p className="text-[10px] text-gray-400 mt-1">{used} of {total} sessions used</p>
+                                                        </div>
+                                                    );
+                                                })}
+
+                                                {/* Book from Package button */}
+                                                {!isPending && pkg.active && (
+                                                    <Link
+                                                        href={`/booking?packageId=${pkg.id}&serviceId=${Object.keys(pkg.remainingSessions)[0]}`}
+                                                        className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg"
+                                                    >
+                                                        <Calendar className="w-4 h-4" /> Book from Package
+                                                    </Link>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
