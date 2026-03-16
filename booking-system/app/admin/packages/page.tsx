@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Package, PackageServiceItem, CustomerPackage } from '@/types/packages';
-import { Plus, Trash2, Package as PackageIcon, X, Search, User, Calendar } from 'lucide-react';
+import { Plus, Trash2, Package as PackageIcon, X, Search, User, Calendar, Receipt, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
 
 // ── Safe helpers ──
 function safeArray<T>(val: unknown): T[] {
@@ -123,6 +123,11 @@ function PackagesContent() {
     const [assignPkgId, setAssignPkgId] = useState('');
     const [custName, setCustName] = useState('');
     const [custPhone, setCustPhone] = useState('');
+    const [custEmail, setCustEmail] = useState('');
+    const [billPaymentMethod, setBillPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'online'>('card');
+    const [billPaymentConfirmed, setBillPaymentConfirmed] = useState(true);
+    const [isAssigning, setIsAssigning] = useState(false);
+    const [assignSuccess, setAssignSuccess] = useState('');
 
     // ── Fetch available packages ──
     const fetchPackages = useCallback(async () => {
@@ -239,8 +244,10 @@ function PackagesContent() {
     const handleAssignPackage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!assignPkgId || !custName || !custPhone) return;
+        setIsAssigning(true);
         try {
-            await fetch('/api/admin/packages', {
+            // 1. Assign the package to the customer
+            const assignRes = await fetch('/api/admin/packages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -250,14 +257,69 @@ function PackagesContent() {
                     customerPhone: custPhone,
                 }),
             });
-            alert(`Package assigned to ${custName}`);
+
+            // If payment confirmed via card/online, also confirm the package payment
+            if (billPaymentConfirmed && assignRes.ok) {
+                const assignData = await assignRes.json();
+                const customerPkgId = assignData?.id;
+                if (customerPkgId) {
+                    await fetch('/api/admin/packages', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'confirmPayment', customerPackageId: customerPkgId }),
+                    });
+                }
+            }
+
+            // 2. Generate an invoice for the package
+            const selectedPkg = packages.find(p => p.id === assignPkgId);
+            if (selectedPkg) {
+                const stored = sessionStorage.getItem('adminUser');
+                const generatedBy = stored ? JSON.parse(stored).name || 'Admin' : 'Admin';
+                const itemDescriptions = safeArray<PackageServiceItem>(selectedPkg.items)
+                    .map(i => `${i.serviceName} (x${i.count})`).join(', ');
+
+                await fetch('/api/admin/billing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clientName: custName,
+                        clientPhone: custPhone,
+                        clientEmail: custEmail || undefined,
+                        items: [{
+                            description: `Package: ${selectedPkg.name} — ${itemDescriptions}`,
+                            quantity: 1,
+                            unitPrice: selectedPkg.price,
+                            total: selectedPkg.price,
+                        }],
+                        packageDetails: selectedPkg.name,
+                        subtotal: selectedPkg.price,
+                        taxPercentage: 0,
+                        taxAmount: 0,
+                        totalAmount: selectedPkg.price,
+                        paymentMethod: billPaymentMethod,
+                        paymentConfirmed: billPaymentConfirmed,
+                        paymentReceivedBy: generatedBy,
+                        paymentReceptionStatus: billPaymentConfirmed ? 'received' : 'pending',
+                        generatedBy,
+                        date: new Date().toISOString().split('T')[0],
+                        notes: `Package assignment — ${selectedPkg.name} — Validity: ${selectedPkg.validityInDays} days`,
+                    }),
+                });
+            }
+
+            setAssignSuccess(`Package "${selectedPkg?.name}" assigned & billed to ${custName}`);
+            setTimeout(() => setAssignSuccess(''), 4000);
             setAssignPkgId('');
             setCustName('');
             setCustPhone('');
+            setCustEmail('');
             setCustomerPhoneSearch(custPhone);
         } catch (err) {
             console.error('Assign failed:', err);
+            alert('Failed to assign package. Please try again.');
         }
+        setIsAssigning(false);
     };
 
     const handleUseSession = async (customerPkgId: string, serviceId: string) => {
@@ -547,12 +609,19 @@ function PackagesContent() {
                     <div className="lg:col-span-1 space-y-8">
                         <section className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                             <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-                                <Plus className="w-5 h-5 text-indigo-600" />
-                                Assign Package
+                                <Receipt className="w-5 h-5 text-indigo-600" />
+                                Assign & Bill Package
                             </h2>
+
+                            {assignSuccess && (
+                                <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                                    <CheckCircle2 className="w-4 h-4" /> {assignSuccess}
+                                </div>
+                            )}
+
                             <form onSubmit={handleAssignPackage} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Name</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Name *</label>
                                     <input
                                         required
                                         type="text"
@@ -563,7 +632,7 @@ function PackagesContent() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
                                     <input
                                         required
                                         type="tel"
@@ -574,7 +643,17 @@ function PackagesContent() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Package</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email (optional)</label>
+                                    <input
+                                        type="email"
+                                        value={custEmail}
+                                        onChange={e => setCustEmail(e.target.value)}
+                                        className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        placeholder="client@email.com"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Package *</label>
                                     <select
                                         required
                                         value={assignPkgId}
@@ -586,12 +665,63 @@ function PackagesContent() {
                                             <option key={p.id} value={p.id}>{p.name} (AED {p.price})</option>
                                         ))}
                                     </select>
+                                    {assignPkgId && (() => {
+                                        const sp = packages.find(p => p.id === assignPkgId);
+                                        if (!sp) return null;
+                                        return (
+                                            <div className="mt-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3 text-xs space-y-1">
+                                                <div className="flex justify-between"><span className="text-gray-500">Price:</span><span className="font-bold text-indigo-600">AED {sp.price}</span></div>
+                                                <div className="flex justify-between"><span className="text-gray-500">Validity:</span><span>{sp.validityInDays} days</span></div>
+                                                <div className="flex justify-between"><span className="text-gray-500">Services:</span><span>{safeArray<PackageServiceItem>(sp.items).map(i => `${i.serviceName} (x${i.count})`).join(', ')}</span></div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
+
+                                {/* Billing Section */}
+                                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-1.5">
+                                        <CreditCard className="w-3.5 h-3.5" /> Payment Details
+                                    </h3>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method *</label>
+                                        <select
+                                            value={billPaymentMethod}
+                                            onChange={e => setBillPaymentMethod(e.target.value as any)}
+                                            className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+                                        >
+                                            <option value="card">💳 Credit Card</option>
+                                            <option value="cash">💵 Cash</option>
+                                            <option value="bank_transfer">🏦 Bank Transfer</option>
+                                            <option value="online">🌐 Online</option>
+                                        </select>
+                                    </div>
+                                    <div className="mt-3">
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={billPaymentConfirmed}
+                                                onChange={e => setBillPaymentConfirmed(e.target.checked)}
+                                                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                            />
+                                            <span className="text-sm text-gray-700 dark:text-gray-300">Payment received & confirmed</span>
+                                        </label>
+                                        {!billPaymentConfirmed && (
+                                            <p className="text-xs text-amber-600 mt-1 ml-7">⚠ Package will be assigned as &quot;pending payment&quot; until confirmed.</p>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <button
                                     type="submit"
-                                    className="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md font-medium"
+                                    disabled={isAssigning}
+                                    className="w-full py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
                                 >
-                                    Assign Package
+                                    {isAssigning ? (
+                                        <><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span> Processing...</>
+                                    ) : (
+                                        <><Banknote className="w-4 h-4" /> Assign & Generate Invoice</>
+                                    )}
                                 </button>
                             </form>
                         </section>
