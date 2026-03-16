@@ -51,10 +51,10 @@ export async function GET(request: Request) {
     const { ServicesStore } = require('@/lib/services-store');
     const { ResourcesStore } = require('@/lib/resources-store');
 
-    // ── 2. Get Base Schedule Slots ──
-    let slots: string[] = Scheduler.getSchedule(doctorId, date, clinicId);
-    if (slots.length === 0) {
-        slots = timeSlots;
+    // ── 2. Get Base Schedule Slots (15-min checkpoints representing doctor availability) ──
+    let baseScheduleSlots: string[] = Scheduler.getSchedule(doctorId, date, clinicId);
+    if (baseScheduleSlots.length === 0) {
+        baseScheduleSlots = timeSlots;
     }
 
     // ── 3. Resolve Requested Service Duration ──
@@ -64,6 +64,45 @@ export async function GET(request: Request) {
         requestedService = await ServicesStore.getServiceById(serviceId);
         if (requestedService?.duration) {
             requestedDuration = requestedService.duration;
+        }
+    }
+
+    // ── 3b. Generate Candidate Slots at Service-Duration Intervals ──
+    // Convert base schedule to a Set of available minutes for fast lookup
+    const availableMinutesSet = new Set<number>();
+    for (const slot of baseScheduleSlots) {
+        availableMinutesSet.add(parseSlotToMinutes(slot));
+    }
+
+    // Find the time window from the schedule
+    const scheduleMinutesArray = Array.from(availableMinutesSet).sort((a, b) => a - b);
+    const scheduleStart = scheduleMinutesArray.length > 0 ? scheduleMinutesArray[0] : 10 * 60;
+    const scheduleEnd = scheduleMinutesArray.length > 0 ? scheduleMinutesArray[scheduleMinutesArray.length - 1] + 15 : 22 * 60;
+
+    // Helper: convert minutes to slot string like "02:30 PM"
+    function minutesToSlotString(totalMinutes: number): string {
+        let h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        const period = h >= 12 ? 'PM' : 'AM';
+        if (h > 12) h -= 12;
+        if (h === 0) h = 12;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+    }
+
+    // Generate slots at service-duration intervals
+    // A slot is valid only if every 15-min checkpoint within its duration is in the doctor's schedule
+    let slots: string[] = [];
+    for (let startMin = scheduleStart; startMin + requestedDuration <= scheduleEnd; startMin += requestedDuration) {
+        // Verify all 15-min blocks within this slot are available in the schedule
+        let allAvailable = true;
+        for (let checkpoint = startMin; checkpoint < startMin + requestedDuration; checkpoint += 15) {
+            if (!availableMinutesSet.has(checkpoint)) {
+                allAvailable = false;
+                break;
+            }
+        }
+        if (allAvailable) {
+            slots.push(minutesToSlotString(startMin));
         }
     }
 
