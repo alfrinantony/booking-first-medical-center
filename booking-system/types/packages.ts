@@ -12,6 +12,7 @@ export interface Package {
     validityInDays: number;
     items: PackageServiceItem[];
     active: boolean;
+    source?: 'admin' | 'service'; // 'admin' = created in Admin Packages, 'service' = auto-created from service purchase
     createdAt: string;
 }
 

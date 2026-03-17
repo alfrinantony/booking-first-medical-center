@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
                 validityInDays: Number(validity),
                 items: [{ serviceId, serviceName, count: Number(sessionCount) }],
                 active: true,
+                source: 'service', // Mark as service-page purchase — won't show in Browse Packages
             });
 
             // Assign to the customer with payment method

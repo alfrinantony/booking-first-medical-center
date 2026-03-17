@@ -118,7 +118,7 @@ export default function PackagesPage() {
                 {/* Browse Packages Tab */}
                 {activeTab === 'browse' && (
                     <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                        {availablePackages.filter(p => p.active).map((pkg) => (
+                        {availablePackages.filter(p => p.active && p.source !== 'service').map((pkg) => (
                             <div key={pkg.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden hover:scale-105 transition-transform duration-300 border border-gray-100 dark:border-gray-700 flex flex-col">
                                 <div className="p-8 flex-1">
                                     <div className="flex justify-between items-start mb-4">
@@ -165,7 +165,7 @@ export default function PackagesPage() {
                                 </div>
                             </div>
                         ))}
-                        {availablePackages.filter(p => p.active).length === 0 && (
+                        {availablePackages.filter(p => p.active && p.source !== 'service').length === 0 && (
                             <div className="col-span-full text-center py-16">
                                 <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                                 <h3 className="text-lg font-medium text-gray-500">No packages available yet</h3>
