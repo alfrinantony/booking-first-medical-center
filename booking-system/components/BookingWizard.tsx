@@ -1268,34 +1268,23 @@ export default function BookingWizard() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {(() => {
-                                    // Sort by distance if location available
-                                    const sorted = [...branchOptions].sort((a: any, b: any) => {
-                                        if (!myCoords) return 0;
-                                        const distA = a.coordinates ? Math.sqrt(Math.pow(a.coordinates.lat - myCoords.lat, 2) + Math.pow(a.coordinates.lng - myCoords.lng, 2)) : 999;
-                                        const distB = b.coordinates ? Math.sqrt(Math.pow(b.coordinates.lat - myCoords.lat, 2) + Math.pow(b.coordinates.lng - myCoords.lng, 2)) : 999;
-                                        return distA - distB;
-                                    });
-                                    return sorted.map((clinic: any) => {
+                                    // Process branches and determine their availability status and distance
+                                    const branchesWithStatus = branchOptions.map((clinic: any) => {
                                         let distance: string | null = null;
+                                        let distValue = 999;
                                         if (myCoords && clinic.coordinates) {
                                             const R = 6371;
                                             const dLat = (clinic.coordinates.lat - myCoords.lat) * (Math.PI / 180);
                                             const dLon = (clinic.coordinates.lng - myCoords.lng) * (Math.PI / 180);
                                             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(myCoords.lat * (Math.PI / 180)) * Math.cos(clinic.coordinates.lat * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                                            distance = (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1) + ' km';
+                                            distValue = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                                            distance = distValue.toFixed(1) + ' km';
                                         }
 
-                                        // Evaluate availability for the selected date
                                         const availability = (selectedService.availability || []).find((a: any) => a.clinicId === clinic.id);
                                         const branchDoctors = availability?.doctors || [];
                                         const allowedDoctorIds = selectedService.allowedDoctorIds;
                                         
-                                        // Does the branch have ANY doctors permitted to perform this service ever?
-                                        const hasAnyDoctors = branchDoctors.some((doc: any) => {
-                                            if (allowedDoctorIds && allowedDoctorIds.length > 0 && !allowedDoctorIds.includes(doc.id)) return false;
-                                            return true;
-                                        });
-
                                         const eligibleDoctors = branchDoctors.filter((doc: any) => {
                                             if (allowedDoctorIds && allowedDoctorIds.length > 0 && !allowedDoctorIds.includes(doc.id)) return false;
                                             return isDoctorAvailableOnDate(doc, selectedDate, clinic.id);
@@ -1303,18 +1292,35 @@ export default function BookingWizard() {
 
                                         let isDisabled = false;
                                         let disabledReason = '';
+                                        let sortPriority = 0; // 0 = Available, 1 = Try different dates, 2 = Not available
                                         
-                                        if (!availability || !hasAnyDoctors) {
+                                        if (!availability) {
                                             isDisabled = true;
                                             disabledReason = 'This service is not available in this branch.';
+                                            sortPriority = 2; // Completely unavailable
                                         } else if (clinic.workingDays && clinic.workingDays.length > 0 && !clinic.workingDays.includes(selectedDayOfWeek)) {
                                             isDisabled = true;
                                             disabledReason = 'Please try different dates.';
+                                            sortPriority = 1; // Unavailable on selected date
                                         } else if (eligibleDoctors.length === 0) {
                                             isDisabled = true;
                                             disabledReason = 'Please try different dates.';
+                                            sortPriority = 1; // Unavailable on selected date
                                         }
 
+                                        return { ...clinic, distanceStr: distance, distValue, isDisabled, disabledReason, sortPriority };
+                                    });
+
+                                    // Sort by Priority first, then by actual distance
+                                    const sorted = branchesWithStatus.sort((a: any, b: any) => {
+                                        if (a.sortPriority !== b.sortPriority) {
+                                            return a.sortPriority - b.sortPriority;
+                                        }
+                                        return a.distValue - b.distValue;
+                                    });
+
+                                    return sorted.map((clinic: any) => {
+                                        const { isDisabled, disabledReason, distanceStr: distance } = clinic;
                                         const isMapOpen = expandedMapId === clinic.id;
                                         return (
                                             <div key={clinic.id} className={`group bg-white dark:bg-gray-800 rounded-2xl border ${isDisabled ? 'border-gray-200 dark:border-gray-700 opacity-60' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-lg'} overflow-hidden transition-all duration-300`}>
