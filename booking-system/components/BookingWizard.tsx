@@ -1290,6 +1290,12 @@ export default function BookingWizard() {
                                         const branchDoctors = availability?.doctors || [];
                                         const allowedDoctorIds = selectedService.allowedDoctorIds;
                                         
+                                        // Does the branch have ANY doctors permitted to perform this service ever?
+                                        const hasAnyDoctors = branchDoctors.some((doc: any) => {
+                                            if (allowedDoctorIds && allowedDoctorIds.length > 0 && !allowedDoctorIds.includes(doc.id)) return false;
+                                            return true;
+                                        });
+
                                         const eligibleDoctors = branchDoctors.filter((doc: any) => {
                                             if (allowedDoctorIds && allowedDoctorIds.length > 0 && !allowedDoctorIds.includes(doc.id)) return false;
                                             return isDoctorAvailableOnDate(doc, selectedDate, clinic.id);
@@ -1298,7 +1304,7 @@ export default function BookingWizard() {
                                         let isDisabled = false;
                                         let disabledReason = '';
                                         
-                                        if (!availability) {
+                                        if (!availability || !hasAnyDoctors) {
                                             isDisabled = true;
                                             disabledReason = 'This service is not available in this branch.';
                                         } else if (clinic.workingDays && clinic.workingDays.length > 0 && !clinic.workingDays.includes(selectedDayOfWeek)) {
