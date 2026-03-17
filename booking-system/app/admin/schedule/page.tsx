@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { timeSlots, Clinic } from '@/lib/data';
 import { Calendar, Save, User, Clock, CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isToday as isTodayFn } from 'date-fns';
@@ -96,33 +96,48 @@ export default function SchedulePage() {
         }
     }, [selectedDoctorId, selectedDoctor]);
 
+    // Helper: Pick a color theme based on the clinic's position in the overall clinics array
+    const getBranchColors = useCallback((clinicId: string) => {
+        const index = clinics.findIndex(c => c.id === clinicId);
+        // Fallback or generic index if not found
+        const colorVariants = [
+            { id: 0, text: 'text-indigo-700', bg: 'bg-indigo-100', border: 'border-indigo-500', dot: 'bg-indigo-500' },
+            { id: 1, text: 'text-emerald-700', bg: 'bg-emerald-100', border: 'border-emerald-500', dot: 'bg-emerald-500' },
+            { id: 2, text: 'text-rose-700', bg: 'bg-rose-100', border: 'border-rose-500', dot: 'bg-rose-500' },
+            { id: 3, text: 'text-amber-700', bg: 'bg-amber-100', border: 'border-amber-500', dot: 'bg-amber-500' },
+            { id: 4, text: 'text-cyan-700', bg: 'bg-cyan-100', border: 'border-cyan-500', dot: 'bg-cyan-500' },
+        ];
+        const safeIndex = index >= 0 ? index % colorVariants.length : 0;
+        return colorVariants[safeIndex];
+    }, [clinics]);
+
+    // Extracted fetchSchedule so it can be called explicitly after saving
+    const fetchSchedule = useCallback(async () => {
+        if (!selectedDoctorId || !startDate || !selectedClinicId) return;
+        setIsLoading(true);
+        try {
+            const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctorId}&date=${startDate}&clinicId=${selectedClinicId}&otherBranches=true`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.slots && data.slots.length > 0) {
+                    setAvailableSlots(data.slots);
+                } else {
+                    setAvailableSlots(timeSlots);
+                }
+                // Store other-branch conflict data
+                setOtherBranchSlots(data.otherBranchSlots || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch schedule');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [selectedDoctorId, startDate, selectedClinicId]);
+
     // Fetch schedule when doctor, clinic, or START date changes
     useEffect(() => {
-        if (!selectedDoctorId || !startDate || !selectedClinicId) return;
-
-        const fetchSchedule = async () => {
-            setIsLoading(true);
-            try {
-                const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctorId}&date=${startDate}&clinicId=${selectedClinicId}&otherBranches=true`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.slots && data.slots.length > 0) {
-                        setAvailableSlots(data.slots);
-                    } else {
-                        setAvailableSlots(timeSlots);
-                    }
-                    // Store other-branch conflict data
-                    setOtherBranchSlots(data.otherBranchSlots || []);
-                }
-            } catch (error) {
-                console.error('Failed to fetch schedule');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchSchedule();
-    }, [selectedDoctorId, startDate, selectedClinicId]);
+    }, [fetchSchedule]);
 
     // Fetch staff leaves when date range changes
     useEffect(() => {
@@ -268,6 +283,8 @@ export default function SchedulePage() {
             if (allSuccess) {
                 const skippedNote = skippedDaysOff > 0 ? ` (${skippedDaysOff} day-off${skippedDaysOff > 1 ? 's' : ''} skipped)` : '';
                 setMessage(`Schedule saved for ${selectedDates.length - skippedDaysOff} date(s)!${skippedNote}`);
+                // Re-fetch to confirm the UI reflects exactly what the backend sees
+                await fetchSchedule();
                 setTimeout(() => setMessage(''), 4000);
             } else {
                 setMessage('Failed to save for some dates.');
@@ -531,17 +548,21 @@ export default function SchedulePage() {
                                         const isAvailable = availableSlots.includes(slot);
                                         // Check if this slot is scheduled in another branch
                                         const otherBranch = otherBranchSlots.find(ob => ob.slots.includes(slot));
+                                        
+                                        const activeColors = getBranchColors(selectedClinicId);
+                                        const otherColors = otherBranch ? getBranchColors(otherBranch.clinicId) : null;
+                                        
                                         const otherBranchName = otherBranch ? clinics.find(c => c.id === otherBranch.clinicId)?.name?.replace(' Branch', '') || otherBranch.clinicId : '';
                                         const isOtherBranch = !!otherBranch;
 
                                         let slotClass = 'bg-gray-100 text-gray-400 border-2 border-transparent hover:bg-gray-200';
-                                        if (isAvailable && isOtherBranch) {
-                                            // Both current branch AND other branch
-                                            slotClass = 'bg-indigo-100 text-indigo-700 border-2 border-indigo-500 ring-2 ring-amber-400';
+                                        if (isAvailable && isOtherBranch && otherColors) {
+                                            // Both current branch AND other branch (Conflict)
+                                            slotClass = `${activeColors.bg} ${activeColors.text} border-2 ${activeColors.border} ring-2 ring-red-500`;
                                         } else if (isAvailable) {
-                                            slotClass = 'bg-indigo-100 text-indigo-700 border-2 border-indigo-500';
-                                        } else if (isOtherBranch) {
-                                            slotClass = 'bg-amber-100 text-amber-700 border-2 border-amber-400 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600';
+                                            slotClass = `${activeColors.bg} ${activeColors.text} border-2 ${activeColors.border}`;
+                                        } else if (isOtherBranch && otherColors) {
+                                            slotClass = `${otherColors.bg} ${otherColors.text} border-2 border-transparent`;
                                         }
 
                                         return (
@@ -552,8 +573,8 @@ export default function SchedulePage() {
                                                 className={`py-2 px-3 rounded-md text-sm font-medium transition-all relative ${slotClass}`}
                                             >
                                                 {slot}
-                                                {isOtherBranch && (
-                                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border border-white" title={`${otherBranchName}`} />
+                                                {isOtherBranch && otherColors && (
+                                                    <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 ${otherColors.dot} rounded-full border border-white`} title={`${otherBranchName}`} />
                                                 )}
                                             </button>
                                         );
@@ -562,24 +583,36 @@ export default function SchedulePage() {
                             )}
 
                             {/* Color Legend */}
-                            {otherBranchSlots.length > 0 && (
-                                <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="w-3 h-3 rounded bg-indigo-100 border-2 border-indigo-500 inline-block" />
-                                        This branch
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="w-3 h-3 rounded bg-amber-100 border-2 border-amber-400 inline-block relative">
-                                            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-amber-500 rounded-full" />
-                                        </span>
-                                        Other branch
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="w-3 h-3 rounded bg-gray-100 border-2 border-transparent inline-block" />
-                                        Not scheduled
-                                    </div>
+                            <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+                                {(() => {
+                                    const activeColors = getBranchColors(selectedClinicId);
+                                    return (
+                                        <div className="flex items-center gap-1.5 font-medium">
+                                            <span className={`w-3 h-3 rounded ${activeColors.bg} border-2 ${activeColors.border} inline-block`} />
+                                            {currentClinic?.name || 'Selected Clinic'}
+                                        </div>
+                                    );
+                                })()}
+                                
+                                {/* Unique other branches found in the current schedule matrix */}
+                                {Array.from(new Set(otherBranchSlots.map(ob => ob.clinicId))).map(cid => {
+                                    const otherColors = getBranchColors(cid);
+                                    const name = clinics.find(c => c.id === cid)?.name?.replace(' Branch', '') || cid;
+                                    return (
+                                        <div key={cid} className="flex items-center gap-1.5">
+                                            <span className={`w-3 h-3 rounded ${otherColors.bg} border-2 border-transparent inline-block relative`}>
+                                                <span className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 ${otherColors.dot} rounded-full`} />
+                                            </span>
+                                            {name}
+                                        </div>
+                                    );
+                                })}
+
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-3 h-3 rounded bg-gray-100 border-2 border-transparent inline-block" />
+                                    Not scheduled
                                 </div>
-                            )}
+                            </div>
 
                             <div className="mt-8 flex items-center justify-between border-t pt-6 border-gray-100 dark:border-gray-700">
                                 <div className="text-sm">

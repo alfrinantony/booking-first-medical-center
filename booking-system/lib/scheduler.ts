@@ -58,6 +58,13 @@ export const Scheduler = {
             .map(s => ({ clinicId: s.clinicId, slots: s.slots }));
     },
 
+    /**
+     * Get all schedules (used by booking catalog to expose availability)
+     */
+    getAllSchedules: (): Schedule[] => {
+        return schedules;
+    },
+
     // Initialize mock data if empty
     initMockData: () => {
         if (schedules.length === 0) {

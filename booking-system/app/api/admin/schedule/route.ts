@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { Scheduler } from '@/lib/scheduler';
 import { BookingsStore } from '@/lib/bookings-store';

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ServicesStore } from '@/lib/services-store';
 import { BOOKING_CATEGORIES } from '@/lib/data';
+import { Scheduler } from '@/lib/scheduler';
 
 /**
  * GET /api/booking-catalog
@@ -67,9 +68,14 @@ export async function GET() {
                     clinicId: clinic.id,
                     clinicName: clinic.name,
                     departmentId: dept.id,
-                    doctors: dept.doctors
-                        .filter(d => d.status !== 'not_working')
-                        .map(d => ({
+                    doctors: Array.from(
+                        new Map(
+                            clinic.departments
+                                .flatMap(d => d.doctors)
+                                .filter(d => d.status !== 'not_working')
+                                .map(d => [d.id, d])
+                        ).values()
+                    ).map(d => ({
                             id: d.id,
                             name: d.name,
                             specialty: d.specialty,
@@ -130,5 +136,6 @@ export async function GET() {
         categories: orderedCategories,
         services,
         clinics: clinicSummaries,
+        schedules: Scheduler.getAllSchedules(),
     });
 }

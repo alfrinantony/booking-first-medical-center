@@ -100,7 +100,7 @@ export default function BookingWizard() {
     const [selectedDeviceGroup, setSelectedDeviceGroup] = useState<string | null>(null);
 
     // Catalog state (aggregated across all clinics)
-    const [catalogData, setCatalogData] = useState<{ categories: string[]; services: any[]; clinics: any[] }>({ categories: [], services: [], clinics: [] });
+    const [catalogData, setCatalogData] = useState<{ categories: string[]; services: any[]; clinics: any[]; schedules?: any[] }>({ categories: [], services: [], clinics: [] });
     const [catalogLoading, setCatalogLoading] = useState(true);
     const [expandedMapId, setExpandedMapId] = useState<string | null>(null);
 
@@ -150,7 +150,10 @@ export default function BookingWizard() {
                 const res = await fetch('/api/booking-catalog');
                 if (res.ok) {
                     const data = await res.json();
-                    setCatalogData(data);
+                    setCatalogData({
+                        ...data,
+                        schedules: data.schedules || []
+                    });
                 }
             } catch (error) {
                 console.error('Failed to fetch booking catalog');
@@ -175,30 +178,54 @@ export default function BookingWizard() {
         }
     }, [catalogData.services, catalogLoading, packageAutoSelected, searchParams]);
 
-    // Generate next 90 days (3 months) for date selection, filtering by service, clinic, and doctor
+    // Helper: check if a doctor is available on a specific date, optionally strictly at a given clinic
+    const isDoctorAvailableOnDate = (doc: any, date: Date, filterByClinicId?: string): boolean => {
+        if (doc.status === 'not_working') return false;
+        const dayOfWeek = date.getDay();
+        const dateStr = format(date, 'yyyy-MM-dd');
+        
+        // 1. Basic validation (Status, Employment dates, Global days off)
+        if (doc.daysOff && doc.daysOff.includes(dayOfWeek)) return false;
+        if (doc.startDate && dateStr < doc.startDate) return false;
+        if (doc.endDate && dateStr > doc.endDate) return false;
+
+        // 2. Strict Schedule validation (if Admin has assigned shifts using the Scheduler)
+        const allSchedules = catalogData.schedules || [];
+        const doctorSchedules = allSchedules.filter((s: any) => s.doctorId === doc.id);
+
+        if (doctorSchedules.length > 0) {
+            // The doctor has at least one scheduled shift defined in the system.
+            // Strict mode: they MUST have a shift on this specific date (and clinic if provided)
+            let matchingSchedules = doctorSchedules.filter((s: any) => s.date === dateStr);
+            if (filterByClinicId) {
+                matchingSchedules = matchingSchedules.filter((s: any) => s.clinicId === filterByClinicId);
+            }
+            
+            // If there's no shift on this day, or the shift has 0 slots, they are not available
+            if (matchingSchedules.length === 0) return false;
+            
+            // Validate that the matched schedule actually has slots assigned
+            const hasSlots = matchingSchedules.some((s: any) => s.slots && s.slots.length > 0);
+            if (!hasSlots) return false;
+        } else if (filterByClinicId) {
+            // No custom schedules exist for this doctor at all.
+            // Fall back to: Does this doctor even below to this clinic's department?
+            // Technically handled by the department loop already, but we assume true here as a fallback
+        }
+
+        return true;
+    };
+
+    // Generate next 90 days (3 months) for date selection, filtering by service restrictions only
+    // (Clinic and doctor are not yet selected at step 2)
     const availableDates = Array.from({ length: 90 })
         .map((_, i) => addDays(getDubaiNow(), i)) // starts from today (Dubai time)
         .filter(date => {
             const dayOfWeek = date.getDay(); // 0=Sun … 6=Sat
-            const dateStr = format(date, 'yyyy-MM-dd');
 
             // Service Restrictions
             if (selectedService?.allowedDays && selectedService.allowedDays.length > 0) {
                 if (!selectedService.allowedDays.includes(dayOfWeek)) return false;
-            }
-            // Clinic Restrictions
-            if (selectedClinic?.workingDays && selectedClinic.workingDays.length > 0) {
-                if (!selectedClinic.workingDays.includes(dayOfWeek)) return false;
-            }
-            // Doctor Restrictions
-            if (selectedDoctor) {
-                // Doctor not working
-                if (selectedDoctor.status === 'not_working') return false;
-                // Doctor's regular days off
-                if (selectedDoctor.daysOff && selectedDoctor.daysOff.includes(dayOfWeek)) return false;
-                // Outside doctor's employment period
-                if (selectedDoctor.startDate && dateStr < selectedDoctor.startDate) return false;
-                if (selectedDoctor.endDate && dateStr > selectedDoctor.endDate) return false;
             }
             return true;
         });
@@ -1200,8 +1227,11 @@ export default function BookingWizard() {
             {/* Step 3: Select Clinic Branch */}
             {
                 step === 3 && selectedService && selectedDate && (() => {
-                    const availableClinicIds = new Set((selectedService.availability || []).map((a: any) => a.clinicId));
-                    const branchOptions = clinics.filter((c: any) => availableClinicIds.has(c.id));
+                    const selectedDayOfWeek = selectedDate.getDay();
+                    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+
+                    // Do not filter branches; all branches are displayed, but disabled if they don't offer the service or lack availability
+                    const branchOptions = clinics;
                     return (
                         <div>
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -1254,17 +1284,42 @@ export default function BookingWizard() {
                                             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(myCoords.lat * (Math.PI / 180)) * Math.cos(clinic.coordinates.lat * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
                                             distance = (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1) + ' km';
                                         }
+
+                                        // Evaluate availability for the selected date
+                                        const availability = (selectedService.availability || []).find((a: any) => a.clinicId === clinic.id);
+                                        const branchDoctors = availability?.doctors || [];
+                                        const allowedDoctorIds = selectedService.allowedDoctorIds;
+                                        
+                                        const eligibleDoctors = branchDoctors.filter((doc: any) => {
+                                            if (allowedDoctorIds && allowedDoctorIds.length > 0 && !allowedDoctorIds.includes(doc.id)) return false;
+                                            return isDoctorAvailableOnDate(doc, selectedDate, clinic.id);
+                                        });
+
+                                        let isDisabled = false;
+                                        let disabledReason = '';
+                                        
+                                        if (!availability) {
+                                            isDisabled = true;
+                                            disabledReason = 'This service is not available in this branch.';
+                                        } else if (clinic.workingDays && clinic.workingDays.length > 0 && !clinic.workingDays.includes(selectedDayOfWeek)) {
+                                            isDisabled = true;
+                                            disabledReason = 'Please try different dates.';
+                                        } else if (eligibleDoctors.length === 0) {
+                                            isDisabled = true;
+                                            disabledReason = 'Please try different dates.';
+                                        }
+
                                         const isMapOpen = expandedMapId === clinic.id;
                                         return (
-                                            <div key={clinic.id} className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all duration-300">
+                                            <div key={clinic.id} className={`group bg-white dark:bg-gray-800 rounded-2xl border ${isDisabled ? 'border-gray-200 dark:border-gray-700 opacity-60' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-lg'} overflow-hidden transition-all duration-300`}>
                                                 {/* Branch Photo */}
                                                 <div className="w-full h-36 bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                                                    <img src={getBranchImage(clinic)} alt={clinic.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                    <img src={getBranchImage(clinic)} alt={clinic.name} className={`w-full h-full object-cover ${!isDisabled ? 'group-hover:scale-105' : 'grayscale'} transition-transform duration-500`} />
                                                 </div>
-                                                <button onClick={() => handleClinicSelect(clinic)} className="w-full text-left">
+                                                <button onClick={() => !isDisabled && handleClinicSelect(clinic)} disabled={isDisabled} className={`w-full text-left ${isDisabled ? 'cursor-not-allowed' : ''}`}>
                                                     <div className="p-5">
                                                         <div className="flex items-start justify-between">
-                                                            <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">{clinic.name}</h3>
+                                                            <h3 className={`text-lg font-bold ${isDisabled ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white group-hover:text-indigo-600'} transition-colors`}>{clinic.name}</h3>
                                                             {distance && <span className="text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full flex items-center gap-1 flex-shrink-0"><Navigation className="w-3 h-3" />{distance}</span>}
                                                         </div>
                                                         <div className="space-y-2 mt-3 text-sm text-gray-600 dark:text-gray-300">
@@ -1274,7 +1329,11 @@ export default function BookingWizard() {
                                                         </div>
                                                         <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                                                             {clinic.rating && <span className="text-xs font-bold text-yellow-600 flex items-center gap-1">{clinic.rating} <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" /></span>}
-                                                            <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold text-sm ml-auto">Select <ArrowRight className="w-4 h-4" /></span>
+                                                            {isDisabled ? (
+                                                                <span className="text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md ml-auto text-right leading-tight max-w-[150px] break-words">{disabledReason}</span>
+                                                            ) : (
+                                                                <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold text-sm ml-auto">Select <ArrowRight className="w-4 h-4" /></span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </button>
@@ -1488,7 +1547,17 @@ export default function BookingWizard() {
 
             {/* Step 4: Select Doctor */}
             {
-                step === 4 && selectedDept && (
+                step === 4 && selectedDept && (() => {
+                    // Filter doctors by: allowed doctor IDs (ignoring date availability here to show disabled states)
+                    const filteredDoctors = selectedDept.doctors.filter((doc: Doctor) => {
+                        // Service-level allowed doctor restriction
+                        if (selectedService?.allowedDoctorIds && selectedService.allowedDoctorIds.length > 0 && !selectedService.allowedDoctorIds.includes(doc.id)) return false;
+                        return true;
+                    });
+                    
+                    const anyDoctorAvailable = selectedDate ? filteredDoctors.some((doc: Doctor) => isDoctorAvailableOnDate(doc, selectedDate, selectedClinic?.id)) : false;
+
+                    return (
                     <div>
                         <div className="flex items-center gap-2 mb-6">
                             <button onClick={() => setStep(3)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
@@ -1497,46 +1566,72 @@ export default function BookingWizard() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             {/* Any Available Doctor option */}
+                            {filteredDoctors.length > 0 && (
                             <button
+                                disabled={!anyDoctorAvailable}
                                 onClick={() => {
-                                    const availableDocs = selectedDept.doctors.filter(doc => !selectedService?.allowedDoctorIds || selectedService.allowedDoctorIds.length === 0 || selectedService.allowedDoctorIds.includes(doc.id));
-                                    if (availableDocs.length > 0) {
-                                        handleDoctorSelect(availableDocs[0], true);
+                                    if (anyDoctorAvailable) {
+                                        handleDoctorSelect(filteredDoctors.find((d: Doctor) => isDoctorAvailableOnDate(d, selectedDate!, selectedClinic?.id)) || filteredDoctors[0], true);
                                     }
                                 }}
-                                className="flex items-center gap-4 p-4 border-2 border-dashed border-orange-400 dark:border-orange-500 rounded-xl hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all text-left sm:col-span-2"
+                                className={`flex items-center justify-between p-4 border-2 border-dashed ${!anyDoctorAvailable ? 'border-gray-300 dark:border-gray-600 opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800/50' : 'border-orange-400 dark:border-orange-500 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20'} rounded-xl transition-all text-left sm:col-span-2`}
                             >
-                                <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <svg className="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-                                    </svg>
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-16 h-16 ${!anyDoctorAvailable ? 'bg-gray-200 dark:bg-gray-700' : 'bg-orange-100 dark:bg-orange-900/30'} rounded-full flex items-center justify-center flex-shrink-0`}>
+                                        <svg className={`w-8 h-8 ${!anyDoctorAvailable ? 'text-gray-400 dark:text-gray-500' : 'text-orange-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h4 className={`font-bold ${!anyDoctorAvailable ? 'text-gray-500 dark:text-gray-400' : 'text-orange-600 dark:text-orange-400'}`}>Any Available Doctor</h4>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Let the system assign the first available specialist</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 className="font-bold text-orange-600 dark:text-orange-400">Any Available Doctor</h4>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Let the system assign the first available specialist</p>
-                                </div>
+                                {!anyDoctorAvailable && (
+                                    <div className="sm:text-right hidden sm:block">
+                                        <span className="block text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md">No availability on selected date</span>
+                                        <span className="block text-[10px] text-gray-500 mt-1">Select another day</span>
+                                    </div>
+                                )}
                             </button>
+                            )}
 
-                            {selectedDept.doctors
-                                .filter(doc => !selectedService?.allowedDoctorIds || selectedService.allowedDoctorIds.length === 0 || selectedService.allowedDoctorIds.includes(doc.id))
-                                .map((doc) => (
+                            {filteredDoctors.map((doc) => {
+                                const isAvailable = selectedDate ? isDoctorAvailableOnDate(doc, selectedDate, selectedClinic?.id) : false;
+                                return (
                                     <button
                                         key={doc.id}
-                                        onClick={() => handleDoctorSelect(doc)}
-                                        className="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 transition-all text-left"
+                                        disabled={!isAvailable}
+                                        onClick={() => isAvailable && handleDoctorSelect(doc)}
+                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border ${!isAvailable ? 'border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800/50' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-500 bg-white dark:bg-gray-800'} rounded-xl transition-all text-left gap-4`}
                                     >
-                                        <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
-                                            <img src={doc.image} alt={doc.name} className="w-full h-full object-cover" />
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
+                                                <img src={doc.image} alt={doc.name} className={`w-full h-full object-cover ${!isAvailable ? 'grayscale opacity-70' : ''}`} />
+                                            </div>
+                                            <div>
+                                                <h4 className={`font-bold ${!isAvailable ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'}`}>{doc.name}</h4>
+                                                <p className={`text-sm ${!isAvailable ? 'text-gray-400' : 'text-indigo-600 dark:text-indigo-400'}`}>{doc.specialty}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="font-bold text-gray-900 dark:text-white">{doc.name}</h4>
-                                            <p className="text-sm text-indigo-600 dark:text-indigo-400">{doc.specialty}</p>
-                                        </div>
+                                        {!isAvailable && (
+                                            <div className="sm:text-right hidden sm:block">
+                                                <span className="block text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md">Unavailable on selected date</span>
+                                                <span className="block text-[10px] text-gray-500 mt-1">Select another day</span>
+                                            </div>
+                                        )}
                                     </button>
-                                ))}
+                                );
+                            })}
+                            {filteredDoctors.length === 0 && (
+                                <div className="sm:col-span-2 text-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <p className="text-gray-500">No specialists are available on this date. Please go back and try a different date.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
-                )
+                    );
+                })()
             }
 
             {/* Step 5: Select Time Slot */}
