@@ -311,30 +311,30 @@ export default function ServicesPage() {
                     preCare: editingService.preCare || '',
                     postCare: editingService.postCare || '',
                     price: Number(editingService.price),
-                    regularPrice: editingService.regularPrice ? Number(editingService.regularPrice) : undefined,
-                    discountedPrice: editingService.discountedPrice ? Number(editingService.discountedPrice) : undefined,
-                    threeSessionPackage: editingService.threeSessionPackage ? editingService.threeSessionPackage : undefined,
-                    sixSessionPackage: editingService.sixSessionPackage ? editingService.sixSessionPackage : undefined,
+                    regularPrice: editingService.regularPrice ? Number(editingService.regularPrice) : null,
+                    discountedPrice: editingService.discountedPrice ? Number(editingService.discountedPrice) : null,
+                    threeSessionPackage: editingService.threeSessionPackage && editingService.threeSessionPackage.totalCost ? editingService.threeSessionPackage : null,
+                    sixSessionPackage: editingService.sixSessionPackage && editingService.sixSessionPackage.totalCost ? editingService.sixSessionPackage : null,
                     duration: Number(editingService.duration),
                     allowedDoctorIds: editingService.allowedDoctorIds,
                     allowedGender: editingService.allowedGender,
                     allowedDays: editingService.allowedDays,
                     isTaxable: editingService.isTaxable,
                     category: editingService.category,
-                    followUpDuration: editingService.followUpDurationInput ? Number(editingService.followUpDurationInput) : undefined,
+                    followUpDuration: editingService.followUpDurationInput ? Number(editingService.followUpDurationInput) : null,
                     screeningQuestions: editingService.screeningQuestions,
                     timeWindow: (editingService.timeWindowStart && editingService.timeWindowEnd) ? {
                         start: editingService.timeWindowStart,
                         end: editingService.timeWindowEnd
-                    } : undefined,
+                    } : null,
                     requiredResourceIds: editingService.requiredResourceIds,
-                    maxMedicines: editingService.maxMedicines,
+                    maxMedicines: editingService.maxMedicines || null,
                     medicineIds: editingService.medicineIds || [],
-                    medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : undefined,
+                    medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : null,
                     consumableIds: editingService.consumableIds || [],
                     productConsumptions: editingService.productConsumptions || [],
                     addOns: editingService.addOns || [],
-                    image: editingService.image || undefined
+                    image: editingService.image || null
                 };
                 return p;
             };
