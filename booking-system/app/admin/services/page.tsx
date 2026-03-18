@@ -245,8 +245,8 @@ export default function ServicesPage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            // Determine which branches to add to. If none selected, default to all branches (global service)
-            const branchIds = selectedBranchIds.length > 0 ? selectedBranchIds : clinics.map(c => c.id);
+            // Determine which branches to add to. If none selected, default to the currently selected branch only (matching the UI text).
+            const branchIds = selectedBranchIds.length > 0 ? selectedBranchIds : [selectedClinicId];
 
             for (const branchId of branchIds) {
                 // Find the matching department in this branch
@@ -364,8 +364,19 @@ export default function ServicesPage() {
                 return p;
             };
 
-            // Determine which branches to process. If none selected, default to all branches (global service)
-            const targetBranchIds = selectedBranchIds.length > 0 ? selectedBranchIds : clinics.map(c => c.id);
+            const previouslyAssignedBranchIds: string[] = [];
+            for (const c of clinics) {
+                for (const d of c.departments || []) {
+                    if ((d.services || []).some(s => s.name === (editingService as any).originalName)) {
+                        previouslyAssignedBranchIds.push(c.id);
+                        break;
+                    }
+                }
+            }
+
+            // Determine which branches to process. If none selected, the UI text says:
+            // "If no branches selected, service will be updated in all branches where it currently exists."
+            const targetBranchIds = selectedBranchIds.length > 0 ? selectedBranchIds : previouslyAssignedBranchIds;
 
             // Update the current branch (if it's still selected)
             if (targetBranchIds.includes(selectedClinicId)) {
@@ -418,17 +429,6 @@ export default function ServicesPage() {
             } // Close the for loop iterating over otherBranches
 
             // Handle branches that were unchecked (need to be deleted)
-            // We need to know which branches actually had the service before testing the new selectedBranchIds
-            const previouslyAssignedBranchIds: string[] = [];
-            for (const c of clinics) {
-                for (const d of c.departments || []) {
-                    if ((d.services || []).some(s => s.name === (editingService as any).originalName)) {
-                        previouslyAssignedBranchIds.push(c.id);
-                        break;
-                    }
-                }
-            }
-
             const branchesToRemove = previouslyAssignedBranchIds.filter(id => !targetBranchIds.includes(id));
             
             for (const branchId of branchesToRemove) {
@@ -1179,7 +1179,7 @@ export default function ServicesPage() {
                             }
                             handleAddService(e);
                         }}
-                        onClose={() => setIsAddModalOpen(false)}
+                        onClose={() => { setIsAddModalOpen(false); clearPageDraft(); }}
                         onToggleDay={(day) => toggleDaySelection(day, false)}
                         onToggleDoctor={(docId) => toggleDoctorSelection(docId, false)}
                         onImageUpload={uploadImage}
