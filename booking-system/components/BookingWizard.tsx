@@ -13,7 +13,7 @@ import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_N
 const DEPT_IMAGES: Record<string, string> = {
     'Aesthetic Dermatology': '/images/departments/dermatology.png',
     'Laser Hair Removal': '/images/departments/laser.png',
-    'Nursing & Beauty Therapy': '/images/departments/nursing.png',
+    'Nursing-Beauty Therapy': '/images/departments/nursing.png',
 };
 const DEFAULT_DEPT_IMAGE = '/images/departments/default.png';
 const getDeptImage = (dept: { name: string; image?: string }) => dept.image || DEPT_IMAGES[dept.name] || DEFAULT_DEPT_IMAGE;

@@ -245,7 +245,7 @@ export default function DoctorsPage() {
     // Unique departments by ID — only show allowed departments for doctors
     const ALLOWED_DOCTOR_DEPTS = [
         'Aesthetic Dermatology',
-        'Nursing & Beauty Therapy',
+        'Nursing-Beauty Therapy',
         'Laser Hair Removal',
         'Physiotherapy',
     ];

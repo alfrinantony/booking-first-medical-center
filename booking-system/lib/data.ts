@@ -412,7 +412,7 @@ export type BookingCategory = typeof BOOKING_CATEGORIES[number];
 const departmentNames = [
     'Aesthetic Dermatology',
     'Hair Removal',
-    'Nursing & Beauty Therapy',
+    'Nursing-Beauty Therapy',
     'Orthopedics',
     'Pediatrics',
     'Gynecology',
