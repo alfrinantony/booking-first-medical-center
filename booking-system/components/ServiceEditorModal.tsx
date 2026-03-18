@@ -109,6 +109,9 @@ export default function ServiceEditorModal({
     const followUpVal = mode === 'edit' ? (formState.followUpDurationInput || '') : (formState.followUpDuration || '');
     const setFollowUp = (v: string) => mode === 'edit' ? update({ followUpDurationInput: v }) : update({ followUpDuration: v });
 
+    const minIntervalVal = mode === 'edit' ? (formState.minimumIntervalDaysInput || '') : (formState.minimumIntervalDays || '');
+    const setMinInterval = (v: string) => mode === 'edit' ? update({ minimumIntervalDaysInput: v }) : update({ minimumIntervalDays: v });
+
     const medMode = formState.medicineSelectionMode || 'choose';
     const maxMed = formState.maxMedicines !== undefined ? formState.maxMedicines : '';
 
@@ -253,7 +256,12 @@ export default function ServiceEditorModal({
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Free Follow-up (Days)</label>
                                     <input type="number" min="0" className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                        value={followUpVal} onChange={e => setFollowUp(e.target.value)} placeholder="Optional" />
+                                        value={followUpVal} onChange={e => setFollowUp(e.target.value)} placeholder="e.g. 7" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Min. Interval (Days)</label>
+                                    <input type="number" min="0" className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={minIntervalVal} onChange={e => setMinInterval(e.target.value)} placeholder="Required wait interval" />
                                 </div>
                             </div>
                         </section>

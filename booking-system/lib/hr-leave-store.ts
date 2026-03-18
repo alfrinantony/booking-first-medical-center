@@ -277,3 +277,14 @@ export async function getAllLeaves(): Promise<LeaveRequest[]> {
     await ensureLeaveLoaded();
     return [...leaveRequests];
 }
+
+export async function isEmployeeOnApprovedLeave(employeeId: string, date: string): Promise<boolean> {
+    await ensureLeaveLoaded();
+    const targetDate = new Date(date).toISOString().split('T')[0];
+    return leaveRequests.some(lr => 
+        lr.employeeId === employeeId && 
+        lr.status === 'APPROVED' && 
+        lr.startDate <= targetDate && 
+        lr.endDate >= targetDate
+    );
+}

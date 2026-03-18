@@ -4,6 +4,8 @@ import { Booking } from '@/lib/data';
 import { ServicesStore } from '@/lib/services-store';
 import { PackagesStore } from '@/lib/packages-store';
 import { BillingStore } from '@/lib/billing-store';
+import { HRStore } from '@/lib/hr-store';
+import { isEmployeeOnApprovedLeave } from '@/lib/hr-leave-store';
 
 // ── Helper: parse "10:30 AM" → minutes from midnight ──
 function parseSlotToMinutes(slot: string): number {
@@ -38,13 +40,83 @@ export async function POST(request: NextRequest) {
 
         // Auto-fetch duration from service module if not provided
         let duration = body.duration;
+        const service = await ServicesStore.getServiceById(body.serviceId);
         if (!duration) {
-            const service = await ServicesStore.getServiceById(body.serviceId);
             duration = service?.duration || 30;
+        }
+
+        // ── HR Leave Validation ──
+        const hrEmployees = await HRStore.getAll();
+        let employee = hrEmployees.find(e => e.id === body.doctorId);
+        if (!employee) {
+            // Attempt to resolve by doctor name
+            const allClinics = await ServicesStore.getClinics();
+            let doctorObjResult = null;
+            for (const c of allClinics) {
+                for (const dept of c.departments) {
+                    const d = dept.doctors.find(x => x.id === body.doctorId);
+                    if (d) { doctorObjResult = d; break; }
+                }
+                if (doctorObjResult) break;
+            }
+            if (doctorObjResult) {
+                const docName = doctorObjResult.name.replace(/^Dr\.\s+/i, '').toLowerCase().trim();
+                employee = hrEmployees.find(e => 
+                    `${e.firstName} ${e.lastName}`.toLowerCase().includes(docName) || 
+                    docName.includes(`${e.firstName} ${e.lastName}`.toLowerCase())
+                );
+            }
+        }
+
+        if (employee) {
+            const onLeave = await isEmployeeOnApprovedLeave(employee.id, body.date);
+            if (onLeave) {
+                return NextResponse.json(
+                    { error: 'Cannot book appointment. The selected clinician is on approved leave today.' },
+                    { status: 400 }
+                );
+            }
         }
 
         // Duration-aware overlap check: same patient, same date, overlapping time range
         const existingBookings = await BookingsStore.getAll();
+
+        // ── Service Interval and Follow-Up Validation ──
+        let isFollowUp = false;
+        if (service) {
+            // Find past bookings for this same service and patient
+            const pastBookings = existingBookings.filter(b => 
+                b.patientName === body.patientName && 
+                b.serviceId === body.serviceId && 
+                b.status === 'completed' &&
+                new Date(b.date) < new Date(body.date)
+            );
+
+            // Sort by date descending to find the most recent one
+            pastBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            const lastBooking = pastBookings[0];
+
+            if (lastBooking) {
+                const diffTime = Math.abs(new Date(body.date).getTime() - new Date(lastBooking.date).getTime());
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                const followUpLimit = service.followUpDuration || 0;
+                const minInterval = service.minimumIntervalDays || 0;
+
+                if (followUpLimit > 0 && diffDays <= followUpLimit) {
+                    // Cap duration to 30 mins for follow-ups
+                    duration = Math.min(duration, 30);
+                    isFollowUp = true;
+                    body.amount = 0; // Follow-up appointments are free
+                } else if (minInterval > 0 && diffDays < minInterval) {
+                    return NextResponse.json(
+                        { error: `This service requires a minimum interval of ${minInterval} days between appointments.` },
+                        { status: 400 }
+                    );
+                }
+            }
+        }
+
         const newStart = parseSlotToMinutes(body.slot);
         const newEnd = newStart + duration;
 
@@ -68,6 +140,7 @@ export async function POST(request: NextRequest) {
         const newBooking = await BookingsStore.add({
             ...body,
             duration,
+            isFollowUp,
             status: 'booked'
         });
 

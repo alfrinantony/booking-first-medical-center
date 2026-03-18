@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { clinics, timeSlots, Booking, Service } from '@/lib/data';
 import { Calendar, User, Phone, MapPin, Stethoscope, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useFormDraft } from '@/hooks/useFormDraft';
 
 export default function AdminBookingForm() {
     const router = useRouter();
@@ -26,6 +27,21 @@ export default function AdminBookingForm() {
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
     const [slotError, setSlotError] = useState<string | null>(null);
+
+    // Form Draft Auto-Save
+    const currentDraftData = {
+        step,
+        customer,
+        booking
+    };
+
+    const { clearDraft } = useFormDraft('admin-booking-form', currentDraftData, {
+        onRestore: (data: any) => {
+            if (data.step) setStep(data.step);
+            if (data.customer) setCustomer(data.customer);
+            if (data.booking) setBooking(data.booking);
+        }
+    });
 
     // Derived State
     const selectedClinic = clinics.find(c => c.id === booking.clinicId);
@@ -122,6 +138,9 @@ export default function AdminBookingForm() {
                 }
                 throw new Error(err.error || 'Booking failed');
             }
+
+            // Clear the draft once successfully booked
+            await clearDraft();
 
             alert('Appointment Booked Successfully!');
             router.push('/admin/appointments');

@@ -8,6 +8,7 @@ import CustomerAuth from './auth/CustomerAuth';
 import { Calendar, Clock, User, ChevronRight, ChevronDown, Check, MapPin, AlertCircle, Car, ArrowRight, Navigation, Star, Package as PackageIcon, Pill, Phone, Mail, ExternalLink, Map as MapIcon } from 'lucide-react';
 import { format, addDays, startOfMonth, getMonth, getYear } from 'date-fns';
 import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_NAMES } from '@/lib/booking-voice-controller';
+import { useFormDraft } from '@/hooks/useFormDraft';
 
 // Default department images (fallback when no Azure Blob URL is set)
 const DEPT_IMAGES: Record<string, string> = {
@@ -142,6 +143,42 @@ export default function BookingWizard() {
         }).catch(() => { });
     }, []);
 
+    // Fetch user's past bookings for the selected service to determine follow-up eligibility
+    React.useEffect(() => {
+        if (!user || !selectedService) {
+            setIsFollowUp(false);
+            setPreviousVisitDate('');
+            return;
+        }
+
+        const fetchPastBookings = async () => {
+            try {
+                const res = await fetch(`/api/admin/bookings?search=${encodeURIComponent(user.name)}`);
+                if (res.ok) {
+                    const bookings = await res.json();
+                    const pastBookings = bookings.filter((b: any) => 
+                        b.serviceId === selectedService.id &&
+                        b.status === 'completed' &&
+                        new Date(b.date) < new Date()
+                    );
+
+                    if (pastBookings.length > 0) {
+                        pastBookings.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                        setPreviousVisitDate(pastBookings[0].date);
+                        setIsFollowUp(true);
+                    } else {
+                        setIsFollowUp(false);
+                        setPreviousVisitDate('');
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch past bookings", err);
+            }
+        };
+
+        fetchPastBookings();
+    }, [user, selectedService]);
+
     // Fetch booking catalog on mount (aggregated across all clinics)
     React.useEffect(() => {
         const fetchCatalog = async () => {
@@ -163,6 +200,46 @@ export default function BookingWizard() {
         };
         fetchCatalog();
     }, []);
+
+    // Form Draft Auto-Save
+    const currentDraftData = {
+        step,
+        whatsappNumber,
+        referredBy,
+        referralName,
+        referralContact,
+        referralEmployeeName,
+        referralEmployeeId,
+        selectedClinic,
+        selectedCategory,
+        selectedService,
+        selectedDoctor,
+        isAnyDoctor,
+        selectedDate: selectedDate ? selectedDate.toISOString() : null,
+        selectedSlot,
+        selectedMedicineIds,
+    };
+
+    const { clearDraft } = useFormDraft('client-booking-wizard', currentDraftData, {
+        onRestore: (data: any) => {
+            if (data.step !== undefined) setStep(data.step);
+            if (data.whatsappNumber !== undefined) setWhatsappNumber(data.whatsappNumber);
+            if (data.referredBy !== undefined) setReferredBy(data.referredBy);
+            if (data.referralName !== undefined) setReferralName(data.referralName);
+            if (data.referralContact !== undefined) setReferralContact(data.referralContact);
+            if (data.referralEmployeeName !== undefined) setReferralEmployeeName(data.referralEmployeeName);
+            if (data.referralEmployeeId !== undefined) setReferralEmployeeId(data.referralEmployeeId);
+            
+            if (data.selectedClinic !== undefined) setSelectedClinic(data.selectedClinic);
+            if (data.selectedCategory !== undefined) setSelectedCategory(data.selectedCategory);
+            if (data.selectedService !== undefined) setSelectedService(data.selectedService);
+            if (data.selectedDoctor !== undefined) setSelectedDoctor(data.selectedDoctor);
+            if (data.isAnyDoctor !== undefined) setIsAnyDoctor(data.isAnyDoctor);
+            if (data.selectedDate) setSelectedDate(new Date(data.selectedDate));
+            if (data.selectedSlot !== undefined) setSelectedSlot(data.selectedSlot);
+            if (data.selectedMedicineIds !== undefined) setSelectedMedicineIds(data.selectedMedicineIds);
+        }
+    });
 
     // Auto-select service from query params (when coming from checkout/packages page)
     React.useEffect(() => {
@@ -227,6 +304,27 @@ export default function BookingWizard() {
             if (selectedService?.allowedDays && selectedService.allowedDays.length > 0) {
                 if (!selectedService.allowedDays.includes(dayOfWeek)) return false;
             }
+
+            // Interval & Follow-Up Validation
+            if (selectedService?.minimumIntervalDays && isFollowUp && previousVisitDate) {
+                // Ignore time component for strict date comparison
+                const candidateDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                const prevStr = previousVisitDate.split('T')[0];
+                const prevDateParts = prevStr.split('-');
+                const prevDate = new Date(Number(prevDateParts[0]), Number(prevDateParts[1]) - 1, Number(prevDateParts[2]));
+                
+                const diffTime = candidateDate.getTime() - prevDate.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                
+                const followUpLimit = selectedService.followUpDuration || 0;
+                const minInterval = selectedService.minimumIntervalDays;
+
+                // Rule B & C: blocked if after followUpLimit but before minInterval
+                if (diffDays > followUpLimit && diffDays < minInterval) {
+                   return false; 
+                }
+            }
+
             return true;
         });
 
@@ -613,11 +711,11 @@ export default function BookingWizard() {
         const prev = new Date(previousVisitDate);
         if (isNaN(prev.getTime())) return null;
 
-        const today = new Date();
-        const diffTime = Math.abs(today.getTime() - prev.getTime());
+        const targetDate = selectedDate || new Date();
+        const diffTime = Math.abs(targetDate.getTime() - prev.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (prev > today) return { valid: false, message: "Previous date cannot be in the future." };
+        if (prev > targetDate) return { valid: false, message: "Previous date cannot be in the future." };
 
         if (diffDays <= selectedService.followUpDuration) {
             return { valid: true, message: `Free follow-up applied! (${diffDays} days since visit)` };
@@ -750,9 +848,10 @@ export default function BookingWizard() {
             doctorId: selectedDoctor?.id,
             date: selectedDate?.toISOString().split('T')[0],
             slot: selectedSlot,
-            duration: selectedService?.duration || 30,
+            duration: isFree ? Math.min(selectedService?.duration || 30, 30) : (selectedService?.duration || 30),
             patientName: user?.name || 'Guest',
             amount: finalPrice,
+            isFollowUp: isFree,
             promoCode: appliedPromo?.code,
             whatsappNumber: whatsappNumber,
             selectedMedicineIds: selectedMedicineIds.length > 0 ? selectedMedicineIds : undefined,
@@ -779,6 +878,8 @@ export default function BookingWizard() {
                 }
                 throw new Error(err.error || 'Booking failed');
             }
+            // Clear the draft once successfully booked
+            await clearDraft();
         } catch (error) {
             console.error('Failed to save booking', error);
             alert('Failed to create booking. Please try again.');
@@ -1157,13 +1258,43 @@ export default function BookingWizard() {
                             <span className="text-gray-300">/</span>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Date</h2>
                         </div>
-                        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-6 flex items-center gap-3">
+                        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-4 flex items-center gap-3">
                             <Calendar className="w-5 h-5 text-indigo-500" />
                             <div>
                                 <span className="font-semibold text-gray-900 dark:text-white text-sm">{selectedService.name}</span>
                                 <span className="text-xs text-gray-500 ml-2">{selectedService.duration} mins • {selectedService.price} AED</span>
                             </div>
                         </div>
+
+                        {/* Minimum Interval / Follow Up Notice */}
+                        {selectedService && isFollowUp && previousVisitDate && (() => {
+                            const today = getDubaiNow();
+                            const candidateDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                            const prevStr = previousVisitDate.split('T')[0];
+                            const prevDateParts = prevStr.split('-');
+                            const prevDate = new Date(Number(prevDateParts[0]), Number(prevDateParts[1]) - 1, Number(prevDateParts[2]));
+                            
+                            const diffTime = candidateDate.getTime() - prevDate.getTime();
+                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                            const followUpLimit = selectedService.followUpDuration || 0;
+                            const minInterval = selectedService.minimumIntervalDays || 0;
+                            
+                            if (followUpLimit > 0 && diffDays <= followUpLimit) {
+                                return (
+                                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-3 mb-6">
+                                        <p className="text-sm text-green-700 dark:text-green-400 font-medium">✨ This appointment is eligible as a follow-up visit and will be scheduled as a free session if booked within {followUpLimit - diffDays} days.</p>
+                                    </div>
+                                );
+                            } else if (minInterval > 0 && diffDays < minInterval) {
+                                return (
+                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-6">
+                                        <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">⚠️ Booking blocked: This service requires a minimum interval of {minInterval} days between appointments. Dates before {format(addDays(prevDate, minInterval), 'MMM d, yyyy')} are unavailable.</p>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
+
                         <div className="mb-6">
                             {datesByMonth.length > 0 && (
                                 <div className="flex items-center justify-between mb-4">
@@ -1768,7 +1899,7 @@ export default function BookingWizard() {
                                         <span className="block text-gray-500">Date & Time</span>
                                         <span className="font-medium text-gray-900 dark:text-white">{selectedDate && format(selectedDate, 'MMM d, yyyy')} at {selectedSlot}</span>
                                         {selectedService?.duration && selectedSlot && (() => {
-                                            const dur = selectedService.duration;
+                                            const dur = isFree ? Math.min(selectedService.duration, 30) : selectedService.duration;
                                             const [time, period] = selectedSlot.split(' ');
                                             let [h, m] = time.split(':').map(Number);
                                             if (period === 'PM' && h !== 12) h += 12;

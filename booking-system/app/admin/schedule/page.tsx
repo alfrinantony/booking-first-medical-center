@@ -59,6 +59,10 @@ export default function SchedulePage() {
     // Cross-branch conflict state
     const [otherBranchSlots, setOtherBranchSlots] = useState<{ clinicId: string; slots: string[] }[]>([]);
 
+    // HR Employee Off Days state
+    const [hrRegularOffDays, setHrRegularOffDays] = useState<string[]>([]);
+    const [hrLoading, setHrLoading] = useState(false);
+
     // Fetch live clinic data from API (same source as Doctors page)
     useEffect(() => {
         const fetchClinics = async () => {
@@ -94,6 +98,46 @@ export default function SchedulePage() {
         if (selectedDoctor) {
             setDaysOff(selectedDoctor.daysOff || []);
         }
+    }, [selectedDoctorId, selectedDoctor]);
+
+    // Fetch HR Regular Off Days
+    useEffect(() => {
+        if (!selectedDoctorId) return;
+
+        const fetchHrData = async () => {
+            setHrLoading(true);
+            try {
+                const res = await fetch('/api/admin/hr/employees');
+                if (res.ok) {
+                    const employees = await res.json();
+                    
+                    // Match logic
+                    let matched = employees.find((e: any) => e.id === selectedDoctorId);
+                    if (!matched && selectedDoctor) {
+                        const docName = selectedDoctor.name.replace(/^Dr\.\s+/i, '').toLowerCase().trim();
+                        matched = employees.find((e: any) => {
+                            const empName = `${e.firstName} ${e.lastName}`.toLowerCase();
+                            return empName.includes(docName) || docName.includes(empName);
+                        });
+                    }
+
+                    if (matched && matched.weeklyOffDays && Array.isArray(matched.weeklyOffDays)) {
+                        setHrRegularOffDays(matched.weeklyOffDays);
+                    } else if (matched && matched.weeklyOff) {
+                         // Fallback if data is stored as a single string
+                         setHrRegularOffDays([matched.weeklyOff]);
+                    } else {
+                        setHrRegularOffDays([]);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch HR data', error);
+            } finally {
+                setHrLoading(false);
+            }
+        };
+
+        fetchHrData();
     }, [selectedDoctorId, selectedDoctor]);
 
     // Helper: Pick a color theme based on the clinic's position in the overall clinics array
@@ -468,13 +512,36 @@ export default function SchedulePage() {
                             </div>
                         </div>
 
+                        {/* ── HR Regular Off Days ── */}
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-indigo-100 dark:border-indigo-900/50">
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                <User className="w-4 h-4 text-indigo-500" />
+                                HR Regular Off Days
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4">Official days off recorded in the HR profile.</p>
+                            
+                            {hrLoading ? (
+                                <p className="text-xs text-center py-2 text-gray-400">Loading HR data...</p>
+                            ) : hrRegularOffDays.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {hrRegularOffDays.map((day, idx) => (
+                                        <span key={idx} className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 px-3 py-1.5 rounded-lg text-xs font-bold">
+                                            {day}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-xs text-center py-2 text-gray-400 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">No HR off days set</p>
+                            )}
+                        </div>
+
                         {/* ── Weekday Day Off ── */}
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                                 <CalendarOff className="w-4 h-4 text-red-500" />
-                                Weekly Day Off
+                                Clinician Schedule Off Days (Independent)
                             </h3>
-                            <p className="text-xs text-gray-500 mb-4">Select recurring days off. Schedule will skip these days automatically.</p>
+                            <p className="text-xs text-gray-500 mb-4">Select recurring days off independent of HR. Schedule will skip these days automatically across all branches.</p>
 
                             <div className="grid grid-cols-4 gap-2">
                                 {WEEKDAYS.map(day => {

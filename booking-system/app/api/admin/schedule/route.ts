@@ -4,6 +4,9 @@ import { Scheduler } from '@/lib/scheduler';
 import { BookingsStore } from '@/lib/bookings-store';
 import { clinics } from '@/lib/data';
 import { HRShiftStore } from '@/lib/hr-shift-store';
+import { HRStore } from '@/lib/hr-store';
+import { isEmployeeOnApprovedLeave } from '@/lib/hr-leave-store';
+import { ServicesStore } from '@/lib/services-store';
 
 // ── Helper: parse "10:30 AM" → minutes from midnight ──
 function parseSlotToMinutes(slot: string): number {
@@ -48,8 +51,45 @@ export async function GET(request: Request) {
         });
     }
 
+    // ── 1b. HR Leave Validation ──
+    const hrEmployees = await HRStore.getAll();
+    let employee = hrEmployees.find(e => e.id === doctorId);
+    let doctorObjResult = null;
+    
+    // Resolve doctor object for fallback name matching
+    // (We also use this to get the real doctor name below)
+    const allClinicsHrCheck = await ServicesStore.getClinics();
+    for (const c of allClinicsHrCheck) {
+        for (const dept of c.departments) {
+            const d = dept.doctors.find((x: any) => x.id === doctorId);
+            if (d) {
+                doctorObjResult = d;
+                break;
+            }
+        }
+        if (doctorObjResult) break;
+    }
+
+    if (!employee && doctorObjResult) {
+        const docName = doctorObjResult.name.replace(/^Dr\.\s+/i, '').toLowerCase().trim();
+        employee = hrEmployees.find(e => 
+            `${e.firstName} ${e.lastName}`.toLowerCase().includes(docName) || 
+            docName.includes(`${e.firstName} ${e.lastName}`.toLowerCase())
+        );
+    }
+
+    if (employee) {
+        const onLeave = await isEmployeeOnApprovedLeave(employee.id, date);
+        if (onLeave) {
+            return NextResponse.json({
+                slots: [],
+                unavailable: true,
+                reason: 'Clinician is on approved leave today.',
+            });
+        }
+    }
+
     const { timeSlots } = require('@/lib/data');
-    const { ServicesStore } = require('@/lib/services-store');
     const { ResourcesStore } = require('@/lib/resources-store');
 
     // ── 2. Get Base Schedule Slots (15-min checkpoints representing doctor availability) ──
@@ -133,12 +173,10 @@ export async function GET(request: Request) {
 
         if (allAvailable) {
             slots.push(minutesToSlotString(currentMin));
-            // Jump forward by the service duration to ensure clean, non-overlapping chunks
-            currentMin += requestedDuration;
-        } else {
-            // Gap encountered or offset shift. Step forward by 15 mins to search for the next geometric anchor.
-            currentMin += 15;
         }
+        
+        // Always step forward by 15 mins to maintain 15-minute scheduling intervals
+        currentMin += 15;
     }
 
     // ── 4. Resolve Branch Closing Time (minutes from midnight) ──
@@ -154,8 +192,8 @@ export async function GET(request: Request) {
 
     // ── 5. Get Doctor Capacity (dynamic store first, fallback to static) ──
     let maxConcurrent = 1;
-    const allClinics = await ServicesStore.getClinics();
-    const clinicSources = allClinics.length > 0 ? allClinics : clinics;
+    const allClinicsCapacity = await ServicesStore.getClinics();
+    const clinicSources = allClinicsCapacity.length > 0 ? allClinicsCapacity : clinics;
     for (const c of clinicSources) {
         let found = false;
         for (const dept of c.departments) {
@@ -288,6 +326,35 @@ export async function POST(request: Request) {
 
         if (!doctorId || !date || !Array.isArray(slots)) {
             return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
+        }
+
+        // Check HR Leaves before creating schedule manager records
+        const hrEmployees = await HRStore.getAll();
+        let employee = hrEmployees.find(e => e.id === doctorId);
+        
+        let doctorObjResult = null;
+        const allClinics = await ServicesStore.getClinics();
+        for (const c of allClinics) {
+            for (const dept of c.departments) {
+                const d = dept.doctors.find((x: any) => x.id === doctorId);
+                if (d) { doctorObjResult = d; break; }
+            }
+            if (doctorObjResult) break;
+        }
+
+        if (!employee && doctorObjResult) {
+            const docName = doctorObjResult.name.replace(/^Dr\.\s+/i, '').toLowerCase().trim();
+            employee = hrEmployees.find(e => 
+                `${e.firstName} ${e.lastName}`.toLowerCase().includes(docName) || 
+                docName.includes(`${e.firstName} ${e.lastName}`.toLowerCase())
+            );
+        }
+
+        if (employee) {
+            const onLeave = await isEmployeeOnApprovedLeave(employee.id, date);
+            if (onLeave) {
+                return NextResponse.json({ error: 'Cannot assign schedule to a clinician on approved leave.' }, { status: 400 });
+            }
         }
 
         const updatedSchedule = Scheduler.setSchedule(doctorId, date, slots, clinicId || 'default');

@@ -31,6 +31,7 @@ export interface Service {
     isTaxable?: boolean;
     category?: string;
     followUpDuration?: number; // Days for free follow-up
+    minimumIntervalDays?: number; // Minimum days required between regular sessions
     screeningQuestions?: string[]; // Array of questions. If YES to any, booking is blocked.
     requiredResourceIds?: string[]; // IDs of resources (machines, rooms) required for this service
     maxMedicines?: number; // Max number of medicines a customer can select for this service (0 = none)
@@ -345,6 +346,7 @@ export interface Booking {
     referralEmployeeId?: string;     // Employee ID number (if referred by employee)
     anyDoctor?: boolean;             // True when booked under "Any Available Doctor"
     billingStatus?: 'pending_bill' | 'billed'; // Set to 'pending_bill' when completed, 'billed' when invoice created
+    isFollowUp?: boolean; // New field to indicate if booking is a free follow-up
     statusHistory?: {
         timestamp: string;
         oldStatus: string;

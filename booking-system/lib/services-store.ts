@@ -463,6 +463,24 @@ export const ServicesStore = {
         return null;
     },
 
+    setGlobalDaysOff: async (doctorId: string, daysOff: number[]) => {
+        await ensureClinicsLoaded();
+        let updated = false;
+        for (const clinic of clinicStore) {
+            for (const dept of clinic.departments) {
+                const doc = dept.doctors.find(d => d.id === doctorId);
+                if (doc) {
+                    doc.daysOff = daysOff;
+                    updated = true;
+                }
+            }
+        }
+        if (updated) {
+            await saveToBlob('clinics', clinicStore);
+        }
+        return updated;
+    },
+
     addService: async (clinicId: string, departmentId: string, service: Omit<Service, 'id'>) => {
         await ensureClinicsLoaded();
         const clinic = clinicStore.find(c => c.id === clinicId);

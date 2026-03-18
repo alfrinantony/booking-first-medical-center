@@ -45,6 +45,7 @@ export async function GET() {
                             postCare: svc.postCare,
                             isTaxable: svc.isTaxable,
                             followUpDuration: svc.followUpDuration,
+                            minimumIntervalDays: svc.minimumIntervalDays,
                             allowedGender: svc.allowedGender,
                             allowedDays: svc.allowedDays,
                             timeWindow: svc.timeWindow,

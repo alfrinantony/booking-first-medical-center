@@ -29,6 +29,7 @@ interface ServiceFormState {
     isTaxable: boolean;
     category: string;
     followUpDuration: string;
+    minimumIntervalDays: string;
     screeningQuestions: string[];
     requiredResourceIds: string[];
     maxMedicines: string;
@@ -76,6 +77,7 @@ export default function ServicesPage() {
         isTaxable: false,
         category: '',
         followUpDuration: '',
+        minimumIntervalDays: '',
         screeningQuestions: [],
         requiredResourceIds: [],
         maxMedicines: '',
@@ -93,7 +95,7 @@ export default function ServicesPage() {
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingService, setEditingService] = useState<Service & { departmentId: string } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string, originalName?: string } | null>(null);
+    const [editingService, setEditingService] = useState<Service & { departmentId: string } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string, minimumIntervalDaysInput?: string, originalName?: string } | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -258,6 +260,7 @@ export default function ServicesPage() {
                     isTaxable: newService.isTaxable,
                     category: newService.category,
                     followUpDuration: newService.followUpDuration,
+                    minimumIntervalDays: newService.minimumIntervalDays ? Number(newService.minimumIntervalDays) : undefined,
                     screeningQuestions: newService.screeningQuestions,
                     timeWindow: (newService.timeWindowStart && newService.timeWindowEnd) ? {
                         start: newService.timeWindowStart,
@@ -322,6 +325,7 @@ export default function ServicesPage() {
                     isTaxable: editingService.isTaxable,
                     category: editingService.category,
                     followUpDuration: editingService.followUpDurationInput ? Number(editingService.followUpDurationInput) : null,
+                    minimumIntervalDays: editingService.minimumIntervalDaysInput ? Number(editingService.minimumIntervalDaysInput) : null,
                     screeningQuestions: editingService.screeningQuestions,
                     timeWindow: (editingService.timeWindowStart && editingService.timeWindowEnd) ? {
                         start: editingService.timeWindowStart,
@@ -485,6 +489,7 @@ export default function ServicesPage() {
             timeWindowStart: service.timeWindow?.start || '',
             timeWindowEnd: service.timeWindow?.end || '',
             followUpDurationInput: service.followUpDuration ? String(service.followUpDuration) : '',
+            minimumIntervalDaysInput: service.minimumIntervalDays ? String(service.minimumIntervalDays) : '',
             originalName: service.name // Track original name for cross-branch matching during rename
         });
         // Preload selectedBranchIds with branches that already have this service (by name match)
@@ -905,6 +910,18 @@ export default function ServicesPage() {
                                                         Up to {service.maxMedicines} Meds
                                                     </span>
                                                 )}
+                                                {service.minimumIntervalDays ? (
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-800/50" title="Minimum Interval Between Sessions">
+                                                        <Clock4 className="w-3.5 h-3.5" />
+                                                        {service.minimumIntervalDays}d Min Interval
+                                                    </span>
+                                                ) : null}
+                                                {service.followUpDuration ? (
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-md border border-green-200 dark:border-green-800/50" title="Free Follow-up Period">
+                                                        <Calendar className="w-3.5 h-3.5" />
+                                                        {service.followUpDuration}d Free Follow-up
+                                                    </span>
+                                                ) : null}
                                             </div>
                                             
                                             {/* Add Ons */}
