@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill, ImagePlus, FolderOpen, X, Eye, EyeOff } from 'lucide-react';
 import { Clinic, Department, Service, ServiceAddOn, ServicePackageTier, Doctor, Resource, Medicine, RegisteredProduct, ProductConsumption } from '@/lib/data';
 import ServiceEditorModal from '@/components/ServiceEditorModal';
+import { useFormDraft } from '@/hooks/useFormDraft';
 
 interface ServiceFormState {
     departmentId: string;
@@ -117,6 +118,25 @@ export default function ServicesPage() {
             setUploadingImage(false);
         }
     };
+
+    // Form Draft Auto-Save
+    const pageDraftData = {
+        isAddModalOpen,
+        newService,
+        isEditModalOpen,
+        editingService,
+        selectedBranchIds
+    };
+
+    const { clearDraft: clearPageDraft } = useFormDraft('admin-services-page', pageDraftData, {
+        onRestore: (data: any) => {
+            if (data.isAddModalOpen !== undefined) setIsAddModalOpen(data.isAddModalOpen);
+            if (data.newService) setNewService(data.newService);
+            if (data.isEditModalOpen !== undefined) setIsEditModalOpen(data.isEditModalOpen);
+            if (data.editingService) setEditingService(data.editingService);
+            if (data.selectedBranchIds) setSelectedBranchIds(data.selectedBranchIds);
+        }
+    });
 
     useEffect(() => {
         fetchServices();
@@ -292,6 +312,7 @@ export default function ServicesPage() {
             setIsAddModalOpen(false);
             setNewService(emptyServiceForm);
             setSelectedBranchIds([]);
+            await clearPageDraft();
         } catch (error) {
             console.error(error);
         } finally {
@@ -430,6 +451,7 @@ export default function ServicesPage() {
             setIsEditModalOpen(false);
             setEditingService(null);
             setSelectedBranchIds([]);
+            await clearPageDraft();
         } catch (error) {
             console.error(error);
         } finally {
