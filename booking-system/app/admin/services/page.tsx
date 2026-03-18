@@ -156,7 +156,7 @@ export default function ServicesPage() {
 
     const fetchServices = async () => {
         try {
-            const res = await fetch('/api/admin/services');
+            const res = await fetch(`/api/admin/services?t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             setClinics(data);
             if (data.length > 0 && !selectedClinicId) {
