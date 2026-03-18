@@ -371,7 +371,7 @@ const dermatologyServices: Service[] = [
 
 // Helper to generate services
 const generateServices = (deptName: string): Service[] => {
-    if (deptName === 'Dermatology & Aesthetics') return dermatologyServices;
+    if (deptName === 'Aesthetic Dermatology') return dermatologyServices;
     return Array.from({ length: 10 }).map((_, i) => ({
         id: `${deptName}-svc-${i}`,
         name: `${deptName} Service ${i + 1}`,
@@ -410,7 +410,7 @@ export type BookingCategory = typeof BOOKING_CATEGORIES[number];
 
 // Data Generation
 const departmentNames = [
-    'Dermatology & Aesthetics',
+    'Aesthetic Dermatology',
     'Hair Removal',
     'Nursing & Beauty Therapy',
     'Orthopedics',

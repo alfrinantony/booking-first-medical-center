@@ -11,7 +11,7 @@ import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_N
 
 // Default department images (fallback when no Azure Blob URL is set)
 const DEPT_IMAGES: Record<string, string> = {
-    'Dermatology & Aesthetics': '/images/departments/dermatology.png',
+    'Aesthetic Dermatology': '/images/departments/dermatology.png',
     'Laser Hair Removal': '/images/departments/laser.png',
     'Nursing & Beauty Therapy': '/images/departments/nursing.png',
 };
