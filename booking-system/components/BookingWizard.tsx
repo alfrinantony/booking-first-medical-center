@@ -12,7 +12,7 @@ import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_N
 // Default department images (fallback when no Azure Blob URL is set)
 const DEPT_IMAGES: Record<string, string> = {
     'Dermatology & Aesthetics': '/images/departments/dermatology.png',
-    'Hair Removal': '/images/departments/laser.png',
+    'Laser Hair Removal': '/images/departments/laser.png',
     'Nursing & Beauty Therapy': '/images/departments/nursing.png',
 };
 const DEFAULT_DEPT_IMAGE = '/images/departments/default.png';
@@ -951,7 +951,7 @@ export default function BookingWizard() {
                                                     <img src={catImage} alt={cat} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-4xl">
-                                                        {cat === 'Hair Removal' ? '✨' : cat === 'Face Care' ? '🧖‍♀️' : cat === 'Hair Care' ? '💇' : cat === 'Body Care' ? '🧴' : cat === 'Fillers and Botox' ? '💉' : cat === 'Injectables' ? '💎' : cat === 'Weight Reduction' ? '⚖️' : cat === 'Clinical Dermatology' ? '🩺' : cat === 'IV Fluids' ? '💧' : cat === 'Piercings' ? '👂' : '🏥'}
+                                                        {cat === 'Laser Hair Removal' ? '✨' : cat === 'Face Care' ? '🧖‍♀️' : cat === 'Hair Care' ? '💇' : cat === 'Body Care' ? '🧴' : cat === 'Fillers and Botox' ? '💉' : cat === 'Injectables' ? '💎' : cat === 'Weight Reduction' ? '⚖️' : cat === 'Clinical Dermatology' ? '🩺' : cat === 'IV Fluids' ? '💧' : cat === 'Piercings' ? '👂' : '🏥'}
                                                     </div>
                                                 )}
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -985,7 +985,7 @@ export default function BookingWizard() {
 
                     // Sub-group definitions per category
                     const SUB_GROUPS: Record<string, { title: string; subtitle: string; groups: { key: string; label: string; emoji: string; desc: string; prefix?: string; filter?: (s: any) => boolean }[] }> = {
-                        'Hair Removal': {
+                        'Laser Hair Removal': {
                             title: 'Choose Device',
                             subtitle: 'We use two premium laser devices. Select your preferred device to see available treatments.',
                             groups: [

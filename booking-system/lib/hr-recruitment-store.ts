@@ -157,7 +157,7 @@ const initialOpenings: JobOpening[] = [
     {
         id: 'job-003',
         title: 'Laser Technician',
-        department: 'Hair Removal',
+        department: 'Laser Hair Removal',
         workplaceId: 'clinic-3',
         workplaceName: 'Silicon Oasis Branch',
         employmentType: 'FULL_TIME',

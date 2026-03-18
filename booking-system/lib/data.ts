@@ -394,7 +394,7 @@ const generateDoctors = (deptName: string, count: number): Doctor[] => {
 
 // Customer-facing booking categories (ordered for display)
 export const BOOKING_CATEGORIES = [
-    'Hair Removal',
+    'Laser Hair Removal',
     'Face Care',
     'Hair Care',
     'Body Care',

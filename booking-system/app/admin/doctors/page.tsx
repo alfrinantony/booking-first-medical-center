@@ -246,7 +246,7 @@ export default function DoctorsPage() {
     const ALLOWED_DOCTOR_DEPTS = [
         'Dermatology & Aesthetics',
         'Nursing & Beauty Therapy',
-        'Hair Removal',
+        'Laser Hair Removal',
         'Physiotherapy',
     ];
     const uniqueDepartments = Array.from(new Map(allDepartments.map(d => [d.deptId, d])).values())
