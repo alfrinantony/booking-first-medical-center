@@ -100,6 +100,7 @@ export async function GET(request: Request) {
 
     // Find the absolute maximum bounds
     const scheduleMinutesArray = Array.from(availableMinutesSet).sort((a, b) => a - b);
+    const scheduleStart = scheduleMinutesArray.length > 0 ? scheduleMinutesArray[0] : 10 * 60;
     const scheduleEnd = scheduleMinutesArray.length > 0 ? scheduleMinutesArray[scheduleMinutesArray.length - 1] + 15 : 22 * 60;
 
     // Helper: convert minutes to slot string like "02:30 PM"
@@ -112,27 +113,33 @@ export async function GET(request: Request) {
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
     }
 
-    // Generate slots at service-duration intervals. 
-    // We anchor the loop to the standard clinic opening time (10:00 AM) to ensure 
-    // symmetric slot gaps (e.g., 60-min services start cleanly at 10:00, 11:00, etc.)
-    const CLINIC_OPENING_MINUTES = 10 * 60; 
+    // Generate slots dynamically based on service duration.
+    // Instead of locking to a static 10:00 AM start, we anchor to the doctor's actual first available minute (scheduleStart),
+    // and if the block is fully available, we yield the slot and jump forward exactly by the service duration.
+    // If a gap exists, we step forward 15 mins until we find the next fully clear block.
     let slots: string[] = [];
+    let currentMin = scheduleStart;
 
-    let stepInterval = requestedDuration;
-    // Keep 15 minute services at 15 minute intervals. Keep everything else strictly locked to duration.
-    for (let startMin = CLINIC_OPENING_MINUTES; startMin + requestedDuration <= scheduleEnd; startMin += stepInterval) {
-        // Verify all 15-min blocks within this duration chunk are available in the doctor's schedule
+    while (currentMin + requestedDuration <= scheduleEnd) {
+        // Verify all 15-min sub-blocks within this requested duration chunk are available
         let allAvailable = true;
-        for (let checkpoint = startMin; checkpoint < startMin + requestedDuration; checkpoint += 15) {
+        for (let checkpoint = currentMin; checkpoint < currentMin + requestedDuration; checkpoint += 15) {
             if (!availableMinutesSet.has(checkpoint)) {
                 allAvailable = false;
                 break;
             }
         }
+
         if (allAvailable) {
-            slots.push(minutesToSlotString(startMin));
+            slots.push(minutesToSlotString(currentMin));
+            // Jump forward by the service duration to ensure clean slot geometries (e.g. 10:00, 11:00 for 60-min)
+            currentMin += requestedDuration;
+        } else {
+            // Gap encountered or offset block. Step forward by 15 mins to search for the next valid anchor.
+            currentMin += 15;
         }
     }
+
 
     // ── 4. Resolve Branch Closing Time (minutes from midnight) ──
     let closingMinutes = 22 * 60; // Default 10 PM
