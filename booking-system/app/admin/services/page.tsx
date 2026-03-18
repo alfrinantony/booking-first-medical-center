@@ -249,13 +249,21 @@ export default function ServicesPage() {
             const branchIds = selectedBranchIds.length > 0 ? selectedBranchIds : [selectedClinicId];
 
             for (const branchId of branchIds) {
-                // Find the matching department in this branch
                 const branchClinic = clinics.find(c => c.id === branchId);
-                const deptId = newService.departmentId || branchClinic?.departments[0]?.id || '';
+                if (!branchClinic) continue;
+
+                let targetDeptId = newService.departmentId;
+                if (branchId !== selectedClinicId) {
+                    // Find the original department name from the currently selected clinic
+                    const sourceClinic = clinics.find(c => c.id === selectedClinicId);
+                    const sourceDept = sourceClinic?.departments?.find(d => d.id === newService.departmentId);
+                    const matchedDept = branchClinic.departments?.find(d => d.name === sourceDept?.name);
+                    targetDeptId = matchedDept?.id || branchClinic.departments?.[0]?.id || '';
+                }
 
                 const payload: any = {
                     clinicId: branchId,
-                    departmentId: deptId,
+                    departmentId: targetDeptId,
                     name: newService.name,
                     description: newService.description,
                     preCare: newService.preCare,
@@ -419,11 +427,16 @@ export default function ServicesPage() {
                     });
                 } else {
                     // Create new service in this branch
-                    const deptId = branchClinic.departments?.[0]?.id || '';
+                    // Map department by name
+                    const sourceClinic = clinics.find(c => c.id === selectedClinicId);
+                    const sourceDept = sourceClinic?.departments?.find(d => d.id === editingService.departmentId);
+                    const matchedDept = branchClinic.departments?.find(d => d.name === sourceDept?.name);
+                    const targetDeptId = matchedDept?.id || branchClinic.departments?.[0]?.id || '';
+
                     await fetch('/api/admin/services', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(buildPayload(branchId, deptId))
+                        body: JSON.stringify(buildPayload(branchId, targetDeptId))
                     });
                 }
             } // Close the for loop iterating over otherBranches
