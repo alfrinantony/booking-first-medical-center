@@ -268,9 +268,10 @@ export default function ServicesPage() {
                     description: newService.description,
                     preCare: newService.preCare,
                     postCare: newService.postCare,
-                    price: Number(newService.discountedPrice) || Number(newService.regularPrice),
-                    regularPrice: newService.regularPrice ? Number(newService.regularPrice) : undefined,
-                    discountedPrice: newService.discountedPrice ? Number(newService.discountedPrice) : undefined,
+                    price: (newService.discountedPrice && String(newService.discountedPrice).trim() !== '') ? Number(newService.discountedPrice) : 
+                           (newService.regularPrice && String(newService.regularPrice).trim() !== '') ? Number(newService.regularPrice) : 0,
+                    regularPrice: newService.regularPrice && String(newService.regularPrice).trim() !== '' ? Number(newService.regularPrice) : undefined,
+                    discountedPrice: newService.discountedPrice && String(newService.discountedPrice).trim() !== '' ? Number(newService.discountedPrice) : undefined,
                     threeSessionPackage: newService.threeSessionTotalCost ? {
                         totalCost: Number(newService.threeSessionTotalCost),
                         validity: Number(newService.threeSessionValidity) || 90,
@@ -342,9 +343,10 @@ export default function ServicesPage() {
                     description: editingService.description || '',
                     preCare: editingService.preCare || '',
                     postCare: editingService.postCare || '',
-                    price: Number(editingService.price),
-                    regularPrice: editingService.regularPrice ? Number(editingService.regularPrice) : null,
-                    discountedPrice: editingService.discountedPrice ? Number(editingService.discountedPrice) : null,
+                    price: (editingService.discountedPrice !== null && editingService.discountedPrice !== undefined && String(editingService.discountedPrice).trim() !== '') ? Number(editingService.discountedPrice) : 
+                           (editingService.regularPrice !== null && editingService.regularPrice !== undefined && String(editingService.regularPrice).trim() !== '') ? Number(editingService.regularPrice) : Number(editingService.price),
+                    regularPrice: editingService.regularPrice !== null && editingService.regularPrice !== undefined && String(editingService.regularPrice).trim() !== '' ? Number(editingService.regularPrice) : null,
+                    discountedPrice: editingService.discountedPrice !== null && editingService.discountedPrice !== undefined && String(editingService.discountedPrice).trim() !== '' ? Number(editingService.discountedPrice) : null,
                     threeSessionPackage: editingService.threeSessionPackage && editingService.threeSessionPackage.totalCost ? editingService.threeSessionPackage : null,
                     sixSessionPackage: editingService.sixSessionPackage && editingService.sixSessionPackage.totalCost ? editingService.sixSessionPackage : null,
                     duration: Number(editingService.duration),

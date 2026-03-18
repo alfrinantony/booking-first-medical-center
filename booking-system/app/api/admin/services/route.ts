@@ -18,7 +18,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { clinicId, departmentId, name, price, duration, isTaxable, category, followUpDuration, minimumIntervalDays, screeningQuestions, maxMedicines, medicineIds, medicineSelectionMode, consumableIds, addOns, description, preCare, postCare, regularPrice, discountedPrice, threeSessionPackage, sixSessionPackage, image } = body;
 
-        if (!clinicId || !departmentId || !name || !price || !duration) {
+        if (!clinicId || !departmentId || !name || price === undefined || price === null || duration === undefined || duration === null) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
