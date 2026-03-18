@@ -113,17 +113,18 @@ export async function GET(request: Request) {
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
     }
 
-    // Generate slots at strict geometries anchored to 10:00 AM.
-    // 60-min services will align to 10:00, 11:00, 12:00. 
-    // 45-min services will align to 10:00, 10:45, 11:30.
-    // This perfectly partitions availability without offset jagged starts.
+    // Generate slots at strict geometries anchored to 10:00 AM initially.
+    // 60-min: 10:00, 11:00, 12:00
+    // 45-min: 10:00, 10:45, 11:30
+    // If a chunk is unavailable (e.g. doctor starts at 11:00), we step by 15 mins to cleanly re-anchor.
     const CLINIC_OPENING_MINUTES = 10 * 60;
     let slots: string[] = [];
 
-    for (let startMin = CLINIC_OPENING_MINUTES; startMin + requestedDuration <= scheduleEnd; startMin += requestedDuration) {
+    let currentMin = CLINIC_OPENING_MINUTES;
+    while (currentMin + requestedDuration <= scheduleEnd) {
         // Verify all 15-min sub-blocks within this requested duration chunk are available
         let allAvailable = true;
-        for (let checkpoint = startMin; checkpoint < startMin + requestedDuration; checkpoint += 15) {
+        for (let checkpoint = currentMin; checkpoint < currentMin + requestedDuration; checkpoint += 15) {
             if (!availableMinutesSet.has(checkpoint)) {
                 allAvailable = false;
                 break;
@@ -131,10 +132,14 @@ export async function GET(request: Request) {
         }
 
         if (allAvailable) {
-            slots.push(minutesToSlotString(startMin));
+            slots.push(minutesToSlotString(currentMin));
+            // Jump forward by the service duration to ensure clean, non-overlapping chunks
+            currentMin += requestedDuration;
+        } else {
+            // Gap encountered or offset shift. Step forward by 15 mins to search for the next geometric anchor.
+            currentMin += 15;
         }
     }
-
 
     // ── 4. Resolve Branch Closing Time (minutes from midnight) ──
     let closingMinutes = 22 * 60; // Default 10 PM
