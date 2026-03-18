@@ -68,16 +68,38 @@ export async function GET(request: Request) {
         }
     }
 
-    // ── 3b. Generate Candidate Slots at Service-Duration Intervals ──
+    // ── 3b. Handle Admin Edit Mode (bypass duration merging) ──
+    const editMode = searchParams.get('editMode') === 'true';
+    if (editMode) {
+        let closingMinutes = 22 * 60; // Default 10 PM
+        if (clinicId) {
+            const storedClinic = await ServicesStore.getClinicById(clinicId);
+            const staticClinic = clinics.find(c => c.id === clinicId);
+            const closingStr = storedClinic?.closingTime || staticClinic?.closingTime;
+            const parsed = parse24hToMinutes(closingStr);
+            if (parsed !== null) closingMinutes = parsed;
+        }
+
+        const response: any = {
+            slots: baseScheduleSlots, // Return raw 15-minute blocks for the admin UI
+            serviceDuration: requestedDuration,
+            closingTime: closingMinutes,
+        };
+        if (otherBranches && clinicId) {
+            response.otherBranchSlots = Scheduler.getOtherBranchSlots(doctorId, date, clinicId);
+        }
+        return NextResponse.json(response);
+    }
+
+    // ── 3c. Generate Candidate Slots at Service-Duration Intervals ──
     // Convert base schedule to a Set of available minutes for fast lookup
     const availableMinutesSet = new Set<number>();
     for (const slot of baseScheduleSlots) {
         availableMinutesSet.add(parseSlotToMinutes(slot));
     }
 
-    // Find the time window from the schedule
+    // Find the absolute maximum bounds
     const scheduleMinutesArray = Array.from(availableMinutesSet).sort((a, b) => a - b);
-    const scheduleStart = scheduleMinutesArray.length > 0 ? scheduleMinutesArray[0] : 10 * 60;
     const scheduleEnd = scheduleMinutesArray.length > 0 ? scheduleMinutesArray[scheduleMinutesArray.length - 1] + 15 : 22 * 60;
 
     // Helper: convert minutes to slot string like "02:30 PM"
@@ -90,11 +112,16 @@ export async function GET(request: Request) {
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
     }
 
-    // Generate slots at service-duration intervals
-    // A slot is valid only if every 15-min checkpoint within its duration is in the doctor's schedule
+    // Generate slots at service-duration intervals. 
+    // We anchor the loop to the standard clinic opening time (10:00 AM) to ensure 
+    // symmetric slot gaps (e.g., 60-min services start cleanly at 10:00, 11:00, etc.)
+    const CLINIC_OPENING_MINUTES = 10 * 60; 
     let slots: string[] = [];
-    for (let startMin = scheduleStart; startMin + requestedDuration <= scheduleEnd; startMin += requestedDuration) {
-        // Verify all 15-min blocks within this slot are available in the schedule
+
+    let stepInterval = requestedDuration;
+    // Keep 15 minute services at 15 minute intervals. Keep everything else strictly locked to duration.
+    for (let startMin = CLINIC_OPENING_MINUTES; startMin + requestedDuration <= scheduleEnd; startMin += stepInterval) {
+        // Verify all 15-min blocks within this duration chunk are available in the doctor's schedule
         let allAvailable = true;
         for (let checkpoint = startMin; checkpoint < startMin + requestedDuration; checkpoint += 15) {
             if (!availableMinutesSet.has(checkpoint)) {

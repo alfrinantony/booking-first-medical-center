@@ -58,6 +58,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(await PackagesStore.useComplimentaryService(body.customerPkgId, body.serviceIndex, body.recipientPhone));
         case 'deleteCustomerPackage':
             return NextResponse.json(await PackagesStore.deleteCustomerPackage(body.customerPackageId));
+        case 'cancelCustomerPackage':
+            const staffName = body.staffName || 'Admin'; // Usually fetched from session
+            return NextResponse.json(await PackagesStore.cancelCustomerPackage(body.customerPackageId, staffName));
         default:
             return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }

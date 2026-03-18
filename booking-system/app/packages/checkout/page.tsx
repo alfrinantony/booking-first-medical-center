@@ -161,7 +161,7 @@ function CheckoutContent() {
                     <div className="flex flex-col sm:flex-row gap-3">
                         {isPaidByCard ? (
                             <button
-                                onClick={() => router.push(`/booking?packageId=${purchasedPkgId}&serviceId=${serviceId}`)}
+                                onClick={() => router.push(`/booking?packageId=${purchasedPkgId}&serviceId=${encodeURIComponent(serviceId)}`)}
                                 className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg"
                             >
                                 Book Now <ArrowRight className="w-5 h-5" />

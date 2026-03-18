@@ -116,7 +116,7 @@ export default function SchedulePage() {
         if (!selectedDoctorId || !startDate || !selectedClinicId) return;
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctorId}&date=${startDate}&clinicId=${selectedClinicId}&otherBranches=true`);
+            const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctorId}&date=${startDate}&clinicId=${selectedClinicId}&otherBranches=true&editMode=true`);
             if (res.ok) {
                 const data = await res.json();
                 if (data.slots && data.slots.length > 0) {

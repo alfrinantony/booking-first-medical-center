@@ -394,14 +394,14 @@ const generateDoctors = (deptName: string, count: number): Doctor[] => {
 
 // Customer-facing booking categories (ordered for display)
 export const BOOKING_CATEGORIES = [
-    'Laser & Electrolysis Hair Removal',
+    'Hair Removal',
     'Face Care',
     'Hair Care',
     'Body Care',
-    'Fillers & Botox',
+    'Fillers and Botox',
     'Injectables',
     'Weight Reduction',
-    'Clinical & Dermatology',
+    'Clinical Dermatology',
     'IV Fluids',
     'Piercings',
 ] as const;
@@ -411,7 +411,7 @@ export type BookingCategory = typeof BOOKING_CATEGORIES[number];
 // Data Generation
 const departmentNames = [
     'Dermatology & Aesthetics',
-    'Laser & Electrolysis Hair Removal',
+    'Hair Removal',
     'Nursing & Beauty Therapy',
     'Orthopedics',
     'Pediatrics',

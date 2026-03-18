@@ -12,7 +12,7 @@ import { bookingVoiceController, VOICE_EVENTS, WIZARD_EVENTS, fuzzyMatch, STEP_N
 // Default department images (fallback when no Azure Blob URL is set)
 const DEPT_IMAGES: Record<string, string> = {
     'Dermatology & Aesthetics': '/images/departments/dermatology.png',
-    'Laser & Electrolysis Hair Removal': '/images/departments/laser.png',
+    'Hair Removal': '/images/departments/laser.png',
     'Nursing & Beauty Therapy': '/images/departments/nursing.png',
 };
 const DEFAULT_DEPT_IMAGE = '/images/departments/default.png';
@@ -272,7 +272,7 @@ export default function BookingWizard() {
                 try {
                     const dateStr = format(selectedDate, 'yyyy-MM-dd');
                     const clinicParam = selectedClinic ? `&clinicId=${selectedClinic.id}` : '';
-                    const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctor.id}&date=${dateStr}&serviceId=${selectedService?.id || ''}${clinicParam}`);
+                    const res = await fetch(`/api/admin/schedule?doctorId=${selectedDoctor.id}&date=${dateStr}&serviceId=${selectedService?.id || ''}${clinicParam}&t=${Date.now()}`, { cache: 'no-store' });
                     let slots: string[] = []; // Explicit type
 
                     if (res.ok) {
@@ -951,7 +951,7 @@ export default function BookingWizard() {
                                                     <img src={catImage} alt={cat} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-4xl">
-                                                        {cat === 'Laser & Electrolysis Hair Removal' ? '✨' : cat === 'Face Care' ? '🧖‍♀️' : cat === 'Hair Care' ? '💇' : cat === 'Body Care' ? '🧴' : cat === 'Fillers & Botox' ? '💉' : cat === 'Injectables' ? '💎' : cat === 'Weight Reduction' ? '⚖️' : cat === 'Clinical & Dermatology' ? '🩺' : cat === 'IV Fluids' ? '💧' : cat === 'Piercings' ? '👂' : '🏥'}
+                                                        {cat === 'Hair Removal' ? '✨' : cat === 'Face Care' ? '🧖‍♀️' : cat === 'Hair Care' ? '💇' : cat === 'Body Care' ? '🧴' : cat === 'Fillers and Botox' ? '💉' : cat === 'Injectables' ? '💎' : cat === 'Weight Reduction' ? '⚖️' : cat === 'Clinical Dermatology' ? '🩺' : cat === 'IV Fluids' ? '💧' : cat === 'Piercings' ? '👂' : '🏥'}
                                                     </div>
                                                 )}
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -985,7 +985,7 @@ export default function BookingWizard() {
 
                     // Sub-group definitions per category
                     const SUB_GROUPS: Record<string, { title: string; subtitle: string; groups: { key: string; label: string; emoji: string; desc: string; prefix?: string; filter?: (s: any) => boolean }[] }> = {
-                        'Laser & Electrolysis Hair Removal': {
+                        'Hair Removal': {
                             title: 'Choose Device',
                             subtitle: 'We use two premium laser devices. Select your preferred device to see available treatments.',
                             groups: [
@@ -995,7 +995,7 @@ export default function BookingWizard() {
                                 { key: 'Electrolysis', label: 'Electrolysis', emoji: '⚡', desc: 'Permanent hair removal', filter: (s: any) => s.name.startsWith('Electrolysis') },
                             ]
                         },
-                        'Fillers & Botox': {
+                        'Fillers and Botox': {
                             title: 'Choose Procedure',
                             subtitle: 'Select the treatment area. You\'ll then choose your preferred brand and see pricing.',
                             groups: [
@@ -1320,7 +1320,7 @@ export default function BookingWizard() {
                                     });
 
                                     return sorted.map((clinic: any) => {
-                                        const { isDisabled, disabledReason, distanceStr: distance } = clinic;
+                                        const { isDisabled, disabledReason, distanceStr: distance, sortPriority } = clinic;
                                         const isMapOpen = expandedMapId === clinic.id;
                                         return (
                                             <div key={clinic.id} className={`group bg-white dark:bg-gray-800 rounded-2xl border ${isDisabled ? 'border-gray-200 dark:border-gray-700 opacity-60' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-lg'} overflow-hidden transition-all duration-300`}>
@@ -1342,7 +1342,9 @@ export default function BookingWizard() {
                                                         <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                                                             {clinic.rating && <span className="text-xs font-bold text-yellow-600 flex items-center gap-1">{clinic.rating} <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" /></span>}
                                                             {isDisabled ? (
-                                                                <span className="text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md ml-auto text-right leading-tight max-w-[150px] break-words">{disabledReason}</span>
+                                                                <span className={`text-xs font-medium px-2 py-1 rounded-md ml-auto text-right leading-tight max-w-[150px] break-words ${sortPriority === 2 ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-amber-600 bg-amber-50 dark:bg-amber-900/20'}`}>
+                                                                    {disabledReason}
+                                                                </span>
                                                             ) : (
                                                                 <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold text-sm ml-auto">Select <ArrowRight className="w-4 h-4" /></span>
                                                             )}

@@ -363,7 +363,7 @@ export default function CustomerDashboard() {
                                                 {/* Book from Package button */}
                                                 {!isPending && pkg.active && (
                                                     <Link
-                                                        href={`/booking?packageId=${pkg.id}&serviceId=${Object.keys(pkg.remainingSessions)[0]}`}
+                                                        href={`/booking?packageId=${pkg.id}&serviceId=${encodeURIComponent(Object.keys(pkg.remainingSessions)[0])}`}
                                                         className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg"
                                                     >
                                                         <Calendar className="w-4 h-4" /> Book from Package

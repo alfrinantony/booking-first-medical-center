@@ -129,6 +129,7 @@ function PackagesContent() {
     const [isAssigning, setIsAssigning] = useState(false);
     const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
     const [confirmingCustDeleteId, setConfirmingCustDeleteId] = useState<string | null>(null);
+    const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
     const [assignSuccess, setAssignSuccess] = useState('');
 
     // ── Fetch available packages ──
@@ -322,6 +323,26 @@ function PackagesContent() {
             alert('Failed to assign package. Please try again.');
         }
         setIsAssigning(false);
+    };
+
+    const handleCancelCustomerPackage = async (customerPkgId: string) => {
+        try {
+            const res = await fetch('/api/admin/packages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'cancelCustomerPackage', customerPackageId: customerPkgId }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                setConfirmingCancelId(null);
+                fetchCustomerPackages(customerPhoneSearch);
+                alert(result.message);
+            } else {
+                alert(result.message || 'Failed to cancel package');
+            }
+        } catch (err) {
+            console.error('Cancel customer package failed:', err);
+        }
     };
 
     const handleDeleteCustomerPackage = async (customerPkgId: string) => {
@@ -868,30 +889,57 @@ function PackagesContent() {
                                                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">✅ Paid</span>
                                                     )}
                                                 </div>
-                                                {confirmingCustDeleteId === cp.id ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-red-600 font-medium">Remove?</span>
+                                                <div className="flex items-center gap-2">
+                                                    {confirmingCancelId === cp.id ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-amber-600 font-medium">Refund to Wallet?</span>
+                                                            <button
+                                                                onClick={() => handleCancelCustomerPackage(cp.id)}
+                                                                className="bg-amber-500 text-white text-xs px-3 py-1 rounded-md hover:bg-amber-600 font-bold transition-colors"
+                                                            >
+                                                                Yes, Cancel & Refund
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setConfirmingCancelId(null)}
+                                                                className="text-gray-500 text-xs px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                                            >
+                                                                Abort
+                                                            </button>
+                                                        </div>
+                                                    ) : (
                                                         <button
-                                                            onClick={() => handleDeleteCustomerPackage(cp.id)}
-                                                            className="bg-red-600 text-white text-xs px-3 py-1 rounded-md hover:bg-red-700 font-bold transition-colors"
+                                                            onClick={() => setConfirmingCancelId(cp.id)}
+                                                            className="text-amber-600 hover:text-amber-800 text-xs font-medium flex items-center gap-1 transition-colors bg-amber-50 px-2 py-1 rounded"
                                                         >
-                                                            Yes, Delete
+                                                            <X className="w-3 h-3" /> Cancel & Refund
                                                         </button>
+                                                    )}
+
+                                                    {confirmingCustDeleteId === cp.id ? (
+                                                        <div className="flex items-center gap-2 ml-2">
+                                                            <span className="text-xs text-red-600 font-medium">Remove?</span>
+                                                            <button
+                                                                onClick={() => handleDeleteCustomerPackage(cp.id)}
+                                                                className="bg-red-600 text-white text-xs px-3 py-1 rounded-md hover:bg-red-700 font-bold transition-colors"
+                                                            >
+                                                                Yes, Delete
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setConfirmingCustDeleteId(null)}
+                                                                className="text-gray-500 text-xs px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    ) : (
                                                         <button
-                                                            onClick={() => setConfirmingCustDeleteId(null)}
-                                                            className="text-gray-500 text-xs px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                                            onClick={() => setConfirmingCustDeleteId(cp.id)}
+                                                            className="text-red-500 hover:text-red-700 text-xs font-medium flex items-center gap-1 transition-colors ml-2"
                                                         >
-                                                            Cancel
+                                                            <Trash2 className="w-3 h-3" /> Delete
                                                         </button>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => setConfirmingCustDeleteId(cp.id)}
-                                                        className="text-red-500 hover:text-red-700 text-xs font-medium flex items-center gap-1 transition-colors"
-                                                    >
-                                                        <Trash2 className="w-3 h-3" /> Delete Package
-                                                    </button>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     );
