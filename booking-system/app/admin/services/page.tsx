@@ -93,7 +93,7 @@ export default function ServicesPage() {
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingService, setEditingService] = useState<Service & { departmentId: string } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string } | null>(null);
+    const [editingService, setEditingService] = useState<Service & { departmentId: string } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string, originalName?: string } | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -362,11 +362,11 @@ export default function ServicesPage() {
                 const branchClinic = clinics.find(c => c.id === branchId);
                 if (!branchClinic) continue;
 
-                // Find same-named service in this branch
+                // Find same-named service in this branch (using originalName to handle renames)
                 let existingServiceId: string | undefined;
                 let existingDeptId: string | undefined;
                 for (const dept of branchClinic.departments || []) {
-                    const found = (dept.services || []).find(s => s.name === editingService.name);
+                    const found = (dept.services || []).find(s => s.name === (editingService as any).originalName);
                     if (found) {
                         existingServiceId = found.id;
                         existingDeptId = dept.id;
@@ -397,7 +397,7 @@ export default function ServicesPage() {
             const previouslyAssignedBranchIds: string[] = [];
             for (const c of clinics) {
                 for (const d of c.departments || []) {
-                    if ((d.services || []).some(s => s.name === editingService.name)) {
+                    if ((d.services || []).some(s => s.name === (editingService as any).originalName)) {
                         previouslyAssignedBranchIds.push(c.id);
                         break;
                     }
@@ -412,7 +412,7 @@ export default function ServicesPage() {
                 
                 // Find service details in this branch
                 for (const dept of branchClinic.departments || []) {
-                    const found = (dept.services || []).find(s => s.name === editingService.name);
+                    const found = (dept.services || []).find(s => s.name === (editingService as any).originalName);
                     if (found) {
                         await fetch(`/api/admin/services?clinicId=${branchId}&departmentId=${dept.id}&serviceId=${found.id}`, {
                             method: 'DELETE'
@@ -484,7 +484,8 @@ export default function ServicesPage() {
             departmentId,
             timeWindowStart: service.timeWindow?.start || '',
             timeWindowEnd: service.timeWindow?.end || '',
-            followUpDurationInput: service.followUpDuration ? String(service.followUpDuration) : ''
+            followUpDurationInput: service.followUpDuration ? String(service.followUpDuration) : '',
+            originalName: service.name // Track original name for cross-branch matching during rename
         });
         // Preload selectedBranchIds with branches that already have this service (by name match)
         const branchesWithService: string[] = [];
