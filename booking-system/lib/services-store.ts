@@ -6,10 +6,8 @@ let clinicStore: Clinic[] = JSON.parse(JSON.stringify(initialClinics));
 let clinicsLoaded = false;
 
 export async function ensureClinicsLoaded() {
-    if (!clinicsLoaded) {
-        clinicStore = await loadFromBlob<Clinic[]>('clinics', clinicStore);
-        clinicsLoaded = true;
-    }
+    clinicStore = await loadFromBlob<Clinic[]>('clinics', clinicStore);
+    clinicsLoaded = true;
 }
 
 /** Shared accessor – used by doctors-store & clinics-store to avoid stale caches */
@@ -22,10 +20,8 @@ let medicineStore: Medicine[] = JSON.parse(JSON.stringify(initialMedicines));
 let medicinesLoaded = false;
 
 async function ensureMedicinesLoaded() {
-    if (!medicinesLoaded) {
-        medicineStore = await loadFromBlob<Medicine[]>('medicines', medicineStore);
-        medicinesLoaded = true;
-    }
+    medicineStore = await loadFromBlob<Medicine[]>('medicines', medicineStore);
+    medicinesLoaded = true;
 }
 
 export const MedicineStore = {
@@ -194,10 +190,8 @@ let supplierStore: Supplier[] = JSON.parse(JSON.stringify(initialSuppliers));
 let suppliersLoaded = false;
 
 async function ensureSuppliersLoaded() {
-    if (!suppliersLoaded) {
-        supplierStore = await loadFromBlob<Supplier[]>('suppliers', supplierStore);
-        suppliersLoaded = true;
-    }
+    supplierStore = await loadFromBlob<Supplier[]>('suppliers', supplierStore);
+    suppliersLoaded = true;
 }
 
 export const SupplierStore = {
@@ -245,10 +239,8 @@ let purchaseStore: PurchaseRecord[] = JSON.parse(JSON.stringify(initialPurchases
 let purchasesLoaded = false;
 
 async function ensurePurchasesLoaded() {
-    if (!purchasesLoaded) {
-        purchaseStore = await loadFromBlob<PurchaseRecord[]>('purchases', purchaseStore);
-        purchasesLoaded = true;
-    }
+    purchaseStore = await loadFromBlob<PurchaseRecord[]>('purchases', purchaseStore);
+    purchasesLoaded = true;
 }
 
 export const PurchaseStore = {
