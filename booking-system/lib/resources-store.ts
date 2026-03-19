@@ -2,13 +2,10 @@ import { Resource } from './data';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 let resources: Resource[] = [];
-let resLoaded = false;
-
 async function ensureResLoaded() {
-    if (!resLoaded) {
+    
         resources = await loadFromBlob<Resource[]>('resources', []);
-        resLoaded = true;
-    }
+        
 }
 
 export const ResourcesStore = {

@@ -26,13 +26,10 @@ const initialConfigs: NotificationConfig[] = [
 ];
 
 let configs: NotificationConfig[] = [...initialConfigs];
-let notifLoaded = false;
-
 async function ensureNotifLoaded() {
-    if (!notifLoaded) {
+    
         configs = await loadFromBlob<NotificationConfig[]>('notifications', initialConfigs);
-        notifLoaded = true;
-    }
+        
 }
 
 export const NotificationStore = {

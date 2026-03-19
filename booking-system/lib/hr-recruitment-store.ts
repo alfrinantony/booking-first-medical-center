@@ -265,19 +265,16 @@ const initialCandidates: Candidate[] = [
 // ── In-memory stores ──
 let openings: JobOpening[] = JSON.parse(JSON.stringify(initialOpenings));
 let candidates: Candidate[] = JSON.parse(JSON.stringify(initialCandidates));
-let recLoaded = false;
-
 interface RecBlobData { openings: JobOpening[]; candidates: Candidate[] }
 
 async function ensureRecLoaded() {
-    if (!recLoaded) {
+    
         const data = await loadFromBlob<RecBlobData>('hr-recruitment', null as any);
         if (data) {
             openings = data.openings;
             candidates = data.candidates;
         }
-        recLoaded = true;
-    }
+        
 }
 
 async function saveRec() {

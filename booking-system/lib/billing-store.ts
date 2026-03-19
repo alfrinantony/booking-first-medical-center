@@ -62,15 +62,12 @@ interface BillingData { invoices: Invoice[]; nextSequence: number; }
 
 let invoices: Invoice[] = [];
 let nextSequence = 1;
-let billingLoaded = false;
-
 async function ensureBillingLoaded() {
-    if (!billingLoaded) {
+    
         const data = await loadFromBlob<BillingData>('billing', { invoices: [], nextSequence: 1 });
         invoices = data.invoices;
         nextSequence = data.nextSequence;
-        billingLoaded = true;
-    }
+        
 }
 
 async function saveBilling() {

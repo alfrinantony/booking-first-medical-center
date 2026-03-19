@@ -5,13 +5,10 @@ import { loadFromBlob, saveToBlob } from './blob-persistence';
  * Server-side store for Google reviews with blob persistence.
  */
 let reviews: GoogleReview[] = [];
-let revLoaded = false;
-
 async function ensureRevLoaded() {
-    if (!revLoaded) {
+    
         reviews = await loadFromBlob<GoogleReview[]>('reviews', []);
-        revLoaded = true;
-    }
+        
 }
 
 export const ReviewsServerStore = {

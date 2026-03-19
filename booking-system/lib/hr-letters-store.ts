@@ -266,13 +266,10 @@ function renderExperienceCertificate(
 
 // ── In-memory store ──
 let letters: EmployeeLetter[] = [];
-let letLoaded = false;
-
 async function ensureLetLoaded() {
-    if (!letLoaded) {
+    
         letters = await loadFromBlob<EmployeeLetter[]>('hr-letters', []);
-        letLoaded = true;
-    }
+        
 }
 
 async function saveLet() {

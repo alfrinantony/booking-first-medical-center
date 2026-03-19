@@ -18,17 +18,14 @@ let availablePackages: Package[] = [];
 let customerPackages: CustomerPackage[] = [];
 let transferRequests: PackageTransferRequest[] = [];
 let extensionRequests: PackageExtensionRequest[] = [];
-let packagesLoaded = false;
-
 async function ensurePackagesLoaded() {
-    if (!packagesLoaded) {
+    
         const data = await loadFromBlob<PackagesData>('packages', { availablePackages: [], customerPackages: [], transferRequests: [], extensionRequests: [] });
         availablePackages = data.availablePackages || [];
         customerPackages = data.customerPackages || [];
         transferRequests = data.transferRequests || [];
         extensionRequests = data.extensionRequests || [];
-        packagesLoaded = true;
-    }
+        
 }
 
 async function savePackages() {

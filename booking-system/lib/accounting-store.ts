@@ -314,19 +314,16 @@ let accounts: Account[] = JSON.parse(JSON.stringify(initialAccounts));
 let transactions: Transaction[] = JSON.parse(JSON.stringify(initialTransactions));
 let payables: Payable[] = JSON.parse(JSON.stringify(initialPayables));
 let receivables: Receivable[] = JSON.parse(JSON.stringify(initialReceivables));
-let acctLoaded = false;
-
 interface AccountingData { accounts: Account[]; transactions: Transaction[]; payables: Payable[]; receivables: Receivable[]; }
 
 async function ensureAcctLoaded() {
-    if (!acctLoaded) {
+    
         const data = await loadFromBlob<AccountingData>('accounting', { accounts: initialAccounts, transactions: initialTransactions, payables: initialPayables, receivables: initialReceivables });
         accounts = data.accounts;
         transactions = data.transactions;
         payables = data.payables;
         receivables = data.receivables;
-        acctLoaded = true;
-    }
+        
 }
 
 async function saveAccounting() {

@@ -34,14 +34,11 @@ export interface ReviewDiscountResult {
 
 // ── In-memory store ──
 let reviews: GoogleReview[] = [];
-let reviewDiscountLoaded = false;
-
 async function ensureReviewDiscountLoaded() {
-    if (!reviewDiscountLoaded) {
+    
         const data = await loadFromBlob<{ reviews: GoogleReview[] }>('review-discounts', { reviews: [] });
         reviews = data.reviews;
-        reviewDiscountLoaded = true;
-    }
+        
 }
 
 async function saveReviewDiscount() {

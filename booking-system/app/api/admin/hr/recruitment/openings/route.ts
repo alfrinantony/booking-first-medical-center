@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { RecruitmentStore } from '@/lib/hr-recruitment-store';
 import type { OpeningStatus } from '@/lib/hr-recruitment-store';

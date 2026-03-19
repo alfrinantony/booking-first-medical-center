@@ -33,14 +33,11 @@ interface WalletData {
 }
 
 let wallets: ClientWallet[] = [];
-let walletLoaded = false;
-
 async function ensureWalletLoaded() {
-    if (!walletLoaded) {
+    
         const data = await loadFromBlob<WalletData>('wallets', { wallets: [] });
         wallets = data.wallets || [];
-        walletLoaded = true;
-    }
+        
 }
 
 async function saveWallet() {

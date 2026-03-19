@@ -180,14 +180,11 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 // ── In-memory store ──
 let settings: AppSettings = { ...DEFAULT_SETTINGS };
-let settingsLoaded = false;
-
 async function ensureSettingsLoaded() {
-    if (!settingsLoaded) {
+    
         const data = await loadFromBlob<{ settings: AppSettings }>('settings', { settings: DEFAULT_SETTINGS });
         settings = data.settings;
-        settingsLoaded = true;
-    }
+        
 }
 
 async function saveSettings() {

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { AccountingStore } from '@/lib/accounting-store';
 import type { TransactionType } from '@/lib/accounting-store';

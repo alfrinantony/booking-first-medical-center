@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { HRDocumentsStore, getCategoryForDocType } from '@/lib/hr-documents-store';
 import type { DocumentCategory } from '@/lib/hr-documents-store';

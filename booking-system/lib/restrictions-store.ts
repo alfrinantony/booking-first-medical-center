@@ -26,14 +26,12 @@ let peakDays: number[] = [];
 let peakSlots: string[] = [];
 let noShowRestrictionDays = 7;
 let clients: Record<string, ClientRestriction> = {};
-let restrictionsLoaded = false;
-
 function getDefaultRestriction(): ClientRestriction {
     return { noShowDates: [], noShowExempt: false, voiceAgentBlocked: false };
 }
 
 async function ensureRestrictionsLoaded() {
-    if (!restrictionsLoaded) {
+    
         const data = await loadFromBlob<RestrictionsData>('restrictions', {
             peakDays: [], peakSlots: [], noShowRestrictionDays: 7, clients: {},
         });
@@ -41,8 +39,7 @@ async function ensureRestrictionsLoaded() {
         peakSlots = data.peakSlots;
         noShowRestrictionDays = data.noShowRestrictionDays;
         clients = data.clients;
-        restrictionsLoaded = true;
-    }
+        
 }
 
 async function saveRestrictions() {

@@ -265,12 +265,10 @@ function generateSeedData(): AttendanceRecord[] {
 let attendanceRecords: AttendanceRecord[] = generateSeedData();
 let alerts: AttendanceAlert[] = [];
 let nextId = 100;
-let attLoaded = false;
-
 interface AttBlobData { records: AttendanceRecord[]; alerts: AttendanceAlert[]; nextId: number; devices: DeviceConfig[] }
 
 async function ensureAttLoaded() {
-    if (!attLoaded) {
+    
         const data = await loadFromBlob<AttBlobData>('hr-attendance', null as any);
         if (data) {
             attendanceRecords = data.records;
@@ -278,8 +276,7 @@ async function ensureAttLoaded() {
             nextId = data.nextId;
             devices = data.devices;
         }
-        attLoaded = true;
-    }
+        
 }
 
 async function saveAtt() {

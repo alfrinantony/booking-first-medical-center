@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { CallAgentSummaryStore } from '@/lib/call-agent-summary-store';
 

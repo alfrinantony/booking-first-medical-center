@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getLeavesByDateRange } from '@/lib/hr-leave-store';
 import { HRStore } from '@/lib/hr-store';

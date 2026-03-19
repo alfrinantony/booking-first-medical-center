@@ -63,13 +63,10 @@ export interface Client {
 
 // Persistent client metadata (fields not derived from bookings)
 let clientMetadata: Record<string, Partial<Client>> = {};
-let metadataLoaded = false;
-
 async function ensureMetadataLoaded() {
-    if (!metadataLoaded) {
+    
         clientMetadata = await loadFromBlob<Record<string, Partial<Client>>>('client-metadata', {});
-        metadataLoaded = true;
-    }
+        
 }
 
 export const ClientsStore = {

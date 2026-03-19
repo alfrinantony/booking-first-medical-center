@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { HRStore } from '@/lib/hr-store';
 import type { EmployeeStatus } from '@/lib/hr-store';

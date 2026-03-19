@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { HRShiftStore, ShiftStatus } from '@/lib/hr-shift-store';
 import { HRStore } from '@/lib/hr-store';

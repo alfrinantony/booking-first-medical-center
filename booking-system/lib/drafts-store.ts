@@ -6,13 +6,10 @@ import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 // Internal memory mapping: { "userId": { "formId": data } }
 let drafts: Record<string, Record<string, any>> = {};
-let draftsLoaded = false;
-
 async function ensureDraftsLoaded() {
-    if (!draftsLoaded) {
+    
         drafts = await loadFromBlob<Record<string, Record<string, any>>>('form-drafts', {});
-        draftsLoaded = true;
-    }
+        
 }
 
 async function persistDrafts() {

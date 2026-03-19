@@ -3,8 +3,6 @@ import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 // ── Clinics (shared backing store for Services + Doctors + Clinics) ─────
 let clinicStore: Clinic[] = JSON.parse(JSON.stringify(initialClinics));
-let clinicsLoaded = false;
-
 export async function ensureClinicsLoaded() {
     clinicStore = await loadFromBlob<Clinic[]>('clinics', clinicStore);
     clinicsLoaded = true;
@@ -17,8 +15,6 @@ export async function saveClinicStore() { await saveToBlob('clinics', clinicStor
 
 // ── Medicines ─────────────────────────────────────────────────
 let medicineStore: Medicine[] = JSON.parse(JSON.stringify(initialMedicines));
-let medicinesLoaded = false;
-
 async function ensureMedicinesLoaded() {
     medicineStore = await loadFromBlob<Medicine[]>('medicines', medicineStore);
     medicinesLoaded = true;
@@ -145,13 +141,10 @@ export const MedicineStore = {
 
 // ── Distribution Records ──────────────────────────────────────
 let distributionStore: DistributionRecord[] = [];
-let distributionsLoaded = false;
-
 async function ensureDistributionsLoaded() {
-    if (!distributionsLoaded) {
+    
         distributionStore = await loadFromBlob<DistributionRecord[]>('distributions', []);
-        distributionsLoaded = true;
-    }
+        
 }
 
 export const DistributionStore = {
@@ -187,8 +180,6 @@ export const DistributionStore = {
 
 // ── Suppliers ─────────────────────────────────────────────────
 let supplierStore: Supplier[] = JSON.parse(JSON.stringify(initialSuppliers));
-let suppliersLoaded = false;
-
 async function ensureSuppliersLoaded() {
     supplierStore = await loadFromBlob<Supplier[]>('suppliers', supplierStore);
     suppliersLoaded = true;
@@ -236,8 +227,6 @@ export const SupplierStore = {
 
 // ── Purchase Records ──────────────────────────────────────────
 let purchaseStore: PurchaseRecord[] = JSON.parse(JSON.stringify(initialPurchases));
-let purchasesLoaded = false;
-
 async function ensurePurchasesLoaded() {
     purchaseStore = await loadFromBlob<PurchaseRecord[]>('purchases', purchaseStore);
     purchasesLoaded = true;
@@ -354,13 +343,10 @@ export const PurchaseStore = {
 
 // ── Inventory Batches ─────────────────────────────────────────
 let batchStore: InventoryBatch[] = [];
-let batchesLoaded = false;
-
 async function ensureBatchesLoaded() {
-    if (!batchesLoaded) {
+    
         batchStore = await loadFromBlob<InventoryBatch[]>('inventory-batches', []);
-        batchesLoaded = true;
-    }
+        
 }
 
 export const InventoryBatchStore = {
@@ -532,13 +518,10 @@ export const ServicesStore = {
 
 // ── Category Image Store ──────────────────────────────────────
 let categoryImageStore: Record<string, string> = {};
-let categoryImagesLoaded = false;
-
 async function ensureCategoryImagesLoaded() {
-    if (!categoryImagesLoaded) {
+    
         categoryImageStore = await loadFromBlob<Record<string, string>>('category-images', {});
-        categoryImagesLoaded = true;
-    }
+        
 }
 
 export const CategoryImageStore = {
@@ -567,13 +550,10 @@ export const CategoryImageStore = {
 
 // ── Registered Products ───────────────────────────────────────
 let registeredProductStore: RegisteredProduct[] = JSON.parse(JSON.stringify(initialRegisteredProducts));
-let registeredProductsLoaded = false;
-
 async function ensureRegisteredProductsLoaded() {
-    if (!registeredProductsLoaded) {
+    
         registeredProductStore = await loadFromBlob<RegisteredProduct[]>('registered-products', registeredProductStore);
-        registeredProductsLoaded = true;
-    }
+        
 }
 
 export const RegisteredProductStore = {

@@ -305,13 +305,10 @@ const initialDocuments: EmployeeDocument[] = [
 
 // ── In-memory store ──
 let documents: EmployeeDocument[] = JSON.parse(JSON.stringify(initialDocuments));
-let docLoaded = false;
-
 async function ensureDocLoaded() {
-    if (!docLoaded) {
+    
         documents = await loadFromBlob<EmployeeDocument[]>('hr-documents', initialDocuments);
-        docLoaded = true;
-    }
+        
 }
 
 async function saveDoc() {

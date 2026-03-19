@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { ClientsStore } from '@/lib/clients-store';
 import { maskPhone, maskEmail } from '@/lib/emr-store';

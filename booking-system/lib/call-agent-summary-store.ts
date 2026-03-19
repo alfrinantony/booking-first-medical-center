@@ -2,13 +2,10 @@ import { initialCallAgentSummaries, CallAgentSummary } from './data';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 let summaryStore: CallAgentSummary[] = JSON.parse(JSON.stringify(initialCallAgentSummaries));
-let casLoaded = false;
-
 async function ensureCASLoaded() {
-    if (!casLoaded) {
+    
         summaryStore = await loadFromBlob<CallAgentSummary[]>('call-agent-summaries', initialCallAgentSummaries);
-        casLoaded = true;
-    }
+        
 }
 
 export const CallAgentSummaryStore = {

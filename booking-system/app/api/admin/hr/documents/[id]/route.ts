@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { HRDocumentsStore } from '@/lib/hr-documents-store';
 import { deleteFromBlob } from '@/lib/azure-blob';

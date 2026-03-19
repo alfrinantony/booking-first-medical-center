@@ -59,15 +59,12 @@ const DEFAULT_CONFIG: EMRConfig = {
 
 let config: EMRConfig = { ...DEFAULT_CONFIG };
 let pushRecords: EMRPushRecord[] = [];
-let emrLoaded = false;
-
 async function ensureEMRLoaded() {
-    if (!emrLoaded) {
+    
         const data = await loadFromBlob<EMRData>('emr-config', { config: DEFAULT_CONFIG, pushRecords: [] });
         config = data.config;
         pushRecords = data.pushRecords;
-        emrLoaded = true;
-    }
+        
 }
 
 async function saveEMR() {

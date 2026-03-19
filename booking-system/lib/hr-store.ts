@@ -351,13 +351,10 @@ const initialEmployees: Employee[] = [
 
 // ── In-memory store ──
 let employees: Employee[] = JSON.parse(JSON.stringify(initialEmployees));
-let hrLoaded = false;
-
 async function ensureHRLoaded() {
-    if (!hrLoaded) {
+    
         employees = await loadFromBlob<Employee[]>('hr-employees', initialEmployees);
-        hrLoaded = true;
-    }
+        
 }
 
 async function saveHR() {

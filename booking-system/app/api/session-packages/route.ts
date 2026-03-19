@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { PackagesStore } from '@/lib/packages-store';
 import { ServicesStore } from '@/lib/services-store';

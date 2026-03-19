@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { UsersStore, CLINICS } from '@/lib/users-store';
 import type { LoginRestrictions } from '@/lib/users-types';

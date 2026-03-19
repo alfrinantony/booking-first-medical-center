@@ -33,14 +33,11 @@ const RESCHEDULE_AFTER_PENALTY = 40;  // Same-day reschedule after booked time
 
 // ── In-memory store ──
 let transactions: LoyaltyTransaction[] = [];
-let loyaltyLoaded = false;
-
 async function ensureLoyaltyLoaded() {
-    if (!loyaltyLoaded) {
+    
         const data = await loadFromBlob<{ transactions: LoyaltyTransaction[] }>('loyalty', { transactions: [] });
         transactions = data.transactions;
-        loyaltyLoaded = true;
-    }
+        
 }
 
 async function saveLoyalty() {

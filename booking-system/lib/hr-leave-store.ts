@@ -142,12 +142,10 @@ let leavePlannings: LeavePlanning[] = [
 
 let nextLeaveId = 5;
 let nextPlanId = 2;
-let leaveLoaded = false;
-
 interface LeaveBlobData { requests: LeaveRequest[]; plannings: LeavePlanning[]; nextLeaveId: number; nextPlanId: number }
 
 async function ensureLeaveLoaded() {
-    if (!leaveLoaded) {
+    
         const data = await loadFromBlob<LeaveBlobData>('hr-leave', null as any);
         if (data) {
             leaveRequests = data.requests;
@@ -155,8 +153,7 @@ async function ensureLeaveLoaded() {
             nextLeaveId = data.nextLeaveId;
             nextPlanId = data.nextPlanId;
         }
-        leaveLoaded = true;
-    }
+        
 }
 
 async function saveLeave() {

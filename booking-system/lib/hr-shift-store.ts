@@ -170,19 +170,16 @@ function buildSeedAssignments(): ShiftAssignment[] {
 
 let shiftTemplates: ShiftTemplate[] = [...defaultTemplates];
 let shiftAssignments: ShiftAssignment[] = buildSeedAssignments();
-let shiftLoaded = false;
-
 interface ShiftBlobData { templates: ShiftTemplate[]; assignments: ShiftAssignment[] }
 
 async function ensureShiftLoaded() {
-    if (!shiftLoaded) {
+    
         const data = await loadFromBlob<ShiftBlobData>('hr-shifts', null as any);
         if (data) {
             shiftTemplates = data.templates;
             shiftAssignments = data.assignments;
         }
-        shiftLoaded = true;
-    }
+        
 }
 
 async function saveShift() {
