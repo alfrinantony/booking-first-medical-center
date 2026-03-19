@@ -85,7 +85,6 @@ export default function ShiftSchedulePage() {
     const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
     const [comparisons, setComparisons] = useState<Comparison[]>([]);
     const [loading, setLoading] = useState(true);
-    const [generating, setGenerating] = useState(false);
 
     // Assign modal
     const [showAssignModal, setShowAssignModal] = useState(false);
@@ -146,24 +145,6 @@ export default function ShiftSchedulePage() {
             })
             .catch(() => { });
     }, []);
-
-    const handleGenerateClinicianShifts = async () => {
-        setGenerating(true);
-        try {
-            const res = await fetch('/api/admin/hr/shifts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'generate-clinician-shifts', date: selectedDate, branchId: branchFilter || undefined }),
-            });
-            const data = await res.json();
-            alert(`Generated ${data.generated} clinician shift(s) from booked appointments.`);
-            await loadData();
-        } catch {
-            alert('Failed to generate clinician shifts');
-        } finally {
-            setGenerating(false);
-        }
-    };
 
     const handleAssignShift = async () => {
         if (!assignForm.employeeId || !assignForm.branchId) return;
@@ -285,14 +266,6 @@ export default function ShiftSchedulePage() {
 
                 {/* Actions */}
                 <button
-                    onClick={handleGenerateClinicianShifts}
-                    disabled={generating}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors text-xs font-medium"
-                >
-                    <Zap className={`w-3.5 h-3.5 ${generating ? 'animate-pulse' : ''}`} />
-                    {generating ? 'Generating...' : 'Auto-Generate'}
-                </button>
-                <button
                     onClick={() => { setAssignForm({ ...assignForm, date: selectedDate }); setShowAssignModal(true); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-medium"
                 >
@@ -319,12 +292,6 @@ export default function ShiftSchedulePage() {
                                 <StatChip icon={<UserX className="w-3.5 h-3.5" />} label="Absent" value={summary.absent} color="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20" />
                                 <StatChip icon={<Coffee className="w-3.5 h-3.5" />} label="Off Duty" value={summary.offDuty} color="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800" />
                             </div>
-                            {summary.clinicianAuto > 0 && (
-                                <div className="mt-2 flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg px-3 py-2">
-                                    <Zap className="w-3.5 h-3.5" />
-                                    <span className="font-medium">{summary.clinicianAuto} Auto (Clinician)</span>
-                                </div>
-                            )}
                         </div>
                     )}
 
@@ -439,9 +406,6 @@ export default function ShiftSchedulePage() {
                                                         <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
                                                             {a.shiftName}
                                                         </span>
-                                                        {a.isClinicianAutoShift && (
-                                                            <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-bold">AUTO</span>
-                                                        )}
                                                         {a.appointmentCount ? (
                                                             <p className="text-[10px] text-gray-400 mt-0.5">{a.appointmentCount} appt(s)</p>
                                                         ) : null}

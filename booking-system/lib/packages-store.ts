@@ -3,30 +3,36 @@
 // ─────────────────────────────────────────────────────────────
 
 import { loadFromBlob, saveToBlob } from './blob-persistence';
-import { Package, CustomerPackage, ComplimentaryService } from '@/types/packages';
+import { Package, CustomerPackage, ComplimentaryService, PackageTransferRequest, PackageExtensionRequest } from '@/types/packages';
 import { addDays, isAfter, parseISO } from 'date-fns';
 
 // ── In-memory store ──
 interface PackagesData {
     availablePackages: Package[];
     customerPackages: CustomerPackage[];
+    transferRequests?: PackageTransferRequest[];
+    extensionRequests?: PackageExtensionRequest[];
 }
 
 let availablePackages: Package[] = [];
 let customerPackages: CustomerPackage[] = [];
+let transferRequests: PackageTransferRequest[] = [];
+let extensionRequests: PackageExtensionRequest[] = [];
 let packagesLoaded = false;
 
 async function ensurePackagesLoaded() {
     if (!packagesLoaded) {
-        const data = await loadFromBlob<PackagesData>('packages', { availablePackages: [], customerPackages: [] });
-        availablePackages = data.availablePackages;
-        customerPackages = data.customerPackages;
+        const data = await loadFromBlob<PackagesData>('packages', { availablePackages: [], customerPackages: [], transferRequests: [], extensionRequests: [] });
+        availablePackages = data.availablePackages || [];
+        customerPackages = data.customerPackages || [];
+        transferRequests = data.transferRequests || [];
+        extensionRequests = data.extensionRequests || [];
         packagesLoaded = true;
     }
 }
 
 async function savePackages() {
-    await saveToBlob<PackagesData>('packages', { availablePackages, customerPackages });
+    await saveToBlob<PackagesData>('packages', { availablePackages, customerPackages, transferRequests, extensionRequests });
 }
 
 export const PackagesStore = {
@@ -136,6 +142,50 @@ export const PackagesStore = {
         };
     },
 
+    convertPackageToBalance: async (id: string, staffName: string): Promise<{ success: boolean; message: string; balanceAdded?: number }> => {
+        await ensurePackagesLoaded();
+        const customerPkgIndex = customerPackages.findIndex(p => p.id === id);
+        if (customerPkgIndex === -1) return { success: false, message: 'Customer package not found' };
+
+        const customerPkg = customerPackages[customerPkgIndex];
+        const pkgTemplate = availablePackages.find(p => p.id === customerPkg.packageId);
+        
+        if (!pkgTemplate) return { success: false, message: 'Original package template not found' };
+
+        const previouslyConsumed = customerPkg.consumedValue || 0;
+        const remainingToConvert = Math.max(0, pkgTemplate.price - previouslyConsumed);
+
+        if (remainingToConvert <= 0) {
+            return { success: false, message: 'No remaining value left in this package to convert.' };
+        }
+
+        try {
+            const { WalletStore } = await import('./wallet-store');
+            await WalletStore.addRestrictedBalance(
+                customerPkg.customerPhone,
+                customerPkg.customerName,
+                remainingToConvert,
+                customerPkg.expiryDate,
+                customerPkg.id,
+                `Converted from Package: ${customerPkg.packageName}`,
+                staffName
+            );
+        } catch (e) {
+            console.error("Failed to add restricted refund to wallet:", e);
+            return { success: false, message: 'Failed to credit restricted balance to wallet' };
+        }
+
+        // Complete the conversion by discarding the package
+        customerPackages = customerPackages.filter(p => p.id !== id);
+        await savePackages();
+
+        return { 
+            success: true, 
+            message: `Package converted. AED ${remainingToConvert.toFixed(2)} added as Restricted Balance.`,
+            balanceAdded: remainingToConvert
+        };
+    },
+
     getAvailablePackages: async (): Promise<Package[]> => {
         await ensurePackagesLoaded();
         return [...availablePackages];
@@ -203,7 +253,7 @@ export const PackagesStore = {
     },
 
 
-    useSession: async (customerPackageId: string, serviceId: string): Promise<{ success: boolean; message: string; remaining?: number }> => {
+    useSession: async (customerPackageId: string, serviceId: string): Promise<{ success: boolean; message: string; remaining?: number; deductedValue?: number }> => {
         await ensurePackagesLoaded();
         const pkgIndex = customerPackages.findIndex(p => p.id === customerPackageId);
         if (pkgIndex === -1) return { success: false, message: 'Package not found' };
@@ -216,15 +266,41 @@ export const PackagesStore = {
         const currentSessions = customerPkg.remainingSessions[serviceId] || 0;
         if (currentSessions <= 0) return { success: false, message: 'No sessions remaining for this service' };
 
+        // Calculate logical deducted value for this specific session
+        let deductedValue = 0;
+        const pkgTemplate = availablePackages.find(p => p.id === customerPkg.packageId);
+        
+        if (pkgTemplate) {
+            const totalSessionsAcrossAllServices = Object.values(customerPkg.totalSessions).reduce((sum, n) => sum + n, 0);
+            const sessionsRemainingAcrossAllServices = Object.values(customerPkg.remainingSessions).reduce((sum, n) => sum + n, 0);
+            const previouslyConsumed = customerPkg.consumedValue || 0;
+
+            if (totalSessionsAcrossAllServices > 0) {
+                // E.g. 1000 / 3 = 333.333... -> 333.33
+                const standardSessionValue = Math.floor((pkgTemplate.price / totalSessionsAcrossAllServices) * 100) / 100;
+                
+                if (sessionsRemainingAcrossAllServices === 1) {
+                    // This is the absolute LAST session! Apply the remainder so they perfectly add up to the package price
+                    deductedValue = Math.max(0, pkgTemplate.price - previouslyConsumed);
+                } else {
+                    deductedValue = standardSessionValue;
+                }
+            }
+        }
+        
+        // Ensure rounding to 2 decimals
+        deductedValue = Math.round(deductedValue * 100) / 100;
+
         customerPackages[pkgIndex] = {
             ...customerPkg,
             remainingSessions: {
                 ...customerPkg.remainingSessions,
                 [serviceId]: currentSessions - 1,
             },
+            consumedValue: (customerPkg.consumedValue || 0) + deductedValue,
         };
         await savePackages();
-        return { success: true, message: 'Session used successfully', remaining: currentSessions - 1 };
+        return { success: true, message: 'Session used successfully', remaining: currentSessions - 1, deductedValue };
     },
 
     // ── Transfer ──
@@ -366,6 +442,159 @@ export const PackagesStore = {
             price: Math.round(totalPrice * 100) / 100,
             basedOn: `Based on ${nearestLower.sessions}-session package: AED ${nearestLower.price} ÷ ${nearestLower.sessions} sessions = AED ${perSessionCost.toFixed(2)}/session × ${requestedSessions} sessions`,
         };
+    },
+
+    // ── Package Transfer Actions ──
+    createTransferRequest: async (
+        customerPackageId: string,
+        fromCustomerPhone: string,
+        fromCustomerName: string,
+        toCustomerPhone: string,
+        toCustomerName: string,
+        reason: string
+    ): Promise<{ success: boolean; message: string; request?: PackageTransferRequest }> => {
+        await ensurePackagesLoaded();
+        const pkg = customerPackages.find(p => p.id === customerPackageId);
+        if (!pkg) return { success: false, message: 'Package not found' };
+        if (pkg.customerPhone !== fromCustomerPhone) return { success: false, message: 'Unauthorized' };
+        if (pkg.isTransferred) return { success: false, message: 'This package has already been transferred before.' };
+        // Check if any session has been used
+        const totalUsed = Object.keys(pkg.totalSessions).reduce((sum, key) => {
+            return sum + (pkg.totalSessions[key] - (pkg.remainingSessions[key] || 0));
+        }, 0);
+        if (totalUsed > 0) return { success: false, message: 'Packages cannot be transferred once a session has been used.' };
+
+        // Check if a pending transfer already exists
+        const existing = transferRequests.find(r => r.customerPackageId === customerPackageId && r.status === 'pending');
+        if (existing) return { success: false, message: 'A transfer request is already pending for this package.' };
+
+        const newRequest: PackageTransferRequest = {
+            id: `ptr-${Date.now()}`,
+            customerPackageId,
+            packageName: pkg.packageName,
+            fromCustomerPhone,
+            fromCustomerName,
+            toCustomerPhone,
+            toCustomerName,
+            reason,
+            status: 'pending',
+            requestedAt: new Date().toISOString(),
+        };
+
+        transferRequests.push(newRequest);
+        await savePackages();
+        return { success: true, message: 'Transfer request submitted', request: newRequest };
+    },
+
+    getTransferRequests: async (status?: 'pending' | 'approved' | 'rejected'): Promise<PackageTransferRequest[]> => {
+        await ensurePackagesLoaded();
+        if (status) return transferRequests.filter(r => r.status === status);
+        return [...transferRequests];
+    },
+
+    resolveTransferRequest: async (requestId: string, status: 'approved' | 'rejected', adminName: string): Promise<{ success: boolean; message: string }> => {
+        await ensurePackagesLoaded();
+        const req = transferRequests.find(r => r.id === requestId);
+        if (!req) return { success: false, message: 'Request not found' };
+        if (req.status !== 'pending') return { success: false, message: 'Request is already resolved' };
+
+        req.status = status;
+        req.processedAt = new Date().toISOString();
+        req.processedBy = adminName;
+
+        if (status === 'approved') {
+            const pkg = customerPackages.find(p => p.id === req.customerPackageId);
+            if (!pkg) {
+                req.status = 'rejected';
+                await savePackages();
+                return { success: false, message: 'Associated package not found' };
+            }
+
+            pkg.transferredFrom = pkg.customerPhone;
+            pkg.customerPhone = req.toCustomerPhone;
+            pkg.customerName = req.toCustomerName;
+            pkg.transferReason = req.reason;
+            pkg.isTransferred = true;
+        }
+
+        await savePackages();
+        return { success: true, message: `Transfer ${status}` };
+    },
+
+    // ── Package Extension Actions ──
+    createExtensionRequest: async (
+        customerPackageId: string,
+        customerPhone: string,
+        customerName: string,
+        reason: 'medical' | 'pregnancy_breastfeeding',
+        documentUrl: string,
+        requestedDays: number
+    ): Promise<{ success: boolean; message: string; request?: PackageExtensionRequest }> => {
+        await ensurePackagesLoaded();
+        const pkg = customerPackages.find(p => p.id === customerPackageId);
+        if (!pkg) return { success: false, message: 'Package not found' };
+        if (pkg.customerPhone !== customerPhone) return { success: false, message: 'Unauthorized' };
+        if (pkg.hasBeenFrozen) return { success: false, message: 'Package has already been extended/frozen once.' };
+
+        const existing = extensionRequests.find(r => r.customerPackageId === customerPackageId && r.status === 'pending');
+        if (existing) return { success: false, message: 'An extension request is already pending.' };
+
+        const newRequest: PackageExtensionRequest = {
+            id: `pex-${Date.now()}`,
+            customerPackageId,
+            packageName: pkg.packageName,
+            customerPhone,
+            customerName,
+            reason,
+            documentUrl,
+            requestedDays,
+            status: 'pending',
+            requestedAt: new Date().toISOString(),
+        };
+
+        extensionRequests.push(newRequest);
+        await savePackages();
+        return { success: true, message: 'Extension request submitted', request: newRequest };
+    },
+
+    getExtensionRequests: async (status?: 'pending' | 'approved' | 'rejected'): Promise<PackageExtensionRequest[]> => {
+        await ensurePackagesLoaded();
+        if (status) return extensionRequests.filter(r => r.status === status);
+        return [...extensionRequests];
+    },
+
+    resolveExtensionRequest: async (requestId: string, status: 'approved' | 'rejected', adminName: string): Promise<{ success: boolean; message: string }> => {
+        await ensurePackagesLoaded();
+        const req = extensionRequests.find(r => r.id === requestId);
+        if (!req) return { success: false, message: 'Request not found' };
+        if (req.status !== 'pending') return { success: false, message: 'Request is already resolved' };
+
+        req.status = status;
+        req.processedAt = new Date().toISOString();
+        req.processedBy = adminName;
+
+        if (status === 'approved') {
+            const pkg = customerPackages.find(p => p.id === req.customerPackageId);
+            if (!pkg) {
+                req.status = 'rejected';
+                await savePackages();
+                return { success: false, message: 'Associated package not found' };
+            }
+
+            // Extend expiry date
+            const currentExpiry = new Date(pkg.expiryDate);
+            const newExpiry = addDays(currentExpiry, req.requestedDays);
+            pkg.expiryDate = newExpiry.toISOString();
+            
+            pkg.isFrozen = true;
+            pkg.frozenAt = new Date().toISOString();
+            pkg.freezeReason = req.reason;
+            pkg.freezeDocumentName = req.documentUrl; // Store the original reference
+            pkg.hasBeenFrozen = true;
+        }
+
+        await savePackages();
+        return { success: true, message: `Extension ${status}` };
     },
 
     // ── Getters ──

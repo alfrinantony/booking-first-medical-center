@@ -53,10 +53,42 @@ export interface CustomerPackage {
     hasBeenFrozen?: boolean;        // true after first freeze, prevents re-freeze
     // Complimentary services
     complimentaryServices?: ComplimentaryService[];
+    // Package Value Tracking
+    consumedValue?: number;
     // Combo indicator
     isCombo?: boolean;
 }
 
 export interface ComboPackage extends Package {
     isCombo: true;
+}
+
+export interface PackageTransferRequest {
+    id: string;
+    customerPackageId: string;
+    packageName: string;
+    fromCustomerPhone: string;
+    fromCustomerName: string;
+    toCustomerPhone: string;
+    toCustomerName: string;
+    reason: string;
+    status: 'pending' | 'approved' | 'rejected';
+    requestedAt: string;
+    processedAt?: string;
+    processedBy?: string;
+}
+
+export interface PackageExtensionRequest {
+    id: string;
+    customerPackageId: string;
+    packageName: string;
+    customerPhone: string;
+    customerName: string;
+    reason: 'medical' | 'pregnancy_breastfeeding';
+    documentUrl: string;
+    requestedDays: number;
+    status: 'pending' | 'approved' | 'rejected';
+    requestedAt: string;
+    processedAt?: string;
+    processedBy?: string;
 }

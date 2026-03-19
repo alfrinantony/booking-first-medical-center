@@ -6,6 +6,7 @@ import { PackagesStore } from '@/lib/packages-store';
 import { BillingStore } from '@/lib/billing-store';
 import { HRStore } from '@/lib/hr-store';
 import { isEmployeeOnApprovedLeave } from '@/lib/hr-leave-store';
+import { WalletStore } from '@/lib/wallet-store';
 
 // ── Helper: parse "10:30 AM" → minutes from midnight ──
 function parseSlotToMinutes(slot: string): number {
@@ -144,6 +145,48 @@ export async function POST(request: NextRequest) {
             status: 'booked'
         });
 
+        // ── Handle Restricted Wallet Deduction ──
+        if (body.restrictedDeducted && body.restrictedDeducted > 0) {
+            const customerPhone = body.patientPhone || body.whatsappNumber;
+            if (customerPhone) {
+                try {
+                    await WalletStore.deductRestrictedBalance(
+                        customerPhone,
+                        body.patientName || 'Guest',
+                        body.restrictedDeducted,
+                        `Applied to booking for ${service?.name || body.serviceId}`,
+                        'System (Online Booking)'
+                    );
+
+                    // Generate a record invoice for the wallet deduction
+                    await BillingStore.createInvoice({
+                        invoiceCategory: 'online_single', // or wallet_deduction if added
+                        clientName: body.patientName || 'Guest',
+                        clientPhone: customerPhone,
+                        items: [{
+                            description: `Service: ${service?.name || 'Session'} (Wallet Deduction)`,
+                            quantity: 1,
+                            unitPrice: body.restrictedDeducted,
+                            total: body.restrictedDeducted,
+                        }],
+                        subtotal: body.restrictedDeducted,
+                        taxPercentage: 0,
+                        taxAmount: 0,
+                        totalAmount: body.restrictedDeducted,
+                        paymentMethod: 'online',
+                        paymentConfirmed: true,
+                        paymentReceptionStatus: 'received',
+                        generatedBy: 'System (Wallet Deduction)',
+                        date: new Date().toISOString().split('T')[0],
+                        notes: `Restricted balance deducted for Booking ID: ${newBooking.id}.`
+                    });
+                } catch (err) {
+                    console.error('Failed to deduct restricted balance:', err);
+                    // Decide whether to fail the booking or continue. Continuing for now to avoid blocking booking.
+                }
+            }
+        }
+
         // ── Handle Package Payment Flow ──
         if (body.paymentMethod === 'package' && body.packageId) {
             try {
@@ -157,25 +200,26 @@ export async function POST(request: NextRequest) {
                     // 2. Generate a zero-dollar invoice for record-keeping
                     const service = await ServicesStore.getServiceById(body.serviceId);
                     await BillingStore.createInvoice({
+                        invoiceCategory: 'package_session',
                         clientName: body.patientName,
                         clientPhone: body.whatsappNumber || body.patientName, // Fallback
                         items: [{
                             description: `Package Redemption: ${activePkg?.packageName || 'Service'} - ${service?.name || 'Session'}`,
                             quantity: 1,
-                            unitPrice: 0,
-                            total: 0,
+                            unitPrice: useRes.deductedValue || 0,
+                            total: useRes.deductedValue || 0,
                         }],
                         packageDetails: activePkg?.packageName,
-                        subtotal: 0,
+                        subtotal: useRes.deductedValue || 0,
                         taxPercentage: 0,
                         taxAmount: 0,
-                        totalAmount: 0,
+                        totalAmount: useRes.deductedValue || 0,
                         paymentMethod: 'online', // Or 'package' if enum allows
                         paymentConfirmed: true,
                         paymentReceptionStatus: 'received',
                         generatedBy: 'System (Online Booking)',
                         date: new Date().toISOString().split('T')[0],
-                        notes: `Session deducted from package: ${activePkg?.packageName}. Booking ID: ${newBooking.id}`
+                        notes: `Session deducted from package: ${activePkg?.packageName}. Booking ID: ${newBooking.id}. Payable by customer: 0 AED.`
                     });
                 }
             } catch (error) {

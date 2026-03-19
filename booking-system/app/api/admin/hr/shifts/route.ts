@@ -41,11 +41,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { action, ...data } = body;
 
-        // Generate clinician auto-shifts from bookings
-        if (action === 'generate-clinician-shifts') {
-            const result = await HRShiftStore.generateClinicianShifts(data.date, data.branchId);
-            return NextResponse.json(result);
-        }
+
 
         // Update existing assignment
         if (action === 'update' && data.id) {

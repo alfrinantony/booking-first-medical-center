@@ -46,6 +46,22 @@ export default function CustomerDashboard() {
     const [hasBookingHistory, setHasBookingHistory] = useState(false);
     const [visitedClinicIds, setVisitedClinicIds] = useState<string[]>([]);
 
+    // Transfer Package State
+    const [transferModalOpen, setTransferModalOpen] = useState(false);
+    const [transferPkgId, setTransferPkgId] = useState<string | null>(null);
+    const [transferPhone, setTransferPhone] = useState('');
+    const [transferName, setTransferName] = useState('');
+    const [transferReason, setTransferReason] = useState('');
+    
+    // Extension Package State
+    const [extensionModalOpen, setExtensionModalOpen] = useState(false);
+    const [extensionPkgId, setExtensionPkgId] = useState<string | null>(null);
+    const [extensionReason, setExtensionReason] = useState<'medical' | 'pregnancy_breastfeeding'>('medical');
+    const [extensionDoc, setExtensionDoc] = useState('');
+    const [extensionDays, setExtensionDays] = useState(30);
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     // Gmail check: customer needs a Google account (Gmail) to post Google reviews
     const isGmailEligible = user?.email?.toLowerCase().endsWith('@gmail.com') ||
         user?.email?.toLowerCase().endsWith('@googlemail.com') || false;
@@ -157,6 +173,78 @@ export default function CustomerDashboard() {
             }
         } catch {
             setActionError('Failed to reschedule. Try again.');
+        }
+    };
+
+    const handleTransferSubmit = async () => {
+        if (!transferPkgId || !transferPhone || !transferName || !transferReason) {
+            setActionError('Please fill in all transfer fields.');
+            return;
+        }
+        setIsSubmitting(true);
+        setActionError('');
+        try {
+            const res = await fetch('/api/admin/packages/transfers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customerPackageId: transferPkgId,
+                    fromCustomerPhone: user?.phone,
+                    fromCustomerName: user?.name,
+                    toCustomerPhone: transferPhone,
+                    toCustomerName: transferName,
+                    reason: transferReason
+                })
+            });
+            if (res.ok) {
+                setActionSuccess('Transfer request submitted successfully. It will be reviewed by our team.');
+                setTransferModalOpen(false);
+                setTransferPkgId(null);
+                setTransferPhone(''); setTransferName(''); setTransferReason('');
+            } else {
+                const d = await res.json();
+                setActionError(d.error || 'Failed to submit transfer request.');
+            }
+        } catch {
+            setActionError('Network error submitting transfer request.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleExtensionSubmit = async () => {
+        if (!extensionPkgId || !extensionDoc) {
+            setActionError('Please fill in all extension fields, including a document link/name.');
+            return;
+        }
+        setIsSubmitting(true);
+        setActionError('');
+        try {
+            const res = await fetch('/api/admin/packages/extensions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customerPackageId: extensionPkgId,
+                    customerPhone: user?.phone,
+                    customerName: user?.name,
+                    reason: extensionReason,
+                    documentUrl: extensionDoc,
+                    requestedDays: extensionDays
+                })
+            });
+            if (res.ok) {
+                setActionSuccess('Extension request submitted successfully. It will be reviewed by our team.');
+                setExtensionModalOpen(false);
+                setExtensionPkgId(null);
+                setExtensionDoc(''); setExtensionDays(30);
+            } else {
+                const d = await res.json();
+                setActionError(d.error || 'Failed to submit extension request.');
+            }
+        } catch {
+            setActionError('Network error submitting extension request.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -315,6 +403,13 @@ export default function CustomerDashboard() {
                                             </div>
 
                                             <div className="p-5 space-y-4">
+                                                {/* Transferred Notice */}
+                                                {pkg.isTransferred && pkg.transferredFrom && (
+                                                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-xs text-blue-700 dark:text-blue-400">
+                                                        <strong>Transferred Package</strong> — This package was generously transferred to you by {pkg.transferredFrom}.
+                                                    </div>
+                                                )}
+
                                                 {/* Pending payment notice */}
                                                 {isPending && (
                                                     <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400">
@@ -360,14 +455,30 @@ export default function CustomerDashboard() {
                                                     );
                                                 })}
 
-                                                {/* Book from Package button */}
+                                                {/* Actions */}
                                                 {!isPending && pkg.active && (
-                                                    <Link
-                                                        href={`/booking?packageId=${pkg.id}&serviceId=${encodeURIComponent(Object.keys(pkg.remainingSessions)[0])}`}
-                                                        className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg"
-                                                    >
-                                                        <Calendar className="w-4 h-4" /> Book from Package
-                                                    </Link>
+                                                    <div className="space-y-2">
+                                                        <Link
+                                                            href={`/booking?packageId=${pkg.id}&serviceId=${encodeURIComponent(Object.keys(pkg.remainingSessions)[0])}`}
+                                                            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+                                                        >
+                                                            <Calendar className="w-4 h-4" /> Book from Package
+                                                        </Link>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <button 
+                                                                onClick={() => { setTransferPkgId(pkg.id); setTransferModalOpen(true); }}
+                                                                className="w-full py-2 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                                                            >
+                                                                Transfer
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => { setExtensionPkgId(pkg.id); setExtensionModalOpen(true); }}
+                                                                className="w-full py-2 text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors border border-teal-100 dark:bg-teal-900/30 dark:border-teal-800 dark:text-teal-300 dark:hover:bg-teal-900/50"
+                                                            >
+                                                                Extend
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -589,6 +700,84 @@ export default function CustomerDashboard() {
                                 className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium disabled:opacity-50"
                             >
                                 Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Transfer Package Modal ── */}
+            {transferModalOpen && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Transfer Package</h3>
+                            <button onClick={() => setTransferModalOpen(false)}><X className="w-5 h-5 text-gray-400" /></button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Recipient Name</label>
+                                <input type="text" value={transferName} onChange={e => setTransferName(e.target.value)} className="w-full p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Recipient Phone Number</label>
+                                <input type="tel" value={transferPhone} onChange={e => setTransferPhone(e.target.value)} className="w-full p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason for Transfer</label>
+                                <textarea value={transferReason} onChange={e => setTransferReason(e.target.value)} rows={2} className="w-full p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 mt-6">
+                            <button onClick={() => { setTransferModalOpen(false); setTransferPkgId(null); }} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl font-medium text-gray-700 dark:text-gray-300">
+                                Cancel
+                            </button>
+                            <button onClick={handleTransferSubmit} disabled={isSubmitting || !transferName || !transferPhone || !transferReason} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium disabled:opacity-50">
+                                {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Extend Package Modal ── */}
+            {extensionModalOpen && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Extend Package Request</h3>
+                            <button onClick={() => setExtensionModalOpen(false)}><X className="w-5 h-5 text-gray-400" /></button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason</label>
+                                <select value={extensionReason} onChange={e => setExtensionReason(e.target.value as any)} className="w-full p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="medical">Medical Condition</option>
+                                    <option value="pregnancy_breastfeeding">Pregnancy / Breastfeeding</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Requested Days to Extend</label>
+                                <select value={extensionDays} onChange={e => setExtensionDays(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value={30}>30 Days</option>
+                                    <option value={60}>60 Days</option>
+                                    <option value={90}>90 Days</option>
+                                    <option value={180}>180 Days (6 Months)</option>
+                                    <option value={365}>365 Days (1 Year)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Medical Document Link / Name</label>
+                                <input type="text" value={extensionDoc} onChange={e => setExtensionDoc(e.target.value)} placeholder="URL or Document description" className="w-full p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                                <p className="text-[10px] text-gray-400 mt-1">Please provide a link to your medical report or physical document reference.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 mt-6">
+                            <button onClick={() => { setExtensionModalOpen(false); setExtensionPkgId(null); }} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl font-medium text-gray-700 dark:text-gray-300">
+                                Cancel
+                            </button>
+                            <button onClick={handleExtensionSubmit} disabled={isSubmitting || !extensionDoc} className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium disabled:opacity-50">
+                                {isSubmitting ? 'Submitting...' : 'Submit Request'}
                             </button>
                         </div>
                     </div>

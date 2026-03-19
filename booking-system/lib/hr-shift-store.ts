@@ -355,91 +355,6 @@ export const HRShiftStore = {
         return false;
     },
 
-    // ═══ Clinician Auto-Shift Generation ═══
-
-    async generateClinicianShifts(date: string, branchId?: string): Promise<{
-        generated: number;
-        shifts: ShiftAssignment[];
-    }> {
-        await ensureShiftLoaded();
-        const allBookings = await BookingsStore.getByFilters({ date });
-        const generated: ShiftAssignment[] = [];
-        const now = new Date().toISOString();
-
-        const doctorBookings: Record<string, { slots: string[]; clinicId: string; count: number }> = {};
-        for (const b of allBookings) {
-            if (b.status === 'cancelled') continue;
-            if (branchId && b.clinicId !== branchId) continue;
-
-            if (!doctorBookings[b.doctorId]) {
-                doctorBookings[b.doctorId] = { slots: [], clinicId: b.clinicId, count: 0 };
-            }
-            doctorBookings[b.doctorId].slots.push(b.slot);
-            doctorBookings[b.doctorId].count++;
-        }
-
-        for (const [doctorId, data] of Object.entries(doctorBookings)) {
-            if (data.slots.length === 0) continue;
-
-            let doctorName = doctorId;
-            for (const clinic of clinics) {
-                for (const dept of clinic.departments) {
-                    const doc = dept.doctors.find(d => d.id === doctorId);
-                    if (doc) { doctorName = doc.name; break; }
-                }
-            }
-
-            const sortedSlots = data.slots.sort((a, b) => {
-                return timeToMinutes(convertTo24(a)) - timeToMinutes(convertTo24(b));
-            });
-
-            const firstSlot24 = convertTo24(sortedSlots[0]);
-            const lastSlot24 = convertTo24(sortedSlots[sortedSlots.length - 1]);
-            const shiftStart = addMinutesToTime(firstSlot24, -30);
-            const shiftEnd = addMinutesToTime(lastSlot24, 60);
-
-            const startMin = timeToMinutes(shiftStart);
-            const endMin = timeToMinutes(shiftEnd);
-            const totalMin = endMin - startMin;
-            const breakMin = totalMin > 300 ? 60 : 0;
-            const expectedHours = minutesToHours(totalMin - breakMin);
-
-            const empId = `clinician-${doctorId}`;
-
-            shiftAssignments = shiftAssignments.filter(
-                a => !(a.employeeId === empId && a.date === date && a.isClinicianAutoShift)
-            );
-
-            const branch = WORKPLACES.find(w => w.id === data.clinicId);
-
-            const assignment: ShiftAssignment = {
-                id: `cshift-${doctorId}-${date}`,
-                employeeId: empId,
-                date,
-                shiftTemplateId: '',
-                shiftName: `Auto: ${doctorName}`,
-                branchId: data.clinicId,
-                branchName: branch?.name || data.clinicId,
-                startTime: shiftStart,
-                endTime: shiftEnd,
-                expectedHours,
-                breakMinutes: breakMin,
-                status: 'SCHEDULED',
-                isClinicianAutoShift: true,
-                appointmentCount: data.count,
-                notes: `Auto-generated from ${data.count} appointment(s)`,
-                createdAt: now,
-                updatedAt: now,
-            };
-
-            shiftAssignments.push(assignment);
-            generated.push(assignment);
-        }
-
-        await saveShift();
-        return { generated: generated.length, shifts: generated };
-    },
-
     // ═══ Shift vs Attendance Comparison ═══
 
     async compareAttendanceVsShift(date: string): Promise<ShiftAttendanceComparison[]> {
@@ -564,7 +479,6 @@ export const HRShiftStore = {
             completed: assignments.filter(a => a.status === 'COMPLETED').length,
             absent: assignments.filter(a => a.status === 'ABSENT').length,
             offDuty: assignments.filter(a => a.status === 'OFF_DUTY').length,
-            clinicianAuto: assignments.filter(a => a.isClinicianAutoShift).length,
         };
     },
 };

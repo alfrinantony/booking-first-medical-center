@@ -101,11 +101,16 @@ export default function PackagesPage() {
 // ──────────────────────────────────────────────
 function PackagesContent() {
     const [mounted, setMounted] = useState(false);
-    const [activeTab, setActiveTab] = useState<'manage' | 'customers'>('manage');
+    const [activeTab, setActiveTab] = useState<'manage' | 'customers' | 'transfers' | 'extensions'>('manage');
 
     // Data
     const [packages, setPackages] = useState<Package[]>([]);
     const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([]);
+
+    // Requests
+    const [transferRequests, setTransferRequests] = useState<any[]>([]);
+    const [extensionRequests, setExtensionRequests] = useState<any[]>([]);
+    const [resolvingId, setResolvingId] = useState<string | null>(null);
 
     // Create form
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -143,6 +148,28 @@ function PackagesContent() {
         }
     }, []);
 
+    // ── Fetch Transfer Requests ──
+    const fetchTransferRequests = useCallback(async () => {
+        try {
+            const res = await fetch('/api/admin/packages/transfers');
+            const data = await res.json();
+            setTransferRequests(safeArray(data));
+        } catch {
+            setTransferRequests([]);
+        }
+    }, []);
+
+    // ── Fetch Extension Requests ──
+    const fetchExtensionRequests = useCallback(async () => {
+        try {
+            const res = await fetch('/api/admin/packages/extensions');
+            const data = await res.json();
+            setExtensionRequests(safeArray(data));
+        } catch {
+            setExtensionRequests([]);
+        }
+    }, []);
+
     // ── Fetch services list from doctors API ──
     const fetchServices = useCallback(async () => {
         try {
@@ -174,7 +201,9 @@ function PackagesContent() {
         setMounted(true);
         fetchPackages();
         fetchServices();
-    }, [fetchPackages, fetchServices]);
+        fetchTransferRequests();
+        fetchExtensionRequests();
+    }, [fetchPackages, fetchServices, fetchTransferRequests, fetchExtensionRequests]);
 
     // ── Search customer packages on phone change ──
     useEffect(() => {
@@ -182,6 +211,38 @@ function PackagesContent() {
     }, [customerPhoneSearch, fetchCustomerPackages]);
 
     // ── Handlers ──
+    const handleResolveTransfer = async (requestId: string, status: 'approved' | 'rejected') => {
+        setResolvingId(requestId);
+        try {
+            const stored = sessionStorage.getItem('adminUser');
+            const adminName = stored ? JSON.parse(stored).name || 'Admin' : 'Admin';
+            await fetch('/api/admin/packages/transfers', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, status, adminName })
+            });
+            fetchTransferRequests();
+        } finally {
+            setResolvingId(null);
+        }
+    };
+
+    const handleResolveExtension = async (requestId: string, status: 'approved' | 'rejected') => {
+        setResolvingId(requestId);
+        try {
+            const stored = sessionStorage.getItem('adminUser');
+            const adminName = stored ? JSON.parse(stored).name || 'Admin' : 'Admin';
+            await fetch('/api/admin/packages/extensions', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, status, adminName })
+            });
+            fetchExtensionRequests();
+        } finally {
+            setResolvingId(null);
+        }
+    };
+
     const handleAddItem = () => {
         if (!selectedService) return;
         const svc = serviceOptions.find(s => s.id === selectedService);
@@ -286,6 +347,7 @@ function PackagesContent() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        invoiceCategory: 'clinic_package',
                         clientName: custName,
                         clientPhone: custPhone,
                         clientEmail: custEmail || undefined,
@@ -430,6 +492,36 @@ function PackagesContent() {
                         }`}
                     >
                         Customer Packages
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('transfers')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                            activeTab === 'transfers'
+                                ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                        }`}
+                    >
+                        Transfer Requests
+                        {transferRequests.filter(r => r.status === 'pending').length > 0 && (
+                            <span className="ml-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                                {transferRequests.filter(r => r.status === 'pending').length}
+                            </span>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('extensions')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                            activeTab === 'extensions'
+                                ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                        }`}
+                    >
+                        Extension Requests
+                        {extensionRequests.filter(r => r.status === 'pending').length > 0 && (
+                            <span className="ml-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                                {extensionRequests.filter(r => r.status === 'pending').length}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>
@@ -953,6 +1045,95 @@ function PackagesContent() {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {/* ─── TRANSFERS TAB ─── */}
+            {activeTab === 'transfers' && (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Transfer Requests</h2>
+                    {transferRequests.length === 0 ? (
+                        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <p className="text-gray-500">No transfer requests pending.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {transferRequests.map(req => (
+                                <div key={req.id} className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">{req.packageName}</h3>
+                                    <div className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">From:</span> {req.fromCustomerName} ({req.fromCustomerPhone})</p>
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">To:</span> {req.toCustomerName} ({req.toCustomerPhone})</p>
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">Reason:</span> {req.reason}</p>
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">Status:</span> {req.status}</p>
+                                    </div>
+                                    {req.status === 'pending' && (
+                                        <div className="flex gap-3 mt-4">
+                                            <button 
+                                                onClick={() => handleResolveTransfer(req.id, 'approved')}
+                                                disabled={resolvingId === req.id}
+                                                className="flex-1 bg-green-100 text-green-700 hover:bg-green-200 py-1.5 rounded text-sm font-medium"
+                                            >
+                                                Approve
+                                            </button>
+                                            <button 
+                                                onClick={() => handleResolveTransfer(req.id, 'rejected')}
+                                                disabled={resolvingId === req.id}
+                                                className="flex-1 bg-red-100 text-red-700 hover:bg-red-200 py-1.5 rounded text-sm font-medium"
+                                            >
+                                                Reject
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ─── EXTENSIONS TAB ─── */}
+            {activeTab === 'extensions' && (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Extension Requests</h2>
+                    {extensionRequests.length === 0 ? (
+                        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <p className="text-gray-500">No extension requests pending.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {extensionRequests.map(req => (
+                                <div key={req.id} className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">{req.packageName}</h3>
+                                    <div className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">Customer:</span> {req.customerName} ({req.customerPhone})</p>
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">Days:</span> {req.requestedDays}</p>
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">Reason:</span> {req.reason}</p>
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">Document:</span> <a href={req.documentUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">View</a></p>
+                                        <p><span className="font-medium text-gray-700 dark:text-gray-300">Status:</span> {req.status}</p>
+                                    </div>
+                                    {req.status === 'pending' && (
+                                        <div className="flex gap-3 mt-4">
+                                            <button 
+                                                onClick={() => handleResolveExtension(req.id, 'approved')}
+                                                disabled={resolvingId === req.id}
+                                                className="flex-1 bg-green-100 text-green-700 hover:bg-green-200 py-1.5 rounded text-sm font-medium"
+                                            >
+                                                Approve
+                                            </button>
+                                            <button 
+                                                onClick={() => handleResolveExtension(req.id, 'rejected')}
+                                                disabled={resolvingId === req.id}
+                                                className="flex-1 bg-red-100 text-red-700 hover:bg-red-200 py-1.5 rounded text-sm font-medium"
+                                            >
+                                                Reject
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

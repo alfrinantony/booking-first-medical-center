@@ -17,9 +17,12 @@ export interface InvoiceLineItem {
     isVoid?: boolean;          // Marked void after refund
 }
 
+export type InvoiceCategory = 'online_single' | 'online_package' | 'clinic_single' | 'clinic_package' | 'package_session';
+
 export interface Invoice {
     id: string;
     invoiceNumber: string;     // Sequential: BFMC-INV-YYYYMMDD-XXXX
+    invoiceCategory?: InvoiceCategory;
     clientName: string;
     clientPhone: string;
     clientEmail?: string;
@@ -79,7 +82,15 @@ export const BillingStore = {
         await ensureBillingLoaded();
         const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
         const seqStr = String(nextSequence).padStart(4, '0');
-        const invoiceNumber = `BFMC-INV-${today}-${seqStr}`;
+        
+        let prefix = 'BFMC-INV-';
+        if (data.invoiceCategory === 'online_single') prefix = 'O-SS-INV-';
+        else if (data.invoiceCategory === 'online_package') prefix = 'O-PKG-INV-';
+        else if (data.invoiceCategory === 'clinic_single') prefix = 'C-SS-INV-';
+        else if (data.invoiceCategory === 'clinic_package') prefix = 'C-PKG-INV-';
+        else if (data.invoiceCategory === 'package_session') prefix = 'PKG-SES-INV-';
+        
+        const invoiceNumber = `${prefix}${today}-${seqStr}`;
 
         const invoice: Invoice = {
             ...data,

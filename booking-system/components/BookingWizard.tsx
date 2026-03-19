@@ -45,18 +45,25 @@ export default function BookingWizard() {
     // API-fetched state for packages and review discount
     const [myPackagesList, setMyPackagesList] = useState<import('@/types/packages').CustomerPackage[]>([]);
     const [reviewDiscountData, setReviewDiscountData] = useState<{ percent: number; reviewedBranches: number; totalBranches: number; hasSubFiveReview: boolean }>({ percent: 0, reviewedBranches: 0, totalBranches: 0, hasSubFiveReview: false });
+    const [restrictedWalletData, setRestrictedWalletData] = useState<{ amount: number; expiryDate: string; description: string }[]>([]);
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
-    // Fetch packages and review discount data when user is authenticated
+    // Fetch packages, review discount data, and wallet when user is authenticated
     useEffect(() => {
         if (!isAuthenticated || !user) return;
         const customerId = user.phone || user.email;
         if (user.phone) {
             fetch(`/api/admin/packages?type=my&phone=${encodeURIComponent(user.phone)}`)
                 .then(r => r.json()).then(setMyPackagesList).catch(() => {});
+            fetch(`/api/admin/wallet?phone=${encodeURIComponent(user.phone)}`)
+                .then(r => r.json()).then(data => {
+                    const now = new Date();
+                    const validBalances = (data?.restrictedBalances || []).filter((b: any) => new Date(b.expiryDate) > now && b.amount > 0);
+                    setRestrictedWalletData(validBalances);
+                }).catch(() => {});
         }
         fetch(`/api/admin/reviews?customerPhone=${encodeURIComponent(customerId)}`)
             .then(r => r.json()).then((reviews: any[]) => {
@@ -848,6 +855,11 @@ export default function BookingWizard() {
     // Final Price with Discounts
     const reviewDiscount = reviewDiscountData;
     const reviewDiscountAmount = (reviewDiscount.percent > 0 && !isFree) ? priceWithTax * (reviewDiscount.percent / 100) : 0;
+    
+    // Auto-apply Restricted Wallet Balances
+    const totalRestrictedBalance = restrictedWalletData.reduce((sum, b) => sum + b.amount, 0);
+    let restrictedDeductionAmount = 0;
+
     let finalPrice = priceWithTax;
     if (usePackageSession) {
         finalPrice = 0;
@@ -859,6 +871,10 @@ export default function BookingWizard() {
         }
         if (reviewDiscountAmount > 0) {
             finalPrice = Math.max(0, finalPrice - reviewDiscountAmount);
+        }
+        if (totalRestrictedBalance > 0) {
+            restrictedDeductionAmount = Math.min(finalPrice, totalRestrictedBalance);
+            finalPrice -= restrictedDeductionAmount;
         }
     }
 
@@ -964,6 +980,7 @@ export default function BookingWizard() {
             patientName: user?.name || 'Guest',
             patientPhone: user?.phone,
             amount: finalPrice,
+            restrictedDeducted: restrictedDeductionAmount > 0 ? restrictedDeductionAmount : undefined,
             paymentMethod: actuallyConsumePackage ? 'package' : undefined,
             packageId: actuallyConsumePackage ? applicablePackage?.id : undefined,
             isFollowUp: isFree,
@@ -2194,6 +2211,14 @@ export default function BookingWizard() {
                                                 Google Review Discount ({reviewDiscount.percent}%)
                                             </span>
                                             <span>-{reviewDiscountAmount.toFixed(2)} AED</span>
+                                        </div>
+                                    )}
+                                    {restrictedDeductionAmount > 0 && (
+                                        <div className="flex justify-between text-sm text-green-600">
+                                            <span className="flex items-center gap-1">
+                                                Wallet Balance Applied
+                                            </span>
+                                            <span>-{restrictedDeductionAmount.toFixed(2)} AED</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700">

@@ -27,6 +27,7 @@ export default function BillingPage() {
     const [clientName, setClientName] = useState('');
     const [clientPhone, setClientPhone] = useState('');
     const [clientEmail, setClientEmail] = useState('');
+    const [invoiceCategory, setInvoiceCategory] = useState('clinic_single');
     const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; medicineId?: string; batchId?: string }[]>([{ description: '', quantity: 1, unitPrice: 0 }]);
     const [packageDetails, setPackageDetails] = useState('');
     const [taxPercentage, setTaxPercentage] = useState(5);
@@ -183,6 +184,7 @@ export default function BillingPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    invoiceCategory,
                     clientName,
                     clientPhone,
                     clientEmail: clientEmail || undefined,
@@ -480,6 +482,15 @@ export default function BillingPage() {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">VAT %</label>
                                         <input type="number" min="0" max="100" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={taxPercentage} onChange={(e) => setTaxPercentage(Number(e.target.value))} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Invoice Category *</label>
+                                        <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={invoiceCategory} onChange={(e) => setInvoiceCategory(e.target.value)}>
+                                            <option value="clinic_single">In-Clinic Single Session (C-SS-INV)</option>
+                                            <option value="clinic_package">In-Clinic Package (C-PKG-INV)</option>
+                                            <option value="online_single">Online Single Session (O-SS-INV)</option>
+                                            <option value="online_package">Online Package (O-PKG-INV)</option>
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Payment Method *</label>
