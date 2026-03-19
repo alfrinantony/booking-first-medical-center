@@ -1846,7 +1846,7 @@ export default function BookingWizard() {
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
-                                                <img src={doc.image} alt={doc.name} className={`w-full h-full object-cover ${!isAvailable ? 'grayscale opacity-70' : ''}`} />
+                                                <img src={doc.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.name)}&background=random`} alt={doc.name} className={`w-full h-full object-cover ${!isAvailable ? 'grayscale opacity-70' : ''}`} />
                                             </div>
                                             <div>
                                                 <h4 className={`font-bold ${!isAvailable ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'}`}>{doc.name}</h4>

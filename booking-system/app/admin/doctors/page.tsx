@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Search, Edit2, MapPin, Stethoscope, ShieldCheck, CalendarClock, CircleDot, GitBranch } from 'lucide-react';
+import { Plus, Trash2, Search, Edit2, MapPin, Stethoscope, ShieldCheck, CalendarClock, CircleDot, GitBranch, ImagePlus, X } from 'lucide-react';
 import { Clinic, Doctor } from '@/lib/data';
 
 interface DoctorFormState {
@@ -46,6 +46,24 @@ export default function DoctorsPage() {
     const [editClinicIds, setEditClinicIds] = useState<string[]>([]);
 
     const [submitting, setSubmitting] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+
+    const uploadImage = async (file: File, type: string, id: string): Promise<string> => {
+        setUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', type);
+            formData.append('id', id);
+            const res = await fetch('/api/admin/images/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            return data.url || '';
+        } catch {
+            return '';
+        } finally {
+            setUploadingImage(false);
+        }
+    };
 
     useEffect(() => {
         fetchDoctors();
@@ -353,8 +371,8 @@ export default function DoctorsPage() {
                                 )}
                             </div>
 
-                            <div className={`w-24 h-24 bg-gray-200 rounded-full overflow-hidden mb-4 ${branches.length > 2 ? 'mt-14' : branches.length > 1 ? 'mt-10' : 'mt-6'}`}>
-                                <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
+                            <div className={`w-24 h-24 bg-gray-200 rounded-full overflow-hidden mb-4 flex-shrink-0 ${branches.length > 2 ? 'mt-14' : branches.length > 1 ? 'mt-10' : 'mt-6'}`}>
+                                <img src={doctor.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(doctor.name)}&background=random`} alt={doctor.name} className="w-full h-full object-cover" />
                             </div>
                             <h3 className="font-bold text-gray-900 dark:text-white text-center">{doctor.name}</h3>
                             <p className="text-sm text-indigo-600 dark:text-indigo-400 text-center mb-2">{doctor.specialty}</p>
@@ -477,14 +495,39 @@ export default function DoctorsPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Image URL (Optional)</label>
-                                    <input
-                                        type="url"
-                                        placeholder="Leave empty to auto-generate"
-                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                        value={newDoctor.image}
-                                        onChange={(e) => setNewDoctor({ ...newDoctor, image: e.target.value })}
-                                    />
+                                    <label className="block text-sm font-medium mb-1">Doctor Photo (Optional)</label>
+                                    {newDoctor.image ? (
+                                        <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+                                            <img src={newDoctor.image} alt="Doctor preview" className="w-full h-full object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setNewDoctor({ ...newDoctor, image: '' })}
+                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 dark:bg-gray-700/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                            <ImagePlus className="w-8 h-8 text-gray-400 mb-2" />
+                                            <span className="text-sm text-gray-500">
+                                                {uploadingImage ? 'Uploading...' : 'Click to upload photo'}
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                disabled={uploadingImage}
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const url = await uploadImage(file, 'doctor', `doc_${Date.now()}`);
+                                                        if (url) setNewDoctor({ ...newDoctor, image: url });
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -608,13 +651,39 @@ export default function DoctorsPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Image URL</label>
-                                    <input
-                                        type="url"
-                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                        value={editingDoctor.image}
-                                        onChange={(e) => setEditingDoctor({ ...editingDoctor, image: e.target.value })}
-                                    />
+                                    <label className="block text-sm font-medium mb-1">Doctor Photo</label>
+                                    {editingDoctor.image ? (
+                                        <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+                                            <img src={editingDoctor.image} alt="Doctor preview" className="w-full h-full object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingDoctor({ ...editingDoctor, image: '' })}
+                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 dark:bg-gray-700/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                            <ImagePlus className="w-8 h-8 text-gray-400 mb-2" />
+                                            <span className="text-sm text-gray-500">
+                                                {uploadingImage ? 'Uploading...' : 'Click to upload photo'}
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                disabled={uploadingImage}
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const url = await uploadImage(file, 'doctor', editingDoctor.id);
+                                                        if (url) setEditingDoctor({ ...editingDoctor, image: url });
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">

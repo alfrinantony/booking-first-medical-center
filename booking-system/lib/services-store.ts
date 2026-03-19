@@ -5,7 +5,6 @@ import { loadFromBlob, saveToBlob } from './blob-persistence';
 let clinicStore: Clinic[] = JSON.parse(JSON.stringify(initialClinics));
 export async function ensureClinicsLoaded() {
     clinicStore = await loadFromBlob<Clinic[]>('clinics', clinicStore);
-    clinicsLoaded = true;
 }
 
 /** Shared accessor – used by doctors-store & clinics-store to avoid stale caches */
@@ -17,7 +16,6 @@ export async function saveClinicStore() { await saveToBlob('clinics', clinicStor
 let medicineStore: Medicine[] = JSON.parse(JSON.stringify(initialMedicines));
 async function ensureMedicinesLoaded() {
     medicineStore = await loadFromBlob<Medicine[]>('medicines', medicineStore);
-    medicinesLoaded = true;
 }
 
 export const MedicineStore = {
@@ -182,7 +180,6 @@ export const DistributionStore = {
 let supplierStore: Supplier[] = JSON.parse(JSON.stringify(initialSuppliers));
 async function ensureSuppliersLoaded() {
     supplierStore = await loadFromBlob<Supplier[]>('suppliers', supplierStore);
-    suppliersLoaded = true;
 }
 
 export const SupplierStore = {
@@ -229,7 +226,6 @@ export const SupplierStore = {
 let purchaseStore: PurchaseRecord[] = JSON.parse(JSON.stringify(initialPurchases));
 async function ensurePurchasesLoaded() {
     purchaseStore = await loadFromBlob<PurchaseRecord[]>('purchases', purchaseStore);
-    purchasesLoaded = true;
 }
 
 export const PurchaseStore = {

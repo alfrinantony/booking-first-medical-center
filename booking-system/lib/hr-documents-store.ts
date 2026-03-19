@@ -90,6 +90,7 @@ export const DOCUMENT_CATEGORIES: DocumentCategoryInfo[] = [
             'Log Book',
             'Privilege Certificate',
             'HepB Vaccination',
+            'Professional Photo',
         ],
     },
     {
