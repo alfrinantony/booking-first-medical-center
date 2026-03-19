@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCustomerAuthStore, RegisteredUser } from '@/lib/customer-auth-store';
+import { RegisteredCustomer as RegisteredUser } from '@/lib/customer-auth-server-store';
 import {
     Users, Search, Shield, ShieldOff, KeyRound, Edit2, Trash2, X,
     Merge, Check, Mail, Phone, Calendar, Ban, CheckCircle2,
@@ -10,10 +10,42 @@ import {
 import { maskPhone, maskEmail } from '@/lib/emr-store';
 
 export default function RegisteredUsersPage() {
-    const {
-        users, blockUser, unblockUser, removeUser,
-        adminResetPassword, adminUpdateUser, mergeUsers
-    } = useCustomerAuthStore();
+    const [users, setUsers] = useState<RegisteredUser[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const loadUsers = useCallback(async () => {
+        try {
+            const res = await fetch('/api/admin/registered-users');
+            if (res.ok) {
+                setUsers(await res.json());
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadUsers();
+    }, [loadUsers]);
+
+    const apiAction = async (payload: any) => {
+        try {
+            const res = await fetch('/api/admin/registered-users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                await loadUsers();
+                return true;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return false;
+    };
 
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked' | 'unverified'>('all');
@@ -55,13 +87,6 @@ export default function RegisteredUsersPage() {
         setTimeout(() => setFeedback(null), 3000);
     }, []);
 
-    // Force re-render on store changes
-    const [, setTick] = useState(0);
-    useEffect(() => {
-        const unsub = useCustomerAuthStore.subscribe(() => setTick(t => t + 1));
-        return unsub;
-    }, []);
-
     /* ── Filtering ── */
     const filtered = users.filter(u => {
         if (statusFilter === 'active' && (u.blocked || !u.emailVerified)) return false;
@@ -87,21 +112,21 @@ export default function RegisteredUsersPage() {
 
     /* ── Handlers ── */
 
-    const handleBlock = (id: string) => {
+    const handleBlock = async (id: string) => {
         if (!confirm('Block this user from logging in?')) return;
-        blockUser(id);
-        showFeedback('success', 'User blocked.');
+        const ok = await apiAction({ action: 'block', id });
+        if (ok) showFeedback('success', 'User blocked.');
     };
 
-    const handleUnblock = (id: string) => {
-        unblockUser(id);
-        showFeedback('success', 'User unblocked.');
+    const handleUnblock = async (id: string) => {
+        const ok = await apiAction({ action: 'unblock', id });
+        if (ok) showFeedback('success', 'User unblocked.');
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (!confirm('Permanently delete this user account? This cannot be undone.')) return;
-        removeUser(id);
-        showFeedback('success', 'User deleted.');
+        const ok = await apiAction({ action: 'remove', id });
+        if (ok) showFeedback('success', 'User deleted.');
     };
 
     const openEdit = (u: RegisteredUser) => {
@@ -111,11 +136,13 @@ export default function RegisteredUsersPage() {
         setEditPhone(u.phone || '');
     };
 
-    const saveEdit = () => {
+    const saveEdit = async () => {
         if (!editUser) return;
-        adminUpdateUser(editUser.id, { name: editName, email: editEmail, phone: editPhone });
-        setEditUser(null);
-        showFeedback('success', 'User updated.');
+        const ok = await apiAction({ action: 'update', id: editUser.id, updates: { name: editName, email: editEmail, phone: editPhone } });
+        if (ok) {
+            setEditUser(null);
+            showFeedback('success', 'User updated.');
+        }
     };
 
     const openReset = (u: RegisteredUser) => {
@@ -124,29 +151,33 @@ export default function RegisteredUsersPage() {
         setShowPw(false);
     };
 
-    const saveReset = () => {
+    const saveReset = async () => {
         if (!resetUser || newPw.length < 4) {
             showFeedback('error', 'Password must be at least 4 characters.');
             return;
         }
-        adminResetPassword(resetUser.id, newPw);
-        setResetUser(null);
-        showFeedback('success', 'Password reset.');
+        const ok = await apiAction({ action: 'resetPassword', id: resetUser.id, newPassword: newPw });
+        if (ok) {
+            setResetUser(null);
+            showFeedback('success', 'Password reset.');
+        }
     };
 
     const toggleSelect = (id: string) => {
         setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
-    const handleMerge = () => {
+    const handleMerge = async () => {
         if (selected.length !== 2 || !mergeTarget) return;
         const sourceId = selected.find(id => id !== mergeTarget)!;
         if (!confirm(`Merge user into the selected target? The source account will be removed.`)) return;
-        mergeUsers(mergeTarget, sourceId);
-        setSelected([]);
-        setMergeTarget(null);
-        setMergeMode(false);
-        showFeedback('success', 'Users merged successfully.');
+        const ok = await apiAction({ action: 'merge', id: mergeTarget, sourceId });
+        if (ok) {
+            setSelected([]);
+            setMergeTarget(null);
+            setMergeMode(false);
+            showFeedback('success', 'Users merged successfully.');
+        }
     };
 
     const getStatusBadge = (u: RegisteredUser) => {
