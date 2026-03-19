@@ -241,9 +241,32 @@ export default function BookingWizard() {
         }
     });
 
-    // Auto-select service from query params (when coming from checkout/packages page)
+    // Auto-select service from query params OR package
     React.useEffect(() => {
         if (packageAutoSelected || catalogLoading || catalogData.services.length === 0) return;
+        
+        const qPackageId = searchParams.get('packageId');
+        if (qPackageId) {
+            const pkg = myPackagesList.find(p => p.id === qPackageId && p.active && p.paymentStatus === 'paid');
+            if (pkg) {
+                // If package provided, jump out of Category Selection
+                if (step === 0) setStep(1);
+                
+                // Auto-select the first available service in the package and skip to Date selection
+                const availableServiceIds = Object.keys(pkg.remainingSessions).filter(id => pkg.remainingSessions[id] > 0);
+                if (availableServiceIds.length > 0) {
+                    const svc = catalogData.services.find((s: any) => s.id === availableServiceIds[0]);
+                    if (svc) {
+                        setSelectedCategory(svc.category);
+                        setSelectedService(svc);
+                        setStep(2); // Skip straight to date
+                        setPackageAutoSelected(true);
+                        return;
+                    }
+                }
+            }
+        }
+
         const qServiceId = searchParams.get('serviceId');
         if (!qServiceId) return;
         const svc = catalogData.services.find((s: any) => s.id === qServiceId);
@@ -253,7 +276,7 @@ export default function BookingWizard() {
             setStep(2); // Skip to date selection
             setPackageAutoSelected(true);
         }
-    }, [catalogData.services, catalogLoading, packageAutoSelected, searchParams]);
+    }, [catalogData.services, catalogLoading, packageAutoSelected, searchParams, myPackagesList, step]);
 
     // Helper: check if a doctor is available on a specific date, optionally strictly at a given clinic
     const isDoctorAvailableOnDate = (doc: any, date: Date, filterByClinicId?: string): boolean => {
@@ -485,6 +508,28 @@ export default function BookingWizard() {
 
     const handleClinicSelect = (clinic: any) => {
         setSelectedClinic(clinic);
+        
+        const qPackageId = searchParams.get('packageId');
+        if (qPackageId || packageAutoSelected) {
+            const resolved = selectedService?.availability?.find((a: any) => a.clinicId === clinic.id);
+            if (resolved && resolved.doctors && resolved.doctors.length > 0) {
+                // Find first available doctor for this specific service
+                const filteredDoctors = resolved.doctors.filter((doc: any) => {
+                    if (selectedService?.allowedDoctorIds && selectedService.allowedDoctorIds.length > 0 && !selectedService.allowedDoctorIds.includes(doc.id)) return false;
+                    return true;
+                });
+                const firstAvailable = filteredDoctors.find((d: any) => selectedDate && isDoctorAvailableOnDate(d, selectedDate, clinic.id)) || filteredDoctors[0];
+                
+                if (firstAvailable) {
+                    setIsAnyDoctor(true);
+                    setSelectedDoctor(firstAvailable);
+                    setStep(5); // → Skip straight to Time Select
+                    setSelectedSlot(null);
+                    return;
+                }
+            }
+        }
+
         setStep(4); // → Doctor step
         setSelectedDoctor(null); setSelectedSlot(null);
         bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 3, selected: clinic.name });
@@ -704,6 +749,47 @@ export default function BookingWizard() {
 
     // --- Calculated State ---
 
+    // --- Package Logic ---
+    const myPackages = myPackagesList;
+    const qPackageId = searchParams.get('packageId');
+    const applicablePackage = React.useMemo(() => {
+        if (qPackageId) {
+            const match = myPackages.find(p => p.id === qPackageId && p.active && p.paymentStatus === 'paid');
+            if (match) return match;
+        }
+        if (selectedService) {
+            return myPackages.find(p =>
+                p.active &&
+                p.paymentStatus === 'paid' &&
+                p.remainingSessions[selectedService.id] > 0
+            ) || null;
+        }
+        return null;
+    }, [qPackageId, selectedService, myPackages]);
+    const [usePackageSession, setUsePackageSession] = useState(false);
+
+    // Session tracking calculations
+    const packageTotalSessions = applicablePackage && selectedService
+        ? (applicablePackage.totalSessions?.[selectedService.id] || applicablePackage.remainingSessions[selectedService.id])
+        : 0;
+    const packageRemainingSessions = applicablePackage && selectedService
+        ? applicablePackage.remainingSessions[selectedService.id]
+        : 0;
+    const packageCurrentSession = packageTotalSessions - packageRemainingSessions + 1;
+    const packageExpiryDate = applicablePackage?.expiryDate
+        ? new Date(applicablePackage.expiryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '';
+    const packageDaysLeft = applicablePackage?.expiryDate
+        ? Math.max(0, Math.ceil((new Date(applicablePackage.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : 0;
+
+    // Auto-select package if available
+    useEffect(() => {
+        if (applicablePackage) {
+            setUsePackageSession(true);
+        }
+    }, [applicablePackage]);
+
     // Follow-up Status
     const getFollowUpStatus = () => {
         if (!selectedService?.followUpDuration || !isFollowUp || !previousVisitDate) return null;
@@ -742,7 +828,9 @@ export default function BookingWizard() {
     const reviewDiscount = reviewDiscountData;
     const reviewDiscountAmount = (reviewDiscount.percent > 0 && !isFree) ? priceWithTax * (reviewDiscount.percent / 100) : 0;
     let finalPrice = priceWithTax;
-    if (isFree) {
+    if (usePackageSession) {
+        finalPrice = 0;
+    } else if (isFree) {
         finalPrice = 0;
     } else {
         if (appliedPromo) {
@@ -850,7 +938,10 @@ export default function BookingWizard() {
             slot: selectedSlot,
             duration: isFree ? Math.min(selectedService?.duration || 30, 30) : (selectedService?.duration || 30),
             patientName: user?.name || 'Guest',
+            patientPhone: user?.phone,
             amount: finalPrice,
+            paymentMethod: usePackageSession ? 'package' : undefined,
+            packageId: usePackageSession ? applicablePackage?.id : undefined,
             isFollowUp: isFree,
             promoCode: appliedPromo?.code,
             whatsappNumber: whatsappNumber,
@@ -886,6 +977,11 @@ export default function BookingWizard() {
             return;
         }
 
+        if (usePackageSession || finalPrice === 0) {
+            router.push('/customer/dashboard');
+            return;
+        }
+
         // Store in URL params or context for the payment page
         const query = new URLSearchParams({
             amount: String(finalPrice.toFixed(2)),
@@ -907,83 +1003,7 @@ export default function BookingWizard() {
 
 
 
-    // --- Package Logic ---
-    const myPackages = myPackagesList;
-    const applicablePackage = selectedService ? myPackages.find(p =>
-        p.active &&
-        p.paymentStatus === 'paid' &&
-        p.remainingSessions[selectedService.id] > 0
-    ) : null;
-    const [usePackageSession, setUsePackageSession] = useState(false);
-
-    // Session tracking calculations
-    const packageTotalSessions = applicablePackage && selectedService
-        ? (applicablePackage.totalSessions?.[selectedService.id] || applicablePackage.remainingSessions[selectedService.id])
-        : 0;
-    const packageRemainingSessions = applicablePackage && selectedService
-        ? applicablePackage.remainingSessions[selectedService.id]
-        : 0;
-    const packageCurrentSession = packageTotalSessions - packageRemainingSessions + 1;
-    const packageExpiryDate = applicablePackage?.expiryDate
-        ? new Date(applicablePackage.expiryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-        : '';
-    const packageDaysLeft = applicablePackage?.expiryDate
-        ? Math.max(0, Math.ceil((new Date(applicablePackage.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-        : 0;
-
-    // Auto-select package if available
-    useEffect(() => {
-        if (applicablePackage) {
-            setUsePackageSession(true);
-        }
-    }, [applicablePackage]);
-
-    // Handle Package Confirmation
-    const handlePackageConfirm = async () => {
-        if (!applicablePackage || !selectedService || !user) return;
-
-        const res = await fetch('/api/admin/packages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'useSession', customerPackageId: applicablePackage.id, serviceId: selectedService.id }),
-        });
-        const result = await res.json();
-        if (result.success) {
-            const bookingData: any = {
-                clinicId: selectedClinic?.id,
-                deptId: selectedDept?.id,
-                serviceId: selectedService?.id,
-                doctorId: selectedDoctor?.id,
-                date: selectedDate?.toISOString().split('T')[0],
-                slot: selectedSlot,
-                duration: selectedService?.duration || 30,
-                patientName: user.name,
-                patientPhone: user.phone,
-                amount: 0,
-                paymentMethod: 'Package',
-                packageId: applicablePackage.id,
-                whatsappNumber: whatsappNumber,
-                referredBy: referredBy !== 'none' ? referredBy : undefined,
-                referralName: referralName || undefined,
-                referralContact: referralContact || undefined,
-                referralEmployeeName: referralEmployeeName || undefined,
-                referralEmployeeId: referralEmployeeId || undefined
-            };
-
-            // Persist booking (Mock)
-            console.log('Booking with package:', bookingData);
-            await fetch('/api/admin/bookings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bookingData)
-            });
-
-            // Redirect to success / dashboard
-            router.push('/customer/dashboard');
-        } else {
-            alert(result.message);
-        }
-    }
+    // handlePackageConfirm was removed to consolidate payload creation and redirect inside handleConfirm
 
 
     // Prevent hydration mismatch by not rendering until mounted
@@ -1076,7 +1096,39 @@ export default function BookingWizard() {
 
             {/* Step 1: Select Service (with brand/device sub-step for Laser & Fillers categories) */}
             {
-                step === 1 && selectedCategory && (() => {
+                step === 1 && (selectedCategory || applicablePackage) && (() => {
+                    const qPId = searchParams.get('packageId');
+                    if (applicablePackage && qPId) {
+                        const availableIds = Object.keys(applicablePackage.remainingSessions).filter(id => applicablePackage.remainingSessions[id] > 0);
+                        const filteredSvc = catalogData.services.filter((s: any) => availableIds.includes(s.id));
+                        return (
+                            <div>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose a service from your package</h2>
+                                </div>
+                                <div className="space-y-3">
+                                    {filteredSvc.map((svc: any) => (
+                                        <div key={svc.id} className="border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group overflow-hidden">
+                                            <button onClick={() => handleServiceSelect(svc)} className="w-full flex items-center gap-4 p-4 text-left">
+                                                {svc.image && (
+                                                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
+                                                        <img src={svc.image} alt={svc.name} className="w-full h-full object-cover" />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
+                                                    {svc.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>}
+                                                </div>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    if (!selectedCategory) return null;
+
                     const allCatServices = catalogData.services
                         .filter((svc: any) => svc.category === selectedCategory)
                         .filter((svc: any) => {
@@ -2128,7 +2180,7 @@ export default function BookingWizard() {
                             )}
 
                             <button
-                                onClick={usePackageSession ? handlePackageConfirm : handleConfirm}
+                                onClick={handleConfirm}
                                 className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center justify-center gap-2"
                             >
                                 {usePackageSession ? 'Confirm Booking with Package' : 'Proceed to Payment'}

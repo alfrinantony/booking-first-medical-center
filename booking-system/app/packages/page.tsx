@@ -267,8 +267,7 @@ export default function PackagesPage() {
                                                 {!isExpired && isActive && totalRemaining > 0 && (
                                                     <button
                                                         onClick={() => {
-                                                            const firstServiceId = Object.keys(pkg.remainingSessions)[0];
-                                                            router.push(`/booking?packageId=${pkg.id}&serviceId=${encodeURIComponent(firstServiceId)}`);
+                                                            router.push(`/booking?packageId=${pkg.id}`);
                                                         }}
                                                         className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg mt-2"
                                                     >
