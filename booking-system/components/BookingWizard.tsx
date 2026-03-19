@@ -156,15 +156,15 @@ export default function BookingWizard() {
                 const res = await fetch(`/api/admin/bookings?search=${encodeURIComponent(user.name)}`);
                 if (res.ok) {
                     const bookings = await res.json();
+                    // Find ANY booking for this service that isn't cancelled to enforce interval rules against the most recent scheduled date
                     const pastBookings = bookings.filter((b: any) => 
                         b.serviceId === selectedService.id &&
-                        b.status === 'completed' &&
-                        new Date(b.date) < new Date()
+                        b.status !== 'cancelled'
                     );
 
                     if (pastBookings.length > 0) {
                         pastBookings.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                        setPreviousVisitDate(pastBookings[0].date);
+                        setPreviousVisitDate(pastBookings[0].date); // This is now actually the LATEST visit date (could be future!)
                         setIsFollowUp(true);
                     } else {
                         setIsFollowUp(false);
@@ -927,6 +927,9 @@ export default function BookingWizard() {
     };
 
     const handleConfirm = async () => {
+        // If it qualifies as a free follow-up, DO NOT consume a paid package session
+        const actuallyConsumePackage = usePackageSession && !isFree;
+
         // Proceed to Payment
         // In a real app, save booking state/intent ID here
         const bookingData: any = {
@@ -940,8 +943,8 @@ export default function BookingWizard() {
             patientName: user?.name || 'Guest',
             patientPhone: user?.phone,
             amount: finalPrice,
-            paymentMethod: usePackageSession ? 'package' : undefined,
-            packageId: usePackageSession ? applicablePackage?.id : undefined,
+            paymentMethod: actuallyConsumePackage ? 'package' : undefined,
+            packageId: actuallyConsumePackage ? applicablePackage?.id : undefined,
             isFollowUp: isFree,
             promoCode: appliedPromo?.code,
             whatsappNumber: whatsappNumber,

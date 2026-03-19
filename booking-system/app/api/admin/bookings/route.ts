@@ -85,14 +85,14 @@ export async function POST(request: NextRequest) {
         let isFollowUp = false;
         if (service) {
             // Find past bookings for this same service and patient
+            // Find ANY non-cancelled booking for this service and patient to enforce intervals against their nearest scheduled date
             const pastBookings = existingBookings.filter(b => 
                 b.patientName === body.patientName && 
                 b.serviceId === body.serviceId && 
-                b.status === 'completed' &&
-                new Date(b.date) < new Date(body.date)
+                b.status !== 'cancelled'
             );
 
-            // Sort by date descending to find the most recent one
+            // Sort by date descending to find the most recent one (could be past or future)
             pastBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             const lastBooking = pastBookings[0];
 
