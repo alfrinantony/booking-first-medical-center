@@ -156,33 +156,9 @@ export async function GET(request: Request) {
     // Generate slots at strict geometries anchored to 10:00 AM initially.
     // 60-min: 10:00, 11:00, 12:00
     // 45-min: 10:00, 10:45, 11:30
-    // If a chunk is unavailable (e.g. doctor starts at 11:00), we step by 15 mins to cleanly re-anchor.
-    const CLINIC_OPENING_MINUTES = 10 * 60;
-    let slots: string[] = [];
-
-    let currentMin = CLINIC_OPENING_MINUTES;
-    while (currentMin + requestedDuration <= scheduleEnd) {
-        // Verify all 15-min sub-blocks within this requested duration chunk are available
-        let allAvailable = true;
-        for (let checkpoint = currentMin; checkpoint < currentMin + requestedDuration; checkpoint += 15) {
-            if (!availableMinutesSet.has(checkpoint)) {
-                allAvailable = false;
-                break;
-            }
-        }
-
-        if (allAvailable) {
-            slots.push(minutesToSlotString(currentMin));
-        }
-        
-        // Always step forward by 15 mins to maintain 15-minute scheduling intervals
-        currentMin += 15;
-    }
-
     // ── 4. Resolve Branch Closing Time (minutes from midnight) ──
     let closingMinutes = 22 * 60; // Default 10 PM
     if (clinicId) {
-        // Try dynamic store first, then fall back to static data
         const storedClinic = await ServicesStore.getClinicById(clinicId);
         const staticClinic = clinics.find(c => c.id === clinicId);
         const closingStr = storedClinic?.closingTime || staticClinic?.closingTime;
@@ -211,9 +187,7 @@ export async function GET(request: Request) {
     const bookings = await BookingsStore.getByFilters({ doctorId, date });
     const activeBookings = bookings.filter(b => b.status !== 'cancelled');
 
-    // Build occupied ranges for the SELECTED doctor
     const occupiedRanges: { start: number; end: number; serviceId: string; resourceIds: string[]; doctorId: string }[] = [];
-
     for (const b of activeBookings) {
         const bStart = parseSlotToMinutes(b.slot);
         let bDuration = b.duration || 30;
@@ -222,18 +196,15 @@ export async function GET(request: Request) {
             if (bService?.duration) bDuration = bService.duration;
         }
         const bEnd = bStart + bDuration;
-
+        
         let resourceIds: string[] = [];
         const bService = await ServicesStore.getServiceById(b.serviceId);
-        if (bService?.requiredResourceIds) {
-            resourceIds = bService.requiredResourceIds;
-        }
-
+        if (bService?.requiredResourceIds) resourceIds = bService.requiredResourceIds;
+        
         occupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, doctorId: b.doctorId });
     }
 
-    // ── 6b. Cross-Doctor Resource Check: get ALL bookings at this branch on this date ──
-    // (for shared resource blocking across different doctors)
+    // ── 6b. Shared Resource Check (Cross-Doctor Bookings) ──
     let branchOccupiedRanges: typeof occupiedRanges = [];
     if (clinicId && requestedService?.requiredResourceIds?.length > 0) {
         const allBranchBookings = await BookingsStore.getByFilters({ clinicId, date });
@@ -246,67 +217,81 @@ export async function GET(request: Request) {
                 if (bService?.duration) bDuration = bService.duration;
             }
             const bEnd = bStart + bDuration;
+            
             let resourceIds: string[] = [];
             const bService = await ServicesStore.getServiceById(b.serviceId);
             if (bService?.requiredResourceIds) resourceIds = bService.requiredResourceIds;
+            
             branchOccupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, doctorId: b.doctorId });
         }
     }
 
-    // ── 7. Filter Slots with Duration-Aware Logic ──
-    let availableSlots = slots.filter(slot => {
-        const candidateStart = parseSlotToMinutes(slot);
-        const candidateEnd = candidateStart + requestedDuration;
-
-        // Check 1: Service must finish before branch closing time
-        if (candidateEnd > closingMinutes) return false;
-
-        // Check 2: Count overlapping bookings for doctor capacity
-        let overlapCount = 0;
-        for (const range of occupiedRanges) {
-            if (rangesOverlap(candidateStart, candidateEnd, range.start, range.end)) {
-                overlapCount++;
-            }
-        }
-        if (overlapCount >= maxConcurrent) return false;
-
-        return true;
-    });
-
-    // ── 8. Resource Availability Check (duration-aware, cross-doctor) ──
+    // Pre-load resources if needed
+    const resourceMap = new Map<string, any>();
     if (requestedService?.requiredResourceIds && requestedService.requiredResourceIds.length > 0) {
-        // Pre-load required resources
-        const resourceMap = new Map<string, any>();
         for (const resId of requestedService.requiredResourceIds) {
+            const { ResourcesStore } = require('@/lib/resources-store');
             const resource = await ResourcesStore.getResourceById(resId);
             if (resource) resourceMap.set(resId, resource);
         }
+    }
+    const allResourceRanges = [...occupiedRanges, ...branchOccupiedRanges];
 
-        // Combine this doctor's ranges + all other doctors' ranges at same branch
-        const allResourceRanges = [...occupiedRanges, ...branchOccupiedRanges];
+    // ── 7. Generate Slots with Duration-Aware Increments ──
+    const CLINIC_OPENING_MINUTES = 10 * 60;
+    let availableSlots: string[] = [];
+    let currentMin = CLINIC_OPENING_MINUTES;
 
-        availableSlots = availableSlots.filter(slot => {
-            const candidateStart = parseSlotToMinutes(slot);
-            const candidateEnd = candidateStart + requestedDuration;
+    while (currentMin + requestedDuration <= Math.min(scheduleEnd, closingMinutes)) {
+        let isAvailable = true;
 
-            // Check each required resource
-            return requestedService.requiredResourceIds.every((resId: string) => {
+        // A. Verify all 15-min sub-blocks within this requested duration chunk are available on doctor's schedule
+        for (let checkpoint = currentMin; checkpoint < currentMin + requestedDuration; checkpoint += 15) {
+            if (!availableMinutesSet.has(checkpoint)) {
+                isAvailable = false;
+                break;
+            }
+        }
+
+        // B. Check for existing booking overlaps (Doctor Capacity)
+        if (isAvailable) {
+            let overlapCount = 0;
+            for (const range of occupiedRanges) {
+                if (rangesOverlap(currentMin, currentMin + requestedDuration, range.start, range.end)) {
+                    overlapCount++;
+                }
+            }
+            if (overlapCount >= maxConcurrent) isAvailable = false;
+        }
+
+        // C. Check Resource availability (Cross-Doctor)
+        if (isAvailable && requestedService?.requiredResourceIds && requestedService.requiredResourceIds.length > 0) {
+            const hasResources = requestedService.requiredResourceIds.every((resId: string) => {
                 const resource = resourceMap.get(resId);
-                if (!resource) return true; // Resource not found, skip check
+                if (!resource) return true; 
 
-                // Count how many existing bookings (ANY doctor) use this resource during our time window
                 let usedCount = 0;
                 for (const range of allResourceRanges) {
-                    if (range.resourceIds.includes(resId) && rangesOverlap(candidateStart, candidateEnd, range.start, range.end)) {
+                    if (range.resourceIds.includes(resId) && rangesOverlap(currentMin, currentMin + requestedDuration, range.start, range.end)) {
                         usedCount++;
                     }
                 }
                 return usedCount < resource.totalQuantity;
             });
-        });
+            if (!hasResources) isAvailable = false;
+        }
+
+        if (isAvailable) {
+            availableSlots.push(minutesToSlotString(currentMin));
+            // Jump by the duration of the service so slots don't overlap with themselves on the grid
+            currentMin += requestedDuration;
+        } else {
+            // Slide by 15 mins to search for the next available chunk that fits
+            currentMin += 15;
+        }
     }
 
-    // ── 9. Build Response with metadata ──
+    // ── 8. Build Response with metadata ──
     const response: any = {
         slots: availableSlots,
         serviceDuration: requestedDuration,
