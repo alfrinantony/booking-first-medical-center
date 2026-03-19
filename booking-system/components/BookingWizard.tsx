@@ -246,37 +246,58 @@ export default function BookingWizard() {
         if (packageAutoSelected || catalogLoading || catalogData.services.length === 0) return;
         
         const qPackageId = searchParams.get('packageId');
+        
+        const processServiceSelection = async (targetServiceId: string, pkgDetails?: any) => {
+            let svc = catalogData.services.find((s: any) => s.id === targetServiceId);
+            
+            // Fallback: If service is hidden from public catalog, fetch it directly
+            if (!svc) {
+                try {
+                    const res = await fetch(`/api/admin/services?id=${encodeURIComponent(targetServiceId)}`);
+                    if (res.ok) {
+                        const directService = await res.json();
+                        if (directService && directService.id) {
+                            // Synthesize availability based on ALL clinics that have this department
+                            // This is a rough estimation since we lack the full catalog graph for this hidden item
+                            svc = {
+                                ...directService,
+                                availability: catalogData.clinics.map(c => {
+                                    const dept = c.departments.find((d: any) => d.services.some((ds: any) => ds.id === targetServiceId));
+                                    if (dept) return { clinicId: c.id, departmentId: dept.id, doctors: dept.doctors };
+                                    // If not in catalog, just broadly allow the first dept
+                                    return { clinicId: c.id, departmentId: c.departments[0]?.id, doctors: c.departments[0]?.doctors };
+                                }).filter(Boolean)
+                            };
+                        }
+                    }
+                } catch (e) { console.error('Failed to fetch hidden service'); }
+            }
+
+            if (svc) {
+                if (step === 0 || step === 1) setStep(2); // Skip straight to dates
+                setSelectedCategory(svc.category || 'Package Service');
+                setSelectedService(svc);
+                setPackageAutoSelected(true);
+            }
+        };
+
         if (qPackageId) {
-            const pkg = myPackagesList.find(p => p.id === qPackageId && p.active && p.paymentStatus === 'paid');
+            // Rely on .active instead of strictly paymentStatus='paid' to accommodate legacy data
+            const pkg = myPackagesList.find(p => p.id === qPackageId && p.active);
             if (pkg) {
-                // If package provided, jump out of Category Selection
-                if (step === 0) setStep(1);
-                
-                // Auto-select the first available service in the package and skip to Date selection
                 const availableServiceIds = Object.keys(pkg.remainingSessions).filter(id => pkg.remainingSessions[id] > 0);
                 if (availableServiceIds.length > 0) {
-                    const svc = catalogData.services.find((s: any) => s.id === availableServiceIds[0]);
-                    if (svc) {
-                        setSelectedCategory(svc.category);
-                        setSelectedService(svc);
-                        setStep(2); // Skip straight to date
-                        setPackageAutoSelected(true);
-                        return;
-                    }
+                    processServiceSelection(availableServiceIds[0], pkg);
+                    return;
                 }
             }
         }
 
         const qServiceId = searchParams.get('serviceId');
-        if (!qServiceId) return;
-        const svc = catalogData.services.find((s: any) => s.id === qServiceId);
-        if (svc) {
-            setSelectedCategory(svc.category);
-            setSelectedService(svc);
-            setStep(2); // Skip to date selection
-            setPackageAutoSelected(true);
+        if (qServiceId) {
+            processServiceSelection(qServiceId);
         }
-    }, [catalogData.services, catalogLoading, packageAutoSelected, searchParams, myPackagesList, step]);
+    }, [catalogData, catalogLoading, packageAutoSelected, searchParams, myPackagesList, step]);
 
     // Helper: check if a doctor is available on a specific date, optionally strictly at a given clinic
     const isDoctorAvailableOnDate = (doc: any, date: Date, filterByClinicId?: string): boolean => {
