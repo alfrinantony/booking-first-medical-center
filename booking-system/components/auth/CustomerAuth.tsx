@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useCustomerAuthStore } from '@/lib/customer-auth-store';
 import { useAuthStore } from '@/lib/store';
 import { Eye, EyeOff, User, Mail, Phone, Lock, Calendar, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
 
@@ -14,7 +13,6 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
         'login' | 'register' | 'register-verify' |
         'forgot-email' | 'forgot-otp' | 'forgot-newpw'
     >('login');
-    const { login, register, resetPassword, verifyEmail } = useCustomerAuthStore();
     const { login: setGlobalUser } = useAuthStore();
 
     // Login state
@@ -136,16 +134,28 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
 
     /* ────────── HANDLERS ────────── */
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+        setOtpLoading(true);
 
-        const result = login(identifier, password);
-        if (result.success && result.user) {
-            setGlobalUser(result.user);
-            if (onSuccess) onSuccess();
-        } else {
-            setError(result.message);
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier, password }),
+            });
+            const result = await res.json();
+            if (res.ok && result.success && result.user) {
+                setGlobalUser(result.user);
+                if (onSuccess) onSuccess();
+            } else {
+                setError(result.message || 'Login failed.');
+            }
+        } catch (err) {
+            setError('Network error during login.');
+        } finally {
+            setOtpLoading(false);
         }
     };
 
@@ -153,20 +163,32 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
         e.preventDefault();
         setError(null);
         setSuccessMsg(null);
+        setOtpLoading(true);
 
-        // Check duplicate first
-        const result = register({ name, email, phone, password, dateOfBirth: dob, gender });
-        if (!result.success) {
-            setError(result.message);
-            return;
-        }
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, phone, password, dateOfBirth: dob, gender })
+            });
+            const result = await res.json();
+            
+            if (!res.ok || !result.success) {
+                setError(result.message || 'Registration failed.');
+                setOtpLoading(false);
+                return;
+            }
 
-        // Account created (unverified) — send OTP
-        setPendingEmail(email);
-        const sent = await sendOtp(email, 'registration');
-        if (sent) {
-            setSuccessMsg('Account created! Please check your email for the verification code.');
-            setMode('register-verify');
+            // Account created (unverified) — send OTP
+            setPendingEmail(email);
+            const sent = await sendOtp(email, 'registration');
+            if (sent) {
+                setSuccessMsg('Account created! Please check your email for the verification code.');
+                setMode('register-verify');
+            }
+        } catch (err) {
+            setError('Network error during registration.');
+            setOtpLoading(false);
         }
     };
 
@@ -176,30 +198,38 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
         if (!valid) return;
 
         // Mark as verified
-        verifyEmail(pendingEmail);
-
-        // Auto-login
-        const result = login(pendingEmail, password);
-        if (result.success && result.user) {
-            setSuccessMsg('Email verified! Logging you in...');
-            setTimeout(() => {
-                setGlobalUser(result.user!);
-                if (onSuccess) onSuccess();
-            }, 1000);
+        try {
+            await fetch('/api/auth/verify-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: pendingEmail })
+            });
+            
+            // Auto-login
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: pendingEmail, password }),
+            });
+            const result = await res.json();
+            if (res.ok && result.success && result.user) {
+                setSuccessMsg('Email verified! Logging you in...');
+                setTimeout(() => {
+                    setGlobalUser(result.user!);
+                    if (onSuccess) onSuccess();
+                }, 1000);
+            } else {
+                setError(result.message || 'Failed to auto-login. Please login manually.');
+                setMode('login');
+            }
+        } catch (err) {
+            setError('Error verifying email. Try refreshing the page.');
         }
     };
 
     const handleForgotSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
-
-        // Check if account exists client-side (data is in localStorage via Zustand persist)
-        const { users } = useCustomerAuthStore.getState();
-        const user = users.find(u => u.email === forgotEmail);
-        if (!user) {
-            setError('No account found with this email address.');
-            return;
-        }
 
         const sent = await sendOtp(forgotEmail, 'password-reset');
         if (sent) {
@@ -219,28 +249,42 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
         setMode('forgot-newpw');
     };
 
-    const handleForgotResetPw = (e: React.FormEvent) => {
+    const handleForgotResetPw = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+        setOtpLoading(true);
 
         if (newPassword.length < 4) {
             setError('Password must be at least 4 characters.');
+            setOtpLoading(false);
             return;
         }
         if (newPassword !== confirmPassword) {
             setError('Passwords do not match.');
+            setOtpLoading(false);
             return;
         }
 
-        const result = resetPassword(forgotEmail, newPassword);
-        if (result.success) {
-            setSuccessMsg(result.message);
-            setTimeout(() => {
-                resetState();
-                setMode('login');
-            }, 2000);
-        } else {
-            setError(result.message);
+        try {
+            const res = await fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: forgotEmail, newPassword })
+            });
+            const result = await res.json();
+            if (res.ok && result.success) {
+                setSuccessMsg(result.message || 'Password reset successfully.');
+                setTimeout(() => {
+                    resetState();
+                    setMode('login');
+                }, 2000);
+            } else {
+                setError(result.message || 'Error occurred while resetting password.');
+            }
+        } catch (err) {
+            setError('Network connection error.');
+        } finally {
+            setOtpLoading(false);
         }
     };
 
