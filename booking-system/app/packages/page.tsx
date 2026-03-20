@@ -251,7 +251,7 @@ export default function PackagesPage() {
                                                                     style={{ width: `${(used / total) * 100}%` }}
                                                                 />
                                                             </div>
-                                                            <div className="flex justify-between mt-1">
+                                                            <div className="flex justify-between mt-1 mb-2">
                                                                 <span className={`text-xs font-medium ${remaining > 0 ? 'text-green-600' : 'text-red-500'}`}>
                                                                     {remaining} session{remaining !== 1 ? 's' : ''} remaining
                                                                 </span>
@@ -259,22 +259,20 @@ export default function PackagesPage() {
                                                                     Expires: {new Date(pkg.expiryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                                 </span>
                                                             </div>
+                                                            {/* Book button for this specific service */}
+                                                            {!isExpired && isActive && remaining > 0 && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        router.push(`/booking?packageId=${pkg.id}&serviceId=${serviceId}`);
+                                                                    }}
+                                                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 mt-2 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-semibold rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors text-sm"
+                                                                >
+                                                                    <Calendar className="w-4 h-4" /> Book Session
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
-
-                                                {/* Book button — only for active, paid, non-expired packages */}
-                                                {!isExpired && isActive && totalRemaining > 0 && (
-                                                    <button
-                                                        onClick={() => {
-                                                            router.push(`/booking?packageId=${pkg.id}`);
-                                                        }}
-                                                        className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg mt-2"
-                                                    >
-                                                        <Calendar className="w-5 h-5" />
-                                                        Book Appointment
-                                                    </button>
-                                                )}
 
                                                 {/* Pending: disabled book button */}
                                                 {!isExpired && isPending && (

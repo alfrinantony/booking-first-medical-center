@@ -20,6 +20,13 @@ export async function GET(request: NextRequest) {
     const name = request.nextUrl.searchParams.get('name');
     const includeAll = request.nextUrl.searchParams.get('includeAll') === 'true';
 
+    const id = request.nextUrl.searchParams.get('id');
+    if (id) {
+        const booking = await BookingsStore.getById(id);
+        if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+        return NextResponse.json({ booking });
+    }
+
     if (!phone && !name) {
         return NextResponse.json({ error: 'phone or name required' }, { status: 400 });
     }

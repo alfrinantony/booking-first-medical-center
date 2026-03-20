@@ -352,12 +352,12 @@ export default function CustomerDashboard() {
                                                 </div>
                                                 {isUpcoming && booking.status !== 'cancelled' && (
                                                     <div className="flex gap-2 flex-shrink-0">
-                                                        <button
-                                                            onClick={() => { setRescheduleBooking(booking); setActionError(''); setActionSuccess(''); }}
+                                                        <Link
+                                                            href={`/booking?rescheduleId=${booking.id}`}
                                                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
                                                         >
                                                             <RefreshCw className="w-3 h-3" /> Reschedule
-                                                        </button>
+                                                        </Link>
                                                         <button
                                                             onClick={() => { setConfirmCancelId(booking.id); setActionError(''); }}
                                                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -451,19 +451,23 @@ export default function CustomerDashboard() {
                                                                 />
                                                             </div>
                                                             <p className="text-[10px] text-gray-400 mt-1">{used} of {total} sessions used</p>
+                                                            
+                                                            {/* Book button for this specific service */}
+                                                            {!isPending && pkg.active && remaining > 0 && (
+                                                                <Link
+                                                                    href={`/booking?packageId=${pkg.id}&serviceId=${encodeURIComponent(svcId)}`}
+                                                                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 mt-3 mb-4 bg-indigo-50 text-indigo-700 font-bold rounded-xl hover:bg-indigo-100 transition-colors shadow-sm dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 text-sm border border-indigo-100 dark:border-indigo-800"
+                                                                >
+                                                                    <Calendar className="w-4 h-4" /> Book Session
+                                                                </Link>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
 
                                                 {/* Actions */}
                                                 {!isPending && pkg.active && (
-                                                    <div className="space-y-2">
-                                                        <Link
-                                                            href={`/booking?packageId=${pkg.id}&serviceId=${encodeURIComponent(Object.keys(pkg.remainingSessions)[0])}`}
-                                                            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
-                                                        >
-                                                            <Calendar className="w-4 h-4" /> Book from Package
-                                                        </Link>
+                                                    <div className="space-y-2 mt-4">
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <button 
                                                                 onClick={() => { setTransferPkgId(pkg.id); setTransferModalOpen(true); }}

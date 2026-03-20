@@ -41,6 +41,7 @@ export default function BookingWizard() {
     const { user, isAuthenticated } = useAuthStore();
     const [isMounted, setIsMounted] = useState(false);
     const [packageAutoSelected, setPackageAutoSelected] = useState(false);
+    const [rescheduleData, setRescheduleData] = useState<any | null>(null);
 
     // API-fetched state for packages and review discount
     const [myPackagesList, setMyPackagesList] = useState<import('@/types/packages').CustomerPackage[]>([]);
@@ -125,6 +126,71 @@ export default function BookingWizard() {
         : null;
     // Clinics from catalog (full objects for branch selection)
     const clinics = catalogData.clinics.length > 0 ? catalogData.clinics as Clinic[] : staticClinics;
+
+    // Fetch reschedule data and auto-select
+    React.useEffect(() => {
+        if (catalogLoading || catalogData.services.length === 0 || rescheduleData) return;
+        
+        const qRescheduleId = searchParams.get('rescheduleId');
+        if (!qRescheduleId) return;
+
+        const processReschedule = async () => {
+            try {
+                const res = await fetch(`/api/bookings/by-patient?id=${encodeURIComponent(qRescheduleId)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.booking) {
+                        setRescheduleData(data.booking);
+                        
+                        // Select the service
+                        const targetServiceId = data.booking.serviceId;
+                        let svc = catalogData.services.find((s: any) => s.id === targetServiceId);
+                        
+                        if (!svc) {
+                            const directRes = await fetch(`/api/admin/services?id=${encodeURIComponent(targetServiceId)}`);
+                            if (directRes.ok) {
+                                const directService = await directRes.json();
+                                if (directService && directService.id) {
+                                    svc = {
+                                        ...directService,
+                                        availability: catalogData.clinics.map(c => {
+                                            const dept = c.departments.find((d: any) => d.services.some((ds: any) => ds.id === targetServiceId));
+                                            if (dept) return { clinicId: c.id, departmentId: dept.id, doctors: dept.doctors };
+                                            return { clinicId: c.id, departmentId: c.departments[0]?.id, doctors: c.departments[0]?.doctors };
+                                        }).filter(Boolean)
+                                    };
+                                }
+                            }
+                        }
+
+                        if (svc) {
+                            setSelectedCategory(svc.category || 'Reschedule Service');
+                            setSelectedService(svc);
+                            
+                            // Select the clinic
+                            const clinic = clinics.find(c => c.id === data.booking.clinicId);
+                            if (clinic) setSelectedClinic(clinic);
+                            
+                            // Select the doctor
+                            if (clinic && data.booking.doctorId) {
+                                const dept = clinic.departments.find(d => d.id === data.booking.deptId);
+                                if (dept) {
+                                    const doctor = dept.doctors.find(d => d.id === data.booking.doctorId);
+                                    if (doctor) setSelectedDoctor(doctor);
+                                }
+                            }
+
+                            // Start at Date selection
+                            setStep(2);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load reschedule data", err);
+            }
+        };
+        processReschedule();
+    }, [catalogData, catalogLoading, rescheduleData, searchParams, clinics]);
 
     // Category images (from admin uploads)
     const [categoryImages, setCategoryImages] = useState<Record<string, string>>({});
@@ -292,6 +358,11 @@ export default function BookingWizard() {
             // Rely on .active instead of strictly paymentStatus='paid' to accommodate legacy data
             const pkg = myPackagesList.find(p => p.id === qPackageId && p.active);
             if (pkg) {
+                const qServiceId = searchParams.get('serviceId');
+                if (qServiceId && pkg.remainingSessions[qServiceId] > 0) {
+                    processServiceSelection(qServiceId, pkg);
+                    return;
+                }
                 const availableServiceIds = Object.keys(pkg.remainingSessions).filter(id => pkg.remainingSessions[id] > 0);
                 if (availableServiceIds.length > 0) {
                     processServiceSelection(availableServiceIds[0], pkg);
@@ -863,7 +934,7 @@ export default function BookingWizard() {
     let finalPrice = priceWithTax;
     if (usePackageSession) {
         finalPrice = 0;
-    } else if (isFree) {
+    } else if (isFree || rescheduleData) {
         finalPrice = 0;
     } else {
         if (appliedPromo) {
@@ -964,6 +1035,31 @@ export default function BookingWizard() {
     };
 
     const handleConfirm = async () => {
+        if (rescheduleData) {
+            try {
+                const res = await fetch('/api/bookings/by-patient', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: rescheduleData.id,
+                        date: selectedDate?.toISOString().split('T')[0],
+                        slot: selectedSlot
+                    })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || 'Reschedule failed');
+                }
+                await clearDraft();
+                router.push('/customer/dashboard');
+                return;
+            } catch (error) {
+                console.error('Failed to reschedule booking', error);
+                alert('Failed to reschedule booking. Please try again.');
+                return;
+            }
+        }
+
         // If it qualifies as a free follow-up, DO NOT consume a paid package session
         const actuallyConsumePackage = usePackageSession && !isFree;
 
