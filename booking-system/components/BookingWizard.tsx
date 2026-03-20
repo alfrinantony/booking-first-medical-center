@@ -1059,18 +1059,6 @@ export default function BookingWizard() {
         return <div className="text-center p-12 text-red-500">System Error: No clinics configured.</div>;
     }
 
-    // Auth gate: show registration/login if not authenticated
-    if (!isAuthenticated) {
-        return (
-            <div className="max-w-lg mx-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow-lg my-12">
-                <div className="text-center mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome to Booking</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Please register or log in to start your appointment booking.</p>
-                </div>
-                <CustomerAuth />
-            </div>
-        );
-    }
 
     return (
         <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow-lg my-12">
@@ -1964,7 +1952,23 @@ export default function BookingWizard() {
 
             {/* Step 6: Review & Confirm */}
             {
-                step === 6 && (
+                step === 6 && !isAuthenticated && (
+                    <div className="animate-in fade-in py-6">
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Almost there!</h2>
+                            <p className="text-gray-500 dark:text-gray-400">Please log in or register to complete your booking.</p>
+                        </div>
+                        <CustomerAuth />
+                        <div className="text-center mt-6">
+                            <button onClick={() => setStep(5)} className="text-sm font-medium text-gray-500 hover:text-indigo-600 underline">
+                                Back to Time Slot
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+            {
+                step === 6 && isAuthenticated && (
                     <div>
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="flex items-center gap-2 mb-6">
