@@ -6,6 +6,21 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const clinicId = searchParams.get('clinicId');
+    const serviceId = searchParams.get('id');
+
+    if (serviceId) {
+        // Search all clinics and departments for this service ID
+        const clinics = await ServicesStore.getClinics();
+        for (const clinic of clinics) {
+            for (const dept of clinic.departments) {
+                const svc = dept.services.find(s => s.id === serviceId);
+                if (svc) {
+                    return NextResponse.json(svc);
+                }
+            }
+        }
+        return NextResponse.json({ error: 'Service not found' }, { status: 404 });
+    }
 
     if (clinicId) {
         const clinic = await ServicesStore.getClinic(clinicId);
