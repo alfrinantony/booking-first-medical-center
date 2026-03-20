@@ -23,6 +23,8 @@ function PaymentContent() {
     const clinicName = searchParams.get('clinicName') || '';
 
     const [clientSecret, setClientSecret] = useState("");
+    const [stripeError, setStripeError] = useState("");
+    const [isLoadingStripe, setIsLoadingStripe] = useState(false);
 
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'clinic'>('card');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -32,14 +34,28 @@ function PaymentContent() {
 
     useEffect(() => {
         if (paymentMethod === 'card' && amount > 0) {
+            setIsLoadingStripe(true);
+            setStripeError("");
             // Create PaymentIntent as soon as the page loads
             fetch("/api/payment/intent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ amount }),
             })
-                .then((res) => res.json())
-                .then((data) => setClientSecret(data.clientSecret));
+                .then((res) => {
+                    if (!res.ok) throw new Error("Could not initialize Stripe payment");
+                    return res.json();
+                })
+                .then((data) => {
+                    if (data.clientSecret) {
+                         setClientSecret(data.clientSecret);
+                    } else if (data.error) {
+                         setStripeError(data.error);
+                    }
+                })
+                .catch((err) => setStripeError(err.message))
+                .finally(() => setIsLoadingStripe(false));
+            
         } else {
             setClientSecret(""); // Reset client secret if not card
         }
@@ -110,10 +126,30 @@ function PaymentContent() {
                 </div>
 
                 {/* Render Payment UI based on selection */}
-                {paymentMethod === 'card' && clientSecret && (
-                    <Elements options={options} stripe={stripePromise}>
-                        <CheckoutForm amount={amount} serviceName={serviceName} bookingDate={bookingDate} slot={slot} doctorName={doctorName} clinicName={clinicName} />
-                    </Elements>
+                {paymentMethod === 'card' && (
+                    <div className="mt-4">
+                        {isLoadingStripe ? (
+                            <div className="flex flex-col items-center justify-center p-8 space-y-4">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                                <p className="text-sm text-gray-500">Initializing secure payment...</p>
+                            </div>
+                        ) : stripeError ? (
+                            <div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 p-4 rounded-lg text-sm text-center">
+                                <p className="mb-2 font-bold">Payment Gateway Error</p>
+                                <p className="mb-4">{stripeError}</p>
+                                <button
+                                    onClick={() => setPaymentMethod('clinic')}
+                                    className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-colors"
+                                >
+                                    Pay at Clinic Instead
+                                </button>
+                            </div>
+                        ) : clientSecret ? (
+                            <Elements options={options} stripe={stripePromise}>
+                                <CheckoutForm amount={amount} serviceName={serviceName} bookingDate={bookingDate} slot={slot} doctorName={doctorName} clinicName={clinicName} />
+                            </Elements>
+                        ) : null}
+                    </div>
                 )}
 
 

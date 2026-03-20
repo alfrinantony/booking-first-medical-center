@@ -295,6 +295,15 @@ export default function BookingWizard() {
 
     const { clearDraft } = useFormDraft('client-booking-wizard', currentDraftData, {
         onRestore: (data: any) => {
+            // Only restore if we have parameters or it's a deliberate resume
+            const isFreshVisit = !searchParams.has('packageId') && !searchParams.has('serviceId') && !searchParams.has('resume');
+            
+            if (isFreshVisit) {
+                // If it's a fresh visit (like clicking "Book Now" from homepage), we want to start fresh to avoid confusing the user
+                clearDraft();
+                return;
+            }
+
             if (data.step !== undefined) setStep(data.step);
             if (data.whatsappNumber !== undefined) setWhatsappNumber(data.whatsappNumber);
             if (data.referredBy !== undefined) setReferredBy(data.referredBy);
@@ -424,7 +433,9 @@ export default function BookingWizard() {
 
             // Service Restrictions
             if (selectedService?.allowedDays && selectedService.allowedDays.length > 0) {
-                if (!selectedService.allowedDays.includes(dayOfWeek)) return false;
+                if (Array.isArray(selectedService.allowedDays) && !selectedService.allowedDays.includes(dayOfWeek)) {
+                    return false;
+                }
             }
 
             // Interval & Follow-Up Validation
@@ -433,17 +444,19 @@ export default function BookingWizard() {
                 const candidateDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
                 const prevStr = previousVisitDate.split('T')[0];
                 const prevDateParts = prevStr.split('-');
-                const prevDate = new Date(Number(prevDateParts[0]), Number(prevDateParts[1]) - 1, Number(prevDateParts[2]));
-                
-                const diffTime = candidateDate.getTime() - prevDate.getTime();
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                
-                const followUpLimit = selectedService.followUpDuration || 0;
-                const minInterval = selectedService.minimumIntervalDays;
+                if (prevDateParts.length === 3) {
+                    const prevDate = new Date(Number(prevDateParts[0]), Number(prevDateParts[1]) - 1, Number(prevDateParts[2]));
+                    
+                    const diffTime = candidateDate.getTime() - prevDate.getTime();
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    const followUpLimit = Number(selectedService.followUpDuration) || 0;
+                    const minInterval = Number(selectedService.minimumIntervalDays) || 0;
 
-                // Rule B & C: blocked if after followUpLimit but before minInterval
-                if (diffDays > followUpLimit && diffDays < minInterval) {
-                   return false; 
+                    // Block if after followUpLimit but before minInterval
+                    if (diffDays >= 0 && diffDays > followUpLimit && diffDays < minInterval) {
+                       return false; 
+                    }
                 }
             }
 
@@ -452,7 +465,8 @@ export default function BookingWizard() {
 
     // Group available dates by month for calendar view
     const [calendarMonthIndex, setCalendarMonthIndex] = useState(0);
-    const datesByMonth = React.useMemo(() => {
+    // Explicitly compute without useMemo to avoid stale data issues when availableDates mutates length or contents
+    const datesByMonth = (() => {
         const groups: { key: string; label: string; dates: Date[] }[] = [];
         const monthMap = new Map<string, Date[]>();
         for (const d of availableDates) {
@@ -464,7 +478,7 @@ export default function BookingWizard() {
             groups.push({ key, label: format(dates[0], 'MMMM yyyy'), dates });
         }
         return groups;
-    }, [availableDates.length, selectedService, selectedClinic]);
+    })();
     const currentMonthGroup = datesByMonth[calendarMonthIndex] || datesByMonth[0];
 
     // Helper to parse "10:30 AM" to minutes from midnight (12h format)
@@ -1035,6 +1049,8 @@ export default function BookingWizard() {
     };
 
     const handleConfirm = async () => {
+        if (!selectedService || !selectedClinic || !selectedDoctor || !selectedDate || !selectedSlot) return;
+
         if (rescheduleData) {
             try {
                 const res = await fetch('/api/bookings/by-patient', {
@@ -1257,8 +1273,12 @@ export default function BookingWizard() {
                     const allCatServices = catalogData.services
                         .filter((svc: any) => svc.category === selectedCategory)
                         .filter((svc: any) => {
-                            if (!svc.allowedGender || svc.allowedGender === 'both') return true;
-                            if (user?.gender) return svc.allowedGender === user.gender;
+                            if (!svc.allowedGender || svc.allowedGender.toLowerCase() === 'both') return true;
+                            if (user && user.gender) {
+                                return svc.allowedGender.toLowerCase() === user.gender.toLowerCase();
+                            }
+                            // If user is guest/has no gender, show all to let them see options (or we could hide restricted ones).
+                            // Currently showing all for guests to prompt login later.
                             return true;
                         });
 
