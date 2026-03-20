@@ -1,14 +1,34 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useCustomerAuthStore, RegisteredUser, ConnectedPatient } from '@/lib/customer-auth-store';
+import React, { useState, useEffect, useCallback } from 'react';
+import { RegisteredCustomer as RegisteredUser } from '@/lib/customer-auth-server-store';
 import { Users, Search, Link2, Unlink, UserPlus } from 'lucide-react';
 import { PatientRelationship } from '@/lib/store';
 
 export default function ClientGroupingPage() {
-    const { users, updateUser } = useCustomerAuthStore();
+    const [users, setUsers] = useState<RegisteredUser[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedUser, setSelectedUser] = useState<RegisteredUser | null>(null);
+
+    const loadUsers = useCallback(async () => {
+        try {
+            const res = await fetch('/api/admin/registered-users');
+            if (res.ok) {
+                const data = await res.json();
+                setUsers(data);
+                if (selectedUser) {
+                    const updated = data.find((u: RegisteredUser) => u.id === selectedUser.id);
+                    if (updated) setSelectedUser(updated);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }, [selectedUser]);
+
+    useEffect(() => {
+        loadUsers();
+    }, []); // Initial load only, updates handle individual refreshing
 
     // Link patient form
     const [linkPhone, setLinkPhone] = useState('');
@@ -20,34 +40,42 @@ export default function ClientGroupingPage() {
         u.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleLinkPatient = () => {
+    const apiUpdate = async (id: string, updates: any) => {
+        try {
+            const res = await fetch('/api/admin/registered-users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update', id, updates })
+            });
+            if (res.ok) {
+                await loadUsers();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleLinkPatient = async () => {
         if (!selectedUser || !linkPhone) return;
 
-        const existing: ConnectedPatient[] = selectedUser.connectedPatients || [];
-        if (existing.some(p => p.patientPhone === linkPhone)) {
+        const existing: any[] = selectedUser.connectedPatients || [];
+        if (existing.some((p: any) => p.patientPhone === linkPhone)) {
             alert('This patient is already connected.');
             return;
         }
 
-        updateUser(selectedUser.id, {
+        await apiUpdate(selectedUser.id, {
             connectedPatients: [...existing, { patientPhone: linkPhone, relationship: linkRelationship }]
         });
-
-        // Refresh selected user
-        const updated = useCustomerAuthStore.getState().users.find(u => u.id === selectedUser.id);
-        if (updated) setSelectedUser(updated);
         setLinkPhone('');
     };
 
-    const handleUnlinkPatient = (phone: string) => {
+    const handleUnlinkPatient = async (phone: string) => {
         if (!selectedUser) return;
-        const existing: ConnectedPatient[] = selectedUser.connectedPatients || [];
-        updateUser(selectedUser.id, {
-            connectedPatients: existing.filter(p => p.patientPhone !== phone)
+        const existing: any[] = selectedUser.connectedPatients || [];
+        await apiUpdate(selectedUser.id, {
+            connectedPatients: existing.filter((p: any) => p.patientPhone !== phone)
         });
-
-        const updated = useCustomerAuthStore.getState().users.find(u => u.id === selectedUser.id);
-        if (updated) setSelectedUser(updated);
     };
 
     const getRelationshipLabel = (r: PatientRelationship) => {
@@ -108,7 +136,7 @@ export default function ClientGroupingPage() {
                                         <p className="text-sm text-gray-500">No connected patients yet.</p>
                                     ) : (
                                         <div className="space-y-2">
-                                            {(selectedUser.connectedPatients || []).map((cp: ConnectedPatient, idx: number) => {
+                                            {(selectedUser.connectedPatients || []).map((cp: any, idx: number) => {
                                                 const linked = users.find(u => u.phone === cp.patientPhone);
                                                 return (
                                                     <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
