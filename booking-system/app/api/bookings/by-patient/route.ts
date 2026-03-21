@@ -89,7 +89,12 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Cannot reschedule past bookings' }, { status: 400 });
         }
 
-        const updated = await BookingsStore.update(id, { date, slot, status: 'rescheduled', confirmationStatus: 'rescheduled' });
+        const updateData: any = { date, slot, status: 'rescheduled', confirmationStatus: 'rescheduled' };
+        if (body.clinicId) updateData.clinicId = body.clinicId;
+        if (body.deptId) updateData.deptId = body.deptId;
+        if (body.doctorId) updateData.doctorId = body.doctorId;
+        
+        const updated = await BookingsStore.update(id, updateData);
         return NextResponse.json({ booking: updated });
     } catch {
         return NextResponse.json({ error: 'Failed to reschedule booking' }, { status: 500 });

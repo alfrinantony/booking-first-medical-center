@@ -1078,7 +1078,10 @@ export default function BookingWizard() {
                     body: JSON.stringify({
                         id: rescheduleData.id,
                         date: selectedDate?.toISOString().split('T')[0],
-                        slot: selectedSlot
+                        slot: selectedSlot,
+                        clinicId: selectedClinic?.id,
+                        deptId: selectedDept?.id,
+                        doctorId: selectedDoctor?.id
                     })
                 });
                 if (!res.ok) {
