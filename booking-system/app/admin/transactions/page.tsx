@@ -60,6 +60,7 @@ export default function TransactionsPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(false);
+    const [userRole, setUserRole] = useState<string | null>(null);
 
     // Filters
     const [searchText, setSearchText] = useState('');
@@ -106,7 +107,13 @@ export default function TransactionsPage() {
         setIsLoading(false);
     }, [searchText, dateFrom, dateTo, filterPhone, filterEmail, filterInvoice, filterPayment, filterRefundStatus]);
 
-    useEffect(() => { loadInvoices(); }, [loadInvoices]);
+    useEffect(() => { 
+        loadInvoices(); 
+        const stored = sessionStorage.getItem('adminUser');
+        if (stored) {
+            try { setUserRole(JSON.parse(stored).role); } catch (e) {}
+        }
+    }, [loadInvoices]);
 
     const openRefundModal = (inv: Invoice) => {
         setRefundInvoice(inv);
@@ -428,7 +435,7 @@ export default function TransactionsPage() {
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
-                                            {inv.refundStatus !== 'refunded' && (
+                                            {userRole === 'SUPER_ADMIN' && inv.refundStatus !== 'refunded' && (
                                                 <button
                                                     onClick={() => openRefundModal(inv)}
                                                     className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors"
