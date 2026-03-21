@@ -36,6 +36,7 @@ export async function GET(request: Request) {
     const clinicId = searchParams.get('clinicId') || undefined;
     const otherBranches = searchParams.get('otherBranches') === 'true';
     const serviceId = searchParams.get('serviceId');
+    const clientId = searchParams.get('clientId');
 
     if (!doctorId || !date) {
         return NextResponse.json({ error: 'Missing doctorId or date' }, { status: 400 });
@@ -279,6 +280,13 @@ export async function GET(request: Request) {
                 return usedCount < resource.totalQuantity;
             });
             if (!hasResources) isAvailable = false;
+        }
+
+        // D. Check No-Show peak restrictions
+        if (isAvailable && clientId) {
+            const { RestrictionsStore } = require('@/lib/restrictions-store');
+            const restricted = await RestrictionsStore.isSlotRestricted(clientId, new Date(date as string), minutesToSlotString(currentMin), serviceId);
+            if (restricted) isAvailable = false;
         }
 
         if (isAvailable) {

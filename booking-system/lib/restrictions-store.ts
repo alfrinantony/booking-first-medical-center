@@ -109,7 +109,7 @@ export const RestrictionsStore = {
 
         if (serviceId) {
             try {
-                const service = ServicesStore.getServiceById(serviceId);
+                const service = await ServicesStore.getServiceById(serviceId);
                 if (service?.peakDays && service.peakDays.length > 0) localPeakDays = service.peakDays;
                 if (service?.peakSlots && service.peakSlots.length > 0) localPeakSlots = service.peakSlots;
             } catch { /* fallback to clinic-wide */ }

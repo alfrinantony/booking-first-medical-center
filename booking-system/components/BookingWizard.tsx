@@ -526,7 +526,8 @@ export default function BookingWizard() {
                     const dateStr = format(selectedDate, 'yyyy-MM-dd');
                     const clinicParam = selectedClinic ? `&clinicId=${encodeURIComponent(selectedClinic.id)}` : '';
                     const serviceParam = selectedService ? `&serviceId=${encodeURIComponent(selectedService.id)}` : '';
-                    const res = await fetch(`/api/admin/schedule?doctorId=${encodeURIComponent(selectedDoctor.id)}&date=${dateStr}${serviceParam}${clinicParam}&t=${Date.now()}`, { cache: 'no-store' });
+                    const clientIdParam = user ? `&clientId=${encodeURIComponent(user.phone || user.email || user.name || '')}` : '';
+                    const res = await fetch(`/api/admin/schedule?doctorId=${encodeURIComponent(selectedDoctor.id)}&date=${dateStr}${serviceParam}${clinicParam}${clientIdParam}&t=${Date.now()}`, { cache: 'no-store' });
                     let slots: string[] = []; // Explicit type
 
                     if (res.ok) {
@@ -605,16 +606,7 @@ export default function BookingWizard() {
                         } catch { /* ignore */ }
                     }
 
-                    // 5. No-show peak restriction filter
-                    if (user) {
-                        try {
-                            const rStore = require('@/lib/restrictions-store');
-                            const clientId = user.phone || user.email || user.name || '';
-                            slots = slots.filter((slot: string) =>
-                                !rStore.useRestrictionsStore.getState().isSlotRestricted(clientId, selectedDate, slot, selectedService?.id)
-                            );
-                        } catch { /* ignore */ }
-                    }
+                    // 5. No-show peak restriction filter was moved to the server-side API
 
                     setAvailableSlots(slots);
 
