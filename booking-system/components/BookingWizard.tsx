@@ -641,27 +641,6 @@ export default function BookingWizard() {
     const handleClinicSelect = (clinic: any) => {
         setSelectedClinic(clinic);
         
-        const qPackageId = searchParams.get('packageId');
-        if (qPackageId || packageAutoSelected) {
-            const resolved = selectedService?.availability?.find((a: any) => a.clinicId === clinic.id);
-            if (resolved && resolved.doctors && resolved.doctors.length > 0) {
-                // Find first available doctor for this specific service
-                const filteredDoctors = resolved.doctors.filter((doc: any) => {
-                    if (selectedService?.allowedDoctorIds && selectedService.allowedDoctorIds.length > 0 && !selectedService.allowedDoctorIds.includes(doc.id)) return false;
-                    return true;
-                });
-                const firstAvailable = filteredDoctors.find((d: any) => selectedDate && isDoctorAvailableOnDate(d, selectedDate, clinic.id)) || filteredDoctors[0];
-                
-                if (firstAvailable) {
-                    setIsAnyDoctor(true);
-                    setSelectedDoctor(firstAvailable);
-                    setStep(5); // → Skip straight to Time Select
-                    setSelectedSlot(null);
-                    return;
-                }
-            }
-        }
-
         setStep(4); // → Doctor step
         setSelectedDoctor(null); setSelectedSlot(null);
         bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 3, selected: clinic.name });
@@ -1475,7 +1454,18 @@ export default function BookingWizard() {
                 step === 2 && selectedService && (
                     <div>
                         <div className="flex items-center gap-2 mb-6">
-                            <button onClick={() => setStep(1)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                            <button 
+                                onClick={() => {
+                                    if (packageAutoSelected || searchParams.get('packageId') || searchParams.get('rescheduleId') || rescheduleData) {
+                                        router.push('/customer/dashboard');
+                                    } else {
+                                        setStep(1);
+                                    }
+                                }} 
+                                className="text-sm text-gray-500 hover:text-indigo-600 underline"
+                            >
+                                Back
+                            </button>
                             <span className="text-gray-300">/</span>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Date</h2>
                         </div>
@@ -2266,7 +2256,7 @@ export default function BookingWizard() {
                             </div>
 
                             {/* Package Redemption Option */}
-                            {applicablePackage && (
+                            {applicablePackage && !rescheduleData && (
                                 <div className={`rounded-xl border-2 transition-all cursor-pointer mb-6 overflow-hidden ${usePackageSession
                                     ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
                                     : 'border-gray-200 dark:border-gray-700'
@@ -2324,7 +2314,7 @@ export default function BookingWizard() {
                             )}
 
                             {/* Cost Breakdown */}
-                            {!usePackageSession && (
+                            {!usePackageSession && !rescheduleData && (
                                 <div className="border-t border-gray-100 dark:border-gray-800 pt-4 mb-6 space-y-2">
                                     <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                                         <span>Service ({selectedService?.name})</span>
@@ -2376,7 +2366,7 @@ export default function BookingWizard() {
                                 onClick={handleConfirm}
                                 className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center justify-center gap-2"
                             >
-                                {usePackageSession ? 'Confirm Booking with Package' : 'Proceed to Payment'}
+                                {rescheduleData ? 'Confirm Reschedule' : usePackageSession ? 'Confirm Booking with Package' : 'Proceed to Payment'}
                                 <ArrowRight className="w-5 h-5" />
                             </button>
                         </div>
