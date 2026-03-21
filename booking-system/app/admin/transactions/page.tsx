@@ -42,6 +42,7 @@ interface Invoice {
     refundReason?: string;
     refundIban?: string;
     refundBankName?: string;
+    refundAccountName?: string;
     isVoid?: boolean;
     clinicId?: string;
     clinicName?: string;
@@ -79,6 +80,7 @@ export default function TransactionsPage() {
     const [refundReason, setRefundReason] = useState('');
     const [refundIban, setRefundIban] = useState('');
     const [refundBankName, setRefundBankName] = useState('');
+    const [refundAccountName, setRefundAccountName] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
     const [refundError, setRefundError] = useState('');
 
@@ -112,6 +114,7 @@ export default function TransactionsPage() {
         setRefundReason('');
         setRefundIban('');
         setRefundBankName('');
+        setRefundAccountName('');
         setRefundError('');
     };
 
@@ -122,8 +125,8 @@ export default function TransactionsPage() {
             return;
         }
         const needsBankInfo = refundInvoice.paymentMethod === 'cash' || refundInvoice.paymentMethod === 'bank_transfer';
-        if (needsBankInfo && (!refundIban || !refundBankName)) {
-            setRefundError('IBAN number and bank name are required for cash/bank transfer refunds.');
+        if (needsBankInfo && (!refundAccountName || !refundIban || !refundBankName)) {
+            setRefundError('Account Name, IBAN, and Bank Name are required for cash/bank transfer refunds.');
             return;
         }
 
@@ -143,6 +146,7 @@ export default function TransactionsPage() {
                     refundedBy: adminName,
                     refundAmount: parseFloat(refundAmount),
                     refundReason,
+                    refundAccountName: refundAccountName || undefined,
                     refundIban: refundIban || undefined,
                     refundBankName: refundBankName || undefined,
                 }),
@@ -540,6 +544,10 @@ export default function TransactionsPage() {
                                             <span className="text-gray-900 dark:text-gray-200">{viewingInvoice.refundedBy}</span>
                                             <span className="text-gray-500">Date:</span>
                                             <span className="text-gray-900 dark:text-gray-200">{viewingInvoice.refundedAt ? new Date(viewingInvoice.refundedAt).toLocaleString() : '—'}</span>
+                                            {viewingInvoice.refundAccountName && <>
+                                                <span className="text-gray-500">Name:</span>
+                                                <span className="text-gray-900 dark:text-gray-200">{viewingInvoice.refundAccountName}</span>
+                                            </>}
                                             {viewingInvoice.refundIban && <>
                                                 <span className="text-gray-500">IBAN:</span>
                                                 <span className="text-gray-900 dark:text-gray-200 font-mono text-xs">{viewingInvoice.refundIban}</span>
@@ -666,6 +674,16 @@ export default function TransactionsPage() {
                                         <p className="text-xs text-amber-600 dark:text-amber-500">
                                             Since the payment was made at the clinic, bank details are required to process the refund.
                                         </p>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Account Name *</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Full name as it appears on the bank account"
+                                                className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                                value={refundAccountName}
+                                                onChange={e => setRefundAccountName(e.target.value)}
+                                            />
+                                        </div>
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">IBAN Number *</label>
                                             <input

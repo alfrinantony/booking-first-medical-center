@@ -45,6 +45,7 @@ export interface Invoice {
     refundedBy?: string;              // Staff name who processed
     refundAmount?: number;
     refundReason?: string;
+    refundAccountName?: string;       // Required for cash/clinic refunds
     refundIban?: string;              // Required for cash/clinic refunds
     refundBankName?: string;          // Required for cash/clinic refunds
     isVoid?: boolean;                 // Entire invoice voided after refund
@@ -177,6 +178,7 @@ export const BillingStore = {
             refundedBy: string;
             refundAmount: number;
             refundReason: string;
+            refundAccountName?: string;
             refundIban?: string;
             refundBankName?: string;
         }
@@ -188,9 +190,9 @@ export const BillingStore = {
         const inv = invoices[idx];
         if (inv.refundStatus === 'refunded') return { success: false, message: 'Invoice has already been refunded' };
 
-        // For cash/clinic payments, IBAN and bank name are required
-        if ((inv.paymentMethod === 'cash' || inv.paymentMethod === 'bank_transfer') && (!refundData.refundIban || !refundData.refundBankName)) {
-            return { success: false, message: 'IBAN and bank name are required for cash/bank transfer refunds' };
+        // For cash/clinic payments, Account Name, IBAN and bank name are required
+        if ((inv.paymentMethod === 'cash' || inv.paymentMethod === 'bank_transfer') && (!refundData.refundAccountName || !refundData.refundIban || !refundData.refundBankName)) {
+            return { success: false, message: 'Account Name, IBAN and bank name are required for cash/bank transfer refunds' };
         }
 
         // Mark all items as void
@@ -204,6 +206,7 @@ export const BillingStore = {
             refundedBy: refundData.refundedBy,
             refundAmount: refundData.refundAmount,
             refundReason: refundData.refundReason,
+            refundAccountName: refundData.refundAccountName,
             refundIban: refundData.refundIban,
             refundBankName: refundData.refundBankName,
             isVoid: true,

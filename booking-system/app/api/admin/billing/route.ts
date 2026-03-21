@@ -33,12 +33,12 @@ export async function POST(req: NextRequest) {
 
     // Handle refund action
     if (data.action === 'refund') {
-        const { invoiceId, refundedBy, refundAmount, refundReason, refundIban, refundBankName } = data;
+        const { invoiceId, refundedBy, refundAmount, refundReason, refundAccountName, refundIban, refundBankName } = data;
         if (!invoiceId || !refundedBy || refundAmount === undefined || !refundReason) {
             return NextResponse.json({ error: 'Missing required refund fields' }, { status: 400 });
         }
         const result = await BillingStore.refundInvoice(invoiceId, {
-            refundedBy, refundAmount, refundReason, refundIban, refundBankName,
+            refundedBy, refundAmount, refundReason, refundAccountName, refundIban, refundBankName,
         });
         if (!result.success) {
             return NextResponse.json({ error: result.message }, { status: 400 });
