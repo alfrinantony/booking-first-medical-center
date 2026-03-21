@@ -19,9 +19,17 @@ export interface InvoiceLineItem {
 
 export type InvoiceCategory = 'online_single' | 'online_package' | 'clinic_single' | 'clinic_package' | 'package_session';
 
+export interface PaymentRecord {
+    id: string;                 // e.g. pay-timestamp
+    amount: number;
+    mode: 'cash' | 'card' | 'bank_transfer' | 'online';
+    referenceNumber: string;    // e.g. FMC-CSH-0001
+    date: string;               // ISO datetime
+}
+
 export interface Invoice {
     id: string;
-    invoiceNumber: string;     // Sequential: BFMC-INV-YYYYMMDD-XXXX
+    invoiceNumber: string;     // Legacy: BFMC-INV-..., New: FMC-[PKG|SIV|PIV|RFD|CN]-XXXX
     invoiceCategory?: InvoiceCategory;
     clientName: string;
     clientPhone: string;
@@ -34,11 +42,12 @@ export interface Invoice {
     taxPercentage: number;     // VAT %
     taxAmount: number;         // Calculated tax
     totalAmount: number;       // Including tax
-    // Payment
+    // Payment Legacy & New
     paymentMethod: 'cash' | 'card' | 'bank_transfer' | 'online';
     paymentConfirmed: boolean;
     paymentReceivedBy?: string;       // Who received the payment
     paymentReceptionStatus?: 'received' | 'pending' | 'partial';
+    payments?: PaymentRecord[];       // Support for splitted or multiple payments
     // Refund fields
     refundStatus: 'none' | 'refunded';
     refundedAt?: string;              // ISO datetime
@@ -59,47 +68,111 @@ export interface Invoice {
 }
 
 // ── In-memory store ──
-interface BillingData { invoices: Invoice[]; nextSequence: number; }
+interface BillingCounters {
+    package: number;
+    single: number;
+    pSession: number;
+    refund: number;
+    creditNote: number;
+    cash: number;
+    card: number;
+    bank: number;
+    online: number;
+    legacySequence: number; // to not break any existing tests or code
+}
+
+interface BillingData { invoices: Invoice[]; counters: BillingCounters; nextSequence?: number; }
 
 let invoices: Invoice[] = [];
-let nextSequence = 1;
+let counters: BillingCounters = {
+    package: 1, single: 1, pSession: 1, refund: 1, creditNote: 1,
+    cash: 1, card: 1, bank: 1, online: 1, legacySequence: 1
+};
 async function ensureBillingLoaded() {
-    
-        const data = await loadFromBlob<BillingData>('billing', { invoices: [], nextSequence: 1 });
+        const defaultCounters: BillingCounters = {
+            package: 1, single: 1, pSession: 1, refund: 1, creditNote: 1,
+            cash: 1, card: 1, bank: 1, online: 1, legacySequence: 1
+        };
+        const data = await loadFromBlob<BillingData>('billing', { invoices: [], counters: defaultCounters });
         invoices = data.invoices;
-        nextSequence = data.nextSequence;
-        
+        // Migration mapping for legacy nextSequence
+        if (data.nextSequence !== undefined && (!data.counters || data.counters.legacySequence === 1)) {
+            counters = { ...defaultCounters, legacySequence: data.nextSequence };
+        } else {
+            counters = data.counters || defaultCounters;
+        }
 }
 
 async function saveBilling() {
-    await saveToBlob<BillingData>('billing', { invoices, nextSequence });
+    await saveToBlob<BillingData>('billing', { invoices, counters });
+}
+
+// Formatters
+function generateDocumentNumber(type: 'PKG' | 'SIV' | 'PIV' | 'RFD' | 'CN'): string {
+    let key: keyof BillingCounters;
+    if (type === 'PKG') key = 'package';
+    else if (type === 'SIV') key = 'single';
+    else if (type === 'PIV') key = 'pSession';
+    else if (type === 'RFD') key = 'refund';
+    else key = 'creditNote';
+
+    const num = counters[key];
+    counters[key]++;
+    return `FMC-${type}-${String(num).padStart(4, '0')}`;
+}
+
+function generatePaymentRef(mode: 'cash' | 'card' | 'bank_transfer' | 'online'): string {
+    let key: keyof BillingCounters;
+    let typeStr = '';
+    if (mode === 'cash') { key = 'cash'; typeStr = 'CSH'; }
+    else if (mode === 'card') { key = 'card'; typeStr = 'CRD'; }
+    else if (mode === 'bank_transfer') { key = 'bank'; typeStr = 'BNK'; }
+    else { key = 'online'; typeStr = 'ONL'; }
+
+    const num = counters[key];
+    counters[key]++;
+    return `FMC-${typeStr}-${String(num).padStart(4, '0')}`;
 }
 
 export const BillingStore = {
-    createInvoice: async (data: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt' | 'refundStatus'>): Promise<Invoice> => {
+    createInvoice: async (data: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt' | 'refundStatus' | 'payments'>): Promise<Invoice> => {
         await ensureBillingLoaded();
-        const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-        const seqStr = String(nextSequence).padStart(4, '0');
         
-        let prefix = 'BFMC-INV-';
-        if (data.invoiceCategory === 'online_single') prefix = 'O-SS-INV-';
-        else if (data.invoiceCategory === 'online_package') prefix = 'O-PKG-INV-';
-        else if (data.invoiceCategory === 'clinic_single') prefix = 'C-SS-INV-';
-        else if (data.invoiceCategory === 'clinic_package') prefix = 'C-PKG-INV-';
-        else if (data.invoiceCategory === 'package_session') prefix = 'PKG-SES-INV-';
+        let docType: 'PKG' | 'SIV' | 'PIV' = 'SIV';
+        if (data.invoiceCategory === 'online_package' || data.invoiceCategory === 'clinic_package') docType = 'PKG';
+        else if (data.invoiceCategory === 'package_session') docType = 'PIV';
+        else docType = 'SIV'; // online_single, clinic_single
         
-        const invoiceNumber = `${prefix}${today}-${seqStr}`;
+        const invoiceNumber = generateDocumentNumber(docType);
+
+        const payments: PaymentRecord[] = [];
+        // Support generating the payment reference if an initial payment is successfully received checkout, especially online or card
+        if (data.paymentConfirmed || data.totalAmount > 0) {
+            // we create a payment record specifically if it expects one immediately
+            // but wait, if it's cash pending in clinic, we might not generate it until clinic receives it.
+            // Let's generate it always for simplicity if paymentMethod is present and it is a paid invoice
+            // Except for 'package_session' where totalAmount is 0 and requires no payment
+            if (docType !== 'PIV' || (docType === 'PIV' && data.totalAmount > 0)) {
+                payments.push({
+                    id: `pay-${Date.now()}`,
+                    amount: data.totalAmount,
+                    mode: data.paymentMethod,
+                    referenceNumber: generatePaymentRef(data.paymentMethod),
+                    date: new Date().toISOString()
+                });
+            }
+        }
 
         const invoice: Invoice = {
             ...data,
             id: `inv-${Date.now()}`,
             invoiceNumber,
+            payments,
             createdAt: new Date().toISOString(),
             refundStatus: 'none',
         };
 
         invoices.push(invoice);
-        nextSequence++;
         await saveBilling();
 
         // Auto-deduct inventory batches for items that reference a batchId
@@ -160,7 +233,8 @@ export const BillingStore = {
                 i.clientName.toLowerCase().includes(q) ||
                 i.clientPhone.includes(q) ||
                 (i.clientEmail || '').toLowerCase().includes(q) ||
-                i.invoiceNumber.toLowerCase().includes(q)
+                i.invoiceNumber.toLowerCase().includes(q) ||
+                i.payments?.some(p => p.referenceNumber.toLowerCase().includes(q))
             );
         }
 
@@ -198,6 +272,18 @@ export const BillingStore = {
         // Mark all items as void
         const voidedItems = inv.items.map(item => ({ ...item, isVoid: true }));
 
+        // Generate Refund Payment Reference if we are actively returning money
+        const refundPayments = [...(inv.payments || [])];
+        if (refundData.refundAmount > 0) {
+            refundPayments.push({
+                id: `ref-${Date.now()}`,
+                amount: -refundData.refundAmount, // negative marks a refund
+                mode: inv.paymentMethod, // usually returned to original
+                referenceNumber: generateDocumentNumber('RFD'), // The refund itself is a document, but wait, refund is FMC-RFD-0001
+                date: new Date().toISOString()
+            });
+        }
+
         invoices[idx] = {
             ...inv,
             items: voidedItems,
@@ -210,6 +296,7 @@ export const BillingStore = {
             refundIban: refundData.refundIban,
             refundBankName: refundData.refundBankName,
             isVoid: true,
+            payments: refundPayments
         };
 
         await saveBilling();

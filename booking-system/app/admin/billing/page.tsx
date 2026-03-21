@@ -484,12 +484,11 @@ export default function BillingPage() {
                                         <input type="number" min="0" max="100" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={taxPercentage} onChange={(e) => setTaxPercentage(Number(e.target.value))} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Invoice Category *</label>
+                                        <label className="block text-sm font-medium mb-1">Document Type *</label>
                                         <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={invoiceCategory} onChange={(e) => setInvoiceCategory(e.target.value)}>
-                                            <option value="clinic_single">In-Clinic Single Session (C-SS-INV)</option>
-                                            <option value="clinic_package">In-Clinic Package (C-PKG-INV)</option>
-                                            <option value="online_single">Online Single Session (O-SS-INV)</option>
-                                            <option value="online_package">Online Package (O-PKG-INV)</option>
+                                            <option value="clinic_single">Single Session Invoice (FMC-SIV)</option>
+                                            <option value="clinic_package">Package Bill (FMC-PKG)</option>
+                                            <option value="package_session">Session billed from Package (FMC-PIV)</option>
                                         </select>
                                     </div>
                                     <div>
@@ -562,6 +561,27 @@ export default function BillingPage() {
                                 <div className="flex justify-between"><span>VAT ({viewingInvoice.taxPercentage}%)</span><span>{viewingInvoice.taxAmount.toFixed(2)} AED</span></div>
                                 <div className="flex justify-between font-bold text-lg border-t pt-2 dark:border-gray-600"><span>Total</span><span>{viewingInvoice.totalAmount.toFixed(2)} AED</span></div>
                             </div>
+                            
+                            {viewingInvoice.payments && viewingInvoice.payments.length > 0 && (
+                                <div className="mt-4 border-t dark:border-gray-700 pt-4">
+                                    <h4 className="font-bold text-sm mb-2 text-gray-700 dark:text-gray-300">Payment References</h4>
+                                    <div className="space-y-2">
+                                        {viewingInvoice.payments.map((p, idx) => (
+                                            <div key={idx} className="flex justify-between flex-wrap items-center text-xs bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
+                                                <div className="flex gap-2 items-center">
+                                                    <span className="capitalize font-medium text-gray-900 dark:text-white text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded">{p.mode}</span>
+                                                    <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{p.referenceNumber}</span>
+                                                </div>
+                                                <div className="text-gray-500 text-right">
+                                                    <div className="font-medium text-gray-900 dark:text-white">{p.amount.toFixed(2)} AED</div>
+                                                    <div style={{fontSize: '9px'}}>{new Date(p.date).toLocaleString()}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {viewingInvoice.notes && <div className="mt-3 text-xs text-gray-500">Notes: {viewingInvoice.notes}</div>}
                             <div className="mt-4 flex justify-end">
                                 <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">

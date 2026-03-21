@@ -19,6 +19,14 @@ interface InvoiceLineItem {
     isVoid?: boolean;
 }
 
+interface PaymentRecord {
+    id: string;
+    amount: number;
+    mode: 'cash' | 'card' | 'bank_transfer' | 'online';
+    referenceNumber: string;
+    date: string;
+}
+
 interface Invoice {
     id: string;
     invoiceNumber: string;
@@ -35,6 +43,7 @@ interface Invoice {
     paymentConfirmed: boolean;
     paymentReceivedBy?: string;
     paymentReceptionStatus?: 'received' | 'pending' | 'partial';
+    payments?: PaymentRecord[];
     refundStatus: 'none' | 'refunded';
     refundedAt?: string;
     refundedBy?: string;
@@ -291,7 +300,7 @@ export default function TransactionsPage() {
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1"><Hash className="w-3 h-3 inline mr-1" />Invoice Number</label>
-                                    <input type="text" placeholder="BFMC-INV-..." className="w-full p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={filterInvoice} onChange={e => setFilterInvoice(e.target.value)} />
+                                    <input type="text" placeholder="FMC-..." className="w-full p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={filterInvoice} onChange={e => setFilterInvoice(e.target.value)} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1"><CreditCard className="w-3 h-3 inline mr-1" />Payment Method</label>
@@ -525,6 +534,37 @@ export default function TransactionsPage() {
                                         </table>
                                     </div>
                                 </div>
+
+                                {/* Payments History */}
+                                {viewingInvoice.payments && viewingInvoice.payments.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Payments</p>
+                                        <div className="border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden">
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="bg-gray-50 dark:bg-gray-750">
+                                                        <th className="text-left px-4 py-2 text-xs font-bold text-gray-500">Method</th>
+                                                        <th className="text-left px-4 py-2 text-xs font-bold text-gray-500">Reference</th>
+                                                        <th className="text-right px-4 py-2 text-xs font-bold text-gray-500">Date</th>
+                                                        <th className="text-right px-4 py-2 text-xs font-bold text-gray-500">Amount</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {viewingInvoice.payments.map((p, idx) => (
+                                                        <tr key={idx} className="border-t border-gray-100 dark:border-gray-700">
+                                                            <td className="px-4 py-2 text-gray-900 dark:text-white capitalize">{paymentMethodLabels[p.mode] || p.mode}</td>
+                                                            <td className="px-4 py-2 font-mono text-xs text-indigo-600 dark:text-indigo-400">{p.referenceNumber}</td>
+                                                            <td className="px-4 py-2 text-right text-gray-500">{new Date(p.date).toLocaleDateString()}</td>
+                                                            <td className={`px-4 py-2 text-right font-medium ${p.amount < 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+                                                                {p.amount.toFixed(2)}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Totals */}
                                 <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-1 text-sm">
