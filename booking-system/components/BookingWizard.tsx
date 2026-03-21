@@ -382,7 +382,14 @@ export default function BookingWizard() {
                 
                 // Otherwise, show ALL available services from the package in Step 1
                 const availableServiceIds = Object.keys(pkg.remainingSessions).filter(id => pkg.remainingSessions[id] > 0);
-                if (availableServiceIds.length > 0) {
+                
+                if (availableServiceIds.length === 1) {
+                    // If only one package service is allowed, skip service selection and go directly to date
+                    processServiceSelection(availableServiceIds[0], true);
+                    return;
+                }
+                
+                if (availableServiceIds.length > 1) {
                     // Fetch all service objects 
                     Promise.all(availableServiceIds.map(id => processServiceSelection(id, false))).then(services => {
                         const validServices = services.filter(Boolean);
