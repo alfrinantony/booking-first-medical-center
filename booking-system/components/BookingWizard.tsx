@@ -209,6 +209,10 @@ export default function BookingWizard() {
     const [selectedMedicineIds, setSelectedMedicineIds] = useState<string[]>([]);
     const [showMedicinePicker, setShowMedicinePicker] = useState(false);
 
+    // Package-specific service selection
+    const [packageServicesToSelect, setPackageServicesToSelect] = useState<any[]>([]);
+    const [packageServiceRemaining, setPackageServiceRemaining] = useState<Record<string, number>>({});
+
     // Fetch medicine catalog on mount
     React.useEffect(() => {
         fetch('/api/admin/medicines').then(res => res.json()).then(data => {
@@ -329,7 +333,7 @@ export default function BookingWizard() {
         
         const qPackageId = searchParams.get('packageId');
         
-        const processServiceSelection = async (targetServiceId: string, pkgDetails?: any) => {
+        const processServiceSelection = async (targetServiceId: string, skipToDates: boolean = true) => {
             let svc = catalogData.services.find((s: any) => s.id === targetServiceId);
             
             // Fallback: If service is hidden from public catalog, fetch it directly
@@ -343,7 +347,7 @@ export default function BookingWizard() {
                             // This is a rough estimation since we lack the full catalog graph for this hidden item
                             svc = {
                                 ...directService,
-                                availability: catalogData.clinics.map(c => {
+                                availability: catalogData.clinics.map((c: any) => {
                                     const dept = c.departments.find((d: any) => d.services.some((ds: any) => ds.id === targetServiceId));
                                     if (dept) return { clinicId: c.id, departmentId: dept.id, doctors: dept.doctors };
                                     // If not in catalog, just broadly allow the first dept
@@ -356,11 +360,12 @@ export default function BookingWizard() {
             }
 
             if (svc) {
-                if (step === 0 || step === 1) setStep(2); // Skip straight to dates
                 setSelectedCategory(svc.category || 'Package Service');
                 setSelectedService(svc);
                 setPackageAutoSelected(true);
+                if (skipToDates && (step === 0 || step === 1)) setStep(2);
             }
+            return svc;
         };
 
         if (qPackageId) {
@@ -368,21 +373,34 @@ export default function BookingWizard() {
             const pkg = myPackagesList.find(p => p.id === qPackageId && p.active);
             if (pkg) {
                 const qServiceId = searchParams.get('serviceId');
+                
+                // If a specific service was requested AND it's valid, auto-select it and skip to dates
                 if (qServiceId && pkg.remainingSessions[qServiceId] > 0) {
-                    processServiceSelection(qServiceId, pkg);
+                    processServiceSelection(qServiceId, true);
                     return;
                 }
+                
+                // Otherwise, show ALL available services from the package in Step 1
                 const availableServiceIds = Object.keys(pkg.remainingSessions).filter(id => pkg.remainingSessions[id] > 0);
                 if (availableServiceIds.length > 0) {
-                    processServiceSelection(availableServiceIds[0], pkg);
+                    // Fetch all service objects 
+                    Promise.all(availableServiceIds.map(id => processServiceSelection(id, false))).then(services => {
+                        const validServices = services.filter(Boolean);
+                        if (validServices.length > 0) {
+                            setPackageServicesToSelect(validServices);
+                            setPackageServiceRemaining(pkg.remainingSessions);
+                            setSelectedService(null); // Clear selected so they must click one
+                            setStep(1); // Force to service selection step
+                        }
+                    });
                     return;
                 }
             }
         }
 
         const qServiceId = searchParams.get('serviceId');
-        if (qServiceId) {
-            processServiceSelection(qServiceId);
+        if (qServiceId && !qPackageId) {
+            processServiceSelection(qServiceId, true);
         }
     }, [catalogData, catalogLoading, packageAutoSelected, searchParams, myPackagesList, step]);
 
@@ -433,8 +451,9 @@ export default function BookingWizard() {
 
             // Service Restrictions
             if (selectedService?.allowedDays && selectedService.allowedDays.length > 0) {
-                if (Array.isArray(selectedService.allowedDays) && !selectedService.allowedDays.includes(dayOfWeek)) {
-                    return false;
+                if (Array.isArray(selectedService.allowedDays)) {
+                    const isAllowed = selectedService.allowedDays.some((d: any) => String(d) === String(dayOfWeek));
+                    if (!isAllowed) return false;
                 }
             }
 
@@ -1238,26 +1257,28 @@ export default function BookingWizard() {
             {/* Step 1: Select Service (with brand/device sub-step for Laser & Fillers categories) */}
             {
                 step === 1 && (selectedCategory || applicablePackage) && (() => {
-                    const qPId = searchParams.get('packageId');
-                    if (applicablePackage && qPId) {
-                        const availableIds = Object.keys(applicablePackage.remainingSessions).filter(id => applicablePackage.remainingSessions[id] > 0);
-                        const filteredSvc = catalogData.services.filter((s: any) => availableIds.includes(s.id));
+                    if (packageServicesToSelect.length > 0) {
                         return (
                             <div>
                                 <div className="flex items-center gap-2 mb-6">
                                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose a service from your package</h2>
                                 </div>
                                 <div className="space-y-3">
-                                    {filteredSvc.map((svc: any) => (
+                                    {packageServicesToSelect.map((svc: any) => (
                                         <div key={svc.id} className="border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group overflow-hidden">
-                                            <button onClick={() => handleServiceSelect(svc)} className="w-full flex items-center gap-4 p-4 text-left">
+                                            <button onClick={() => { setSelectedService(svc); setStep(2); }} className="w-full flex items-center gap-4 p-4 text-left">
                                                 {svc.image && (
                                                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
                                                         <img src={svc.image} alt={svc.name} className="w-full h-full object-cover" />
                                                     </div>
                                                 )}
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <h4 className="font-semibold text-gray-900 dark:text-white">{svc.name}</h4>
+                                                        <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-full text-xs">
+                                                            {packageServiceRemaining[svc.id]} Sessions Left
+                                                        </span>
+                                                    </div>
                                                     {svc.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>}
                                                 </div>
                                             </button>
