@@ -935,9 +935,12 @@ export default function BookingWizard() {
         : 0;
     const priceWithTax = basePrice + vatAmount + medicineTotal;
 
+    // Check for Peak Day (disable promos/discounts)
+    const isPeakDay = selectedDate && selectedService?.peakDays?.includes(selectedDate.getDay());
+
     // Final Price with Discounts
     const reviewDiscount = reviewDiscountData;
-    const reviewDiscountAmount = (reviewDiscount.percent > 0 && !isFree) ? priceWithTax * (reviewDiscount.percent / 100) : 0;
+    const reviewDiscountAmount = (!isPeakDay && reviewDiscount.percent > 0 && !isFree) ? priceWithTax * (reviewDiscount.percent / 100) : 0;
     
     // Auto-apply Restricted Wallet Balances
     const totalRestrictedBalance = restrictedWalletData.reduce((sum, b) => sum + b.amount, 0);
@@ -997,6 +1000,13 @@ export default function BookingWizard() {
                         setDiscountAmount(0);
                         return;
                     }
+                }
+
+                if (isPeakDay) {
+                    setPromoError('Promotions and discounts are not allowed on Peak Days.');
+                    setAppliedPromo(null);
+                    setDiscountAmount(0);
+                    return;
                 }
 
                 // Check Validity Dates
@@ -1299,9 +1309,8 @@ export default function BookingWizard() {
                             if (user && user.gender) {
                                 return svc.allowedGender.toLowerCase() === user.gender.toLowerCase();
                             }
-                            // If user is guest/has no gender, show all to let them see options (or we could hide restricted ones).
-                            // Currently showing all for guests to prompt login later.
-                            return true;
+                            // Strict filtering: if user is not logged in or has no gender, hide gender-restricted services.
+                            return false;
                         });
 
                     // Sub-group definitions per category
@@ -1662,11 +1671,11 @@ export default function BookingWizard() {
                                             sortPriority = 2; // Completely unavailable
                                         } else if (clinic.workingDays && clinic.workingDays.length > 0 && !clinic.workingDays.includes(selectedDayOfWeek)) {
                                             isDisabled = true;
-                                            disabledReason = 'Please try different dates.';
+                                            disabledReason = 'Try different day';
                                             sortPriority = 1; // Unavailable on selected date
                                         } else if (eligibleDoctors.length === 0) {
                                             isDisabled = true;
-                                            disabledReason = 'Please try different dates.';
+                                            disabledReason = 'Try different day';
                                             sortPriority = 1; // Unavailable on selected date
                                         }
 
@@ -1924,11 +1933,12 @@ export default function BookingWizard() {
             {/* Step 4: Select Doctor */}
             {
                 step === 4 && selectedDept && (() => {
-                    // Filter doctors by: allowed doctor IDs (ignoring date availability here to show disabled states)
+                    // Filter doctors by: allowed doctor IDs AND date availability (hide unavailable)
                     const filteredDoctors = selectedDept.doctors.filter((doc: Doctor) => {
                         // Service-level allowed doctor restriction
                         if (selectedService?.allowedDoctorIds && selectedService.allowedDoctorIds.length > 0 && !selectedService.allowedDoctorIds.includes(doc.id)) return false;
-                        return true;
+                        // Hide unavailable doctors
+                        return selectedDate ? isDoctorAvailableOnDate(doc, selectedDate, selectedClinic?.id) : false;
                     });
                     
                     const anyDoctorAvailable = selectedDate ? filteredDoctors.some((doc: Doctor) => isDoctorAvailableOnDate(doc, selectedDate, selectedClinic?.id)) : false;
@@ -2020,29 +2030,7 @@ export default function BookingWizard() {
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Time Slot</h2>
                         </div>
 
-                        {/* Inline Date Switcher */}
-                        <div className="mb-6">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Calendar className="w-4 h-4 text-indigo-500" />
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Selected Date:</span>
-                            </div>
-                            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-                                {availableDates.slice(0, 14).map((date) => {
-                                    const isActive = selectedDate?.toDateString() === date.toDateString();
-                                    return (
-                                        <button key={date.toISOString()} onClick={() => { setSelectedDate(date); setSelectedSlot(null); }}
-                                            className={`flex-shrink-0 px-3 py-2 rounded-lg border text-center transition-all min-w-[70px] ${
-                                                isActive
-                                                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-md'
-                                                    : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                            }`}>
-                                            <div className="text-[10px] uppercase font-bold opacity-80">{format(date, 'EEE')}</div>
-                                            <div className="text-sm font-bold">{format(date, 'd MMM')}</div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+
 
                         {/* Time Slots */}
                         <div>
