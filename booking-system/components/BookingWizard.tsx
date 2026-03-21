@@ -1067,9 +1067,28 @@ export default function BookingWizard() {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.error || 'Reschedule failed');
                 }
+                
                 await clearDraft();
-                router.push('/customer/dashboard');
-                return;
+
+                const isPaidOrPackage = rescheduleData.paymentStatus === 'paid' || rescheduleData.paymentMethod === 'package';
+                if (isPaidOrPackage) {
+                    router.push('/customer/dashboard');
+                    return;
+                } else {
+                    // Redirect to payment but booking is already patched
+                    const query = new URLSearchParams({
+                        amount: String(finalPrice.toFixed(2)),
+                        serviceName: selectedService?.name || '',
+                        bookingDate: selectedDate?.toISOString().split('T')[0] || '',
+                        slot: selectedSlot || '',
+                        doctorName: isAnyDoctor ? '' : (selectedDoctor?.name || ''),
+                        clinicName: selectedClinic?.name || '',
+                        anyDoctor: isAnyDoctor ? 'true' : '',
+                        bookingId: rescheduleData.id
+                    }).toString();
+                    router.push(`/payment?${query}`);
+                    return;
+                }
             } catch (error) {
                 console.error('Failed to reschedule booking', error);
                 alert('Failed to reschedule booking. Please try again.');
@@ -2314,7 +2333,7 @@ export default function BookingWizard() {
                             )}
 
                             {/* Cost Breakdown */}
-                            {!usePackageSession && !rescheduleData && (
+                            {!usePackageSession && (!rescheduleData || (rescheduleData.paymentStatus !== 'paid' && rescheduleData.paymentMethod !== 'package')) && (
                                 <div className="border-t border-gray-100 dark:border-gray-800 pt-4 mb-6 space-y-2">
                                     <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                                         <span>Service ({selectedService?.name})</span>
@@ -2366,7 +2385,7 @@ export default function BookingWizard() {
                                 onClick={handleConfirm}
                                 className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center justify-center gap-2"
                             >
-                                {rescheduleData ? 'Confirm Reschedule' : usePackageSession ? 'Confirm Booking with Package' : 'Proceed to Payment'}
+                                {(rescheduleData && (rescheduleData.paymentStatus === 'paid' || rescheduleData.paymentMethod === 'package')) ? 'Confirm Reschedule' : usePackageSession ? 'Confirm Booking with Package' : 'Proceed to Payment'}
                                 <ArrowRight className="w-5 h-5" />
                             </button>
                         </div>
