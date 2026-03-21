@@ -43,6 +43,14 @@ export default function BookingWizard() {
     const [packageAutoSelected, setPackageAutoSelected] = useState(false);
     const [rescheduleData, setRescheduleData] = useState<any | null>(null);
 
+    const triggerHaptic = useCallback((style: 'light' | 'medium' | 'heavy' = 'light') => {
+        if (typeof window !== 'undefined' && navigator.vibrate) {
+            if (style === 'light') navigator.vibrate(50);
+            else if (style === 'medium') navigator.vibrate(100);
+            else navigator.vibrate([50, 50, 50]);
+        }
+    }, []);
+
     // API-fetched state for packages and review discount
     const [myPackagesList, setMyPackagesList] = useState<import('@/types/packages').CustomerPackage[]>([]);
     const [reviewDiscountData, setReviewDiscountData] = useState<{ percent: number; reviewedBranches: number; totalBranches: number; hasSubFiveReview: boolean }>({ percent: 0, reviewedBranches: 0, totalBranches: 0, hasSubFiveReview: false });
@@ -629,7 +637,9 @@ export default function BookingWizard() {
         }
     }, [selectedDoctor, selectedDate, selectedService]); // Added selectedService dependency
 
+    // --- Event Handlers ---
     const handleCategorySelect = (category: string) => {
+        triggerHaptic();
         setSelectedCategory(category);
         setStep(1); // → Service step
         setSelectedService(null); setSelectedClinic(null); setSelectedDoctor(null);
@@ -638,6 +648,7 @@ export default function BookingWizard() {
     };
 
     const handleClinicSelect = (clinic: any) => {
+        triggerHaptic();
         setSelectedClinic(clinic);
         
         setStep(4); // → Doctor step
@@ -674,6 +685,7 @@ export default function BookingWizard() {
     };
 
     const handleServiceSelect = (service: any) => {
+        triggerHaptic();
         if (service.screeningQuestions && service.screeningQuestions.length > 0) {
             setSelectedService(service);
             setShowScreening(true);
@@ -687,6 +699,7 @@ export default function BookingWizard() {
     };
 
     const handleMedicineToggle = (medId: string) => {
+        triggerHaptic();
         const mode = selectedService?.medicineSelectionMode || 'choose';
         if (mode === 'either') {
             // Radio style: only one at a time
@@ -704,12 +717,14 @@ export default function BookingWizard() {
     };
 
     const handleMedicineConfirm = () => {
+        triggerHaptic('medium');
         setShowMedicinePicker(false);
         setStep(2); // → Date step
         setSelectedClinic(null); setSelectedDoctor(null);
     };
 
     const handleScreeningSubmit = () => {
+        triggerHaptic();
         // specific check: if ANY answer is YES (true), block booking
         const hasYes = Object.values(screeningAnswers).some(ans => ans === true);
         if (hasYes) {
@@ -733,6 +748,7 @@ export default function BookingWizard() {
     };
 
     const handleDoctorSelect = (doc: Doctor, anyDoctor = false) => {
+        triggerHaptic();
         setSelectedDoctor(doc);
         setIsAnyDoctor(anyDoctor);
         setStep(5);
@@ -741,11 +757,13 @@ export default function BookingWizard() {
     };
 
     const handleDateSelect = (date: Date) => {
+        triggerHaptic();
         setSelectedDate(date);
         bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 5, selected: format(date, 'EEEE, MMM d') });
     }
 
     const handleSlotSelect = (slot: string) => {
+        triggerHaptic();
         setSelectedSlot(slot);
         setStep(6);
         bookingVoiceController.emit(WIZARD_EVENTS.SELECTION_MADE, { step: 5, selected: slot });
@@ -844,6 +862,7 @@ export default function BookingWizard() {
         }));
 
         unsubs.push(bookingVoiceController.on(VOICE_EVENTS.GO_BACK, () => {
+            triggerHaptic();
             if (step > 0) setStep(step - 1);
         }));
 
@@ -1056,6 +1075,7 @@ export default function BookingWizard() {
     };
 
     const handleConfirm = async () => {
+        triggerHaptic('heavy');
         if (!selectedService || !selectedClinic || !selectedDoctor || !selectedDate || !selectedSlot) return;
 
         if (rescheduleData) {
@@ -1202,7 +1222,16 @@ export default function BookingWizard() {
 
 
     return (
-        <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow-lg my-12">
+        <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-xl my-12 relative overflow-hidden transition-all duration-300">
+            <style>{`
+                @keyframes fadeInUp {
+                    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                .animate-step {
+                    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+            `}</style>
 
             {/* Progress Bar */}
             <div className="mb-8">
@@ -1221,7 +1250,7 @@ export default function BookingWizard() {
             {/* Step 0: Select Category */}
             {
                 step === 0 && (
-                    <div>
+                    <div key="step0" className="animate-step">
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">What are you looking for?</h2>
                         {catalogLoading ? (
                             <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div><p className="mt-4 text-gray-500">Loading services...</p></div>
@@ -1233,10 +1262,10 @@ export default function BookingWizard() {
                                     const isEmpty = count === 0;
                                     return (
                                         <button key={cat} onClick={() => !isEmpty && handleCategorySelect(cat)}
-                                            disabled={isEmpty}
-                                            className={`group overflow-hidden border rounded-2xl transition-all duration-300 text-left ${isEmpty
+                                             disabled={isEmpty}
+                                            className={`group overflow-hidden border rounded-2xl transition-all duration-300 transform ease-out text-left ${isEmpty
                                                 ? 'border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed'
-                                                : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-lg'
+                                                : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]'
                                             }`}>
                                             <div className="relative w-full h-32 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 overflow-hidden">
                                                 {catImage ? (
@@ -1269,14 +1298,14 @@ export default function BookingWizard() {
                 step === 1 && (selectedCategory || applicablePackage) && (() => {
                     if (packageServicesToSelect.length > 0) {
                         return (
-                            <div>
+                            <div key="step1-package" className="animate-step">
                                 <div className="flex items-center gap-2 mb-6">
                                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose a service from your package</h2>
                                 </div>
                                 <div className="space-y-3">
                                     {packageServicesToSelect.map((svc: any) => (
-                                        <div key={svc.id} className="border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group overflow-hidden">
-                                            <button onClick={() => { setSelectedService(svc); setStep(2); }} className="w-full flex items-center gap-4 p-4 text-left">
+                                        <div key={svc.id} className="border border-gray-200 dark:border-gray-700 rounded-2xl hover:border-indigo-500 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] group overflow-hidden bg-white dark:bg-gray-800">
+                                            <button onClick={() => { triggerHaptic(); setSelectedService(svc); setStep(2); }} className="w-full flex items-center gap-4 p-4 text-left">
                                                 {svc.image && (
                                                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
                                                         <img src={svc.image} alt={svc.name} className="w-full h-full object-cover" />
@@ -1373,9 +1402,9 @@ export default function BookingWizard() {
                     // Show sub-group selection if applicable and no group chosen yet
                     if (hasSubGroups && !selectedDeviceGroup) {
                         return (
-                            <div>
+                            <div key="step1-subgroup" className="animate-step">
                                 <div className="flex items-center gap-2 mb-6">
-                                    <button onClick={() => setStep(0)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Categories</button>
+                                    <button onClick={() => { triggerHaptic(); setStep(0); }} className="text-sm text-gray-500 hover:text-indigo-600 underline">Categories</button>
                                     <span className="text-gray-300">/</span>
                                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{subGroupConfig.title}</h2>
                                 </div>
@@ -1386,8 +1415,8 @@ export default function BookingWizard() {
                                             ? allCatServices.filter(group.filter)
                                             : allCatServices.filter((s: any) => s.name.startsWith(group.prefix || ''));
                                         return (
-                                            <button key={group.key} onClick={() => setSelectedDeviceGroup(group.key)}
-                                                className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-indigo-400 hover:shadow-lg transition-all duration-300 text-left">
+                                            <button key={group.key} onClick={() => { triggerHaptic(); setSelectedDeviceGroup(group.key); }}
+                                                className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-indigo-400 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] text-left">
                                                 <div className="text-4xl mb-3">{group.emoji}</div>
                                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">{group.label}</h3>
                                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{group.desc}</p>
@@ -1404,9 +1433,9 @@ export default function BookingWizard() {
                     }
 
                     return (
-                        <div>
+                        <div key="step1-services" className="animate-step">
                             <div className="flex items-center gap-2 mb-6">
-                                <button onClick={() => { if (hasSubGroups) { setSelectedDeviceGroup(null); } else { setStep(0); } }} className="text-sm text-gray-500 hover:text-indigo-600 underline">
+                                <button onClick={() => { triggerHaptic(); if (hasSubGroups) { setSelectedDeviceGroup(null); } else { setStep(0); } }} className="text-sm text-gray-500 hover:text-indigo-600 underline transition-colors">
                                     {hasSubGroups ? subGroupConfig.title.replace('Choose ', '') : 'Categories'}
                                 </button>
                                 <span className="text-gray-300">/</span>
@@ -1417,7 +1446,7 @@ export default function BookingWizard() {
                             </div>
                             <div className="space-y-3">
                                 {filteredServices.map((svc: any) => (
-                                    <div key={svc.id} className="border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group overflow-hidden">
+                                    <div key={svc.id} className="border border-gray-200 dark:border-gray-700 rounded-2xl hover:border-indigo-500 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] group overflow-hidden bg-white dark:bg-gray-800">
                                         <button onClick={() => handleServiceSelect(svc)} className="w-full flex items-center gap-4 p-4 text-left">
                                             {svc.image && (
                                                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
@@ -1451,8 +1480,8 @@ export default function BookingWizard() {
                                                 {svc.threeSessionPackage && (
                                                     <a
                                                         href={`/packages/checkout?serviceId=${svc.id}&serviceName=${encodeURIComponent(svc.name)}&sessions=3&price=${svc.threeSessionPackage.discountedPrice || svc.threeSessionPackage.totalCost}&validity=${svc.threeSessionPackage.validity || 90}&singlePrice=${svc.discountedPrice || svc.price}`}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors border border-blue-200 dark:border-blue-800"
+                                                        onClick={(e) => { e.stopPropagation(); triggerHaptic('medium'); }}
+                                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:shadow-md transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 border border-blue-200 dark:border-blue-800"
                                                     >
                                                         📦 Buy 3 Sessions — {svc.threeSessionPackage.discountedPrice || svc.threeSessionPackage.totalCost} AED
                                                     </a>
@@ -1460,8 +1489,8 @@ export default function BookingWizard() {
                                                 {svc.sixSessionPackage && (
                                                     <a
                                                         href={`/packages/checkout?serviceId=${svc.id}&serviceName=${encodeURIComponent(svc.name)}&sessions=6&price=${svc.sixSessionPackage.discountedPrice || svc.sixSessionPackage.totalCost}&validity=${svc.sixSessionPackage.validity || 180}&singlePrice=${svc.discountedPrice || svc.price}`}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors border border-emerald-200 dark:border-emerald-800"
+                                                        onClick={(e) => { e.stopPropagation(); triggerHaptic('medium'); }}
+                                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:shadow-md transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 border border-emerald-200 dark:border-emerald-800"
                                                     >
                                                         📦 Buy 6 Sessions — {svc.sixSessionPackage.discountedPrice || svc.sixSessionPackage.totalCost} AED
                                                     </a>
@@ -1479,17 +1508,18 @@ export default function BookingWizard() {
             {/* Step 2: Select Date */}
             {
                 step === 2 && selectedService && (
-                    <div>
+                    <div key="step2-date" className="animate-step">
                         <div className="flex items-center gap-2 mb-6">
                             <button 
                                 onClick={() => {
+                                    triggerHaptic();
                                     if (packageAutoSelected || searchParams.get('packageId') || searchParams.get('rescheduleId') || rescheduleData) {
                                         router.push('/customer/dashboard');
                                     } else {
                                         setStep(1);
                                     }
                                 }} 
-                                className="text-sm text-gray-500 hover:text-indigo-600 underline"
+                                className="text-sm text-gray-500 hover:text-indigo-600 underline transition-colors"
                             >
                                 Back
                             </button>
@@ -1536,13 +1566,13 @@ export default function BookingWizard() {
                         <div className="mb-6">
                             {datesByMonth.length > 0 && (
                                 <div className="flex items-center justify-between mb-4">
-                                    <button onClick={() => setCalendarMonthIndex(Math.max(0, calendarMonthIndex - 1))} disabled={calendarMonthIndex === 0}
-                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                    <button onClick={() => { triggerHaptic(); setCalendarMonthIndex(Math.max(0, calendarMonthIndex - 1)); }} disabled={calendarMonthIndex === 0}
+                                        className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 hover:border-indigo-300">
                                         <ChevronRight className="w-5 h-5 rotate-180 text-gray-600 dark:text-gray-300" />
                                     </button>
                                     <span className="text-lg font-bold text-gray-900 dark:text-white">{currentMonthGroup?.label}</span>
-                                    <button onClick={() => setCalendarMonthIndex(Math.min(datesByMonth.length - 1, calendarMonthIndex + 1))} disabled={calendarMonthIndex >= datesByMonth.length - 1}
-                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                    <button onClick={() => { triggerHaptic(); setCalendarMonthIndex(Math.min(datesByMonth.length - 1, calendarMonthIndex + 1)); }} disabled={calendarMonthIndex >= datesByMonth.length - 1}
+                                        className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 hover:border-indigo-300">
                                         <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                                     </button>
                                 </div>
@@ -1579,8 +1609,8 @@ export default function BookingWizard() {
                                             }
                                             const isSelected = selectedDate?.toDateString() === date.toDateString();
                                             return (
-                                                <button key={date.toISOString()} onClick={() => { setSelectedDate(date); setSelectedClinic(null); setSelectedDoctor(null); setSelectedSlot(null); setStep(3); }}
-                                                    className={`p-2 rounded-lg border text-center transition-all ${isSelected ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-gray-900' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+                                                <button key={date.toISOString()} onClick={() => { handleDateSelect(date); setSelectedClinic(null); setSelectedDoctor(null); setSelectedSlot(null); setStep(3); }}
+                                                    className={`p-2 rounded-xl border text-center transition-all duration-200 active:scale-95 ${isSelected ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-gray-900 shadow-md transform scale-105' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-gray-800 hover:shadow hover:-translate-y-0.5'}`}>
                                                     <div className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400">{format(date, 'EEE')}</div>
                                                     <div className="text-lg font-bold">{format(date, 'd')}</div>
                                                 </button>
@@ -1603,10 +1633,10 @@ export default function BookingWizard() {
                     // Do not filter branches; all branches are displayed, but disabled if they don't offer the service or lack availability
                     const branchOptions = clinics;
                     return (
-                        <div>
+                        <div key="step3-clinic" className="animate-step">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                                 <div className="flex items-center gap-2">
-                                    <button onClick={() => setStep(2)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                                    <button onClick={() => { triggerHaptic(); setStep(2); }} className="text-sm text-gray-500 hover:text-indigo-600 underline transition-colors">Back</button>
                                     <span className="text-gray-300">/</span>
                                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Branch</h2>
                                 </div>
@@ -1623,7 +1653,7 @@ export default function BookingWizard() {
                                             alert("Geolocation is not supported by your browser.");
                                         }
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
+                                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all duration-300 hover:shadow-md active:scale-95"
                                 >
                                     <Navigation className="w-4 h-4" />
                                     {myCoords ? 'Location Found ✓' : 'Find Nearest Branch'}
@@ -1693,7 +1723,7 @@ export default function BookingWizard() {
                                         const { isDisabled, disabledReason, distanceStr: distance, sortPriority } = clinic;
                                         const isMapOpen = expandedMapId === clinic.id;
                                         return (
-                                            <div key={clinic.id} className={`group bg-white dark:bg-gray-800 rounded-2xl border ${isDisabled ? 'border-gray-200 dark:border-gray-700 opacity-60' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-lg'} overflow-hidden transition-all duration-300`}>
+                                            <div key={clinic.id} className={`group bg-white dark:bg-gray-800 rounded-2xl border ${isDisabled ? 'border-gray-200 dark:border-gray-700 opacity-60' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]'} overflow-hidden transition-all duration-300`}>
                                                 {/* Branch Photo */}
                                                 <div className="w-full h-36 bg-gray-100 dark:bg-gray-700 overflow-hidden">
                                                     <img src={getBranchImage(clinic)} alt={clinic.name} className={`w-full h-full object-cover ${!isDisabled ? 'group-hover:scale-105' : 'grayscale'} transition-transform duration-500`} />
@@ -1723,8 +1753,8 @@ export default function BookingWizard() {
                                                 </button>
                                                 {/* Map toggle + embed */}
                                                 <div className="border-t border-gray-100 dark:border-gray-700">
-                                                    <button onClick={(e) => { e.stopPropagation(); setExpandedMapId(isMapOpen ? null : clinic.id); }}
-                                                        className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-gray-500 hover:text-indigo-600 transition-colors">
+                                                    <button onClick={(e) => { e.stopPropagation(); triggerHaptic('light'); setExpandedMapId(isMapOpen ? null : clinic.id); }}
+                                                        className="w-full flex items-center justify-center gap-2 py-3 text-xs font-semibold text-gray-500 hover:text-indigo-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                                                         <MapIcon className="w-3.5 h-3.5" />
                                                         {isMapOpen ? 'Hide Map' : 'View on Map'}
                                                         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isMapOpen ? 'rotate-180' : ''}`} />
@@ -1943,9 +1973,9 @@ export default function BookingWizard() {
                     const anyDoctorAvailable = selectedDate ? filteredDoctors.some((doc: Doctor) => isDoctorAvailableOnDate(doc, selectedDate, selectedClinic?.id)) : false;
 
                     return (
-                    <div>
+                    <div key="step4-doctor" className="animate-step">
                         <div className="flex items-center gap-2 mb-6">
-                            <button onClick={() => setStep(3)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                            <button onClick={() => { triggerHaptic(); setStep(3); }} className="text-sm text-gray-500 hover:text-indigo-600 underline transition-colors">Back</button>
                             <span className="text-gray-300">/</span>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Specialist</h2>
                         </div>
@@ -1956,10 +1986,11 @@ export default function BookingWizard() {
                                 disabled={!anyDoctorAvailable}
                                 onClick={() => {
                                     if (anyDoctorAvailable) {
+                                        triggerHaptic('medium');
                                         handleDoctorSelect(filteredDoctors.find((d: Doctor) => isDoctorAvailableOnDate(d, selectedDate!, selectedClinic?.id)) || filteredDoctors[0], true);
                                     }
                                 }}
-                                className={`flex items-center justify-between p-4 border-2 border-dashed ${!anyDoctorAvailable ? 'border-gray-300 dark:border-gray-600 opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800/50' : 'border-orange-400 dark:border-orange-500 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20'} rounded-xl transition-all text-left sm:col-span-2`}
+                                className={`flex items-center justify-between p-5 border-2 border-dashed ${!anyDoctorAvailable ? 'border-gray-300 dark:border-gray-600 opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800/50' : 'border-orange-400 dark:border-orange-500 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]'} rounded-xl transition-all duration-300 text-left sm:col-span-2 group`}
                             >
                                 <div className="flex items-center gap-4">
                                     <div className={`w-16 h-16 ${!anyDoctorAvailable ? 'bg-gray-200 dark:bg-gray-700' : 'bg-orange-100 dark:bg-orange-900/30'} rounded-full flex items-center justify-center flex-shrink-0`}>
@@ -1988,7 +2019,7 @@ export default function BookingWizard() {
                                         key={doc.id}
                                         disabled={!isAvailable}
                                         onClick={() => isAvailable && handleDoctorSelect(doc)}
-                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border ${!isAvailable ? 'border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800/50' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-500 bg-white dark:bg-gray-800'} rounded-xl transition-all text-left gap-4`}
+                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border ${!isAvailable ? 'border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800/50' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-500 bg-white dark:bg-gray-800 hover:scale-[1.01] active:scale-[0.99] hover:shadow-md'} rounded-xl transition-all duration-300 text-left gap-4 group`}
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
@@ -2022,9 +2053,9 @@ export default function BookingWizard() {
             {/* Step 5: Select Time Slot */}
             {
                 step === 5 && selectedDate && (
-                    <div>
+                    <div key="step5-slot" className="animate-step">
                         <div className="flex items-center gap-2 mb-6">
-                            <button onClick={() => setStep(4)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                            <button onClick={() => { triggerHaptic(); setStep(4); }} className="text-sm text-gray-500 hover:text-indigo-600 underline transition-colors">Back</button>
                             <span className="text-gray-300">/</span>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Time Slot</h2>
                         </div>
@@ -2065,10 +2096,10 @@ export default function BookingWizard() {
                                         const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')} ${endPeriod}`;
                                         return (
                                             <button key={slot} onClick={() => handleSlotSelect(slot)}
-                                                className={`py-2.5 px-2 text-sm rounded-lg border transition-all font-medium ${
+                                                className={`py-2.5 px-2 text-sm rounded-xl border transition-all duration-200 font-medium active:scale-95 ${
                                                     selectedSlot === slot
-                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                                                        : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md transform scale-105 ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-gray-900'
+                                                        : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow transform hover:-translate-y-0.5'
                                                 }`}>
                                                 <span>{slot}</span>
                                                 <span className={`block text-[10px] mt-0.5 ${selectedSlot === slot ? 'text-indigo-200' : 'text-gray-400'}`}>→ {endTime}</span>
@@ -2105,10 +2136,10 @@ export default function BookingWizard() {
             }
             {
                 step === 6 && isAuthenticated && (
-                    <div>
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div key="step6-review">
+                        <div className="animate-step">
                             <div className="flex items-center gap-2 mb-6">
-                                <button onClick={() => setStep(5)} className="text-sm text-gray-500 hover:text-indigo-600 underline">Back</button>
+                                <button onClick={() => { triggerHaptic(); setStep(5); }} className="text-sm text-gray-500 hover:text-indigo-600 underline transition-colors">Back</button>
                                 <span className="text-gray-300">/</span>
                                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Confirm & Pay</h2>
                             </div>
@@ -2263,11 +2294,11 @@ export default function BookingWizard() {
 
                             {/* Package Redemption Option */}
                             {applicablePackage && !rescheduleData && (
-                                <div className={`rounded-xl border-2 transition-all cursor-pointer mb-6 overflow-hidden ${usePackageSession
+                                <div className={`rounded-xl border-2 transition-all duration-300 cursor-pointer mb-6 overflow-hidden transform hover:scale-[1.01] active:scale-[0.99] hover:shadow-md ${usePackageSession
                                     ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
                                     : 'border-gray-200 dark:border-gray-700'
                                     }`}
-                                    onClick={() => setUsePackageSession(!usePackageSession)}
+                                    onClick={() => { triggerHaptic(); setUsePackageSession(!usePackageSession); }}
                                 >
                                     <div className="p-4 flex items-center justify-between">
                                         <div className="flex items-center gap-4">
@@ -2370,7 +2401,7 @@ export default function BookingWizard() {
 
                             <button
                                 onClick={handleConfirm}
-                                className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 shadow-xl hover:shadow-indigo-500/40 transition-all duration-300 transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2"
                             >
                                 {(rescheduleData && (rescheduleData.paymentStatus === 'paid' || rescheduleData.paymentMethod === 'package')) ? 'Confirm Reschedule' : usePackageSession ? 'Confirm Booking with Package' : 'Proceed to Payment'}
                                 <ArrowRight className="w-5 h-5" />
