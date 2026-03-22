@@ -31,6 +31,7 @@ function ActiveCallSession({
     remainingSeconds: initialRemaining,
     chatLog,
     setChatLog,
+    user,
 }: {
     language: 'en' | 'ar';
     clientSecret: string;
@@ -38,6 +39,7 @@ function ActiveCallSession({
     remainingSeconds: number;
     chatLog: ChatMessage[];
     setChatLog: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+    user?: any;
 }) {
     const [isMuted, setIsMuted] = useState(false);
     const [agentStatus, setAgentStatus] = useState('Connecting...');
@@ -614,6 +616,7 @@ export default function CallCenterAgent() {
                             remainingSeconds={remainingSeconds}
                             chatLog={chatLog}
                             setChatLog={setChatLog}
+                            user={user}
                         />
                     )}
 
