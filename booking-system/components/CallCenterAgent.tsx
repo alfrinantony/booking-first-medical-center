@@ -223,9 +223,10 @@ function ActiveCallSession({
             if (type === 'response.function_call_arguments.done') {
                 const { call_id, name, arguments: argsString } = event;
                 setAgentStatus('Checking ' + name + '...');
+                setChatLog((prev) => [...prev, { role: 'assistant', content: `[SYSTEM] Triggered ${name}` }]);
                 
                 try {
-                    const argsObj = JSON.parse(argsString);
+                    const argsObj = JSON.parse(argsString as string);
                     
                     fetch('/api/call-center/tools', {
                         method: 'POST',
@@ -238,7 +239,10 @@ function ActiveCallSession({
                             customerEmail: user?.email,
                             customerGender: user?.gender
                         })
-                    }).then(res => res.json()).then(result => {
+                    }).then(res => {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.json();
+                    }).then(result => {
                         if (dcRef.current) {
                             dcRef.current.send(JSON.stringify({
                                 type: 'conversation.item.create',
@@ -251,20 +255,33 @@ function ActiveCallSession({
                             dcRef.current.send(JSON.stringify({ type: 'response.create' }));
                         }
                     }).catch(err => {
+                        setChatLog((prev) => [...prev, { role: 'assistant', content: `[SYSTEM] Fetch Error ${name}: ${err.message}` }]);
                         if (dcRef.current) {
                             dcRef.current.send(JSON.stringify({
                                 type: 'conversation.item.create',
                                 item: {
                                     type: 'function_call_output',
                                     call_id: call_id,
-                                    output: JSON.stringify({ success: false, message: 'Tool execution failed' })
+                                    output: JSON.stringify({ success: false, message: 'Tool execution failed: ' + err.message })
                                 }
                             }));
                             dcRef.current.send(JSON.stringify({ type: 'response.create' }));
                         }
                     });
-                } catch (e) {
-                    console.error('Function call error', e);
+                } catch (e: any) {
+                    setAgentStatus('Parse Error: ' + e.message); 
+                    setChatLog((prev) => [...prev, {role: 'assistant', content: `[SYSTEM] Parse Error ${name}: ${e.message}`}]); 
+                    if (dcRef.current) {
+                        dcRef.current.send(JSON.stringify({
+                            type: 'conversation.item.create',
+                            item: {
+                                type: 'function_call_output',
+                                call_id: call_id,
+                                output: JSON.stringify({ success: false, message: 'Invalid arguments format.' })
+                            }
+                        }));
+                        dcRef.current.send(JSON.stringify({ type: 'response.create' }));
+                    }
                 }
             }
 
