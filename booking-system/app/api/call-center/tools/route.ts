@@ -75,18 +75,23 @@ export async function POST(request: Request) {
 
         /* ──── CHECK AVAILABILITY ──── */
         if (tool === 'check_availability') {
+            if (doctorsList.length === 0) {
+                return NextResponse.json({ success: false, message: 'No doctors are available for this clinic and service combination.' });
+            }
             let docToSearch = doctorsList[0];
             if (args.doctor) {
                 const docMatch = findBestMatch(args.doctor, doctorsList);
                 if (docMatch) docToSearch = docMatch;
             }
 
-            // Call schedule API internally equivalent logic
-            const baseUrl = request.url.split('/api/')[0];
+            // Call schedule API internally equivalent logic without HTTP loopback
+            const baseUrl = request.url.split('/api/')[0] || 'http://localhost:3000';
             const scheduleUrl = `${baseUrl}/api/admin/schedule?doctorId=${docToSearch.id}&date=${dateStr}&clinicId=${clinicMatch?.id}&serviceId=${serviceMatch?.id}`;
             
             try {
-                const schedRes = await fetch(scheduleUrl);
+                const { GET: getSchedule } = await import('@/app/api/admin/schedule/route');
+                const fakeReq = new Request(scheduleUrl);
+                const schedRes = await getSchedule(fakeReq);
                 const schedData = await schedRes.json();
                 
                 if (schedData.unavailable) {
@@ -125,6 +130,9 @@ export async function POST(request: Request) {
         /* ──── CREATE BOOKING ──── */
         if (tool === 'create_booking') {
             if (!args.time) return NextResponse.json({ success: false, message: 'Time slot is missing.' });
+            if (doctorsList.length === 0) {
+                return NextResponse.json({ success: false, message: 'No doctors are available for this clinic and service combination.' });
+            }
             
             let docToSearch = doctorsList[0];
             if (args.doctor) {
