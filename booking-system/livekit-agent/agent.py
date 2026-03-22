@@ -21,6 +21,7 @@ Environment variables (from ../.env.local):
 """
 
 import os
+import json
 from dotenv import load_dotenv
 
 from livekit import agents, rtc
@@ -67,8 +68,16 @@ Keep it natural and conversational.
 class ClinicAssistant(Agent):
     """AI receptionist agent for First Medical Center."""
 
-    def __init__(self) -> None:
-        super().__init__(instructions=AGENT_INSTRUCTIONS)
+    def __init__(self, user_name: str = "", gender: str = "") -> None:
+        instructions = AGENT_INSTRUCTIONS
+        if user_name:
+            prefix = "Mr. " if gender.lower() == "male" else ("Ms. " if gender.lower() == "female" else "")
+            instructions += f"\n\nIMPORTANT CONTEXT:\n- The user's name is {prefix}{user_name.strip()}."
+            if gender:
+                instructions += f"\n- The user's gender is {gender}. If communicating in Arabic, ensure you use the correct feminine/masculine grammatical expressions for a {gender}."
+            instructions += "\n- Do NOT ask for the user's name, gender, or personal details, as you already know them. Address them by their name naturally."
+
+        super().__init__(instructions=instructions)
 
 
 # ─── Server Setup ─────────────────────────────────────────────────────
@@ -97,10 +106,23 @@ async def fmc_agent(ctx: agents.JobContext):
     # Start the avatar worker (it joins the room as a participant)
     await avatar.start(session, room=ctx.room)
 
+    # Wait for the user participant to connect
+    participant = await ctx.wait_for_participant()
+    user_name = ""
+    gender = ""
+    
+    if participant.metadata:
+        try:
+            meta = json.loads(participant.metadata)
+            user_name = meta.get("userName", "")
+            gender = meta.get("gender", "")
+        except json.JSONDecodeError:
+            pass
+
     # Start the agent session
     await session.start(
         room=ctx.room,
-        agent=ClinicAssistant(),
+        agent=ClinicAssistant(user_name=user_name, gender=gender),
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=lambda params: (
@@ -113,11 +135,22 @@ async def fmc_agent(ctx: agents.JobContext):
     )
 
     # Generate an initial greeting
-    await session.generate_reply(
-        instructions="Greet the visitor warmly. Say something like: "
-        "'Hello! Welcome to First Medical Center. I am your virtual assistant. "
-        "How can I help you today?' Keep it brief and friendly."
-    )
+    greeting_instructions = "Greet the visitor warmly. "
+    if user_name:
+        prefix = "Mr. " if gender.lower() == "male" else ("Ms. " if gender.lower() == "female" else "")
+        greeting_instructions += (
+            f"Address them personally as '{prefix}{user_name}'. Say something like: "
+            f"'Hello {prefix}{user_name}! Welcome to First Medical Center. I am your virtual assistant. How can I help you today?' "
+            "Do NOT ask for their name."
+        )
+    else:
+        greeting_instructions += (
+            "Say something like: 'Hello! Welcome to First Medical Center. I am your virtual assistant. "
+            "How can I help you today?'"
+        )
+    greeting_instructions += " Keep it brief and friendly."
+
+    await session.generate_reply(instructions=greeting_instructions)
 
 
 if __name__ == "__main__":
