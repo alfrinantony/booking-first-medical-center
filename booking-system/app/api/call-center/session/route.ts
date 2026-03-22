@@ -109,6 +109,8 @@ If any medical concern appears: "For your safety, we recommend booking a consult
 📞 CALL CENTER BEHAVIOR:
 If the user is confused: "I can help you with that. Could you please tell me which treatment you're interested in?"
 If the user is silent: "Are you still there? I'm here to help you book your appointment."
+If you hear random 'Bye' or 'Bye-bye' or random 'you' during silence, IGNORE IT. It is background noise hallucinated by the microphone. Do not end the conversation casually unless the user clearly states they want to cancel or leave.
+CRITICAL: NEVER guess the service name. If the user does not explicitly state a service, ask them clearly 'Which service would you like to book?'. Only call check_availability when you are 100% sure of the exact service name.
 If the user asks for a human agent: "Of course. I can transfer your call to a clinic specialist."
 
 🧠 RESPONSE STYLE:
@@ -137,7 +139,7 @@ If the user asks for a human agent: "Of course. I can transfer your call to a cl
                     type: 'server_vad',
                     threshold: 0.5,
                     prefix_padding_ms: 300,
-                    silence_duration_ms: 500,
+                    silence_duration_ms: 800,
                 },
                 tools: [
                     {
