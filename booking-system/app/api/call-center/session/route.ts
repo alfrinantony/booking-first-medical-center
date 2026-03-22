@@ -139,6 +139,39 @@ If the user asks for a human agent: "Of course. I can transfer your call to a cl
                     prefix_padding_ms: 300,
                     silence_duration_ms: 500,
                 },
+                tools: [
+                    {
+                        type: 'function',
+                        name: 'check_availability',
+                        description: 'Checks for available appointment slots at a specific clinic branch.',
+                        parameters: {
+                            type: 'object',
+                            properties: {
+                                branch: { type: 'string', description: 'The clinic branch name. Must be Muraqabat, Qiyadah, or Silicon Oasis.' },
+                                service: { type: 'string', description: 'The medical or beauty service requested, e.g. Laser Hair Removal, Hydrafacial.' },
+                                date: { type: 'string', description: 'The date requested (e.g. today, tomorrow, or YYYY-MM-DD).' },
+                                time: { type: 'string', description: 'The preferred time of day, e.g. morning, afternoon, evening, or any.' }
+                            },
+                            required: ['branch', 'service', 'date']
+                        }
+                    },
+                    {
+                        type: 'function',
+                        name: 'create_booking',
+                        description: 'Creates a confirmed booking in the medical CRM. Requires branch, service, exact date, and exact time slot.',
+                        parameters: {
+                            type: 'object',
+                            properties: {
+                                branch: { type: 'string', description: 'The clinic branch name.' },
+                                service: { type: 'string', description: 'The specific service to book.' },
+                                date: { type: 'string', description: 'The exact date.' },
+                                time: { type: 'string', description: 'The exact time, e.g. 10:00 AM.' },
+                                doctor: { type: 'string', description: 'Optional preferred doctor name.' }
+                            },
+                            required: ['branch', 'service', 'date', 'time']
+                        }
+                    }
+                ],
             }),
         });
 

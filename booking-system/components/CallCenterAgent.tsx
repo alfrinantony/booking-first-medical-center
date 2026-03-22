@@ -218,6 +218,56 @@ function ActiveCallSession({
                 setAgentStatus('Sofia is here — speak now');
             }
 
+
+            // Function calling
+            if (type === 'response.function_call_arguments.done') {
+                const { call_id, name, arguments: argsString } = event;
+                setAgentStatus('Checking ' + name + '...');
+                
+                try {
+                    const argsObj = JSON.parse(argsString);
+                    
+                    fetch('/api/call-center/tools', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tool: name as string,
+                            args: argsObj,
+                            customerName: user?.name,
+                            customerPhone: user?.phone,
+                            customerEmail: user?.email,
+                            customerGender: user?.gender
+                        })
+                    }).then(res => res.json()).then(result => {
+                        if (dcRef.current) {
+                            dcRef.current.send(JSON.stringify({
+                                type: 'conversation.item.create',
+                                item: {
+                                    type: 'function_call_output',
+                                    call_id: call_id,
+                                    output: JSON.stringify(result)
+                                }
+                            }));
+                            dcRef.current.send(JSON.stringify({ type: 'response.create' }));
+                        }
+                    }).catch(err => {
+                        if (dcRef.current) {
+                            dcRef.current.send(JSON.stringify({
+                                type: 'conversation.item.create',
+                                item: {
+                                    type: 'function_call_output',
+                                    call_id: call_id,
+                                    output: JSON.stringify({ success: false, message: 'Tool execution failed' })
+                                }
+                            }));
+                            dcRef.current.send(JSON.stringify({ type: 'response.create' }));
+                        }
+                    });
+                } catch (e) {
+                    console.error('Function call error', e);
+                }
+            }
+
             // Errors
             if (type === 'error') {
                 console.error('[CallCenter] Realtime error:', event);
