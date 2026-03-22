@@ -115,7 +115,7 @@ export async function POST(request: Request) {
                 }
                 
                 // Limit to 5 slots to prevent overwhelming the AI speech
-                const suggestedSlots = slots.slice(0, 5);
+                const suggestedSlots = slots.slice(0, 15);
                 
                 return NextResponse.json({
                     success: true,

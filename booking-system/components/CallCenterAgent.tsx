@@ -271,16 +271,19 @@ function ActiveCallSession({
                         }
                     });
                 } catch (e: any) {
-                    setAgentStatus('Parse Error: ' + e.message); 
-                    setChatLog((prev) => [...prev, {role: 'assistant', content: `[SYSTEM] Parse Error ${name}: ${e.message}`}]); 
+                    console.warn('Function parse error (likely VAD interruption):', e.message);
                     if (dcRef.current) {
                         dcRef.current.send(JSON.stringify({
                             type: 'conversation.item.create',
                             item: {
                                 type: 'function_call_output',
                                 call_id: call_id,
-                                output: JSON.stringify({ success: false, message: 'Invalid arguments format.' })
+                                output: JSON.stringify({ success: false, message: 'Function call was interrupted by user speech. Ask the user to repeat or clarify.' })
                             }
+                        }));
+                        dcRef.current.send(JSON.stringify({ type: 'response.create' }));
+                    }
+                }
                         }));
                         dcRef.current.send(JSON.stringify({ type: 'response.create' }));
                     }
