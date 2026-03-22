@@ -90,7 +90,13 @@ function ActiveCallSession({
                 };
 
                 // Get local microphone
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    }
+                });
                 streamRef.current = stream;
                 stream.getTracks().forEach((track) => {
                     pc.addTrack(track, stream);
@@ -349,6 +355,11 @@ export default function CallCenterAgent() {
 
     const sessionStartRef = useRef<number>(0);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const chatLogRef = useRef<ChatMessage[]>([]);
+
+    useEffect(() => {
+        chatLogRef.current = chatLog;
+    }, [chatLog]);
 
     // Daily usage
     const getDailyKey = () => {
@@ -383,7 +394,13 @@ export default function CallCenterAgent() {
 
         try {
             // Request mic permission first (user gesture context)
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                }
+            });
             stream.getTracks().forEach((t) => t.stop());
 
             // Get ephemeral session token from our backend
@@ -426,8 +443,9 @@ export default function CallCenterAgent() {
 
     /* ── Submit call summary ── */
     const submitCallSummary = async (durationSeconds: number) => {
-        if (chatLog.length === 0) return;
-        const transcript = chatLog
+        const currentLog = chatLogRef.current;
+        if (currentLog.length === 0) return;
+        const transcript = currentLog
             .map(m => `${m.role === 'user' ? 'Customer' : 'Sofia'}: ${m.content}`)
             .join('\n');
         try {
@@ -468,7 +486,7 @@ export default function CallCenterAgent() {
         setClientSecret('');
         setSelectedLanguage(null);
         setIsOpen(false);
-    }, [chatLog, user]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [user]); // Removed chatLog dependency to prevent WebRTC infinite restarts
 
     /* ── Toggle panel ── */
     const toggle = useCallback(async () => {
