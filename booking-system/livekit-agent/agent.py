@@ -84,7 +84,7 @@ class ClinicAssistant(Agent):
 server = AgentServer()
 
 
-@server.rtc_session(agent_name="fmc-avatar-agent")
+@server.rtc_session(agent_name="Alfrin")
 async def fmc_agent(ctx: agents.JobContext):
     """Handle a new visitor session with avatar."""
 
@@ -97,6 +97,11 @@ async def fmc_agent(ctx: agents.JobContext):
         turn_detection=MultilingualModel(),   # Turn detection
     )
 
+    # Wait for the user participant to connect FIRST (before the avatar joins and pollutes the participant list)
+    participant = await ctx.wait_for_participant()
+    user_name = ""
+    gender = ""
+
     # Create the LiveAvatar session
     avatar_id = os.getenv("LIVEAVATAR_AVATAR_ID", "")
     avatar = liveavatar.AvatarSession(
@@ -105,11 +110,6 @@ async def fmc_agent(ctx: agents.JobContext):
 
     # Start the avatar worker (it joins the room as a participant)
     await avatar.start(session, room=ctx.room)
-
-    # Wait for the user participant to connect
-    participant = await ctx.wait_for_participant()
-    user_name = ""
-    gender = ""
     
     if participant.metadata:
         try:
