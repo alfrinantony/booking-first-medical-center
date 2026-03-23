@@ -1337,8 +1337,7 @@ export default function BookingWizard() {
                             if (user && user.gender) {
                                 return svc.allowedGender.toLowerCase() === user.gender.toLowerCase();
                             }
-                            // Strict filtering: if user is not logged in or has no gender, hide gender-restricted services.
-                            return false;
+                            return true; // Show to unauthenticated users so they can browse
                         });
 
                     // Sub-group definitions per category
