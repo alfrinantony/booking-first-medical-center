@@ -284,10 +284,6 @@ function ActiveCallSession({
                         dcRef.current.send(JSON.stringify({ type: 'response.create' }));
                     }
                 }
-                        }));
-                        dcRef.current.send(JSON.stringify({ type: 'response.create' }));
-                    }
-                }
             }
 
             // Errors
