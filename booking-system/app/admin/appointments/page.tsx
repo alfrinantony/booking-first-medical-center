@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
-import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X, History } from 'lucide-react';
+import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X, History, Sparkles } from 'lucide-react';
 import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
 import {
@@ -558,22 +558,36 @@ export default function AdminAppointmentsPage() {
                         {selectedDayBookings.length > 0 ? (
                             selectedDayBookings.map((booking) => (
                                 <div key={booking.id} className={`p-3 rounded-lg border transition-colors ${booking.anyDoctor ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 hover:border-orange-400' : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-indigo-300'}`}>
+                                    <div className="text-[10px] text-gray-400 font-mono mb-1.5 pb-1.5 border-b border-gray-100 dark:border-gray-700/50 flex justify-between">
+                                        <span>#{booking.id.slice(0, 8).toUpperCase()}</span>
+                                    </div>
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                             <Clock className="w-4 h-4 text-indigo-500" />
                                             {booking.slot}
                                         </div>
-                                        <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                            booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                                booking.status === 'no_show' ? 'bg-red-200 text-red-800 font-bold' : 'bg-gray-100 text-gray-700'
-                                            }`}>
-                                            {booking.status}
-                                        </span>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                                booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                                    booking.status === 'no_show' ? 'bg-red-200 text-red-800 font-bold' : 'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                {booking.status}
+                                            </span>
+                                            {booking.statusHistory && booking.statusHistory.length > 0 && (
+                                                <span className="text-[9px] text-gray-400">
+                                                    {format(new Date(booking.statusHistory[booking.statusHistory.length - 1].timestamp), 'MMM d, h:mm a')}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mb-1">
-                                        <User className="w-4 h-4" />
+                                    <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200 mb-1 font-medium">
+                                        <User className="w-3.5 h-3.5 text-gray-400" />
                                         {booking.patientName}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 font-medium mb-1">
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        {booking.serviceName}
                                     </div>
 
                                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex flex-col gap-1">

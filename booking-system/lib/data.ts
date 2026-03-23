@@ -329,6 +329,7 @@ export interface Booking {
     deptId: string;
     doctorId: string;
     serviceId: string;
+    serviceName?: string;
     date: string; // ISO Date YYYY-MM-DD
     slot: string; // Time string e.g., "10:00 AM"
     duration?: number; // Duration in minutes
