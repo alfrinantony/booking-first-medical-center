@@ -116,6 +116,17 @@ export default function AdminAppointmentsPage() {
 
     const selectedDayBookings = getBookingsForDate(selectedDate);
 
+    const getServiceName = (booking: Booking) => {
+        if (booking.serviceName) return booking.serviceName;
+        for (const clinic of clinics) {
+            for (const dept of clinic.departments) {
+                const svc = dept.services.find(s => s.id === booking.serviceId);
+                if (svc) return svc.name;
+            }
+        }
+        return 'Unknown Service';
+    };
+
     // Navigation
     const handlePrevious = () => {
         if (viewMode === 'month') setCurrentDate(subMonths(currentDate, 1));
@@ -472,10 +483,24 @@ export default function AdminAppointmentsPage() {
                                                         ) : (
                                                             slotBookings.map(b => (
                                                                 <div key={b.id} className={`bg-white dark:bg-gray-800 p-2 rounded shadow-sm text-sm border-l-4 mb-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${b.anyDoctor ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-900/10' : 'border-indigo-500'}`} onClick={() => handleEditClick(b)}>
-                                                                    <div className="flex justify-between items-start">
+                                                                    <div className="text-[9px] text-gray-400 font-mono mb-1 pb-1 border-b border-gray-100 dark:border-gray-700/50 flex justify-between">
+                                                                        <span>#{b.id.slice(0, 8).toUpperCase()}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-start mb-1">
                                                                         <span className="font-bold block text-gray-900 dark:text-white">{b.patientName}</span>
-                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                                                            }`}>{b.status}</span>
+                                                                        <div className="flex flex-col items-end gap-0.5">
+                                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                                                                }`}>{b.status}</span>
+                                                                            {b.statusHistory && b.statusHistory.length > 0 && (
+                                                                                <span className="text-[8px] text-gray-400">
+                                                                                    {format(new Date(b.statusHistory[b.statusHistory.length - 1].timestamp), 'h:mm a')}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 mt-1 mb-1 text-xs text-purple-700 dark:text-purple-300 font-medium">
+                                                                        <Sparkles className="w-3 h-3" />
+                                                                        {getServiceName(b)}
                                                                     </div>
                                                                     <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
                                                                         <span className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {b.anyDoctor ? <span className="text-orange-600 font-medium">Any Doctor</span> : b.doctorId}</span>
@@ -587,7 +612,7 @@ export default function AdminAppointmentsPage() {
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 font-medium mb-1">
                                         <Sparkles className="w-3.5 h-3.5" />
-                                        {booking.serviceName}
+                                        {getServiceName(booking)}
                                     </div>
 
                                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex flex-col gap-1">
