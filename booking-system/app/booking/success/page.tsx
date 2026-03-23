@@ -53,12 +53,18 @@ function SuccessContent() {
         : 'N/A';
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 print:bg-white print:min-h-0 print:py-0 print:px-0">
+            <style>{`
+                @media print {
+                    @page { size: A4 portrait; margin: 15mm; }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white !important; }
+                }
+            `}</style>
+            <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl print:shadow-none print:border print:border-none overflow-hidden">
 
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 py-10 text-center">
-                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 py-10 print:py-6 text-center">
+                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4 print:mb-2">
                         <CheckCircle className="h-10 w-10 text-green-600" />
                     </div>
                     <h2 className="text-3xl font-extrabold text-white">Booking Confirmed!</h2>
@@ -89,7 +95,7 @@ function SuccessContent() {
                     {/* Booking Details Grid */}
                     <div className="mb-8 pb-8 border-b border-gray-200 dark:border-gray-700">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Appointment Details</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-4">
                             <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
                                 <Stethoscope className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0" />
                                 <div>
@@ -160,7 +166,7 @@ function SuccessContent() {
                         </div>
                     )}
 
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8 print:hidden">
                         <button
                             onClick={() => window.print()}
                             className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
