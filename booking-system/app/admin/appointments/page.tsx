@@ -127,6 +127,22 @@ export default function AdminAppointmentsPage() {
         return 'Unknown Service';
     };
 
+    const getClinicName = (booking: Booking) => {
+        const c = clinics.find(c => c.id === booking.clinicId);
+        return c ? c.name : booking.clinicId;
+    };
+
+    const getDoctorName = (booking: Booking) => {
+        if (booking.anyDoctor) return 'Any Available Doctor';
+        for (const clinic of clinics) {
+            for (const dept of clinic.departments) {
+                const doc = dept.doctors.find(d => d.id === booking.doctorId);
+                if (doc) return doc.name;
+            }
+        }
+        return booking.doctorId;
+    };
+
     // Navigation
     const handlePrevious = () => {
         if (viewMode === 'month') setCurrentDate(subMonths(currentDate, 1));
@@ -503,7 +519,7 @@ export default function AdminAppointmentsPage() {
                                                                         {getServiceName(b)}
                                                                     </div>
                                                                     <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                                                        <span className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {b.anyDoctor ? <span className="text-orange-600 font-medium">Any Doctor</span> : b.doctorId}</span>
+                                                                        <span className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {getDoctorName(b)}</span>
                                                                         {b.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {b.duration}m</span>}
                                                                     </div>
                                                                     {b.selectedMedicineIds && b.selectedMedicineIds.length > 0 && (
@@ -617,10 +633,10 @@ export default function AdminAppointmentsPage() {
 
                                     <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex flex-col gap-1">
                                         <div className="flex items-center gap-1">
-                                            <MapPin className="w-3 h-3" /> Branch: {booking.clinicId}
+                                            <MapPin className="w-3 h-3" /> Branch: {getClinicName(booking)}
                                         </div>
                                         <div className="flex items-center gap-1">
-                                            <Stethoscope className="w-3 h-3" /> {booking.anyDoctor ? <span className="text-orange-600 font-semibold">Any Available Doctor</span> : `Dr. ${booking.doctorId}`}
+                                            <Stethoscope className="w-3 h-3" /> {getDoctorName(booking)}
                                         </div>
                                         {booking.selectedMedicineIds && booking.selectedMedicineIds.length > 0 && (
                                             <div className="flex flex-wrap gap-1 mt-1">
