@@ -1347,8 +1347,8 @@ export default function BookingWizard() {
                             title: 'Choose Device',
                             subtitle: 'We use two premium laser devices. Select your preferred device to see available treatments.',
                             groups: [
-                                { key: 'Candela', label: 'Candela GentleMax Pro', emoji: '🔴', desc: 'Dual wavelength Alexandrite & Nd:YAG', prefix: 'Candela-' },
-                                { key: 'Lumenis', label: 'Lumenis LightSheer', emoji: '🔵', desc: 'Diode laser technology', prefix: 'Lumenis-' },
+                                { key: 'Candela', label: 'Candela', emoji: '🔴', desc: 'Dual wavelength Alexandrite & Nd:YAG', filter: (s: any) => s.name.toLowerCase().includes('candela') },
+                                { key: 'Lumenis', label: 'Lumenis', emoji: '🔵', desc: 'Blended emission technology', filter: (s: any) => s.name.toLowerCase().includes('lumenis') || s.name.toLowerCase().includes('splendor') },
                                 { key: 'Male', label: 'Male Treatments', emoji: '👨', desc: 'Specialized male hair removal', filter: (s: any) => s.name.startsWith('Male') || s.name === 'Beard' },
                                 { key: 'Electrolysis', label: 'Electrolysis', emoji: '⚡', desc: 'Permanent hair removal', filter: (s: any) => s.name.startsWith('Electrolysis') },
                             ]

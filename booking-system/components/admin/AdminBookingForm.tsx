@@ -51,6 +51,8 @@ export default function AdminBookingForm() {
     const services = selectedDept?.services || [];
     const selectedService = services.find(s => s.id === booking.serviceId);
 
+    const [timePreference, setTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening'>('any');
+
     const isValid = customer.name && customer.phone && booking.clinicId && booking.deptId && booking.doctorId && booking.serviceId && booking.date && booking.slot;
 
     // Fetch available slots from schedule API when doctor + date + service are all set
@@ -93,6 +95,26 @@ export default function AdminBookingForm() {
 
         fetchSlots();
     }, [booking.doctorId, booking.date, booking.serviceId, booking.clinicId]);
+
+    const filteredSlots = availableSlots.filter(slot => {
+        if (timePreference === 'any') return true;
+        const isAM = slot.includes('AM');
+        const hourStr = slot.split(':')[0];
+        const hour = parseInt(hourStr, 10);
+        
+        if (timePreference === 'morning') return isAM;
+        if (timePreference === 'afternoon') {
+            if (isAM) return false;
+            if (hour === 12) return false; // excludes 12PM based on requirement
+            return hour >= 1 && hour <= 5;
+        }
+        if (timePreference === 'evening') {
+            if (isAM) return false;
+            if (hour === 12) return false;
+            return hour >= 6 && hour < 12;
+        }
+        return true;
+    });
 
     // Compute end time for display
     const computeEndTime = (slot: string, duration: number): string => {
@@ -301,7 +323,7 @@ export default function AdminBookingForm() {
                         Date & Time
                     </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
                             <input
@@ -312,6 +334,23 @@ export default function AdminBookingForm() {
                                 min={new Date().toISOString().split('T')[0]}
                                 onChange={e => setBooking({ ...booking, date: e.target.value, slot: '' })}
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Preference</label>
+                            <select
+                                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent"
+                                value={timePreference}
+                                onChange={e => {
+                                    setTimePreference(e.target.value as any);
+                                    setBooking(prev => ({ ...prev, slot: '' }));
+                                }}
+                            >
+                                <option value="any">Any Time</option>
+                                <option value="morning">Morning (AM)</option>
+                                <option value="afternoon">Afternoon (1PM - 5PM)</option>
+                                <option value="evening">Evening (6PM+)</option>
+                            </select>
                         </div>
 
                         <div>
@@ -328,13 +367,13 @@ export default function AdminBookingForm() {
                                 <>
                                     <select
                                         required
-                                        disabled={availableSlots.length === 0}
+                                        disabled={filteredSlots.length === 0}
                                         className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent disabled:opacity-50"
                                         value={booking.slot}
                                         onChange={e => setBooking({ ...booking, slot: e.target.value })}
                                     >
                                         <option value="">Select Time Slot</option>
-                                        {availableSlots.map(slot => (
+                                        {filteredSlots.map(slot => (
                                             <option key={slot} value={slot}>{slot} → {computeEndTime(slot, booking.duration)}</option>
                                         ))}
                                     </select>
