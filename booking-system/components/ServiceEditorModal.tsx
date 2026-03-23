@@ -36,6 +36,7 @@ interface ServiceEditorModalProps {
     submitting: boolean;
     uploadingImage: boolean;
     registeredProducts?: RegisteredProduct[];
+    branchSelector?: React.ReactNode;
 }
 
 function SectionHeader({ id, label, icon: Icon, color }: { id: string; label: string; icon: any; color: string }) {
@@ -52,6 +53,7 @@ export default function ServiceEditorModal({
     currentClinic, doctors, resources, medicines, dayNames,
     onSubmit, onClose, onToggleDay, onToggleDoctor,
     onImageUpload, submitting, uploadingImage, registeredProducts,
+    branchSelector,
 }: ServiceEditorModalProps & { registeredProducts?: RegisteredProduct[] }) {
     const contentRef = useRef<HTMLDivElement>(null);
     const [activeSection, setActiveSection] = React.useState('basic');
@@ -152,6 +154,11 @@ export default function ServiceEditorModal({
                         {/* ══ SECTION 1: Basic Info ══ */}
                         <section>
                             <SectionHeader id="basic" label="Basic Info" icon={FileText} color="text-gray-600" />
+                            {branchSelector && (
+                                <div className="mb-6 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/50 rounded-xl">
+                                    {branchSelector}
+                                </div>
+                            )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Service Name *</label>
