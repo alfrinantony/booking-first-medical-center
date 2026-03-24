@@ -388,9 +388,19 @@ export default function BookingWizard() {
                     return;
                 }
                 
-                // Otherwise, show ALL available services from the package in Step 1
-                const availableServiceIds = Object.keys(pkg.remainingSessions).filter(id => pkg.remainingSessions[id] > 0);
+                // Check if the package is locked to a specific service
+                const lockedServiceId = Object.entries(pkg.remainingSessions).find(([id, rem]) => {
+                    const total = pkg.totalSessions?.[id] || rem;
+                    return total - rem > 0;
+                })?.[0];
+
+                let availableServiceIds = Object.keys(pkg.remainingSessions).filter(id => pkg.remainingSessions[id] > 0);
                 
+                // If package is already locked to a service, enforce only that service is available
+                if (lockedServiceId) {
+                    availableServiceIds = availableServiceIds.filter(id => id === lockedServiceId);
+                }
+
                 if (availableServiceIds.length === 1) {
                     // If only one package service is allowed, skip service selection and go directly to date
                     processServiceSelection(availableServiceIds[0], true);
@@ -882,15 +892,36 @@ export default function BookingWizard() {
     const myPackages = myPackagesList;
     const qPackageId = searchParams.get('packageId');
     const applicablePackage = React.useMemo(() => {
-        if (qPackageId) {
+        // Enforce package locking logic:
+        // A service is only applicable if it's in remainingSessions, > 0, and not locked to another service.
+        const isServiceApplicableForPackage = (pkg: any, svcId: string) => {
+            if (!pkg || !pkg.remainingSessions || !(pkg.remainingSessions[svcId] > 0)) return false;
+            
+            const lockedServiceId = Object.entries(pkg.remainingSessions).find(([id, rem]: [string, any]) => {
+                const total = pkg.totalSessions?.[id] || rem;
+                return total - rem > 0;
+            })?.[0];
+
+            if (lockedServiceId && lockedServiceId !== svcId) return false;
+            return true;
+        };
+
+        if (qPackageId && selectedService) {
+            const match = myPackages.find(p => p.id === qPackageId && p.active && p.paymentStatus === 'paid');
+            if (match && isServiceApplicableForPackage(match, selectedService.id)) {
+                return match;
+            }
+        } else if (qPackageId) {
+             // For steps before service is fully loaded/selected
             const match = myPackages.find(p => p.id === qPackageId && p.active && p.paymentStatus === 'paid');
             if (match) return match;
         }
+
         if (selectedService) {
             return myPackages.find(p =>
                 p.active &&
                 p.paymentStatus === 'paid' &&
-                p.remainingSessions[selectedService.id] > 0
+                isServiceApplicableForPackage(p, selectedService.id)
             ) || null;
         }
         return null;
