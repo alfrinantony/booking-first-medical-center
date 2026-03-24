@@ -56,6 +56,7 @@ export const MODULES: ModuleDefinition[] = [
     // Clinical
     { key: 'schedule', label: 'Staff Schedule', group: 'Clinical' },
     { key: 'doctors', label: 'Doctors', group: 'Clinical' },
+    { key: 'edit_doctor_department', label: 'Edit Doctor Department', group: 'Clinical' },
     { key: 'services', label: 'Services', group: 'Clinical' },
     // Inventory & Supply
     { key: 'inventory', label: 'Inventory', group: 'Inventory & Supply' },

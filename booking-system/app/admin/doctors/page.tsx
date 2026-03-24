@@ -5,7 +5,7 @@ import { Plus, Trash2, Search, Edit2, MapPin, Stethoscope, ShieldCheck, Calendar
 import { Clinic, Doctor } from '@/lib/data';
 
 interface DoctorFormState {
-    departmentId: string;
+    departmentName: string;
     name: string;
     specialty: string;
     image: string;
@@ -27,7 +27,7 @@ export default function DoctorsPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [addClinicIds, setAddClinicIds] = useState<string[]>([]);
     const [newDoctor, setNewDoctor] = useState<DoctorFormState>({
-        departmentId: '',
+        departmentName: '',
         name: '',
         specialty: '',
         image: '',
@@ -42,7 +42,7 @@ export default function DoctorsPage() {
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingDoctor, setEditingDoctor] = useState<Doctor & { departmentId: string } | null>(null);
+    const [editingDoctor, setEditingDoctor] = useState<Doctor & { departmentName: string } | null>(null);
     const [editClinicIds, setEditClinicIds] = useState<string[]>([]);
 
     const [submitting, setSubmitting] = useState(false);
@@ -64,6 +64,19 @@ export default function DoctorsPage() {
             setUploadingImage(false);
         }
     };
+
+    // Current User & Permissions
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    useEffect(() => {
+        try {
+            const user = JSON.parse(sessionStorage.getItem('adminUser') || '{}');
+            setCurrentUser(user);
+        } catch { }
+    }, []);
+
+    const canEditDoctorDept = currentUser?.role === 'SUPER_ADMIN' ||
+        (currentUser?.permissions?.['edit_doctor_department']?.length > 0) ||
+        false;
 
     useEffect(() => {
         fetchDoctors();
@@ -90,12 +103,12 @@ export default function DoctorsPage() {
             let allSuccess = true;
             for (const clinicId of addClinicIds) {
                 const clinic = clinics.find(c => c.id === clinicId);
-                const firstDept = clinic?.departments[0];
-                if (!firstDept) continue;
+                const matchedDeptId = clinic?.departments.find(d => d.name === newDoctor.departmentName)?.id || clinic?.departments[0]?.id;
+                if (!matchedDeptId) continue;
 
                 const payload = {
                     clinicId,
-                    departmentId: firstDept.id,
+                    departmentId: matchedDeptId,
                     id: sharedId,
                     name: newDoctor.name,
                     specialty: newDoctor.specialty,
@@ -117,7 +130,7 @@ export default function DoctorsPage() {
             if (allSuccess) {
                 await fetchDoctors();
                 setIsAddModalOpen(false);
-                setNewDoctor({ departmentId: '', name: '', specialty: '', image: '', certifications: '', maxConcurrentBookings: 1, licenseNumber: '', licenseExpiry: '', startDate: '', endDate: '', status: 'working' });
+                setNewDoctor({ departmentName: '', name: '', specialty: '', image: '', certifications: '', maxConcurrentBookings: 1, licenseNumber: '', licenseExpiry: '', startDate: '', endDate: '', status: 'working' });
                 setAddClinicIds([]);
             } else {
                 alert('Failed to add doctor to some branches');
@@ -142,12 +155,12 @@ export default function DoctorsPage() {
             for (const cId of editClinicIds) {
                 if (!currentClinicIdSet.has(cId)) {
                     const clinic = clinics.find(c => c.id === cId);
-                    const firstDept = clinic?.departments[0];
-                    if (!firstDept) continue;
+                    const matchedDeptId = clinic?.departments.find(d => d.name === editingDoctor.departmentName)?.id || clinic?.departments[0]?.id;
+                    if (!matchedDeptId) continue;
                     await fetch('/api/admin/doctors', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            clinicId: cId, departmentId: firstDept.id,
+                            clinicId: cId, departmentId: matchedDeptId,
                             id: editingDoctor.id, name: editingDoctor.name,
                             specialty: editingDoctor.specialty, image: editingDoctor.image,
                             certifications: typeof editingDoctor.certifications === 'string'
@@ -176,23 +189,36 @@ export default function DoctorsPage() {
             // Update existing branches
             for (const b of currentBranches) {
                 if (editClinicIds.includes(b.clinicId)) {
-                    await fetch('/api/admin/doctors', {
-                        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            clinicId: b.clinicId, departmentId: b.departmentId,
-                            doctorId: editingDoctor.id, name: editingDoctor.name,
-                            specialty: editingDoctor.specialty, image: editingDoctor.image,
-                            certifications: typeof editingDoctor.certifications === 'string'
-                                ? (editingDoctor.certifications as string).split(',').map((c: string) => c.trim()).filter(Boolean)
-                                : editingDoctor.certifications,
-                            maxConcurrentBookings: Number(editingDoctor.maxConcurrentBookings) || 1,
-                            licenseNumber: editingDoctor.licenseNumber || undefined,
-                            licenseExpiry: editingDoctor.licenseExpiry || undefined,
-                            startDate: editingDoctor.startDate || undefined,
-                            endDate: editingDoctor.endDate || undefined,
-                            status: editingDoctor.status
-                        })
-                    });
+                    const targetClinic = clinics.find(c => c.id === b.clinicId);
+                    const newDeptId = targetClinic?.departments.find(d => d.name === editingDoctor.departmentName)?.id || b.departmentId;
+
+                    const payload = {
+                        clinicId: b.clinicId,
+                        departmentId: newDeptId,
+                        doctorId: editingDoctor.id,
+                        id: editingDoctor.id,
+                        name: editingDoctor.name,
+                        specialty: editingDoctor.specialty,
+                        image: editingDoctor.image,
+                        certifications: typeof editingDoctor.certifications === 'string'
+                            ? (editingDoctor.certifications as string).split(',').map((c: string) => c.trim()).filter(Boolean)
+                            : editingDoctor.certifications,
+                        maxConcurrentBookings: Number(editingDoctor.maxConcurrentBookings) || 1,
+                        licenseNumber: editingDoctor.licenseNumber || undefined,
+                        licenseExpiry: editingDoctor.licenseExpiry || undefined,
+                        startDate: editingDoctor.startDate || undefined,
+                        endDate: editingDoctor.endDate || undefined,
+                        status: editingDoctor.status
+                    };
+
+                    if (newDeptId !== b.departmentId) {
+                        // Department changed! Delete from old and Post to new
+                        await fetch(`/api/admin/doctors?clinicId=${encodeURIComponent(b.clinicId)}&departmentId=${encodeURIComponent(b.departmentId)}&doctorId=${encodeURIComponent(editingDoctor.id)}`, { method: 'DELETE' });
+                        await fetch('/api/admin/doctors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    } else {
+                        // Normal update via PUT
+                        await fetch('/api/admin/doctors', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    }
                 }
             }
 
@@ -226,10 +252,11 @@ export default function DoctorsPage() {
 
     const openEditModal = (clinicId: string, departmentId: string, doctor: Doctor) => {
         const branches = getDoctorBranches(doctor.id);
+        const departmentName = getDeptName(departmentId);
         setEditingDoctor({
             ...doctor,
             clinicId,
-            departmentId
+            departmentName
         } as any);
         setEditClinicIds(branches.map(b => b.clinicId));
         setIsEditModalOpen(true);
@@ -473,6 +500,20 @@ export default function DoctorsPage() {
                                     </div>
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-medium mb-1">Department</label>
+                                    <select
+                                        required
+                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                        value={newDoctor.departmentName}
+                                        onChange={(e) => setNewDoctor({ ...newDoctor, departmentName: e.target.value })}
+                                    >
+                                        <option value="">-- Select Department --</option>
+                                        {ALLOWED_DOCTOR_DEPTS.map(deptName => (
+                                            <option key={deptName} value={deptName}>{deptName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium mb-1">Name</label>
                                     <input
                                         required
@@ -629,6 +670,24 @@ export default function DoctorsPage() {
                                         ))}
                                     </div>
                                     <p className="text-xs text-gray-400 mt-1">Schedule is shared across all branches — no conflicts</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Department
+                                        {!canEditDoctorDept && <span className="text-xs text-red-500 font-normal ml-2">(Requires Edit Doctor Department Privilege)</span>}
+                                    </label>
+                                    <select
+                                        required
+                                        disabled={!canEditDoctorDept}
+                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-50 dark:disabled:bg-gray-800"
+                                        value={editingDoctor.departmentName}
+                                        onChange={(e) => setEditingDoctor({ ...editingDoctor, departmentName: e.target.value })}
+                                    >
+                                        <option value="">-- Select Department --</option>
+                                        {ALLOWED_DOCTOR_DEPTS.map(deptName => (
+                                            <option key={deptName} value={deptName}>{deptName}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Name</label>
