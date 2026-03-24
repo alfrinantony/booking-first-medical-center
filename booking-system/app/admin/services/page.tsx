@@ -477,21 +477,21 @@ export default function ServicesPage() {
         }
     };
 
-    const handleToggleVisibility = async (departmentId: string, serviceId: string, currentlyVisible: boolean) => {
+    const handleToggleVisibility = async (deptIds: string[], serviceId: string, currentStatus: boolean) => {
         try {
-            const res = await fetch('/api/admin/services', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    clinicId: selectedClinicId,
-                    departmentId,
-                    serviceId,
-                    isVisible: !currentlyVisible
-                })
-            });
-            if (res.ok) {
-                await fetchServices();
+            for (const deptId of deptIds) {
+                await fetch('/api/admin/services', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clinicId: selectedClinicId,
+                        departmentId: deptId,
+                        serviceId: serviceId,
+                        isVisible: !currentStatus
+                    })
+                });
             }
+            await fetchServices();
         } catch (error) {
             console.error('Failed to toggle visibility', error);
         }
@@ -586,13 +586,29 @@ export default function ServicesPage() {
     const currentClinic = clinics.find(c => c.id === selectedClinicId);
 
     // Derived flat list of all services (grouped by category later, but filtered here)
-    const allServices = currentClinic?.departments.flatMap(dept =>
+    const rawServices = currentClinic?.departments.flatMap(dept =>
         dept.services.map(s => ({ ...s, _deptId: dept.id, _deptName: dept.name }))
-    ).filter(s => {
+    ) || [];
+
+    // Aggregate by unique service ID so multi-department services appear as one card
+    const serviceMap = new Map<string, typeof rawServices[0] & { _deptNames: string[], _deptIds: string[] }>();
+    for (const s of rawServices) {
+        if (!serviceMap.has(s.id)) {
+            serviceMap.set(s.id, { ...s, _deptNames: [s._deptName], _deptIds: [s._deptId] });
+        } else {
+            const existing = serviceMap.get(s.id)!;
+            if (!existing._deptIds.includes(s._deptId)) {
+                existing._deptNames.push(s._deptName);
+                existing._deptIds.push(s._deptId);
+            }
+        }
+    }
+
+    const allServices = Array.from(serviceMap.values()).filter(s => {
         const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesDept = selectedFilterDeptId === 'all' || s._deptId === selectedFilterDeptId;
+        const matchesDept = selectedFilterDeptId === 'all' || s._deptIds.includes(selectedFilterDeptId);
         return matchesSearch && matchesDept;
-    }) || [];
+    });
 
     // Helpers to get doctors for services – collects ALL doctors from ALL branches/departments
     const getDepartmentDoctors = (deptId: string): Doctor[] => {
@@ -821,9 +837,11 @@ export default function ServicesPage() {
                                                             {service.name}
                                                         </h3>
                                                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                            <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
-                                                                {service._deptName}
-                                                            </span>
+                                                            {service._deptNames.map(deptName => (
+                                                                <span key={deptName} className="text-xs text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
+                                                                    {deptName}
+                                                                </span>
+                                                            ))}
                                                             {isHidden && (
                                                                 <span className="text-[10px] bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Hidden</span>
                                                             )}
@@ -835,7 +853,7 @@ export default function ServicesPage() {
                                                 <div className="flex items-center gap-1 shrink-0 bg-gray-50 dark:bg-gray-900/50 p-1 rounded-lg border border-gray-100 dark:border-gray-800">
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleToggleVisibility(service._deptId, service.id, service.isVisible !== false)}
+                                                        onClick={() => handleToggleVisibility(service._deptIds, service.id, service.isVisible !== false)}
                                                         className={`p-1.5 rounded-md transition-colors ${isHidden ? 'text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/40' : 'text-green-500 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-900/40'}`}
                                                         title={isHidden ? 'Show on Booking Portal' : 'Hide from Booking Portal'}
                                                     >
@@ -843,7 +861,7 @@ export default function ServicesPage() {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        onClick={() => openEditModal(service._deptId, service)}
+                                                        onClick={() => openEditModal(service._deptIds[0], service)}
                                                         className="text-indigo-500 hover:text-indigo-700 p-1.5 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
                                                         title="Edit Service"
                                                     >
