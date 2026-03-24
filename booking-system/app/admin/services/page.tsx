@@ -497,14 +497,11 @@ export default function ServicesPage() {
         }
     };
 
-    const openEditModal = (departmentId: string, service: Service) => {
-        // Collect all departments in the current clinic that already have this service by name
-        const deptIdsWithService: string[] = [];
-        for (const dept of currentClinic?.departments || []) {
-            if ((dept.services || []).some(s => s.name === service.name)) {
-                deptIdsWithService.push(dept.id);
-            }
-        }
+    const openEditModal = (departmentId: string, service: Service & { _deptIds?: string[] }) => {
+        // Collect exact departments from the aggregated UI token, or fallback to the single ID if raw
+        const deptIdsWithService = service._deptIds && service._deptIds.length > 0 
+            ? service._deptIds 
+            : [departmentId];
         
         setEditingService({
             ...service,
