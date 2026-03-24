@@ -292,6 +292,7 @@ export default function DoctorsPage() {
         'Aesthetic Dermatology',
         'Nursing-Beauty Therapy',
         'Laser Hair Removal',
+        'Nursing-Laser Hair Removal',
         'Physiotherapy',
     ];
     const uniqueDepartments = Array.from(new Map(allDepartments.map(d => [d.deptId, d])).values())
