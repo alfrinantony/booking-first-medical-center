@@ -315,8 +315,37 @@ export default function AdminAppointmentsPage() {
         }
     };
 
-    // Derived for Edit Modal
-    const availableDocsForEdit = editingBooking ? clinics.find(c => c.id === editingBooking.clinicId)?.departments.find(d => d.id === editingBooking.deptId)?.doctors || [] : [];
+    const availableDocsForEdit = (() => {
+        if (!editingBooking) return [];
+        const clinic = clinics.find(c => c.id === editingBooking.clinicId);
+        if (!clinic) return [];
+
+        let docs: any[] = [];
+        if (editingBooking.deptId) {
+            const dept = clinic.departments.find(d => d.id === editingBooking.deptId);
+            if (dept) docs = dept.doctors || [];
+        }
+
+        if (docs.length === 0 && editingBooking.serviceId) {
+            const deptsWithService = clinic.departments.filter(d => 
+                d.services && d.services.some(s => s.id === editingBooking.serviceId)
+            );
+            const docsMap = new Map();
+            deptsWithService.forEach(d => {
+                (d.doctors || []).forEach(doc => docsMap.set(doc.id, doc));
+            });
+            docs = Array.from(docsMap.values());
+        }
+
+        if (docs.length === 0) {
+            const docsMap = new Map();
+            clinic.departments.forEach(d => {
+                (d.doctors || []).forEach(doc => docsMap.set(doc.id, doc));
+            });
+            docs = Array.from(docsMap.values());
+        }
+        return docs;
+    })();
 
     // Quick Client Registration
     const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
