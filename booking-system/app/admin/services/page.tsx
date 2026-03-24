@@ -7,7 +7,7 @@ import ServiceEditorModal from '@/components/ServiceEditorModal';
 import { useFormDraft } from '@/hooks/useFormDraft';
 
 interface ServiceFormState {
-    departmentId: string;
+    departmentIds: string[];
     name: string;
     description: string;
     preCare: string;
@@ -55,7 +55,7 @@ export default function ServicesPage() {
     // Add Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const emptyServiceForm: ServiceFormState = {
-        departmentId: '',
+        departmentIds: [],
         name: '',
         description: '',
         preCare: '',
@@ -96,7 +96,7 @@ export default function ServicesPage() {
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingService, setEditingService] = useState<Service & { departmentId: string } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string, minimumIntervalDaysInput?: string, originalName?: string } | null>(null);
+    const [editingService, setEditingService] = useState<Service & { departmentIds: string[] } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string, minimumIntervalDaysInput?: string, originalName?: string } | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -207,38 +207,7 @@ export default function ServicesPage() {
         }
     }, [selectedClinicId]);
 
-    const buildServicePayload = (formState: ServiceFormState | (Service & { departmentId: string; timeWindowStart?: string; timeWindowEnd?: string })) => {
-        const payload: any = {
-            clinicId: selectedClinicId,
-            departmentId: formState.departmentId,
-            name: formState.name,
-            price: Number(formState.discountedPrice) || Number(formState.regularPrice) || Number(formState.price),
-            regularPrice: Number(formState.regularPrice) || undefined,
-            discountedPrice: Number(formState.discountedPrice) || undefined,
-            duration: Number(formState.duration),
-            allowedDoctorIds: formState.allowedDoctorIds,
-            allowedGender: formState.allowedGender,
-            allowedDays: formState.allowedDays,
-            requiredResourceIds: formState.requiredResourceIds,
-            consumableIds: 'consumableIds' in formState ? (formState as any).consumableIds || [] : [],
-            productConsumptions: 'productConsumptions' in formState ? (formState as any).productConsumptions || [] : []
-        };
-
-        if ('serviceId' in formState) { // It's an update (hacky check, better to separate)
-            // simplified below
-        }
-
-        if (formState.timeWindowStart && formState.timeWindowEnd) {
-            payload.timeWindow = {
-                start: formState.timeWindowStart,
-                end: formState.timeWindowEnd
-            };
-        } else {
-            payload.timeWindow = undefined; // Clear it if not complete
-        }
-
-        return payload;
-    };
+    // Empty space from deleted buildServicePayload
 
 
     const handleAddService = async (e: React.FormEvent) => {
@@ -252,14 +221,21 @@ export default function ServicesPage() {
                 const branchClinic = clinics.find(c => c.id === branchId);
                 if (!branchClinic) continue;
 
-                let targetDeptId = newService.departmentId;
-                if (branchId !== selectedClinicId) {
-                    // Find the original department name from the currently selected clinic
-                    const sourceClinic = clinics.find(c => c.id === selectedClinicId);
-                    const sourceDept = sourceClinic?.departments?.find(d => d.id === newService.departmentId);
-                    const matchedDept = branchClinic.departments?.find(d => d.name === sourceDept?.name);
-                    targetDeptId = matchedDept?.id || branchClinic.departments?.[0]?.id || '';
-                }
+                const targetDeptIds = newService.departmentIds.length > 0 
+                                      ? newService.departmentIds 
+                                      : (currentClinic?.departments?.[0] ? [currentClinic.departments[0].id] : []);
+
+                for (const sourceDeptId of targetDeptIds) {
+                    let targetDeptId = sourceDeptId;
+                    if (branchId !== selectedClinicId) {
+                        // Find the original department name from the currently selected clinic
+                        const sourceClinic = clinics.find(c => c.id === selectedClinicId);
+                        const sourceDept = sourceClinic?.departments?.find(d => d.id === sourceDeptId);
+                        const matchedDept = branchClinic.departments?.find(d => d.name === sourceDept?.name);
+                        targetDeptId = matchedDept?.id || branchClinic.departments?.[0]?.id || '';
+                    }
+
+                    if (!targetDeptId) continue;
 
                 const payload: any = {
                     clinicId: branchId,
@@ -315,7 +291,8 @@ export default function ServicesPage() {
                     const branch = branchClinic?.name || branchId;
                     alert(`Failed to add service to ${branch}`);
                 }
-            }
+                } // End department loop
+            } // End branch loop
 
             await fetchServices();
             setIsAddModalOpen(false);
@@ -388,62 +365,62 @@ export default function ServicesPage() {
             // "If no branches selected, service will be updated in all branches where it currently exists."
             const targetBranchIds = selectedBranchIds.length > 0 ? selectedBranchIds : previouslyAssignedBranchIds;
 
-            // Update the current branch (if it's still selected)
-            if (targetBranchIds.includes(selectedClinicId)) {
-                const mainPayload = buildPayload(selectedClinicId, editingService.departmentId, editingService.id);
-                const res = await fetch('/api/admin/services', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(mainPayload)
-                });
-
-                if (!res.ok) {
-                    alert('Failed to update service in the current branch');
-                }
-            }
-
-            // Apply to additionally selected branches
-            const otherBranches = targetBranchIds.filter(id => id !== selectedClinicId);
-            for (const branchId of otherBranches) {
+            for (const branchId of targetBranchIds) {
                 const branchClinic = clinics.find(c => c.id === branchId);
                 if (!branchClinic) continue;
 
-                // Find same-named service in this branch (using originalName to handle renames)
-                let existingServiceId: string | undefined;
-                let existingDeptId: string | undefined;
-                for (const dept of branchClinic.departments || []) {
-                    const found = (dept.services || []).find(s => s.name === (editingService as any).originalName);
-                    if (found) {
-                        existingServiceId = found.id;
-                        existingDeptId = dept.id;
-                        break;
+                // What were the OLD departments in this branch that had this service?
+                const prevDeptIds: string[] = [];
+                for (const d of branchClinic.departments || []) {
+                    if (d.services.some(s => s.name === (editingService as any).originalName)) prevDeptIds.push(d.id);
+                }
+
+                // What are the NEW desired departments in this branch?
+                // We map them by name from exactly what was selected in editingService.departmentIds from the source clinic.
+                const sourceClinic = clinics.find(c => c.id === selectedClinicId);
+                const targetDeptIds: string[] = [];
+                
+                for (const srcDeptId of editingService.departmentIds) {
+                    if (branchId === selectedClinicId) {
+                        targetDeptIds.push(srcDeptId);
+                    } else {
+                        const sourceDept = sourceClinic?.departments?.find(d => d.id === srcDeptId);
+                        const matchedDept = branchClinic.departments?.find(d => d.name === sourceDept?.name);
+                        if (matchedDept) {
+                            targetDeptIds.push(matchedDept.id);
+                        } else if (branchClinic.departments?.[0]) {
+                            // Target fallback
+                            if (!targetDeptIds.includes(branchClinic.departments[0].id)) {
+                                targetDeptIds.push(branchClinic.departments[0].id);
+                            }
+                        }
                     }
                 }
 
-                if (existingServiceId && existingDeptId) {
-                    // Update existing service
+                // Departments to Add or Update
+                for (const deptId of targetDeptIds) {
+                    const matchedSvc = branchClinic.departments?.find(d => d.id === deptId)?.services?.find(s => s.name === (editingService as any).originalName);
+                    const method = matchedSvc ? 'PUT' : 'POST';
                     await fetch('/api/admin/services', {
-                        method: 'PUT',
+                        method,
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(buildPayload(branchId, existingDeptId, existingServiceId))
-                    });
-                } else {
-                    // Create new service in this branch
-                    // Map department by name
-                    const sourceClinic = clinics.find(c => c.id === selectedClinicId);
-                    const sourceDept = sourceClinic?.departments?.find(d => d.id === editingService.departmentId);
-                    const matchedDept = branchClinic.departments?.find(d => d.name === sourceDept?.name);
-                    const targetDeptId = matchedDept?.id || branchClinic.departments?.[0]?.id || '';
-
-                    await fetch('/api/admin/services', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(buildPayload(branchId, targetDeptId))
+                        body: JSON.stringify(buildPayload(branchId, deptId, matchedSvc?.id))
                     });
                 }
-            } // Close the for loop iterating over otherBranches
 
-            // Handle branches that were unchecked (need to be deleted)
+                // Departments to Delete (UNCHECKED)
+                const departmentsToRemove = prevDeptIds.filter(id => !targetDeptIds.includes(id));
+                for (const deptId of departmentsToRemove) {
+                    const matchedSvc = branchClinic.departments?.find(d => d.id === deptId)?.services?.find(s => s.name === (editingService as any).originalName);
+                    if (matchedSvc) {
+                        await fetch(`/api/admin/services?clinicId=${branchId}&departmentId=${deptId}&serviceId=${matchedSvc.id}`, {
+                            method: 'DELETE'
+                        });
+                    }
+                }
+            } // Close the for loop iterating over targetBranchIds
+
+            // Handle branches that were ENTIRELY unchecked (need to be deleted from ALL departments in that branch)
             const branchesToRemove = previouslyAssignedBranchIds.filter(id => !targetBranchIds.includes(id));
             
             for (const branchId of branchesToRemove) {
@@ -520,9 +497,17 @@ export default function ServicesPage() {
     };
 
     const openEditModal = (departmentId: string, service: Service) => {
+        // Collect all departments in the current clinic that already have this service by name
+        const deptIdsWithService: string[] = [];
+        for (const dept of currentClinic?.departments || []) {
+            if ((dept.services || []).some(s => s.name === service.name)) {
+                deptIdsWithService.push(dept.id);
+            }
+        }
+        
         setEditingService({
             ...service,
-            departmentId,
+            departmentIds: deptIdsWithService,
             timeWindowStart: service.timeWindow?.start || '',
             timeWindowEnd: service.timeWindow?.end || '',
             followUpDurationInput: service.followUpDuration ? String(service.followUpDuration) : '',
@@ -1177,7 +1162,7 @@ export default function ServicesPage() {
                         }
                         mode="add"
                         title="Add New Service"
-                        formState={{ ...newService, departmentId: newService.departmentId || currentClinic?.departments[0]?.id || '' }}
+                        formState={{ ...newService, departmentIds: newService.departmentIds?.length > 0 ? newService.departmentIds : (currentClinic?.departments?.[0] ? [currentClinic.departments[0].id] : []) }}
                         setFormState={setNewService}
                         currentClinic={currentClinic}
                         doctors={getDepartmentDoctors('')}
@@ -1186,9 +1171,9 @@ export default function ServicesPage() {
                         registeredProducts={registeredProducts}
                         dayNames={dayNames}
                         onSubmit={(e) => {
-                            // Auto-assign departmentId if not set
-                            if (!newService.departmentId && currentClinic?.departments[0]) {
-                                setNewService({ ...newService, departmentId: currentClinic.departments[0].id });
+                            // Auto-assign departmentIds if not set
+                            if ((!newService.departmentIds || newService.departmentIds.length === 0) && currentClinic?.departments?.[0]) {
+                                setNewService({ ...newService, departmentIds: [currentClinic.departments[0].id] });
                             }
                             handleAddService(e);
                         }}
@@ -1255,7 +1240,7 @@ export default function ServicesPage() {
                             formState={editingService}
                             setFormState={setEditingService}
                             currentClinic={currentClinic}
-                            doctors={getDepartmentDoctors(editingService.departmentId)}
+                            doctors={getDepartmentDoctors('')}
                             resources={resources}
                             medicines={medicines}
                             registeredProducts={registeredProducts}

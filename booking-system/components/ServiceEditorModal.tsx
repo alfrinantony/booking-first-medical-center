@@ -159,6 +159,34 @@ export default function ServiceEditorModal({
                                     {branchSelector}
                                 </div>
                             )}
+
+                            {/* Departments Selection */}
+                            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl">
+                                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-gray-500" />
+                                    Assign to Departments *
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                                    {currentClinic?.departments?.map(dept => (
+                                        <label key={dept.id} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                checked={(formState.departmentIds || []).includes(dept.id)}
+                                                onChange={(e) => {
+                                                    const ids = formState.departmentIds || [];
+                                                    if (e.target.checked) update({ departmentIds: [...ids, dept.id] });
+                                                    else update({ departmentIds: ids.filter((id: string) => id !== dept.id) });
+                                                }}
+                                            />
+                                            <span className="text-gray-800 dark:text-gray-200">{dept.name}</span>
+                                        </label>
+                                    ))}
+                                    {(!currentClinic?.departments || currentClinic.departments.length === 0) && (
+                                        <p className="text-xs text-gray-500 italic col-span-full">No departments available in this clinic.</p>
+                                    )}
+                                </div>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Service Name *</label>
