@@ -50,6 +50,7 @@ export const MODULES: ModuleDefinition[] = [
     // Core
     { key: 'dashboard', label: 'Dashboard', group: 'Core' },
     { key: 'appointments', label: 'Appointments', group: 'Core' },
+    { key: 'reassign_doctor', label: 'Re-assign Doctor (Appointments)', group: 'Core' },
     { key: 'clients', label: 'Clients', group: 'Core' },
     { key: 'registered_users', label: 'Registered Users', group: 'Core' },
     // Clinical

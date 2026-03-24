@@ -29,6 +29,19 @@ export default function AdminAppointmentsPage() {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
 
+    // Current User & Permissions
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    useEffect(() => {
+        try {
+            const user = JSON.parse(sessionStorage.getItem('adminUser') || '{}');
+            setCurrentUser(user);
+        } catch { }
+    }, []);
+
+    const canReassignDoctor = currentUser?.role === 'SUPER_ADMIN' ||
+        (currentUser?.permissions?.['reassign_doctor']?.length > 0) ||
+        false;
+
     // Fetch live clinic data from API
     useEffect(() => {
         const fetchClinics = async () => {
@@ -731,14 +744,18 @@ export default function AdminAppointmentsPage() {
                             <div>
                                 <label className="block text-sm font-medium mb-1">Doctor</label>
                                 <select
-                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                                     value={editForm.doctorId}
                                     onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
+                                    disabled={!canReassignDoctor}
                                 >
                                     {availableDocsForEdit.map(doc => (
                                         <option key={doc.id} value={doc.id}>{doc.name}</option>
                                     ))}
                                 </select>
+                                {!canReassignDoctor && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">You do not have permission to change the assigned doctor.</p>
+                                )}
                             </div>
 
                             <div>
