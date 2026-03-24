@@ -295,8 +295,15 @@ export default function DoctorsPage() {
         'Nursing-Laser Hair Removal',
         'Physiotherapy',
     ];
+    
+    // Normalize string for comparison (removes spaces and standardizes hyphens)
+    const normalizeDeptName = (str: string) => str.toLowerCase().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+
     const uniqueDepartments = Array.from(new Map(allDepartments.map(d => [d.deptId, d])).values())
-        .filter(d => ALLOWED_DOCTOR_DEPTS.some(name => d.deptName.toLowerCase() === name.toLowerCase()));
+        .filter(d => ALLOWED_DOCTOR_DEPTS.some(name => normalizeDeptName(d.deptName) === normalizeDeptName(name)));
+    
+    // Extract the ACTUAL names exactly as they are written in the database to prevent saving errors
+    const actualDeptNames = Array.from(new Set(uniqueDepartments.map(d => d.deptName)));
 
     // Helper: get all branches a doctor is assigned to (by shared ID)
     const getDoctorBranches = (doctorId: string) => {
@@ -509,7 +516,7 @@ export default function DoctorsPage() {
                                         onChange={(e) => setNewDoctor({ ...newDoctor, departmentName: e.target.value })}
                                     >
                                         <option value="">-- Select Department --</option>
-                                        {ALLOWED_DOCTOR_DEPTS.map(deptName => (
+                                        {actualDeptNames.map(deptName => (
                                             <option key={deptName} value={deptName}>{deptName}</option>
                                         ))}
                                     </select>
@@ -685,7 +692,7 @@ export default function DoctorsPage() {
                                         onChange={(e) => setEditingDoctor({ ...editingDoctor, departmentName: e.target.value })}
                                     >
                                         <option value="">-- Select Department --</option>
-                                        {ALLOWED_DOCTOR_DEPTS.map(deptName => (
+                                        {actualDeptNames.map(deptName => (
                                             <option key={deptName} value={deptName}>{deptName}</option>
                                         ))}
                                     </select>
