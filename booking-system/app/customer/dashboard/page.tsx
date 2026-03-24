@@ -418,52 +418,68 @@ export default function CustomerDashboard() {
                                                 )}
 
                                                 {/* Session tracking per service */}
-                                                {Object.entries(pkg.remainingSessions).map(([svcId, remaining]) => {
-                                                    const total = pkg.totalSessions?.[svcId] || remaining;
-                                                    const used = total - remaining;
-                                                    const nextSession = used + 1;
-                                                    // Show the service name from package name
-                                                    const serviceName = pkg.packageName.replace(/ - \d+ Sessions?$/i, '');
-                                                    return (
-                                                        <div key={svcId}>
-                                                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{serviceName}</p>
-                                                            {/* Session info grid */}
-                                                            <div className="grid grid-cols-3 gap-2 text-center mb-2">
-                                                                <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2">
-                                                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">Next Session</p>
-                                                                    <p className="text-lg font-extrabold text-indigo-600">{nextSession} <span className="text-xs font-normal text-gray-400">of {total}</span></p>
+                                                {(() => {
+                                                    // Determine if package is locked to a specific service (has at least 1 used session)
+                                                    const lockedServiceId = Object.entries(pkg.remainingSessions).find(([id, rem]) => {
+                                                        const total = pkg.totalSessions?.[id] || rem;
+                                                        return total - rem > 0;
+                                                    })?.[0];
+
+                                                    return Object.entries(pkg.remainingSessions).map(([svcId, remaining]) => {
+                                                        const total = pkg.totalSessions?.[svcId] || remaining;
+                                                        const used = total - remaining;
+                                                        const nextSession = used + 1;
+                                                        // Show the service name from package name
+                                                        const serviceName = pkg.packageName.replace(/ - \d+ Sessions?$/i, '');
+                                                        const isLockedOut = lockedServiceId && lockedServiceId !== svcId;
+
+                                                        return (
+                                                            <div key={svcId}>
+                                                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{serviceName}</p>
+                                                                {/* Session info grid */}
+                                                                <div className="grid grid-cols-3 gap-2 text-center mb-2">
+                                                                    <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2">
+                                                                        <p className="text-[10px] text-gray-500 uppercase tracking-wider">Next Session</p>
+                                                                        <p className="text-lg font-extrabold text-indigo-600">{nextSession} <span className="text-xs font-normal text-gray-400">of {total}</span></p>
+                                                                    </div>
+                                                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2">
+                                                                        <p className="text-[10px] text-gray-500 uppercase tracking-wider">Remaining</p>
+                                                                        <p className="text-lg font-extrabold text-emerald-600">{remaining}</p>
+                                                                    </div>
+                                                                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
+                                                                        <p className="text-[10px] text-gray-500 uppercase tracking-wider">Expires</p>
+                                                                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{expiryFormatted}</p>
+                                                                        <p className="text-[10px] text-gray-400">{daysLeft}d left</p>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2">
-                                                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">Remaining</p>
-                                                                    <p className="text-lg font-extrabold text-emerald-600">{remaining}</p>
+                                                                {/* Progress bar */}
+                                                                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full transition-all ${remaining > 0 ? 'bg-gradient-to-r from-indigo-500 to-emerald-500' : 'bg-red-500'}`}
+                                                                        style={{ width: `${(used / total) * 100}%` }}
+                                                                    />
                                                                 </div>
-                                                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
-                                                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">Expires</p>
-                                                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{expiryFormatted}</p>
-                                                                    <p className="text-[10px] text-gray-400">{daysLeft}d left</p>
-                                                                </div>
+                                                                <p className="text-[10px] text-gray-400 mt-1">{used} of {total} sessions used</p>
+                                                                
+                                                                {/* Book button for this specific service */}
+                                                                {!isPending && pkg.active && remaining > 0 && (
+                                                                    isLockedOut ? (
+                                                                        <button disabled className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 mt-3 mb-4 bg-gray-100 text-gray-400 font-bold rounded-xl cursor-not-allowed shadow-sm text-sm border border-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700">
+                                                                            Locked to another service
+                                                                        </button>
+                                                                    ) : (
+                                                                        <Link
+                                                                            href={`/booking?packageId=${pkg.id}&serviceId=${encodeURIComponent(svcId)}`}
+                                                                            className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 mt-3 mb-4 bg-indigo-50 text-indigo-700 font-bold rounded-xl hover:bg-indigo-100 transition-colors shadow-sm dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 text-sm border border-indigo-100 dark:border-indigo-800"
+                                                                        >
+                                                                            <Calendar className="w-4 h-4" /> Book Session
+                                                                        </Link>
+                                                                    )
+                                                                )}
                                                             </div>
-                                                            {/* Progress bar */}
-                                                            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className={`h-full rounded-full transition-all ${remaining > 0 ? 'bg-gradient-to-r from-indigo-500 to-emerald-500' : 'bg-red-500'}`}
-                                                                    style={{ width: `${(used / total) * 100}%` }}
-                                                                />
-                                                            </div>
-                                                            <p className="text-[10px] text-gray-400 mt-1">{used} of {total} sessions used</p>
-                                                            
-                                                            {/* Book button for this specific service */}
-                                                            {!isPending && pkg.active && remaining > 0 && (
-                                                                <Link
-                                                                    href={`/booking?packageId=${pkg.id}&serviceId=${encodeURIComponent(svcId)}`}
-                                                                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 mt-3 mb-4 bg-indigo-50 text-indigo-700 font-bold rounded-xl hover:bg-indigo-100 transition-colors shadow-sm dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 text-sm border border-indigo-100 dark:border-indigo-800"
-                                                                >
-                                                                    <Calendar className="w-4 h-4" /> Book Session
-                                                                </Link>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
+                                                        );
+                                                    });
+                                                })()}
 
                                                 {/* Actions */}
                                                 {!isPending && pkg.active && (
