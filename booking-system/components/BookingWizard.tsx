@@ -897,6 +897,13 @@ export default function BookingWizard() {
     }, [qPackageId, selectedService, myPackages]);
     const [usePackageSession, setUsePackageSession] = useState(false);
 
+    // Auto-enable if explicitly brought from dashboard via packageId
+    React.useEffect(() => {
+        if (qPackageId && applicablePackage) {
+            setUsePackageSession(true);
+        }
+    }, [qPackageId, applicablePackage]);
+
     // Session tracking calculations
     const packageTotalSessions = applicablePackage && selectedService
         ? (applicablePackage.totalSessions?.[selectedService.id] || applicablePackage.remainingSessions[selectedService.id])
@@ -1233,19 +1240,54 @@ export default function BookingWizard() {
                 }
             `}</style>
 
-            {/* Progress Bar */}
-            <div className="mb-8">
-                <div className="flex justify-between mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {['Category', 'Service', 'Date', 'Clinic Branch', 'Doctor', 'Time Slot', 'Review'].map((label, idx) => (
-                        <span key={idx} className={step >= idx ? 'text-indigo-600 dark:text-indigo-400 font-bold' : ''}>{label}</span>
-                    ))}
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                    <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((step + 1) / 7) * 100}%` }}></div>
-                </div>
-            </div>
+            {/* Progress Bar & Package Banner */}
+            {(() => {
+                const isPackageDirect = !!searchParams.get('packageId');
+                const allLabels = ['Category', 'Service', 'Date', 'Clinic Branch', 'Doctor', 'Time Slot', 'Review'];
+                const labels = isPackageDirect ? ['Date', 'Clinic Branch', 'Doctor', 'Time Slot', 'Review'] : allLabels;
+                const offset = isPackageDirect ? 2 : 0;
+                const currentVisualStep = Math.max(0, step - offset);
+                
+                return (
+                    <div className="mb-8">
+                        <div className="flex justify-between mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                            {labels.map((label, idx) => (
+                                <span key={idx} className={currentVisualStep >= idx ? 'text-indigo-600 dark:text-indigo-400 font-bold' : ''}>{label}</span>
+                            ))}
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                            <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((currentVisualStep + 1) / labels.length) * 100}%` }}></div>
+                        </div>
+                    </div>
+                );
+            })()}
 
-
+            {/* Package Details Banner */}
+            {searchParams.get('packageId') && applicablePackage && selectedService && (
+                <div className="mb-8 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-start justify-between flex-wrap gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white dark:bg-gray-800 p-2.5 text-indigo-600 dark:text-indigo-400 rounded-xl shadow-sm">
+                                <PackageIcon className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    {selectedService.name} <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 uppercase tracking-widest border border-indigo-200 dark:border-indigo-700">Package Session</span>
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Booking Session {packageTotalSessions - packageRemainingSessions + 1} of {packageTotalSessions}</p>
+                            </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                            <p className="text-gray-500 uppercase tracking-wider text-[10px] font-bold">Remaining</p>
+                            <p className="text-2xl font-extrabold text-emerald-600 leading-none mt-1">{packageRemainingSessions}</p>
+                        </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-indigo-100/50 dark:border-indigo-800/50 flex flex-wrap justify-between items-center text-xs gap-2">
+                        <span className="text-gray-500">Package: <strong className="text-gray-700 dark:text-gray-300">{applicablePackage.packageName}</strong></span>
+                        <span className="text-gray-500">Valid until: <strong className="text-gray-700 dark:text-gray-300">{packageExpiryDate}</strong></span>
+                    </div>
+                </div>
+            )}
 
             {/* Step 0: Select Category */}
             {
@@ -2293,11 +2335,18 @@ export default function BookingWizard() {
 
                             {/* Package Redemption Option */}
                             {applicablePackage && !rescheduleData && (
-                                <div className={`rounded-xl border-2 transition-all duration-300 cursor-pointer mb-6 overflow-hidden transform hover:scale-[1.01] active:scale-[0.99] hover:shadow-md ${usePackageSession
+                                <div className={`rounded-xl border-2 transition-all duration-300 mb-6 overflow-hidden ${
+                                    qPackageId ? 'cursor-default' : 'cursor-pointer transform hover:scale-[1.01] active:scale-[0.99] hover:shadow-md'
+                                } ${usePackageSession
                                     ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
                                     : 'border-gray-200 dark:border-gray-700'
                                     }`}
-                                    onClick={() => { triggerHaptic(); setUsePackageSession(!usePackageSession); }}
+                                    onClick={() => { 
+                                        if (!qPackageId) {
+                                            triggerHaptic(); 
+                                            setUsePackageSession(!usePackageSession); 
+                                        }
+                                    }}
                                 >
                                     <div className="p-4 flex items-center justify-between">
                                         <div className="flex items-center gap-4">
