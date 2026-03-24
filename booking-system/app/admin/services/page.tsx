@@ -332,8 +332,8 @@ export default function ServicesPage() {
                     allowedDays: editingService.allowedDays,
                     isTaxable: editingService.isTaxable,
                     category: editingService.category,
-                    followUpDuration: editingService.followUpDurationInput ? Number(editingService.followUpDurationInput) : null,
-                    minimumIntervalDays: editingService.minimumIntervalDaysInput ? Number(editingService.minimumIntervalDaysInput) : null,
+                    followUpDuration: (editingService as any).followUpDurationInput ? Number((editingService as any).followUpDurationInput) : null,
+                    minimumIntervalDays: (editingService as any).minimumIntervalDaysInput ? Number((editingService as any).minimumIntervalDaysInput) : null,
                     screeningQuestions: editingService.screeningQuestions,
                     timeWindow: (editingService.timeWindowStart && editingService.timeWindowEnd) ? {
                         start: editingService.timeWindowStart,
@@ -404,7 +404,8 @@ export default function ServicesPage() {
                     await fetch('/api/admin/services', {
                         method,
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(buildPayload(branchId, deptId, matchedSvc?.id))
+                        // Make sure we carry over the same universal ID so bookings and packages don't break when switching departments!
+                        body: JSON.stringify(buildPayload(branchId, deptId, matchedSvc?.id || editingService.id))
                     });
                 }
 

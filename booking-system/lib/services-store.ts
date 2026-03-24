@@ -455,7 +455,7 @@ export const ServicesStore = {
         return updated;
     },
 
-    addService: async (clinicId: string, departmentId: string, service: Omit<Service, 'id'>) => {
+    addService: async (clinicId: string, departmentId: string, service: Partial<Service> & { name: string, price: number, duration: number }) => {
         await ensureClinicsLoaded();
         const clinic = clinicStore.find(c => c.id === clinicId);
         if (!clinic) return null;
@@ -466,9 +466,9 @@ export const ServicesStore = {
         const newService: Service = {
             ...service,
             isTaxable: service.isTaxable || false,
-            id: `${departmentId}-svc-${Date.now()}`,
+            id: service.id || `${departmentId}-svc-${Date.now()}`,
             screeningQuestions: service.screeningQuestions || []
-        };
+        } as Service;
 
         department.services.push(newService);
         await saveToBlob('clinics', clinicStore);
