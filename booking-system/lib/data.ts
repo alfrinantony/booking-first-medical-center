@@ -414,13 +414,9 @@ export type BookingCategory = typeof BOOKING_CATEGORIES[number];
 // Data Generation
 const departmentNames = [
     'Aesthetic Dermatology',
-    'Hair Removal',
+    'Nursing-Hair Removal',
     'Nursing-Beauty Therapy',
-    'Orthopedics',
-    'Pediatrics',
-    'Gynecology',
-    'Ophthalmology',
-    'General Medicine'
+    'Physiotherapy'
 ];
 
 export const clinics: Clinic[] = [
@@ -438,11 +434,11 @@ export const clinics: Clinic[] = [
         contactPhone: '+971 4 250 6262',
         email: 'muraqabat@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
-        departments: departmentNames.slice(0, 3).map(dept => ({
+        departments: departmentNames.map(dept => ({
             id: `c1-${dept}`,
             name: dept,
             services: generateServices(dept),
-            doctors: generateDoctors(dept, 5), // 3 depts * 5 docs = 15 total
+            doctors: generateDoctors(dept, 5), // 4 depts * 5 docs = 20 total
         }))
     },
     {
@@ -459,11 +455,11 @@ export const clinics: Clinic[] = [
         contactPhone: '+971 4 261 7171',
         email: 'qiyadah@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
-        departments: [departmentNames[0], departmentNames[1], departmentNames[2]].map(dept => ({
+        departments: departmentNames.map(dept => ({
             id: `c2-${dept}`,
             name: dept,
             services: generateServices(dept),
-            doctors: generateDoctors(dept, 5), // 3 depts * 5 docs = 15 total
+            doctors: generateDoctors(dept, 5), // 4 depts * 5 docs = 20 total
         }))
     },
     {
@@ -480,11 +476,11 @@ export const clinics: Clinic[] = [
         contactPhone: '+971 4 392 0809',
         email: 'siliconoasis@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
-        departments: [departmentNames[0], departmentNames[1], departmentNames[2]].map(dept => ({
+        departments: departmentNames.map(dept => ({
             id: `c3-${dept}`,
             name: dept,
             services: generateServices(dept),
-            doctors: generateDoctors(dept, 5), // 3 depts * 5 docs = 15 total
+            doctors: generateDoctors(dept, 5), // 4 depts * 5 docs = 20 total
         }))
     },
 ];
