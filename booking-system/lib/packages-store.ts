@@ -300,6 +300,154 @@ export const PackagesStore = {
         return { success: true, message: 'Session used successfully', remaining: currentSessions - 1, deductedValue };
     },
 
+    upgradeCustomerPackage: async (customerPkgId: string, newPackageId: string, staffName: string): Promise<{ success: boolean; message: string; upgradeCost?: number; oldPackageName?: string; newPackageName?: string }> => {
+        await ensurePackagesLoaded();
+        const pkgIndex = customerPackages.findIndex(p => p.id === customerPkgId);
+        if (pkgIndex === -1) return { success: false, message: 'Package not found' };
+
+        const customerPkg = customerPackages[pkgIndex];
+        const oldPkgTemplate = availablePackages.find(p => p.id === customerPkg.packageId);
+        const newPkgTemplate = availablePackages.find(p => p.id === newPackageId);
+
+        if (!oldPkgTemplate || !newPkgTemplate) return { success: false, message: 'Package templates not found' };
+        if (!customerPkg.active) return { success: false, message: 'Cannot upgrade an inactive package' };
+
+        const upgradeCost = newPkgTemplate.price - oldPkgTemplate.price;
+        if (upgradeCost <= 0) return { success: false, message: 'Cannot upgrade to a package with an equal or lower base price' };
+
+        // Verify it's the exact same service
+        const oldServiceId = oldPkgTemplate.items[0]?.serviceId;
+        const newServiceId = newPkgTemplate.items[0]?.serviceId;
+        if (oldServiceId !== newServiceId) return { success: false, message: 'Upgrades must be for the exact same service. Use "Change Package" instead.' };
+
+        // Calculate new sessions: New Total - Old Used
+        const newTotalSessions: Record<string, number> = {};
+        const newRemainingSessions: Record<string, number> = {};
+
+        newPkgTemplate.items.forEach(item => {
+            const oldTotal = customerPkg.totalSessions[item.serviceId] || 0;
+            const oldRemaining = customerPkg.remainingSessions[item.serviceId] || 0;
+            const oldUsed = oldTotal - oldRemaining;
+
+            newTotalSessions[item.serviceId] = item.count;
+            newRemainingSessions[item.serviceId] = Math.max(0, item.count - oldUsed);
+        });
+
+        customerPackages[pkgIndex] = {
+            ...customerPkg,
+            packageId: newPackageId,
+            packageName: newPkgTemplate.name,
+            totalSessions: newTotalSessions,
+            remainingSessions: newRemainingSessions,
+            expiryDate: addDays(new Date(), newPkgTemplate.validityInDays).toISOString()
+        };
+
+        await savePackages();
+
+        return {
+            success: true,
+            message: `Successfully upgraded to ${newPkgTemplate.name}.`,
+            upgradeCost,
+            oldPackageName: oldPkgTemplate.name,
+            newPackageName: newPkgTemplate.name
+        };
+    },
+
+    changeCustomerPackage: async (customerPkgId: string, newPackageId: string, staffName: string): Promise<{ success: boolean; message: string; costDifference?: number; remainingValue?: number; oldPackageName?: string; newPackageName?: string }> => {
+        await ensurePackagesLoaded();
+        const pkgIndex = customerPackages.findIndex(p => p.id === customerPkgId);
+        if (pkgIndex === -1) return { success: false, message: 'Package not found' };
+
+        const customerPkg = customerPackages[pkgIndex];
+        const oldPkgTemplate = availablePackages.find(p => p.id === customerPkg.packageId);
+        const newPkgTemplate = availablePackages.find(p => p.id === newPackageId);
+
+        if (!oldPkgTemplate || !newPkgTemplate) return { success: false, message: 'Package templates not found' };
+        if (!customerPkg.active) return { success: false, message: 'Cannot change an inactive package' };
+
+        // Calculate remaining value
+        let totalUsedValue = 0;
+        let getServiceById: any = null;
+        try {
+            const { ServicesStore } = await import('./services-store');
+            getServiceById = ServicesStore.getServiceById;
+        } catch (e) {
+            console.warn("Could not load ServicesStore for package change refund calc");
+        }
+
+        for (const item of oldPkgTemplate.items) {
+            const total = item.count;
+            const remaining = customerPkg.remainingSessions[item.serviceId] || 0;
+            const used = total - remaining;
+            
+            if (used > 0) {
+                let sessionPrice = oldPkgTemplate.price / oldPkgTemplate.items.reduce((acc, i) => acc + i.count, 0); // fallback average price
+                if (getServiceById) {
+                    const service = await getServiceById(item.serviceId);
+                    if (service?.price) {
+                        sessionPrice = service.price;
+                    }
+                }
+                totalUsedValue += (used * sessionPrice);
+            }
+        }
+
+        const remainingValue = Math.max(0, oldPkgTemplate.price - totalUsedValue);
+        const costDifference = newPkgTemplate.price - remainingValue;
+
+        // If costDifference < 0 (credit), add to wallet. 
+        if (costDifference < 0) {
+            const creditAmount = Math.abs(costDifference);
+            try {
+                const { WalletStore } = await import('./wallet-store');
+                await WalletStore.addRestrictedBalance(
+                    customerPkg.customerPhone,
+                    customerPkg.customerName,
+                    creditAmount,
+                    addDays(new Date(), newPkgTemplate.validityInDays).toISOString(),
+                    customerPkg.id,
+                    `Credit from changing package: ${customerPkg.packageName} to ${newPkgTemplate.name}`,
+                    staffName
+                );
+            } catch (e) {
+                console.error("Failed to add restricted refund to wallet:", e);
+                return { success: false, message: 'Failed to credit restricted balance to wallet' };
+            }
+        }
+
+        // Setup the new sessions fresh
+        const newTotalSessions: Record<string, number> = {};
+        const newRemainingSessions: Record<string, number> = {};
+
+        newPkgTemplate.items.forEach(item => {
+            newTotalSessions[item.serviceId] = item.count;
+            newRemainingSessions[item.serviceId] = item.count;
+        });
+
+        // Mutate package
+        customerPackages[pkgIndex] = {
+            ...customerPkg,
+            packageId: newPackageId,
+            packageName: newPkgTemplate.name,
+            totalSessions: newTotalSessions,
+            remainingSessions: newRemainingSessions,
+            consumedValue: 0, // Reset
+            expiryDate: addDays(new Date(), newPkgTemplate.validityInDays).toISOString(),
+            isCombo: (newPkgTemplate as any).isCombo || false,
+        };
+
+        await savePackages();
+
+        return {
+            success: true,
+            message: `Successfully changed to ${newPkgTemplate.name}.`,
+            costDifference,
+            remainingValue,
+            oldPackageName: oldPkgTemplate.name,
+            newPackageName: newPkgTemplate.name
+        };
+    },
+
     // ── Transfer ──
     transferPackage: async (customerPkgId: string, newOwnerName: string, newOwnerPhone: string, reason: string): Promise<{ success: boolean; message: string }> => {
         await ensurePackagesLoaded();

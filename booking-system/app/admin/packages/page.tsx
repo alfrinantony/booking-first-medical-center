@@ -137,6 +137,14 @@ function PackagesContent() {
     const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
     const [assignSuccess, setAssignSuccess] = useState('');
 
+    // Upgrade/Change
+    const [upgradeModalPkg, setUpgradeModalPkg] = useState<CustomerPackage | null>(null);
+    const [changeModalPkg, setChangeModalPkg] = useState<CustomerPackage | null>(null);
+    const [selectedUpgradePkgId, setSelectedUpgradePkgId] = useState('');
+    const [selectedChangePkgId, setSelectedChangePkgId] = useState('');
+    const [isUpgrading, setIsUpgrading] = useState(false);
+    const [isChanging, setIsChanging] = useState(false);
+
     // ── Fetch available packages ──
     const fetchPackages = useCallback(async () => {
         try {
@@ -442,6 +450,128 @@ function PackagesContent() {
             }
         } catch (err) {
             console.error('Use session failed:', err);
+        }
+    };
+
+    const handleUpgradePackage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!upgradeModalPkg || !selectedUpgradePkgId) return;
+        setIsUpgrading(true);
+        try {
+            const stored = sessionStorage.getItem('adminUser');
+            const adminName = stored ? JSON.parse(stored).name || 'Admin' : 'Admin';
+            
+            const res = await fetch('/api/admin/packages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'upgradeCustomerPackage', customerPackageId: upgradeModalPkg.id, newPackageId: selectedUpgradePkgId, staffName: adminName })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                if (data.upgradeCost > 0) {
+                     await fetch('/api/admin/billing', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            invoiceCategory: 'package_upgrade',
+                            clientName: upgradeModalPkg.customerName,
+                            clientPhone: upgradeModalPkg.customerPhone,
+                            items: [{
+                                description: `Package Upgrade: ${data.oldPackageName} to ${data.newPackageName}`,
+                                quantity: 1,
+                                unitPrice: data.upgradeCost,
+                                total: data.upgradeCost,
+                            }],
+                            subtotal: data.upgradeCost,
+                            taxPercentage: 0,
+                            taxAmount: 0,
+                            totalAmount: data.upgradeCost,
+                            paymentMethod: billPaymentMethod,
+                            paymentConfirmed: billPaymentConfirmed,
+                            paymentReceivedBy: adminName,
+                            paymentReceptionStatus: billPaymentConfirmed ? 'received' : 'pending',
+                            generatedBy: adminName,
+                            date: new Date().toISOString().split('T')[0],
+                            notes: `Package upgrade.`,
+                        }),
+                    });
+                }
+                alert(`Successfully upgraded! Invoice created for AED ${data.upgradeCost}`);
+                setUpgradeModalPkg(null);
+                setSelectedUpgradePkgId('');
+                fetchCustomerPackages(customerPhoneSearch);
+            } else {
+                alert(data.message || 'Error occurred');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to upgrade');
+        } finally {
+            setIsUpgrading(false);
+        }
+    };
+
+    const handleChangePackage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!changeModalPkg || !selectedChangePkgId) return;
+        setIsChanging(true);
+        try {
+            const stored = sessionStorage.getItem('adminUser');
+            const adminName = stored ? JSON.parse(stored).name || 'Admin' : 'Admin';
+            
+            const res = await fetch('/api/admin/packages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'changeCustomerPackage', customerPackageId: changeModalPkg.id, newPackageId: selectedChangePkgId, staffName: adminName })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                if (data.costDifference > 0) {
+                     await fetch('/api/admin/billing', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            invoiceCategory: 'package_change',
+                            clientName: changeModalPkg.customerName,
+                            clientPhone: changeModalPkg.customerPhone,
+                            items: [{
+                                description: `Package Change: ${data.oldPackageName} to ${data.newPackageName}`,
+                                quantity: 1,
+                                unitPrice: data.costDifference,
+                                total: data.costDifference,
+                            }],
+                            subtotal: data.costDifference,
+                            taxPercentage: 0,
+                            taxAmount: 0,
+                            totalAmount: data.costDifference,
+                            paymentMethod: billPaymentMethod,
+                            paymentConfirmed: billPaymentConfirmed,
+                            paymentReceivedBy: adminName,
+                            paymentReceptionStatus: billPaymentConfirmed ? 'received' : 'pending',
+                            generatedBy: adminName,
+                            date: new Date().toISOString().split('T')[0],
+                            notes: `Credited unused value of AED ${data.remainingValue}.`,
+                        }),
+                    });
+                     alert(`Successfully changed! Collect AED ${data.costDifference}`);
+                } else if (data.costDifference < 0) {
+                     alert(`Successfully changed! AED ${Math.abs(data.costDifference)} credited to wallet.`);
+                } else {
+                     alert(`Successfully changed! No cost difference.`);
+                }
+                setChangeModalPkg(null);
+                setSelectedChangePkgId('');
+                fetchCustomerPackages(customerPhoneSearch);
+            } else {
+                alert(data.message || 'Error occurred');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to change package');
+        } finally {
+            setIsChanging(false);
         }
     };
 
@@ -981,7 +1111,19 @@ function PackagesContent() {
                                                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">✅ Paid</span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap justify-end">
+                                                    <button
+                                                        onClick={() => setUpgradeModalPkg(cp)}
+                                                        className="text-indigo-600 hover:text-indigo-800 text-xs font-medium bg-indigo-50 px-2 py-1 rounded transition-colors"
+                                                    >
+                                                        ⬆ Upgrade
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setChangeModalPkg(cp)}
+                                                        className="text-blue-600 hover:text-blue-800 text-xs font-medium bg-blue-50 px-2 py-1 rounded transition-colors"
+                                                    >
+                                                        🔄 Change
+                                                    </button>
                                                     {confirmingCancelId === cp.id ? (
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-xs text-amber-600 font-medium">Refund to Wallet?</span>
@@ -1134,6 +1276,187 @@ function PackagesContent() {
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* UPGRADE MODAL */}
+            {upgradeModalPkg && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+                        <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                            <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <span className="text-xl">⬆</span> Upgrade Package
+                            </h3>
+                            <button onClick={() => setUpgradeModalPkg(null)} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select New Tier</label>
+                                <select 
+                                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+                                    value={selectedUpgradePkgId}
+                                    onChange={(e) => setSelectedUpgradePkgId(e.target.value)}
+                                >
+                                    <option value="">-- Choose higher tier --</option>
+                                    {(() => {
+                                        const currentDef = packages.find(p => p.id === upgradeModalPkg.packageId);
+                                        const currentServiceId = currentDef?.items[0]?.serviceId;
+                                        const higherPackages = packages.filter(p => 
+                                            p.id !== upgradeModalPkg.packageId && 
+                                            p.price > (currentDef?.price || 0) &&
+                                            p.items[0]?.serviceId === currentServiceId
+                                        );
+                                        return higherPackages.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name} (AED {p.price})</option>
+                                        ));
+                                    })()}
+                                </select>
+                            </div>
+
+                            {selectedUpgradePkgId && (() => {
+                                const curDef = packages.find(p => p.id === upgradeModalPkg.packageId);
+                                const newDef = packages.find(p => p.id === selectedUpgradePkgId);
+                                if (!curDef || !newDef) return null;
+                                const cost = newDef.price - curDef.price;
+                                return (
+                                    <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4 space-y-2 text-sm border border-indigo-100 dark:border-indigo-800/50 mb-6">
+                                        <div className="flex justify-between"><span className="text-gray-600">Current Base Price:</span> <span className="font-medium text-gray-900 dark:text-gray-100">AED {curDef.price}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-600">New Base Price:</span> <span className="font-medium text-gray-900 dark:text-gray-100">AED {newDef.price}</span></div>
+                                        <div className="border-t border-indigo-200 dark:border-indigo-800 pt-2 flex justify-between font-bold">
+                                            <span className="text-indigo-900 dark:text-indigo-300">Amount to Pay:</span>
+                                            <span className="text-indigo-600 dark:text-indigo-400">AED {cost}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            <form onSubmit={handleUpgradePackage}>
+                                {/* Show Billing Mode Options inside Modal so they can easily charge */}
+                                {selectedUpgradePkgId && (
+                                    <div className="mb-6 space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                                            <select
+                                                required
+                                                value={billPaymentMethod}
+                                                onChange={e => setBillPaymentMethod(e.target.value as any)}
+                                                className="w-full px-3 py-2 border rounded-lg text-sm"
+                                            >
+                                                <option value="card">💳 Credit Card</option>
+                                                <option value="cash">💵 Cash</option>
+                                                <option value="bank_transfer">🏦 Bank Transfer</option>
+                                                <option value="online">🌐 Online</option>
+                                            </select>
+                                        </div>
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <input type="checkbox" checked={billPaymentConfirmed} onChange={e => setBillPaymentConfirmed(e.target.checked)} className="w-4 h-4 text-indigo-600" />
+                                            <span className="text-sm">Payment received</span>
+                                        </label>
+                                    </div>
+                                )}
+                                <div className="flex justify-end gap-3">
+                                    <button type="button" onClick={() => setUpgradeModalPkg(null)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
+                                    <button type="submit" disabled={!selectedUpgradePkgId || isUpgrading} className="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-bold disabled:opacity-50">
+                                        {isUpgrading ? 'Processing...' : 'Confirm Upgrade'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CHANGE MODAL */}
+            {changeModalPkg && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+                        <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                            <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <span className="text-xl">🔄</span> Change Package
+                            </h3>
+                            <button onClick={() => setChangeModalPkg(null)} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select New Package</label>
+                                <select 
+                                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+                                    value={selectedChangePkgId}
+                                    onChange={(e) => setSelectedChangePkgId(e.target.value)}
+                                >
+                                    <option value="">-- Choose new package --</option>
+                                    {packages.filter(p => p.id !== changeModalPkg.packageId).map(p => (
+                                        <option key={p.id} value={p.id}>{p.name} (AED {p.price})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {selectedChangePkgId && (() => {
+                                // Simplified display estimate
+                                const curDef = packages.find(p => p.id === changeModalPkg.packageId);
+                                const newDef = packages.find(p => p.id === selectedChangePkgId);
+                                if (!curDef || !newDef) return null;
+                                // Estimate remaining value via simple math
+                                let totalSess = 0; let remainSess = 0;
+                                Object.keys(changeModalPkg.totalSessions).forEach(k => totalSess += changeModalPkg.totalSessions[k]);
+                                Object.keys(changeModalPkg.remainingSessions).forEach(k => remainSess += changeModalPkg.remainingSessions[k]);
+                                const usedSess = totalSess - remainSess;
+                                const sessionPrice = curDef.price / (totalSess || 1);
+                                const estRemain = Math.max(0, curDef.price - (usedSess * sessionPrice));
+                                const diff = newDef.price - estRemain;
+                                
+                                return (
+                                    <div className={`rounded-lg p-4 space-y-2 text-sm border mb-6 ${diff < 0 ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20' : 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20'}`}>
+                                        <div className="flex justify-between font-medium"><span className="opacity-80">Estimated Remaining Value:</span> <span>AED {estRemain.toFixed(2)}</span></div>
+                                        <div className="flex justify-between font-medium"><span className="opacity-80">New Package Base Price:</span> <span>AED {newDef.price}</span></div>
+                                        <div className="border-t border-black/10 pt-2 flex justify-between font-bold mt-2">
+                                            {diff > 0 ? (
+                                                <><span className="text-blue-900 dark:text-blue-300">Amount to Pay:</span><span className="text-xl">AED {diff.toFixed(2)}</span></>
+                                            ) : (
+                                                <><span className="text-green-900 dark:text-green-300">Wallet Credit Amount:</span><span className="text-xl">AED {Math.abs(diff).toFixed(2)}</span></>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            <form onSubmit={handleChangePackage}>
+                                {/* Setup checkout block */}
+                                {selectedChangePkgId && (
+                                     <div className="mb-6 space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                                            <select
+                                                required
+                                                value={billPaymentMethod}
+                                                onChange={e => setBillPaymentMethod(e.target.value as any)}
+                                                className="w-full px-3 py-2 border rounded-lg text-sm"
+                                            >
+                                                <option value="card">💳 Credit Card</option>
+                                                <option value="cash">💵 Cash</option>
+                                                <option value="bank_transfer">🏦 Bank Transfer</option>
+                                                <option value="online">🌐 Online</option>
+                                            </select>
+                                        </div>
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <input type="checkbox" checked={billPaymentConfirmed} onChange={e => setBillPaymentConfirmed(e.target.checked)} className="w-4 h-4 text-indigo-600" />
+                                            <span className="text-sm">Payment received</span>
+                                        </label>
+                                    </div>
+                                )}
+                                <div className="flex justify-end gap-3">
+                                    <button type="button" onClick={() => setChangeModalPkg(null)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
+                                    <button type="submit" disabled={!selectedChangePkgId || isChanging} className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-bold disabled:opacity-50">
+                                        {isChanging ? 'Processing...' : 'Confirm Change'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

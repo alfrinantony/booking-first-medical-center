@@ -62,6 +62,12 @@ export async function POST(req: NextRequest) {
         case 'cancelCustomerPackage':
             const staffName = body.staffName || 'Admin'; // Usually fetched from session
             return NextResponse.json(await PackagesStore.cancelCustomerPackage(body.customerPackageId, staffName));
+        case 'upgradeCustomerPackage':
+            const staffNameUpgrade = body.staffName || 'Admin';
+            return NextResponse.json(await PackagesStore.upgradeCustomerPackage(body.customerPackageId, body.newPackageId, staffNameUpgrade));
+        case 'changeCustomerPackage':
+            const staffNameChange = body.staffName || 'Admin';
+            return NextResponse.json(await PackagesStore.changeCustomerPackage(body.customerPackageId, body.newPackageId, staffNameChange));
         default:
             return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
