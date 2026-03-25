@@ -401,12 +401,18 @@ export default function ServicesPage() {
                 for (const deptId of targetDeptIds) {
                     const matchedSvc = branchClinic.departments?.find(d => d.id === deptId)?.services?.find(s => s.name === (editingService as any).originalName);
                     const method = matchedSvc ? 'PUT' : 'POST';
-                    await fetch('/api/admin/services', {
+                    const res = await fetch('/api/admin/services', {
                         method,
                         headers: { 'Content-Type': 'application/json' },
                         // Make sure we carry over the same universal ID so bookings and packages don't break when switching departments!
                         body: JSON.stringify(buildPayload(branchId, deptId, matchedSvc?.id || editingService.id))
                     });
+
+                    if (!res.ok) {
+                        const err = await res.text();
+                        console.error(`Failed to ${method} service in ${deptId}:`, err);
+                        alert(`Failed to save department mapping for ${deptId}.`);
+                    }
                 }
 
                 // Departments to Delete (UNCHECKED)
@@ -414,9 +420,12 @@ export default function ServicesPage() {
                 for (const deptId of departmentsToRemove) {
                     const matchedSvc = branchClinic.departments?.find(d => d.id === deptId)?.services?.find(s => s.name === (editingService as any).originalName);
                     if (matchedSvc) {
-                        await fetch(`/api/admin/services?clinicId=${branchId}&departmentId=${deptId}&serviceId=${matchedSvc.id}`, {
+                        const dr = await fetch(`/api/admin/services?clinicId=${encodeURIComponent(branchId)}&departmentId=${encodeURIComponent(deptId)}&serviceId=${encodeURIComponent(matchedSvc.id)}`, {
                             method: 'DELETE'
                         });
+                        if (!dr.ok) {
+                            console.error(`Failed to DELETE service from ${deptId}`);
+                        }
                     }
                 }
             } // Close the for loop iterating over targetBranchIds
@@ -432,7 +441,7 @@ export default function ServicesPage() {
                 for (const dept of branchClinic.departments || []) {
                     const found = (dept.services || []).find(s => s.name === (editingService as any).originalName);
                     if (found) {
-                        await fetch(`/api/admin/services?clinicId=${branchId}&departmentId=${dept.id}&serviceId=${found.id}`, {
+                        await fetch(`/api/admin/services?clinicId=${encodeURIComponent(branchId)}&departmentId=${encodeURIComponent(dept.id)}&serviceId=${encodeURIComponent(found.id)}`, {
                             method: 'DELETE'
                         });
                         break;
@@ -455,7 +464,7 @@ export default function ServicesPage() {
     const handleDeleteService = async (departmentId: string, serviceId: string) => {
         console.log('[DELETE] Attempting delete:', { clinicId: selectedClinicId, departmentId, serviceId });
         try {
-            const url = `/api/admin/services?clinicId=${selectedClinicId}&departmentId=${departmentId}&serviceId=${serviceId}`;
+            const url = `/api/admin/services?clinicId=${encodeURIComponent(selectedClinicId)}&departmentId=${encodeURIComponent(departmentId)}&serviceId=${encodeURIComponent(serviceId)}`;
             console.log('[DELETE] URL:', url);
             const res = await fetch(url, {
                 method: 'DELETE'
