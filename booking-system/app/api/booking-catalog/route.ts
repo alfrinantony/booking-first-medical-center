@@ -87,6 +87,7 @@ export async function GET() {
                             startDate: d.startDate,
                             endDate: d.endDate,
                             status: d.status,
+                            allowedServiceNames: d.allowedServiceNames
                         })),
                 });
             }

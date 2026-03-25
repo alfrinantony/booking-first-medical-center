@@ -2034,10 +2034,14 @@ export default function BookingWizard() {
             {/* Step 4: Select Doctor */}
             {
                 step === 4 && selectedDept && (() => {
-                    // Filter doctors by: allowed doctor IDs AND date availability (hide unavailable)
+                    // Filter doctors by: allowed doctor IDs, allowed service names, AND date availability (hide unavailable)
                     const filteredDoctors = selectedDept.doctors.filter((doc: Doctor) => {
                         // Service-level allowed doctor restriction
                         if (selectedService?.allowedDoctorIds && selectedService.allowedDoctorIds.length > 0 && !selectedService.allowedDoctorIds.includes(doc.id)) return false;
+                        // Doctor-level allowed service restriction
+                        if (doc.allowedServiceNames && doc.allowedServiceNames.length > 0 && selectedService?.name) {
+                            if (!doc.allowedServiceNames.includes(selectedService.name)) return false;
+                        }
                         // Hide unavailable doctors
                         return selectedDate ? isDoctorAvailableOnDate(doc, selectedDate, selectedClinic?.id) : false;
                     });

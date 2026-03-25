@@ -16,6 +16,7 @@ interface DoctorFormState {
     startDate: string;
     endDate: string;
     status: 'working' | 'not_working';
+    allowedServiceNames?: string[];
 }
 
 export default function DoctorsPage() {
@@ -37,7 +38,8 @@ export default function DoctorsPage() {
         licenseExpiry: '',
         startDate: '',
         endDate: '',
-        status: 'working'
+        status: 'working',
+        allowedServiceNames: []
     });
 
     // Edit Modal State
@@ -119,7 +121,8 @@ export default function DoctorsPage() {
                     licenseExpiry: newDoctor.licenseExpiry || undefined,
                     startDate: newDoctor.startDate || undefined,
                     endDate: newDoctor.endDate || undefined,
-                    status: newDoctor.status
+                    status: newDoctor.status,
+                    allowedServiceNames: newDoctor.allowedServiceNames?.length ? newDoctor.allowedServiceNames : undefined
                 };
                 const res = await fetch('/api/admin/doctors', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -130,7 +133,7 @@ export default function DoctorsPage() {
             if (allSuccess) {
                 await fetchDoctors();
                 setIsAddModalOpen(false);
-                setNewDoctor({ departmentName: '', name: '', specialty: '', image: '', certifications: '', maxConcurrentBookings: 1, licenseNumber: '', licenseExpiry: '', startDate: '', endDate: '', status: 'working' });
+                setNewDoctor({ departmentName: '', name: '', specialty: '', image: '', certifications: '', maxConcurrentBookings: 1, licenseNumber: '', licenseExpiry: '', startDate: '', endDate: '', status: 'working', allowedServiceNames: [] });
                 setAddClinicIds([]);
             } else {
                 alert('Failed to add doctor to some branches');
@@ -171,7 +174,8 @@ export default function DoctorsPage() {
                             licenseExpiry: editingDoctor.licenseExpiry || undefined,
                             startDate: editingDoctor.startDate || undefined,
                             endDate: editingDoctor.endDate || undefined,
-                            status: editingDoctor.status
+                            status: editingDoctor.status,
+                            allowedServiceNames: editingDoctor.allowedServiceNames?.length ? editingDoctor.allowedServiceNames : undefined
                         })
                     });
                 }
@@ -208,7 +212,8 @@ export default function DoctorsPage() {
                         licenseExpiry: editingDoctor.licenseExpiry || undefined,
                         startDate: editingDoctor.startDate || undefined,
                         endDate: editingDoctor.endDate || undefined,
-                        status: editingDoctor.status
+                        status: editingDoctor.status,
+                        allowedServiceNames: editingDoctor.allowedServiceNames?.length ? editingDoctor.allowedServiceNames : undefined
                     };
 
                     if (newDeptId !== b.departmentId) {
@@ -336,6 +341,19 @@ export default function DoctorsPage() {
     const findDeptIdInClinic = (clinicId: string, deptId: string) => {
         const name = getDeptName(deptId);
         return clinics.find(c => c.id === clinicId)?.departments.find(d => d.name === name)?.id || deptId;
+    };
+
+    // Helper to get ALL unique services for a selected department name across all clinics
+    const getServicesForDepartment = (deptName: string): string[] => {
+        if (!deptName) return [];
+        const serviceNames = new Set<string>();
+        clinics.forEach(c => {
+            const dept = c.departments.find(d => d.name === deptName);
+            if (dept && dept.services) {
+                dept.services.forEach(s => serviceNames.add(s.name));
+            }
+        });
+        return Array.from(serviceNames).sort();
     };
 
     if (loading) return <div className="p-8">Loading doctors...</div>;
@@ -631,6 +649,35 @@ export default function DoctorsPage() {
                                     />
                                 </div>
 
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Allowed Services (Optional)</label>
+                                    <p className="text-[10px] text-gray-500 mb-2">Select specific services this doctor can perform. Unchecked = all services in the department allowed.</p>
+                                    <div className="border rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50 dark:bg-gray-700/30">
+                                        {newDoctor.departmentName ? (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {getServicesForDepartment(newDoctor.departmentName).map(svcName => (
+                                                    <label key={svcName} className="flex items-center gap-2 cursor-pointer text-sm p-1 rounded hover:bg-white dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={(newDoctor.allowedServiceNames || []).includes(svcName)} 
+                                                            onChange={(e) => {
+                                                                const current = newDoctor.allowedServiceNames || [];
+                                                                if (e.target.checked) setNewDoctor({ ...newDoctor, allowedServiceNames: [...current, svcName] });
+                                                                else setNewDoctor({ ...newDoctor, allowedServiceNames: current.filter(n => n !== svcName) });
+                                                            }}
+                                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                                                        />
+                                                        <span className="text-gray-800 dark:text-gray-200 select-none truncate" title={svcName}>{svcName}</span>
+                                                    </label>
+                                                ))}
+                                                {getServicesForDepartment(newDoctor.departmentName).length === 0 && <span className="text-xs text-gray-400 italic">No services found in this department</span>}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-gray-400 italic">Select a department first</span>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <div className="flex justify-end gap-3 mt-6">
                                     <button
                                         type="button"
@@ -806,6 +853,35 @@ export default function DoctorsPage() {
                                             certifications: e.target.value.split(',').map(s => s.trim())
                                         })}
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Allowed Services (Optional)</label>
+                                    <p className="text-[10px] text-gray-500 mb-2">Select specific services this doctor can perform. Unchecked = all services in the department allowed.</p>
+                                    <div className="border rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50 dark:bg-gray-700/30">
+                                        {editingDoctor.departmentName ? (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {getServicesForDepartment(editingDoctor.departmentName).map(svcName => (
+                                                    <label key={svcName} className="flex items-center gap-2 cursor-pointer text-sm p-1 rounded hover:bg-white dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={(editingDoctor.allowedServiceNames || []).includes(svcName)} 
+                                                            onChange={(e) => {
+                                                                const current = editingDoctor.allowedServiceNames || [];
+                                                                if (e.target.checked) setEditingDoctor({ ...editingDoctor, allowedServiceNames: [...current, svcName] });
+                                                                else setEditingDoctor({ ...editingDoctor, allowedServiceNames: current.filter(n => n !== svcName) });
+                                                            }}
+                                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                                                        />
+                                                        <span className="text-gray-800 dark:text-gray-200 select-none truncate" title={svcName}>{svcName}</span>
+                                                    </label>
+                                                ))}
+                                                {getServicesForDepartment(editingDoctor.departmentName).length === 0 && <span className="text-xs text-gray-400 italic">No services found in this department</span>}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-gray-400 italic">Select a department first</span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="flex justify-end gap-3 mt-6">

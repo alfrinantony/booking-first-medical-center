@@ -51,6 +51,21 @@ export default function AdminBookingForm() {
     const services = selectedDept?.services || [];
     const selectedService = services.find(s => s.id === booking.serviceId);
 
+    const filteredDoctors = doctors.filter(doc => {
+        if (!selectedService) return true; // If service hasn't been picked, show all
+        
+        // Service-level explicit doctor list
+        const svcAllowedDocIds = selectedService.allowedDoctorIds || [];
+        if (svcAllowedDocIds.length > 0 && !svcAllowedDocIds.includes(doc.id)) return false;
+
+        // Doctor-level explicit service skills list
+        if (doc.allowedServiceNames && doc.allowedServiceNames.length > 0) {
+            if (!doc.allowedServiceNames.includes(selectedService.name)) return false;
+        }
+
+        return true;
+    });
+
     const [timePreference, setTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening'>('any');
 
     const isValid = customer.name && customer.phone && booking.clinicId && booking.deptId && booking.doctorId && booking.serviceId && booking.date && booking.slot;
@@ -292,7 +307,7 @@ export default function AdminBookingForm() {
                                 onChange={e => setBooking({ ...booking, doctorId: e.target.value, slot: '' })}
                             >
                                 <option value="">Select Doctor</option>
-                                {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                {filteredDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
                         </div>
 

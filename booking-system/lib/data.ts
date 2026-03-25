@@ -200,6 +200,7 @@ export interface Doctor {
     endDate?: string; // ISO date YYYY-MM-DD — employment end
     status?: 'working' | 'not_working';
     daysOff?: number[]; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+    allowedServiceNames?: string[]; // If explicitly populated, doctor is only allowed to perform these specific services
 }
 
 export interface Department {
