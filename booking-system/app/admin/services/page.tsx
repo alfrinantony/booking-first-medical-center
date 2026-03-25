@@ -634,6 +634,26 @@ export default function ServicesPage() {
         return allDoctors.sort((a, b) => a.name.localeCompare(b.name));
     };
 
+    const getGroupedDoctors = () => {
+        const groups: { departmentId: string, departmentName: string, doctors: Doctor[] }[] = [];
+        for (const clinic of clinics) {
+            for (const dept of clinic.departments || []) {
+                let group = groups.find(g => g.departmentName === dept.name);
+                if (!group) {
+                    group = { departmentId: dept.id, departmentName: dept.name, doctors: [] };
+                    groups.push(group);
+                }
+                for (const doc of dept.doctors || []) {
+                    if (!group.doctors.some(d => d.id === doc.id)) {
+                        group.doctors.push(doc);
+                    }
+                }
+            }
+        }
+        groups.forEach(g => g.doctors.sort((a, b) => a.name.localeCompare(b.name)));
+        return groups.filter(g => g.doctors.length > 0).sort((a, b) => a.departmentName.localeCompare(b.departmentName));
+    };
+
     const toggleDoctorSelection = (docId: string, isEditing: boolean) => {
         if (isEditing && editingService) {
             const currentIds = editingService.allowedDoctorIds || [];
@@ -1191,6 +1211,7 @@ export default function ServicesPage() {
                         setFormState={setNewService}
                         currentClinic={currentClinic}
                         doctors={getDepartmentDoctors('')}
+                        groupedDoctors={getGroupedDoctors()}
                         resources={resources}
                         medicines={medicines}
                         registeredProducts={registeredProducts}

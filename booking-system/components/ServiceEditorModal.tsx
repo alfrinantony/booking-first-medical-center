@@ -37,6 +37,7 @@ interface ServiceEditorModalProps {
     uploadingImage: boolean;
     registeredProducts?: RegisteredProduct[];
     branchSelector?: React.ReactNode;
+    groupedDoctors?: { departmentId: string, departmentName: string, doctors: Doctor[] }[];
 }
 
 function SectionHeader({ id, label, icon: Icon, color }: { id: string; label: string; icon: any; color: string }) {
@@ -50,11 +51,11 @@ function SectionHeader({ id, label, icon: Icon, color }: { id: string; label: st
 
 export default function ServiceEditorModal({
     mode, title, formState, setFormState,
-    currentClinic, doctors, resources, medicines, dayNames,
+    currentClinic, doctors, groupedDoctors, resources, medicines, dayNames,
     onSubmit, onClose, onToggleDay, onToggleDoctor,
     onImageUpload, submitting, uploadingImage, registeredProducts,
     branchSelector,
-}: ServiceEditorModalProps & { registeredProducts?: RegisteredProduct[] }) {
+}: ServiceEditorModalProps) {
     const contentRef = useRef<HTMLDivElement>(null);
     const [activeSection, setActiveSection] = React.useState('basic');
 
@@ -346,18 +347,26 @@ export default function ServiceEditorModal({
                                 </div>
                             </div>
                             {/* Doctor Selection */}
-                            {(mode === 'edit' || formState.departmentId) && (
+                            {(mode === 'edit' || formState.departmentId || formState.departmentIds?.length > 0) && (
                                 <div className="mt-4">
                                     <label className="block text-sm font-medium mb-2">Allowed Doctors</label>
-                                    <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-1.5">
-                                        {doctors.map(doc => (
-                                            <label key={doc.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                                                <input type="checkbox" checked={(formState.allowedDoctorIds || []).includes(doc.id)} onChange={() => onToggleDoctor(doc.id)} className="rounded text-indigo-600" />
-                                                {doc.name}
-                                            </label>
+                                    <p className="text-[10px] text-gray-500 mb-2">Select the specific doctors qualified to perform this service. Unchecked = all doctors allowed.</p>
+                                    <div className="border rounded-lg p-3 max-h-60 overflow-y-auto space-y-4">
+                                        {(groupedDoctors || [{ departmentName: 'All Doctors', departmentId: 'all', doctors }]).map(group => (
+                                            <div key={group.departmentName}>
+                                                <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 pb-1 border-b border-gray-100 dark:border-gray-700">{group.departmentName}</h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    {group.doctors.map(doc => (
+                                                        <label key={doc.id} className="flex items-center gap-2 cursor-pointer text-sm p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                                            <input type="checkbox" checked={(formState.allowedDoctorIds || []).includes(doc.id)} onChange={() => onToggleDoctor(doc.id)} className="rounded text-indigo-600 focus:ring-indigo-500" />
+                                                            {doc.name}
+                                                        </label>
+                                                    ))}
+                                                    {group.doctors.length === 0 && <span className="text-xs text-gray-400 italic">No doctors found</span>}
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">Unchecked = all doctors allowed.</p>
                                 </div>
                             )}
                         </section>
