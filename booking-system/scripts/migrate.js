@@ -73,28 +73,27 @@ async function main() {
         const prefix = prefixMap[clinic.id] || clinic.id;
         const newDeptsMap = new Map();
 
-        // Initialize target departments
         for (const t of targetDepts) {
             newDeptsMap.set(t, { id: `${prefix}-${t}`, name: t, services: [], doctors: [] });
         }
 
+        console.log(`\nMigrating clinic: ${clinic.name}`);
         for (const d of clinic.departments || []) {
             let newName = departmentMap[d.name] || d.name;
             if (!targetDepts.includes(newName)) {
-                newName = 'Aesthetic Dermatology'; // Fallback
+                newName = 'Aesthetic Dermatology'; 
             }
+            
+            console.log(`Mapped old dept '${d.name}' -> '${newName}'`);
 
             const targetDept = newDeptsMap.get(newName);
             newDeptIdMapping[d.id] = targetDept.id;
 
-            // Merge services
             for (const s of d.services || []) {
                 if (!targetDept.services.find(ts => ts.name === s.name)) {
                     targetDept.services.push(s);
                 }
             }
-
-            // Merge doctors
             for (const doc of d.doctors || []) {
                 if (!targetDept.doctors.find(td => td.id === doc.id)) {
                     doc.departmentName = newName;
@@ -102,7 +101,6 @@ async function main() {
                 }
             }
         }
-
         clinic.departments = Array.from(newDeptsMap.values());
     }
 
