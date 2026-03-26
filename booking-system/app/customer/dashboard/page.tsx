@@ -5,7 +5,7 @@ import { useAuthStore } from '@/lib/store';
 import { clinics as allClinics } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Package, Calendar, Clock, ChevronRight, User, X, RefreshCw, Plus, AlertCircle, Star, ExternalLink } from 'lucide-react';
+import { Package, Calendar, Clock, ChevronRight, User, X, RefreshCw, Plus, AlertCircle, Star, ExternalLink, MapPin, Stethoscope, Activity, Info } from 'lucide-react';
 import type { CustomerPackage } from '@/types/packages';
 import type { GoogleReview, ReviewDiscountResult } from '@/lib/review-discount-store';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
@@ -327,28 +327,72 @@ export default function CustomerDashboard() {
                                     const bookingDate = parseISO(booking.date);
                                     const isUpcoming = isFuture(bookingDate) || isToday(bookingDate);
                                     return (
-                                        <div key={booking.id} className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-3">
-                                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusColors[booking.status] || 'bg-gray-100 text-gray-600'}`}>
-                                                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                                                        </span>
-                                                        {isToday(bookingDate) && (
-                                                            <span className="text-xs font-bold text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded-full">Today</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                                            <Calendar className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                                                            <span>{format(bookingDate, 'EEE, MMM d, yyyy')}</span>
+                                        <div key={booking.id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                                                <div className="flex-1 space-y-4">
+                                                    {/* Header: Status and Service Name */}
+                                                    <div>
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusColors[booking.status] || 'bg-gray-100 text-gray-600'}`}>
+                                                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                                            </span>
+                                                            {isToday(bookingDate) && (
+                                                                <span className="text-xs font-bold text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded-full">Today</span>
+                                                            )}
+                                                            <span className="text-xs text-gray-400 font-mono hidden md:inline-block">ID: {booking.id}</span>
                                                         </div>
-                                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                                            <Clock className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                                                            <span>{booking.slot}</span>
-                                                        </div>
+                                                        
+                                                        {(() => {
+                                                            const clinic = allClinics.find(c => c.id === booking.clinicId);
+                                                            const department = clinic?.departments.find(d => d.id === booking.deptId);
+                                                            const service = department?.services.find(s => s.id === booking.serviceId);
+                                                            const doctor = department?.doctors.find(d => d.id === booking.doctorId);
+                                                            
+                                                            const clinicName = clinic?.name || 'Unknown Branch';
+                                                            const serviceName = service?.name || 'Unknown Service';
+                                                            const doctorName = doctor?.name || 'Unknown Doctor';
+                                                            const preInstructions = service?.preCare || '';
+
+                                                            return (
+                                                                <>
+                                                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                                                        <Activity className="w-5 h-5 text-indigo-500" />
+                                                                        {serviceName}
+                                                                    </h3>
+                                                                    
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6 mt-4">
+                                                                        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                                            <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                                            <span className="font-medium">{clinicName}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                                            <Stethoscope className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                                            <span className="font-medium">{doctorName}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                                            <Calendar className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                                                                            <span className="font-medium">{format(bookingDate, 'EEEE, MMMM d, yyyy')}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                                            <Clock className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                                                                            <span className="font-medium">{booking.slot}</span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {preInstructions && (
+                                                                        <div className="mt-5 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-4">
+                                                                            <h4 className="flex items-center gap-1.5 text-sm font-bold text-blue-900 dark:text-blue-300 mb-1.5">
+                                                                                <Info className="w-4 h-4" /> Pre-Procedure Instructions
+                                                                            </h4>
+                                                                            <p className="text-sm text-blue-800 dark:text-blue-400 leading-relaxed whitespace-pre-wrap">
+                                                                                {preInstructions}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
-                                                    <p className="text-xs text-gray-400 mt-2">Booking ID: {booking.id}</p>
                                                 </div>
                                                 {isUpcoming && booking.status !== 'cancelled' && (
                                                     <div className="flex gap-2 flex-shrink-0">
