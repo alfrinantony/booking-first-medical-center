@@ -1,60 +1,81 @@
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 
-export interface ChecklistItem {
-    id: string; // e.g., 'clinic-cleanliness'
-    title: string;
-    checked: boolean;
-    photoUrl?: string; // Stored in Azure Blob
-    notes?: string;
-}
+// Room Checklist Status Enum
+export type RoomChecklistStatus = 
+    | 'Pending' 
+    | 'Complete' 
+    | 'Missing Items' 
+    | 'Refill Required' 
+    | 'Equipment Issue' 
+    | 'Consumables Low' 
+    | 'Medicine Low' 
+    | 'Not Functioning Properly';
 
-export interface DailyChecklist {
-    id: string; // 'chk-123456789'
-    date: string; // ISO String (YYYY-MM-DD)
+// Daily Room Checklist Entity
+export interface RoomChecklist {
+    id: string;
+    date: string; // YYYY-MM-DD
     branchId: string;
-    branchName: string;
-    supervisorName: string; 
-    items: ChecklistItem[];
+    roomId: string; // Links to specific Room
+    supervisorName: string;
+    status: RoomChecklistStatus;
+    
+    // Photo Evidence (Azure URLs)
+    pictures: string[]; 
+    
+    // Module Tracking
+    missingItems: string[];
+    remarks: string;
+    
+    equipmentChecks: { equipmentId: string; status: 'Available' | 'Issue' | 'Maintenance' | 'Missing' }[];
+    consumableChecks: { itemName: string; status: 'Adequate' | 'Low' | 'Missing' | 'Refilled' }[];
+    medicineChecks: { medicineId: string; requiredQty: number; refilledQty: number; shortage: number; missing: boolean }[];
+    
     submittedAt: string;
 }
 
-let checklistStore: DailyChecklist[] = [];
+let checklistStore: RoomChecklist[] = [];
 
 async function ensureChecklistsLoaded() {
-    checklistStore = await loadFromBlob<DailyChecklist[]>('checklists', []);
+    checklistStore = await loadFromBlob<RoomChecklist[]>('room-checklists', []);
 }
 
 export const ChecklistStore = {
-    getAll: async (): Promise<DailyChecklist[]> => {
+    getAll: async (): Promise<RoomChecklist[]> => {
         await ensureChecklistsLoaded();
         // Sort newest first
         return [...checklistStore].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
 
-    getByDate: async (dateStr: string): Promise<DailyChecklist[]> => {
+    getByDate: async (dateStr: string): Promise<RoomChecklist[]> => {
         await ensureChecklistsLoaded();
         return checklistStore.filter(c => c.date === dateStr);
     },
 
-    add: async (checklist: Omit<DailyChecklist, 'id' | 'submittedAt'>): Promise<DailyChecklist> => {
+    getByRoomAndDate: async (roomId: string, dateStr: string): Promise<RoomChecklist | undefined> => {
         await ensureChecklistsLoaded();
-        const newChecklist: DailyChecklist = {
+        return checklistStore.find(c => c.roomId === roomId && c.date === dateStr);
+    },
+
+    add: async (checklist: Omit<RoomChecklist, 'id' | 'submittedAt'>): Promise<RoomChecklist> => {
+        await ensureChecklistsLoaded();
+        const newChecklist: RoomChecklist = {
             ...checklist,
             id: `chk-${Date.now()}`,
             submittedAt: new Date().toISOString()
         };
         checklistStore.push(newChecklist);
-        await saveToBlob('checklists', checklistStore);
+        await saveToBlob('room-checklists', checklistStore);
         return newChecklist;
     },
 
-    update: async (id: string, updates: Partial<DailyChecklist>): Promise<DailyChecklist | null> => {
+    update: async (id: string, updates: Partial<RoomChecklist>): Promise<RoomChecklist | null> => {
         await ensureChecklistsLoaded();
         const index = checklistStore.findIndex(c => c.id === id);
         if (index === -1) return null;
         
         checklistStore[index] = { ...checklistStore[index], ...updates };
-        await saveToBlob('checklists', checklistStore);
+        await saveToBlob('room-checklists', checklistStore);
         return checklistStore[index];
     },
 
@@ -63,7 +84,7 @@ export const ChecklistStore = {
         const len = checklistStore.length;
         checklistStore = checklistStore.filter(c => c.id !== id);
         if (checklistStore.length < len) {
-            await saveToBlob('checklists', checklistStore);
+            await saveToBlob('room-checklists', checklistStore);
             return true;
         }
         return false;

@@ -211,12 +211,26 @@ export interface Department {
     doctors: Doctor[];
 }
 
+export interface RequiredMedicine {
+    id: string; // Links to MedicineStore
+    requiredQty: number; // Par level needed
+}
+
+export interface Room {
+    id: string;
+    name: string;
+    type: 'Consultation' | 'Procedure' | 'Waiting';
+    assignedEquipmentIds: string[]; // Ties to EquipmentStore
+    requiredMedicineIds: RequiredMedicine[]; // Ties to MedicineStore and expected pars
+}
+
 export interface Clinic {
     id: string;
     name: string;
     address: string;
     vatPercentage: number;
     departments: Department[];
+    rooms?: Room[]; // newly added
     image?: string;
     operationHours?: string;
     locationMap?: string;
@@ -435,6 +449,11 @@ export const clinics: Clinic[] = [
         contactPhone: '+971 4 250 6262',
         email: 'muraqabat@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
+        rooms: [
+            { id: 'c1-r1', name: 'Laser Procedure Room', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-r2', name: 'Consultation Room A', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-r3', name: 'Main Waiting Lounge', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] }
+        ],
         departments: departmentNames.map(dept => ({
             id: `c1-${dept}`,
             name: dept,
@@ -456,6 +475,11 @@ export const clinics: Clinic[] = [
         contactPhone: '+971 4 261 7171',
         email: 'qiyadah@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
+        rooms: [
+            { id: 'c2-r1', name: 'Facial Suite 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-r2', name: 'Dental Consult', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-r3', name: 'Reception Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] }
+        ],
         departments: departmentNames.map(dept => ({
             id: `c2-${dept}`,
             name: dept,
@@ -477,6 +501,11 @@ export const clinics: Clinic[] = [
         contactPhone: '+971 4 392 0809',
         email: 'siliconoasis@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
+        rooms: [
+            { id: 'c3-r1', name: 'Aesthetic Procedure Room', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-r2', name: 'Dermatologist Consult B', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-r3', name: 'Priority Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] }
+        ],
         departments: departmentNames.map(dept => ({
             id: `c3-${dept}`,
             name: dept,
