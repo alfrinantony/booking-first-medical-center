@@ -1,10 +1,47 @@
 import Link from "next/link";
 import LiveAvatarBubble from "@/components/LiveAvatarBubble";
-import { MapPin, Clock, Phone, Star, Shield, Sparkles, Calendar, ChevronRight } from "lucide-react";
+import { 
+  MapPin, 
+  Clock, 
+  Phone, 
+  Star, 
+  Shield, 
+  Sparkles, 
+  Calendar, 
+  ChevronRight, 
+  MessageCircle, 
+  PhoneCall 
+} from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 relative">
+
+      {/* ── Fixed Floating Contact Widget ── */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+        <a 
+          href="https://wa.me/97142506262" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center justify-center w-14 h-14 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 hover:scale-110 transition-all cursor-pointer group"
+          title="Chat on WhatsApp"
+        >
+          <MessageCircle className="w-6 h-6" />
+          <span className="absolute right-16 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md pointer-events-none whitespace-nowrap">
+            WhatsApp Us
+          </span>
+        </a>
+        <a 
+          href="tel:+97142506262"
+          className="flex items-center justify-center w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 hover:scale-110 transition-all cursor-pointer group"
+          title="Call Us Directly"
+        >
+          <PhoneCall className="w-6 h-6" />
+          <span className="absolute right-16 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md pointer-events-none whitespace-nowrap">
+            Call Clinic
+          </span>
+        </a>
+      </div>
 
       {/* ── Hero Section ── */}
       <section className="relative overflow-hidden pt-20 pb-16 sm:pt-28 sm:pb-24">
@@ -36,7 +73,7 @@ export default function Home() {
                 Book instantly with our AI assistant.
               </p>
 
-              <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <div className="mt-8 flex flex-wrap gap-4 justify-center lg:justify-start">
                 <Link
                   href="/booking"
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-500/30"
@@ -44,13 +81,15 @@ export default function Home() {
                   <Calendar className="w-5 h-5" />
                   Book Appointment
                 </Link>
-                <Link
-                  href="/booking"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all hover:shadow-md"
+                <a
+                  href="https://wa.me/97142506262"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-green-50 dark:bg-transparent text-green-700 dark:text-green-400 font-semibold rounded-2xl border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-all hover:shadow-md"
                 >
-                  View Services
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
+                  <MessageCircle className="w-5 h-5" />
+                  WhatsApp
+                </a>
               </div>
 
               {/* Trust badges */}
@@ -74,43 +113,6 @@ export default function Home() {
             <div className="flex-shrink-0">
               <LiveAvatarBubble />
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Services Highlights ── */}
-      <section className="py-16 sm:py-20 bg-white/50 dark:bg-gray-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
-              Our Specialities
-            </h2>
-            <p className="mt-4 text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              State-of-the-art treatments with the latest technology and certified specialists.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { icon: "✨", title: "Laser Hair Removal", desc: "Candela GentleMax Pro & Lumenis Splendor X for all skin types", color: "from-pink-500/10 to-rose-500/10" },
-              { icon: "💉", title: "Dermal Fillers & Botox", desc: "Natural-looking results with premium brands and expert hands", color: "from-purple-500/10 to-indigo-500/10" },
-              { icon: "🧬", title: "PRP & Mesotherapy", desc: "Regenerative treatments for hair and skin rejuvenation", color: "from-blue-500/10 to-cyan-500/10" },
-              { icon: "🔬", title: "Chemical Peeling", desc: "Advanced peels for acne, pigmentation and skin renewal", color: "from-green-500/10 to-emerald-500/10" },
-              { icon: "⚡", title: "RF Microneedling", desc: "Collagen stimulation for tighter, smoother skin", color: "from-amber-500/10 to-yellow-500/10" },
-              { icon: "🌟", title: "Hydrafacial", desc: "Deep cleansing, exfoliation and hydration in one session", color: "from-teal-500/10 to-sky-500/10" },
-            ].map((svc) => (
-              <Link
-                key={svc.title}
-                href="/booking"
-                className={`group p-6 rounded-2xl bg-gradient-to-br ${svc.color} dark:from-gray-800 dark:to-gray-800 border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-lg transition-all duration-300`}
-              >
-                <span className="text-3xl mb-4 block">{svc.icon}</span>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                  {svc.title}
-                </h3>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{svc.desc}</p>
-              </Link>
-            ))}
           </div>
         </div>
       </section>
@@ -205,13 +207,22 @@ export default function Home() {
           <p className="text-indigo-100 text-lg mb-8 max-w-2xl mx-auto">
             Book your consultation today and discover the best treatments for you.
           </p>
-          <Link
-            href="/booking"
-            className="inline-flex items-center gap-2 px-10 py-4 bg-white text-indigo-700 font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02]"
-          >
-            <Calendar className="w-5 h-5" />
-            Book Now
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link
+              href="/booking"
+              className="inline-flex items-center gap-2 px-10 py-4 bg-white text-indigo-700 font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02]"
+            >
+              <Calendar className="w-5 h-5" />
+              Book Now
+            </Link>
+            <a
+              href="tel:+97142506262"
+              className="inline-flex items-center gap-2 px-10 py-4 bg-transparent border-2 border-white text-white font-bold rounded-2xl hover:bg-white/10 transition-all hover:scale-[1.02]"
+            >
+              <PhoneCall className="w-5 h-5" />
+              Call Us
+            </a>
+          </div>
         </div>
       </section>
 
