@@ -37,9 +37,9 @@ interface HistoryEntry {
 interface Branch { id: string; name: string; }
 
 const BRANCHES: Branch[] = [
-    { id: 'clinic-muraqabat', name: 'Al Muraqabat Branch' },
-    { id: 'clinic-qiyadah', name: 'Al Qiyadah Branch' },
-    { id: 'clinic-silicon', name: 'Silicon Oasis Branch' },
+    { id: 'branch-muraqabat', name: 'Al Muraqabat Branch' },
+    { id: 'branch-qiyadah', name: 'Al Qiyadah Branch' },
+    { id: 'branch-silicon', name: 'Silicon Oasis Branch' },
 ];
 
 const CATEGORIES = [
