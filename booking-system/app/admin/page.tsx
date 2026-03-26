@@ -7,7 +7,7 @@ import {
     Warehouse, ArrowRight, Bell, BellOff, CalendarClock, Pill,
     Building, Stethoscope, UserCheck, UserX, Clock, Coffee,
     Tag, Package, FileText, ShieldCheck, DollarSign, Heart,
-    ClipboardList, Zap, TrendingUp, Briefcase, ClipboardCheck
+    ClipboardList, Zap, TrendingUp, Briefcase, ClipboardCheck, Wrench
 } from 'lucide-react';
 import { Medicine, Clinic } from '@/lib/data';
 import { User, ModulePermissions } from '@/lib/users-types';
@@ -417,7 +417,8 @@ export default function AdminPage() {
                                 {hasRead('hr') && <QuickLink href="/admin/hr/shifts" icon={<Clock className="w-4 h-4" />} label="Shift Schedule" desc="Employee shifts" color="text-purple-600" />}
                                 {hasRead('promos') && <QuickLink href="/admin/promos" icon={<Tag className="w-4 h-4" />} label="Promo Codes" desc="Discounts & offers" color="text-amber-600" />}
                                 {hasRead('inventory') && <QuickLink href="/admin/medicines" icon={<Package className="w-4 h-4" />} label="Inventory" desc="Medicines & supplies" color="text-teal-600" />}
-                                {hasRead('inventory') && <QuickLink href="/admin/resources" icon={<Briefcase className="w-4 h-4" />} label="Resources" desc="Equipment & rooms" color="text-orange-600" />}
+                                {hasRead('inventory') && <QuickLink href="/admin/equipment" icon={<Wrench className="w-4 h-4" />} label="Equipment Catalog" desc="Heavy-duty machinery" color="text-yellow-600" />}
+                                {hasRead('inventory') && <QuickLink href="/admin/resources" icon={<Briefcase className="w-4 h-4" />} label="Resources" desc="Basic miscellaneous" color="text-orange-600" />}
                                 {hasRead('hr') && <QuickLink href="/admin/hr/employees" icon={<Users className="w-4 h-4" />} label="HR — Employees" desc="Staff management" color="text-violet-600" />}
                                 {hasRead('hr') && <QuickLink href="/admin/hr/payroll" icon={<DollarSign className="w-4 h-4" />} label="HR — Payroll" desc="Salary & timesheets" color="text-green-600" />}
                                 {hasRead('settings') && <QuickLink href="/admin/settings" icon={<ShieldCheck className="w-4 h-4" />} label="Settings" desc="Config & permissions" color="text-gray-600" />}
