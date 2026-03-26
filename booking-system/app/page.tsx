@@ -62,11 +62,14 @@ export default function Home() {
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 dark:text-white leading-tight tracking-tight">
-                Your Beauty,{" "}
+                Affordable{" "}
                 <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Our Expertise
+                  Aesthetic Clinic
                 </span>
               </h1>
+              <p className="mt-4 text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                Over 20 Years Of Excellence
+              </p>
 
               <p className="mt-6 text-lg sm:text-xl text-gray-600 dark:text-gray-400 max-w-xl mx-auto lg:mx-0 leading-relaxed">
                 Premium laser, dermatology and aesthetic treatments across 3 branches in Dubai.
