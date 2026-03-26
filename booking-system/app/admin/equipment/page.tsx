@@ -92,7 +92,7 @@ export default function EquipmentPage() {
     // ── Fetch ──
     const fetchItems = async () => {
         try {
-            const res = await fetch('/api/admin/equipment');
+            const res = await fetch(`/api/admin/equipment?_t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             if (Array.isArray(data)) setItems(data);
         } catch { /* ignore */ } finally { setLoading(false); }
