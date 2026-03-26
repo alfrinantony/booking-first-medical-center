@@ -62,10 +62,16 @@ export default function AdminSidebar() {
     const navContent = (
         <>
             {hasRead('dashboard') && (
-                <Link href="/admin" className={mainLinkClass('/admin', true)}>
-                    <Activity className="w-4 h-4 shrink-0" />
-                    Dashboard
-                </Link>
+                <>
+                    <Link href="/admin" className={mainLinkClass('/admin', true)}>
+                        <Activity className="w-4 h-4 shrink-0" />
+                        Dashboard
+                    </Link>
+                    <Link href="/admin/checklists" className={mainLinkClass('/admin/checklists')}>
+                        <ClipboardList className="w-4 h-4 shrink-0" />
+                        Daily Checklists
+                    </Link>
+                </>
             )}
 
             {hasRead('appointments') && (
