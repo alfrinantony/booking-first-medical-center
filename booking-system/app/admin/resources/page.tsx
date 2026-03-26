@@ -41,8 +41,8 @@ export default function ResourcesPage() {
     const fetchData = async () => {
         try {
             const [resResources, resClinics] = await Promise.all([
-                fetch('/api/admin/resources'),
-                fetch('/api/admin/services') // Assuming this returns clinics structure
+                fetch(`/api/admin/resources?_t=${Date.now()}`),
+                fetch(`/api/admin/services?_t=${Date.now()}`) // Assuming this returns clinics structure
             ]);
 
             const resourcesData = await resResources.json();
