@@ -450,9 +450,20 @@ export const clinics: Clinic[] = [
         email: 'muraqabat@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
         rooms: [
-            { id: 'c1-r1', name: 'Laser Procedure Room', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c1-r2', name: 'Consultation Room A', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c1-r3', name: 'Main Waiting Lounge', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] }
+            { id: 'c1-rec-1', name: 'Reception 1', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-crash-1', name: 'Emergency Crash Cart 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-con-1', name: 'Consultation Room 1', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-con-2', name: 'Consultation Room 2', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-las-1', name: 'Laser Hair Removal Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-las-2', name: 'Laser Hair Removal Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-las-3', name: 'Laser Hair Removal Room 3', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-las-4', name: 'Laser Hair Removal Room 4', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-las-5', name: 'Laser Hair Removal Room 5', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-hyd-1', name: 'Hydrafacial Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-hyd-2', name: 'Hydrafacial Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-tx-1', name: 'Treatment Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-prep-1', name: 'Preparation Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-prep-2', name: 'Preparation Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] }
         ],
         departments: departmentNames.map(dept => ({
             id: `c1-${dept}`,
@@ -476,9 +487,22 @@ export const clinics: Clinic[] = [
         email: 'qiyadah@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
         rooms: [
-            { id: 'c2-r1', name: 'Facial Suite 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c2-r2', name: 'Dental Consult', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c2-r3', name: 'Reception Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] }
+            { id: 'c2-rec-1', name: 'Reception 1', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-crash-1', name: 'Emergency Crash Cart 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-con-1', name: 'Consultation Room 1', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-con-2', name: 'Consultation Room 2', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-phys-1', name: 'Physiotherapy Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-elec-1', name: 'Electrolysis Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-las-1', name: 'Laser Hair Removal Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-las-2', name: 'Laser Hair Removal Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-las-3', name: 'Laser Hair Removal Room 3', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-las-4', name: 'Laser Hair Removal Room 4', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-las-5', name: 'Laser Hair Removal Room 5', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-las-6', name: 'Laser Hair Removal Room 6', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-hyd-1', name: 'Hydrafacial Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-hyd-2', name: 'Hydrafacial Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-tx-1', name: 'Treatment Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-proc-1', name: 'Procedure Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] }
         ],
         departments: departmentNames.map(dept => ({
             id: `c2-${dept}`,
@@ -502,9 +526,12 @@ export const clinics: Clinic[] = [
         email: 'siliconoasis@firstmedical.ae',
         operationHours: 'Mon–Sat: 10 AM – 10 PM',
         rooms: [
-            { id: 'c3-r1', name: 'Aesthetic Procedure Room', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c3-r2', name: 'Dermatologist Consult B', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c3-r3', name: 'Priority Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] }
+            { id: 'c3-rec-1', name: 'Reception 1', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-crash-1', name: 'Emergency Crash Cart 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-con-1', name: 'Consultation Room 1', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-las-1', name: 'Laser Hair Removal Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-tx-1', name: 'Treatment Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-prep-1', name: 'Preparation Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] }
         ],
         departments: departmentNames.map(dept => ({
             id: `c3-${dept}`,
