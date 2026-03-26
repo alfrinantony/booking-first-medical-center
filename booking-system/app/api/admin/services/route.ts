@@ -58,9 +58,19 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { clinicId, departmentId, serviceId, ...updates } = body;
+        const { clinicId, departmentId, serviceId, updateGlobally, ...updates } = body;
 
-        if (!clinicId || !departmentId || !serviceId) {
+        if (!serviceId) {
+            return NextResponse.json({ error: 'Missing service ID' }, { status: 400 });
+        }
+
+        if (updateGlobally) {
+            const updated = await ServicesStore.updateServiceGlobally(serviceId, updates);
+            if (updated) return NextResponse.json({ success: true, updatedService: updated });
+            return NextResponse.json({ error: 'Service not found globally' }, { status: 404 });
+        }
+
+        if (!clinicId || !departmentId) {
             return NextResponse.json({ error: 'Missing required IDs' }, { status: 400 });
         }
 

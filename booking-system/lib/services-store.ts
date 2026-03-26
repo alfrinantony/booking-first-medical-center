@@ -509,6 +509,30 @@ export const ServicesStore = {
 
         await saveToBlob('clinics', clinicStore);
         return updatedService;
+    },
+
+    updateServiceGlobally: async (serviceId: string, updates: Partial<Service>) => {
+        await ensureClinicsLoaded();
+        let updatedAny = false;
+        let lastUpdatedService = null;
+
+        for (const clinic of clinicStore) {
+            for (const department of clinic.departments) {
+                const serviceIndex = department.services.findIndex(s => s.id === serviceId);
+                if (serviceIndex !== -1) {
+                    const updatedService = { ...department.services[serviceIndex], ...updates };
+                    department.services[serviceIndex] = updatedService;
+                    lastUpdatedService = updatedService;
+                    updatedAny = true;
+                }
+            }
+        }
+
+        if (updatedAny) {
+            await saveToBlob('clinics', clinicStore);
+            return lastUpdatedService;
+        }
+        return null;
     }
 };
 

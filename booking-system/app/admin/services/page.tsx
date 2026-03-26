@@ -488,19 +488,19 @@ export default function ServicesPage() {
 
     const handleToggleVisibility = async (deptIds: string[], serviceId: string, currentStatus: boolean) => {
         try {
-            for (const deptId of deptIds) {
-                await fetch('/api/admin/services', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        clinicId: selectedClinicId,
-                        departmentId: deptId,
-                        serviceId: serviceId,
-                        isVisible: !currentStatus
-                    })
-                });
-            }
-            await fetchServices();
+            // Updated: Hide globally across all clinics to ensure it actually unpublishes from the booking portal catalog
+            const res = await fetch('/api/admin/services', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    serviceId,
+                    updateGlobally: true,
+                    isVisible: !currentStatus
+                })
+            });
+            if (!res.ok) throw new Error('Failed to toggle visibility');
+            
+            fetchServices();
         } catch (error) {
             console.error('Failed to toggle visibility', error);
         }
