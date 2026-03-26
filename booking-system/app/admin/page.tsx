@@ -7,10 +7,11 @@ import {
     Warehouse, ArrowRight, Bell, BellOff, CalendarClock, Pill,
     Building, Stethoscope, UserCheck, UserX, Clock, Coffee,
     Tag, Package, FileText, ShieldCheck, DollarSign, Heart,
-    ClipboardList, Zap, TrendingUp, Briefcase
+    ClipboardList, Zap, TrendingUp, Briefcase, ClipboardCheck
 } from 'lucide-react';
 import { Medicine, Clinic } from '@/lib/data';
 import { User, ModulePermissions } from '@/lib/users-types';
+import type { RoomChecklist } from '@/lib/checklist-store';
 
 interface LowStockAlert {
     medicineId: string;
@@ -51,6 +52,7 @@ export default function AdminPage() {
     // Live data
     const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
     const [bookings, setBookings] = useState<Booking[]>([]);
+    const [checklists, setChecklists] = useState<RoomChecklist[]>([]);
     const [shiftSummary, setShiftSummary] = useState<{ total: number; scheduled: number; offDuty: number; clinicianAuto: number } | null>(null);
 
     const today = new Date().toISOString().split('T')[0];
@@ -94,6 +96,15 @@ export default function AdminPage() {
                 fetch('/api/admin/bookings').then(r => r.json()).then(bk => setBookings(Array.isArray(bk) ? bk.slice(0, 8) : [])).catch(() => {})
             );
         }
+        
+        // Fetch latest global checklists for the widget
+        fetches.push(
+            fetch('/api/admin/checklists').then(r => r.json()).then(data => {
+                if (Array.isArray(data)) {
+                    setChecklists(data.slice(0, 6)); // top 6 most recent
+                }
+            }).catch(() => {})
+        );
 
         Promise.all(fetches).catch(e => console.error(e)).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -312,6 +323,66 @@ export default function AdminPage() {
                             </div>
                         </div>
                         )}
+
+                        {/* Recent Daily Checklists */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <ClipboardCheck className="w-4 h-4 text-emerald-600" /> Recent Operations Checklists
+                                </h3>
+                                <Link href="/admin/checklists" className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5">
+                                    Open Dashboard <ArrowRight className="w-3 h-3" />
+                                </Link>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 text-gray-500 uppercase tracking-wider">
+                                            <th className="text-left py-2 px-4 font-semibold">Location</th>
+                                            <th className="text-left py-2 px-4 font-semibold">Supervisor</th>
+                                            <th className="text-left py-2 px-4 font-semibold">Date & Time</th>
+                                            <th className="text-left py-2 px-4 font-semibold">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                        {checklists.length === 0 ? (
+                                            <tr><td colSpan={4} className="py-8 text-center text-gray-400 text-sm">
+                                                {loading ? 'Loading...' : 'No checklists submitted yet'}
+                                            </td></tr>
+                                        ) : (
+                                            checklists.map((chk, i) => {
+                                                const branch = clinics.find(c => c.id === chk.branchId);
+                                                const room = branch?.rooms?.find(r => r.id === chk.roomId);
+                                                const submittedDate = chk.submittedAt ? new Date(chk.submittedAt) : new Date(chk.date);
+                                                
+                                                return (
+                                                <tr key={chk.id || i} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                                                    <td className="py-2.5 px-4">
+                                                        <div className="font-bold text-gray-900 dark:text-white leading-tight">{room?.name || 'Unknown Room'}</div>
+                                                        <div className="text-[10px] text-gray-500 flex items-center gap-0.5 mt-0.5"><Building className="w-3 h-3" /> {branch?.name || chk.branchId}</div>
+                                                    </td>
+                                                    <td className="py-2.5 px-4 font-medium text-gray-700 dark:text-gray-300">{chk.supervisorName}</td>
+                                                    <td className="py-2.5 px-4">
+                                                        <div className="text-gray-900 dark:text-gray-100 font-medium">{submittedDate.toLocaleDateString('en-GB')}</div>
+                                                        <div className="text-[10px] text-gray-500 font-mono mt-0.5">{submittedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</div>
+                                                    </td>
+                                                    <td className="py-2.5 px-4">
+                                                        <span className={`px-2 py-1 rounded border text-[10px] font-bold uppercase tracking-wider ${
+                                                            chk.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' :
+                                                            chk.status === 'Pending' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                                                            chk.status === 'Medicine Low' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                            'bg-orange-50 text-orange-700 border-orange-200'
+                                                        }`}>
+                                                            {chk.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            )})
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
                     {/* ── Right Sidebar: Quick Links ── */}
