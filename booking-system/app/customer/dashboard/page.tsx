@@ -35,6 +35,7 @@ export default function CustomerDashboard() {
 
     const [upcomingBookings, setUpcomingBookings] = useState<PatientBooking[]>([]);
     const [loadingBookings, setLoadingBookings] = useState(false);
+    const [liveClinics, setLiveClinics] = useState<any[]>([]);
     const [cancelingId, setCancelingId] = useState<string | null>(null);
     const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
     const [rescheduleBooking, setRescheduleBooking] = useState<PatientBooking | null>(null);
@@ -78,6 +79,12 @@ export default function CustomerDashboard() {
         // Fetch active packages
         fetch(`/api/admin/packages?type=my&phone=${encodeURIComponent(user.phone)}`)
             .then(r => r.json()).then(setMyPackages).catch(() => {});
+
+        // Fetch dynamic clinics tree for resolving string names
+        fetch('/api/admin/clinics')
+            .then(r => r.json()).then(data => {
+                if (Array.isArray(data)) setLiveClinics(data);
+            }).catch(() => {});
 
         // Fetch settings for google review URLs
         fetch('/api/admin/settings')
@@ -343,14 +350,17 @@ export default function CustomerDashboard() {
                                                         </div>
                                                         
                                                         {(() => {
-                                                            const clinic = allClinics.find(c => c.id === booking.clinicId);
-                                                            const department = clinic?.departments.find(d => d.id === booking.deptId);
-                                                            const service = department?.services.find(s => s.id === booking.serviceId);
-                                                            const doctor = department?.doctors.find(d => d.id === booking.doctorId);
+                                                            const clinicsSource = liveClinics.length > 0 ? liveClinics : allClinics;
+                                                            const clinic = clinicsSource.find(c => c.id === booking.clinicId);
+                                                            const department = clinic?.departments.find((d: any) => d.id === booking.deptId);
+                                                            const service = department?.services.find((s: any) => s.id === booking.serviceId);
+                                                            const doctor = department?.doctors.find((d: any) => d.id === booking.doctorId);
                                                             
+                                                            // We also support embedded names if the backend provided them in the booking object
+                                                            const bookingAny = booking as any;
                                                             const clinicName = clinic?.name || 'Unknown Branch';
-                                                            const serviceName = service?.name || 'Unknown Service';
-                                                            const doctorName = doctor?.name || 'Unknown Doctor';
+                                                            const serviceName = service?.name || bookingAny.serviceName || 'Unknown Service';
+                                                            const doctorName = doctor?.name || bookingAny.doctorName || 'Unknown Doctor';
                                                             const preInstructions = service?.preCare || '';
 
                                                             return (
