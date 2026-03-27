@@ -5,6 +5,7 @@ import {
     Plus, Search, Edit2, Trash2, ArrowLeftRight, History, AlertTriangle, Wrench,
     Package, MapPin, Filter, X, ChevronDown, ChevronUp, Calendar, Shield
 } from 'lucide-react';
+import { User } from '@/lib/users-types';
 
 interface EquipmentItem {
     id: string;
@@ -64,6 +65,7 @@ const emptyForm: Omit<EquipmentItem, 'id'> = {
 };
 
 export default function EquipmentPage() {
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [items, setItems] = useState<EquipmentItem[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -98,10 +100,21 @@ export default function EquipmentPage() {
         } catch { /* ignore */ } finally { setLoading(false); }
     };
 
-    useEffect(() => { fetchItems(); }, []);
+    useEffect(() => {
+        const userStr = sessionStorage.getItem('adminUser');
+        if (userStr) {
+            try { setCurrentUser(JSON.parse(userStr)); } catch (e) {}
+        }
+        fetchItems();
+    }, []);
 
     // ── Filtered list ──
     const filtered = items.filter(i => {
+        // Enforce RBAC Branch Scoping
+        if (currentUser && currentUser.role !== 'SUPER_ADMIN') {
+            if (!currentUser.clinicIds?.includes(i.branchId)) return false;
+        }
+
         if (filterBranch && i.branchId !== filterBranch) return false;
         if (filterCategory && i.category !== filterCategory) return false;
         if (filterStatus && i.status !== filterStatus) return false;
@@ -110,16 +123,25 @@ export default function EquipmentPage() {
         return true;
     });
 
-    // ── Dashboard stats ──
-    const totalCount = items.length;
-    const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-    const branchCounts = BRANCHES.map(b => ({ ...b, count: items.filter(i => i.branchId === b.id).length }));
-    const maintenanceCount = items.filter(i => i.status === 'maintenance').length;
-    const damagedCount = items.filter(i => i.status === 'damaged').length;
-    const lowStockItems = items.filter(i => i.quantity <= i.lowStockThreshold && i.status === 'active');
+    // ── RBAC Safe Stats ──
+    const safeItems = items.filter(i => {
+        if (currentUser && currentUser.role !== 'SUPER_ADMIN') {
+            return currentUser.clinicIds?.includes(i.branchId);
+        }
+        return true;
+    });
+
+    const totalCount = safeItems.length;
+    const totalQty = safeItems.reduce((s, i) => s + i.quantity, 0);
+    const branchCounts = BRANCHES
+        .filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id))
+        .map(b => ({ ...b, count: safeItems.filter(i => i.branchId === b.id).length }));
+    const maintenanceCount = safeItems.filter(i => i.status === 'maintenance').length;
+    const damagedCount = safeItems.filter(i => i.status === 'damaged').length;
+    const lowStockItems = safeItems.filter(i => i.quantity <= i.lowStockThreshold && i.status === 'active');
     const today = new Date();
     const in7Days = new Date(today.getTime() + 7 * 86400000);
-    const maintenanceDue = items.filter(i => i.nextMaintenanceDate && new Date(i.nextMaintenanceDate) <= in7Days && i.status === 'active');
+    const maintenanceDue = safeItems.filter(i => i.nextMaintenanceDate && new Date(i.nextMaintenanceDate) <= in7Days && i.status === 'active');
 
     // ── Handlers ──
     const handleAdd = async (e: React.FormEvent) => {
@@ -255,7 +277,9 @@ export default function EquipmentPage() {
                 <label className="block text-sm font-medium mb-1">Branch *</label>
                 <select required className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
                     value={formData.branchId} onChange={e => setFormData({ ...formData, branchId: e.target.value })}>
-                    {BRANCHES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id)).map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
                 </select>
             </div>
             <div>
@@ -376,7 +400,9 @@ export default function EquipmentPage() {
                         <select className="w-full p-2 text-sm border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                             value={filterBranch} onChange={e => setFilterBranch(e.target.value)}>
                             <option value="">All Branches</option>
-                            {BRANCHES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            {BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id)).map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex-1 min-w-[160px]">
