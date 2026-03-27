@@ -242,8 +242,7 @@ export default function AdminAppointmentsPage() {
     };
 
     const handleGenerateReceipt = () => {
-        alert(`Generating Receipt for Booking ID: ${editingBooking?.id}\nPatient: ${editingBooking?.patientName}\nAmount: $${editingBooking?.serviceId ? '100 (Mock)' : '0'}`);
-        // In real app: generate PDF or navigate to receipt page
+        window.location.href = '/admin/billing';
     };
 
     const handleEditClick = (booking: Booking) => {
@@ -295,6 +294,7 @@ export default function AdminAppointmentsPage() {
                     doctorId: editForm.doctorId,
                     duration: editForm.duration,
                     staffName: getStaffName(),
+                    ...(editForm.status === 'completed' && editingBooking.status !== 'completed' ? { billingStatus: 'pending_bill' } : {})
                 })
             });
 
