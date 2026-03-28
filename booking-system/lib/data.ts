@@ -219,7 +219,7 @@ export interface RequiredMedicine {
 export interface Room {
     id: string;
     name: string;
-    type: 'Consultation' | 'Procedure' | 'Waiting';
+    type: 'Consultation' | 'Procedure' | 'Waiting' | 'Utility' | 'Restroom' | 'Staff';
     assignedEquipmentIds: string[]; // Ties to EquipmentStore
     requiredMedicineIds: RequiredMedicine[]; // Ties to MedicineStore and expected pars
 }
@@ -463,7 +463,16 @@ export const clinics: Clinic[] = [
             { id: 'c1-hyd-2', name: 'Hydrafacial Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
             { id: 'c1-tx-1', name: 'Treatment Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
             { id: 'c1-prep-1', name: 'Preparation Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c1-prep-2', name: 'Preparation Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] }
+            { id: 'c1-prep-2', name: 'Preparation Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-ster-1', name: 'Sterilisation Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-it-1', name: 'IT Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-waste-1', name: 'Medical Waste Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-toilet-f', name: 'Female Toilet', type: 'Restroom', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-toilet-m', name: 'Male Toilet', type: 'Restroom', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-pantry-1', name: 'Pantry', type: 'Staff', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-admin-1', name: 'Administration Room', type: 'Staff', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-wait-m', name: 'Male Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c1-wait-f', name: 'Female Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] }
         ],
         departments: departmentNames.map(dept => ({
             id: `c1-${dept}`,
@@ -502,7 +511,17 @@ export const clinics: Clinic[] = [
             { id: 'c2-hyd-1', name: 'Hydrafacial Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
             { id: 'c2-hyd-2', name: 'Hydrafacial Room 2', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
             { id: 'c2-tx-1', name: 'Treatment Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c2-proc-1', name: 'Procedure Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] }
+            { id: 'c2-proc-1', name: 'Procedure Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-ster-1', name: 'Sterilisation Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-dis-1', name: 'Disinfectant Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-it-1', name: 'IT Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-staff-1', name: 'Staff Lounge', type: 'Staff', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-waste-1', name: 'Medical Waste Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-hk-1', name: 'Housekeeping Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-toilet-f', name: 'Female Toilet', type: 'Restroom', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-toilet-m', name: 'Male Toilet', type: 'Restroom', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-wait-m', name: 'Male Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c2-wait-f', name: 'Female Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] }
         ],
         departments: departmentNames.map(dept => ({
             id: `c2-${dept}`,
@@ -531,7 +550,11 @@ export const clinics: Clinic[] = [
             { id: 'c3-con-1', name: 'Consultation Room 1', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
             { id: 'c3-las-1', name: 'Laser Hair Removal Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
             { id: 'c3-tx-1', name: 'Treatment Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c3-prep-1', name: 'Preparation Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] }
+            { id: 'c3-prep-1', name: 'Preparation Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-ster-1', name: 'Sterilisation Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-dis-1', name: 'Disinfectant Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-it-1', name: 'IT Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-staff-1', name: 'Staff Lounge', type: 'Staff', assignedEquipmentIds: [], requiredMedicineIds: [] }
         ],
         departments: departmentNames.map(dept => ({
             id: `c3-${dept}`,

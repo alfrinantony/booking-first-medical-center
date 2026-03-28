@@ -242,7 +242,9 @@ export default function AdminAppointmentsPage() {
     };
 
     const handleGenerateReceipt = () => {
-        window.location.href = '/admin/billing';
+        if (editingBooking) {
+            window.location.href = `/admin/billing?bookId=${editingBooking.id}`;
+        }
     };
 
     const handleEditClick = (booking: Booking) => {

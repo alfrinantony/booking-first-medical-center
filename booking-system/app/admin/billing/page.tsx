@@ -61,6 +61,22 @@ export default function BillingPage() {
         }
     }, [loadInvoices]);
 
+    // Intercept ?bookId payload from Appointments Dashboard to support older bookings
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const bookId = new URLSearchParams(window.location.search).get('bookId');
+        if (bookId && bookings.length > 0 && clinics.length > 0 && !selectedBooking) {
+            const match = bookings.find(b => b.id === bookId);
+            if (match) {
+                // Pre-fill the model using exactly the same logic
+                handleSelectBooking(match);
+                setIsCreateModalOpen(true);
+                // Wipe the query parameter so it doesn't trigger unexpectedly on refresh
+                window.history.replaceState({}, '', '/admin/billing');
+            }
+        }
+    }, [bookings, clinics, selectedBooking]);
+
     // Fetch active batches when a medicine is selected
     const fetchBatchesForMedicine = async (medicineId: string) => {
         if (batchesMap[medicineId]) return;
