@@ -51,7 +51,7 @@ export default function BillingPage() {
 
     useEffect(() => {
         loadInvoices();
-        fetch('/api/bookings').then(res => res.json()).then(data => setBookings(Array.isArray(data) ? data : [])).catch(() => {});
+        fetch('/api/admin/bookings').then(res => res.json()).then(data => setBookings(Array.isArray(data) ? data : [])).catch(() => {});
         fetch('/api/admin/clinics').then(res => res.json()).then(data => setClinics(data || [])).catch(() => { });
         fetch('/api/admin/medicines').then(res => res.json()).then(data => setMedicines(Array.isArray(data) ? data : [])).catch(() => {});
         const stored = sessionStorage.getItem('adminUser');
@@ -229,7 +229,7 @@ export default function BillingPage() {
                             body: JSON.stringify({ billingStatus: 'billed' })
                         });
                         // Refresh bookings list
-                        fetch('/api/bookings').then(res => res.json()).then(data => setBookings(Array.isArray(data) ? data : [])).catch(() => {});
+                        fetch('/api/admin/bookings').then(res => res.json()).then(data => setBookings(Array.isArray(data) ? data : [])).catch(() => {});
                     } catch { /* silent */ }
                 }
             }
