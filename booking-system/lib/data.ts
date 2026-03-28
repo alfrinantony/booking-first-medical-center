@@ -550,11 +550,13 @@ export const clinics: Clinic[] = [
             { id: 'c3-con-1', name: 'Consultation Room 1', type: 'Consultation', assignedEquipmentIds: [], requiredMedicineIds: [] },
             { id: 'c3-las-1', name: 'Laser Hair Removal Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
             { id: 'c3-tx-1', name: 'Treatment Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c3-prep-1', name: 'Preparation Room 1', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c3-ster-1', name: 'Sterilisation Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c3-dis-1', name: 'Disinfectant Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c3-it-1', name: 'IT Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
-            { id: 'c3-staff-1', name: 'Staff Lounge', type: 'Staff', assignedEquipmentIds: [], requiredMedicineIds: [] }
+            { id: 'c3-prep-1', name: 'Procedure & Vital Signs Room', type: 'Procedure', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-ster-1', name: 'Clean Utility Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-dis-1', name: 'Dirty Utility Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-it-1', name: 'Store Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-staff-1', name: 'Medical Waste Room', type: 'Utility', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-wait-1', name: 'Waiting Area', type: 'Waiting', assignedEquipmentIds: [], requiredMedicineIds: [] },
+            { id: 'c3-pantry-1', name: 'Pantry', type: 'Staff', assignedEquipmentIds: [], requiredMedicineIds: [] }
         ],
         departments: departmentNames.map(dept => ({
             id: `c3-${dept}`,
