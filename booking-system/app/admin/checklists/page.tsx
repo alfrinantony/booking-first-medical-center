@@ -287,7 +287,12 @@ export default function DailyOperationsDashboard() {
     };
 
     // Derived states
-    const branchEquipment = equipmentList.filter(eq => eq.branchId === selectedBranchId);
+    const branchEquipment = equipmentList.filter(eq => {
+        if (eq.branchId !== selectedBranchId) return false;
+        const assignedToRoomId = activeBranch?.rooms?.find(r => r.assignedEquipmentIds?.includes(eq.id))?.id;
+        // Only show if it's completely unassigned, OR if it's currently assigned to the room we are actively configuring
+        return !assignedToRoomId || assignedToRoomId === activeConfigRoomId;
+    });
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">

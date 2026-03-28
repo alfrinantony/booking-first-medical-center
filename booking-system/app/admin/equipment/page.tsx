@@ -67,6 +67,7 @@ const emptyForm: Omit<EquipmentItem, 'id'> = {
 export default function EquipmentPage() {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [items, setItems] = useState<EquipmentItem[]>([]);
+    const [clinicsData, setClinicsData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Filters
@@ -106,6 +107,7 @@ export default function EquipmentPage() {
             try { setCurrentUser(JSON.parse(userStr)); } catch (e) {}
         }
         fetchItems();
+        fetch('/api/admin/clinics').then(r => r.json()).then(d => setClinicsData(d || [])).catch(() => {});
     }, []);
 
     // ── Filtered list ──
@@ -144,15 +146,37 @@ export default function EquipmentPage() {
     const maintenanceDue = safeItems.filter(i => i.nextMaintenanceDate && new Date(i.nextMaintenanceDate) <= in7Days && i.status === 'active');
 
     // ── Handlers ──
+    const syncEquipmentToRoom = async (branchId: string, eqId: string, targetRoomId: string) => {
+        const clinic = clinicsData.find(c => c.id === branchId);
+        if (!clinic) return;
+        const updatedRooms = clinic.rooms?.map((r: any) => {
+            const cleanEqs = (r.assignedEquipmentIds || []).filter((id: string) => id !== eqId);
+            if (r.id === targetRoomId) return { ...r, assignedEquipmentIds: [...cleanEqs, eqId] };
+            return { ...r, assignedEquipmentIds: cleanEqs };
+        });
+        await fetch('/api/admin/clinics', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: branchId, rooms: updatedRooms })
+        });
+        fetch('/api/admin/clinics').then(r => r.json()).then(d => setClinicsData(d || [])).catch(() => {});
+    };
+
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await fetch('/api/admin/equipment', {
+            const res = await fetch('/api/admin/equipment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
+            const newItem = await res.json();
+            
+            if (formData.assignedDepartment) {
+                await syncEquipmentToRoom(formData.branchId, newItem.id, formData.assignedDepartment);
+            }
+            
             await fetchItems();
             setShowAddModal(false);
             setFormData(emptyForm);
@@ -168,6 +192,9 @@ export default function EquipmentPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: editingId, ...formData }),
             });
+            
+            await syncEquipmentToRoom(formData.branchId, editingId, formData.assignedDepartment);
+            
             await fetchItems();
             setShowEditModal(false);
         } catch { /* ignore */ } finally { setSubmitting(false); }
@@ -306,8 +333,15 @@ export default function EquipmentPage() {
             </div>
             <div>
                 <label className="block text-sm font-medium mb-1">Assigned Department / Room</label>
-                <input type="text" className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
-                    value={formData.assignedDepartment} onChange={e => setFormData({ ...formData, assignedDepartment: e.target.value })} />
+                <select className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    value={formData.assignedDepartment} 
+                    disabled={currentUser?.role !== 'SUPER_ADMIN'}
+                    onChange={e => setFormData({ ...formData, assignedDepartment: e.target.value })}>
+                    <option value="">-- Unassigned --</option>
+                    {clinicsData.find(c => c.id === formData.branchId)?.rooms?.map((r: any) => (
+                        <option key={r.id} value={r.id}>{r.name} ({r.type})</option>
+                    ))}
+                </select>
             </div>
             <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1">Notes</label>
