@@ -241,10 +241,8 @@ export default function AdminAppointmentsPage() {
         return flow[currentStatus] || [];
     };
 
-    const handleGenerateReceipt = () => {
-        if (editingBooking) {
-            window.location.href = `/admin/billing?bookId=${editingBooking.id}`;
-        }
+    const handleGenerateReceipt = (bookingId: string) => {
+        window.location.href = `/admin/billing?bookId=${bookingId}`;
     };
 
     const handleEditClick = (booking: Booking) => {
@@ -579,6 +577,17 @@ export default function AdminAppointmentsPage() {
                                                                             })}
                                                                         </div>
                                                                     )}
+                                                                    {b.status === 'completed' && (
+                                                                        <div className="mt-2 text-left">
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleGenerateReceipt(b.id); }}
+                                                                                className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 font-bold bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded border border-emerald-100 dark:border-emerald-800"
+                                                                            >
+                                                                                <FileText className="w-3 h-3" />
+                                                                                Receipt
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             ))
                                                         )}
@@ -697,16 +706,26 @@ export default function AdminAppointmentsPage() {
                                         )}
                                     </div>
 
-                                    <div className="flex gap-2 mt-2">
+                                    <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
                                         <button
                                             onClick={() => handleEditClick(booking)}
                                             className="flex-1 text-center text-xs text-indigo-600 font-medium hover:underline"
                                         >
                                             Edit Booking
                                         </button>
+                                        {booking.status === 'completed' && (
+                                            <button
+                                                onClick={() => handleGenerateReceipt(booking.id)}
+                                                className="flex-1 flex items-center justify-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-bold transition-colors border-l border-gray-200 dark:border-gray-700 pl-2"
+                                                title="Generate Receipt"
+                                            >
+                                                <FileText className="w-3.5 h-3.5" />
+                                                Receipt
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => { setHistoryBooking(booking); setIsHistoryOpen(true); }}
-                                            className="flex items-center justify-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium transition-colors"
+                                            className="flex items-center justify-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium transition-colors border-l border-gray-200 dark:border-gray-700 pl-2"
                                             title="View status history"
                                         >
                                             <History className="w-3.5 h-3.5" />
@@ -763,7 +782,7 @@ export default function AdminAppointmentsPage() {
                                 </div>
                                 {editForm.status === 'completed' && (
                                     <button
-                                        onClick={handleGenerateReceipt}
+                                        onClick={() => handleGenerateReceipt(editingBooking.id)}
                                         className="mt-2 text-xs flex items-center gap-1 text-indigo-600 hover:underline"
                                     >
                                         <FileText className="w-3 h-3" />
