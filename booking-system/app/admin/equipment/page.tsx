@@ -363,7 +363,14 @@ export default function EquipmentPage() {
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Equipment Inventory</h1>
                         <p className="text-gray-500 dark:text-gray-400 text-sm">Track, manage, and transfer equipment across all branches</p>
                     </div>
-                    <button onClick={() => { setFormData(emptyForm); setShowAddModal(true); }}
+                    <button onClick={() => { 
+                        const allowedBranches = BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id));
+                        setFormData({
+                            ...emptyForm,
+                            branchId: allowedBranches.length > 0 ? allowedBranches[0].id : ''
+                        }); 
+                        setShowAddModal(true); 
+                    }}
                         className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm">
                         <Plus className="w-4 h-4" /> Add Equipment
                     </button>
