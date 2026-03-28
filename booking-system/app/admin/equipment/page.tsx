@@ -333,9 +333,8 @@ export default function EquipmentPage() {
             </div>
             <div>
                 <label className="block text-sm font-medium mb-1">Assigned Department / Room</label>
-                <select className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                <select className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
                     value={formData.assignedDepartment} 
-                    disabled={currentUser?.role !== 'SUPER_ADMIN'}
                     onChange={e => setFormData({ ...formData, assignedDepartment: e.target.value })}>
                     <option value="">-- Unassigned --</option>
                     {clinicsData.find(c => c.id === formData.branchId)?.rooms?.map((r: any) => (
