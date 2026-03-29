@@ -168,6 +168,9 @@ export default function BillingPage() {
     const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
     const taxAmount = subtotal * (taxPercentage / 100);
     const totalAmount = subtotal + taxAmount;
+    
+    const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
+    const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
 
     const filtered = searchPhone ? invoices.filter(i => i.clientPhone.includes(searchPhone)) : invoices;
 
@@ -484,10 +487,12 @@ export default function BillingPage() {
                                                             if (matchedService) break;
                                                         }
                                                         if (matchedService && (u[idx].unitPrice === 0 || u[idx].regularPrice === 0)) {
-                                                            u[idx].regularPrice = matchedService.regularPrice || matchedService.price || 0;
+                                                            const svcReg = matchedService.regularPrice || matchedService.price || 0;
+                                                            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg;
+                                                            u[idx].regularPrice = svcReg;
                                                             u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
-                                                            u[idx].discountAmount = 0;
-                                                            u[idx].unitPrice = u[idx].regularPrice! - u[idx].discountAmount!;
+                                                            u[idx].discountAmount = svcReg - svcFinal;
+                                                            u[idx].unitPrice = svcFinal;
                                                             
                                                             if (!clinicName && matchedClinic) {
                                                                 setClinicName(matchedClinic.name);
@@ -721,7 +726,13 @@ export default function BillingPage() {
 
                                 {/* Summary */}
                                 <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-1 text-sm">
-                                    <div className="flex justify-between"><span>Subtotal</span><span>{subtotal.toFixed(2)} AED</span></div>
+                                    {totalDiscount > 0 && (
+                                        <>
+                                            <div className="flex justify-between text-gray-500"><span>Gross Total</span><span>{grossTotal.toFixed(2)} AED</span></div>
+                                            <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{totalDiscount.toFixed(2)} AED</span></div>
+                                        </>
+                                    )}
+                                    <div className="flex justify-between"><span>Subtotal (After Discount)</span><span>{subtotal.toFixed(2)} AED</span></div>
                                     <div className="flex justify-between"><span>VAT ({taxPercentage}%)</span><span>{taxAmount.toFixed(2)} AED</span></div>
                                     <div className="flex justify-between font-bold text-lg border-t pt-2 dark:border-gray-600"><span>Total</span><span>{totalAmount.toFixed(2)} AED</span></div>
                                 </div>
@@ -769,7 +780,21 @@ export default function BillingPage() {
                                 </tbody>
                             </table>
                             <div className="space-y-1 text-sm">
-                                <div className="flex justify-between"><span>Subtotal</span><span>{viewingInvoice.subtotal.toFixed(2)} AED</span></div>
+                                {(() => {
+                                    const vGross = viewingInvoice.items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
+                                    const vDisc = viewingInvoice.items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
+                                    return (
+                                        <>
+                                            {vDisc > 0 && (
+                                                <>
+                                                    <div className="flex justify-between text-gray-500"><span>Gross Total</span><span>{vGross.toFixed(2)} AED</span></div>
+                                                    <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{vDisc.toFixed(2)} AED</span></div>
+                                                </>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                                <div className="flex justify-between"><span>Subtotal (After Discount)</span><span>{viewingInvoice.subtotal.toFixed(2)} AED</span></div>
                                 <div className="flex justify-between"><span>VAT ({viewingInvoice.taxPercentage}%)</span><span>{viewingInvoice.taxAmount.toFixed(2)} AED</span></div>
                                 <div className="flex justify-between font-bold text-lg border-t pt-2 dark:border-gray-600"><span>Total</span><span>{viewingInvoice.totalAmount.toFixed(2)} AED</span></div>
                             </div>
