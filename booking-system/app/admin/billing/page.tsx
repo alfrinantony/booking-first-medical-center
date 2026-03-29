@@ -440,15 +440,23 @@ export default function BillingPage() {
                                                     }}
                                                 >
                                                     <option value="">+ Template...</option>
-                                                    {clinics.map(c => (
-                                                        <optgroup key={c.id} label={c.name}>
-                                                            {c.departments.map(d => 
-                                                                d.services.map(s => (
+                                                    {clinics.filter(c => clinicName ? c.name === clinicName : true).map(c => {
+                                                        const allServices = c.departments.flatMap(d => d.services);
+                                                        const uniqueServicesMap = new Map();
+                                                        allServices.forEach(s => {
+                                                            if (!uniqueServicesMap.has(s.name)) {
+                                                                uniqueServicesMap.set(s.name, s);
+                                                            }
+                                                        });
+                                                        const sortedUniqueServices = Array.from(uniqueServicesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+                                                        return (
+                                                            <optgroup key={c.id} label={c.name}>
+                                                                {sortedUniqueServices.map(s => (
                                                                     <option key={s.id} value={s.id}>{s.name} ({s.price} AED)</option>
-                                                                ))
-                                                            )}
-                                                        </optgroup>
-                                                    ))}
+                                                                ))}
+                                                            </optgroup>
+                                                        );
+                                                    })}
                                                 </select>
                                                 <input type="text" placeholder="Description" className="w-2/3 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.description} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], description: e.target.value }; setItems(u); }} />
                                             </div>
@@ -565,7 +573,10 @@ export default function BillingPage() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Clinic Name</label>
-                                        <input type="text" placeholder="Clinic branch name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={clinicName} onChange={(e) => setClinicName(e.target.value)} />
+                                        <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={clinicName} onChange={(e) => setClinicName(e.target.value)}>
+                                            <option value="">— Select branch —</option>
+                                            {clinics.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Notes</label>
