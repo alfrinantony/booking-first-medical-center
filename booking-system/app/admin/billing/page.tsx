@@ -92,19 +92,23 @@ export default function BillingPage() {
         let svcName = booking.serviceId || '';
         let docName = booking.doctorId || '';
         let clnName = booking.clinicId || '';
+        let svcPrice = 0;
 
         for (const clinic of clinics) {
             if (clinic.id === booking.clinicId) {
                 clnName = clinic.name;
                 for (const dept of clinic.departments) {
                     const svc = dept.services.find(s => s.id === booking.serviceId);
-                    if (svc) svcName = svc.name;
+                    if (svc) {
+                        svcName = svc.name;
+                        svcPrice = svc.price || 0;
+                    }
                     const doc = dept.doctors.find(d => d.id === booking.doctorId);
                     if (doc) docName = doc.name;
                 }
             }
         }
-        return { svcName, docName, clnName };
+        return { svcName, docName, clnName, svcPrice };
     };
 
     const filteredBookings = bookingSearch.length >= 1
@@ -121,16 +125,22 @@ export default function BillingPage() {
         setBookingSearch('');
         setShowBookingDropdown(false);
 
-        const { svcName, docName, clnName } = resolveNames(booking);
+        const { svcName, docName, clnName, svcPrice } = resolveNames(booking);
 
         // Auto-fill all fields
         setClientName(booking.patientName || '');
         setClientPhone(booking.whatsappNumber || '');
         setClientEmail(booking.email || '');
+        
+        const bookingAmount = (booking as any).amount;
+        const finalPrice = typeof bookingAmount === 'number' && bookingAmount > 0 
+            ? bookingAmount 
+            : svcPrice;
+
         setItems([{
             description: svcName,
             quantity: 1,
-            unitPrice: (booking as any).amount || 0
+            unitPrice: finalPrice
         }]);
         setClinicName(clnName);
         setDoctorName(docName);
