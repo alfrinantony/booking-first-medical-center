@@ -695,11 +695,12 @@ export default function BillingPage() {
                                                     
                                                     if (pkgMatch) {
                                                         const vatFact = 1 + (taxPercentage / 100);
-                                                        const pkgPriceInc = pkgMatch.discountedPrice || pkgMatch.totalCost || 0;
-                                                        const pkgReg = pkgMatch.totalCost || pkgMatch.discountedPrice || 0;
+                                                        const pkgPriceInc = pkgMatch.discountedPrice !== undefined ? pkgMatch.discountedPrice : (pkgMatch.totalCost || 0);
+                                                        const pkgReg = pkgMatch.totalCost || pkgPriceInc;
                                                         const pkgPriceEx = pkgPriceInc / vatFact;
                                                         const u = [...items];
-                                                        const newItem = { description: val, quantity: 1, unitPrice: pkgPriceEx, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceEx, maxDiscountPercentage: 0, consumptions: [] };
+                                                        const desc = pkgMatch.validity ? `${val} (Valid for ${pkgMatch.validity} days)` : val;
+                                                        const newItem = { description: desc, quantity: 1, unitPrice: pkgPriceEx, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceEx, maxDiscountPercentage: 0, consumptions: [] };
                                                         if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
                                                             u[0] = newItem;
                                                         } else {
