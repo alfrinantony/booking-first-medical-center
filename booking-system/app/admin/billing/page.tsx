@@ -147,28 +147,28 @@ export default function BillingPage() {
         setClientEmail(booking.email || '');
         
         let finalRegPrice = svcPrice;
-        let finalDiscAmount = 0;
-        let finalUnitPrice = svcPrice;
+        let finalUnitPriceInc = svcPrice;
 
         if (matchedService) {
             finalRegPrice = matchedService.regularPrice || matchedService.price || 0;
-            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : finalRegPrice;
-            finalDiscAmount = finalRegPrice - svcFinal;
-            finalUnitPrice = svcFinal;
+            finalUnitPriceInc = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : finalRegPrice;
         }
 
         // If the booking itself has a recorded amount different than our base price
         const bookingAmount = (booking as any).amount;
         if (typeof bookingAmount === 'number' && bookingAmount > 0) {
-            finalUnitPrice = bookingAmount;
-            finalDiscAmount = finalRegPrice > finalUnitPrice ? finalRegPrice - finalUnitPrice : 0;
-            finalRegPrice = finalRegPrice > finalUnitPrice ? finalRegPrice : finalUnitPrice;
+            finalUnitPriceInc = bookingAmount;
+            finalRegPrice = finalRegPrice > finalUnitPriceInc ? finalRegPrice : finalUnitPriceInc;
         }
+
+        const vatFact = 1 + (taxPercentage / 100);
+        const finalUnitPriceEx = finalUnitPriceInc / vatFact;
+        const finalDiscAmount = finalRegPrice - finalUnitPriceEx;
 
         setItems([{
             description: svcName,
             quantity: 1,
-            unitPrice: finalUnitPrice,
+            unitPrice: finalUnitPriceEx,
             regularPrice: finalRegPrice,
             discountAmount: finalDiscAmount,
             maxDiscountPercentage: matchedService?.maxDiscountPercentage || 0,
@@ -181,14 +181,11 @@ export default function BillingPage() {
         setNotes(`Booking ID: ${booking.id} | Doctor: ${docName} | Date: ${booking.date} | Time: ${booking.slot}`);
     };
 
-    // Form state (items) holds INCLUSIVE values!
-    // We strictly strip them ONLY for the summary derivations.
     const vatFactor = 1 + (taxPercentage / 100);
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const subtotal = totalAmount / vatFactor;
-    const taxAmount = totalAmount - subtotal;
+    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const taxAmount = subtotal * (taxPercentage / 100);
+    const totalAmount = subtotal + taxAmount;
     
-    // Also display the inclusive Gross and inclusive Total Discount in the summary
     const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
     const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
 
@@ -252,13 +249,17 @@ export default function BillingPage() {
             return;
         }
 
+        const vatFact = 1 + (taxPercentage / 100);
         // Validate max discounts
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
             if (item.maxDiscountPercentage !== undefined && item.regularPrice && item.discountAmount) {
-                const maxAllowedDiscount = item.regularPrice * (item.maxDiscountPercentage / 100);
-                if (item.discountAmount > maxAllowedDiscount + 0.01) {
-                    alert(`Item ${i + 1} discount exceeds maximum allowed of ${item.maxDiscountPercentage}%. Max allowed discount is ${maxAllowedDiscount.toFixed(2)} AED.`);
+                const trueInclusiveFinal = item.unitPrice * vatFact;
+                const trueInclusiveDiscount = item.regularPrice - trueInclusiveFinal;
+                const maxAllowedInclusiveDiscount = item.regularPrice * (item.maxDiscountPercentage / 100);
+                
+                if (trueInclusiveDiscount > maxAllowedInclusiveDiscount + 0.01) {
+                    alert(`Item ${i + 1} discount exceeds maximum allowed of ${item.maxDiscountPercentage}%. Max allowed discount is ${maxAllowedInclusiveDiscount.toFixed(2)} AED.`);
                     return;
                 }
             }
@@ -509,12 +510,15 @@ export default function BillingPage() {
                                                             if (matchedService) break;
                                                         }
                                                         if (matchedService && (u[idx].unitPrice === 0 || u[idx].regularPrice === 0)) {
+                                                            const vatFact = 1 + (taxPercentage / 100);
                                                             const svcReg = matchedService.regularPrice || matchedService.price || 0;
-                                                            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg;
+                                                            const svcFinalInc = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg;
+                                                            const svcFinalEx = svcFinalInc / vatFact;
+
                                                             u[idx].regularPrice = svcReg;
                                                             u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
-                                                            u[idx].discountAmount = svcReg - svcFinal;
-                                                            u[idx].unitPrice = svcFinal;
+                                                            u[idx].unitPrice = svcFinalEx;
+                                                            u[idx].discountAmount = svcReg - svcFinalEx;
                                                             
                                                             if (!clinicName && matchedClinic) {
                                                                 setClinicName(matchedClinic.name);
@@ -690,10 +694,12 @@ export default function BillingPage() {
                                                     }
                                                     
                                                     if (pkgMatch) {
-                                                        const pkgPrice = pkgMatch.discountedPrice || pkgMatch.totalCost || 0;
+                                                        const vatFact = 1 + (taxPercentage / 100);
+                                                        const pkgPriceInc = pkgMatch.discountedPrice || pkgMatch.totalCost || 0;
                                                         const pkgReg = pkgMatch.totalCost || pkgMatch.discountedPrice || 0;
+                                                        const pkgPriceEx = pkgPriceInc / vatFact;
                                                         const u = [...items];
-                                                        const newItem = { description: val, quantity: 1, unitPrice: pkgPrice, regularPrice: pkgReg, discountAmount: pkgReg - pkgPrice, maxDiscountPercentage: 0, consumptions: [] };
+                                                        const newItem = { description: val, quantity: 1, unitPrice: pkgPriceEx, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceEx, maxDiscountPercentage: 0, consumptions: [] };
                                                         if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
                                                             u[0] = newItem;
                                                         } else {
@@ -750,7 +756,7 @@ export default function BillingPage() {
                                 <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-1 text-sm">
                                     {totalDiscount > 0 && (
                                         <>
-                                            <div className="flex justify-between text-gray-500"><span>Gross Total (Inc. VAT)</span><span>{grossTotal.toFixed(2)} AED</span></div>
+                                            <div className="flex justify-between text-gray-500"><span>Gross Total</span><span>{grossTotal.toFixed(2)} AED</span></div>
                                             <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{totalDiscount.toFixed(2)} AED</span></div>
                                         </>
                                     )}
@@ -809,7 +815,7 @@ export default function BillingPage() {
                                         <>
                                             {vDisc > 0 && (
                                                 <>
-                                                    <div className="flex justify-between text-gray-500"><span>Gross Total (Inc. VAT)</span><span>{vGross.toFixed(2)} AED</span></div>
+                                                    <div className="flex justify-between text-gray-500"><span>Gross Total</span><span>{vGross.toFixed(2)} AED</span></div>
                                                     <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{vDisc.toFixed(2)} AED</span></div>
                                                 </>
                                             )}
