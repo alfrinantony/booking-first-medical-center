@@ -93,6 +93,7 @@ export default function BillingPage() {
         let docName = booking.doctorId || '';
         let clnName = booking.clinicId || '';
         let svcPrice = 0;
+        let matchedService: any = null;
 
         for (const clinic of clinics) {
             if (clinic.id === booking.clinicId) {
@@ -103,6 +104,7 @@ export default function BillingPage() {
                 if (svc) {
                     svcName = svc.name;
                     svcPrice = svc.price || 0;
+                    matchedService = svc;
                 }
                 const doc = dept.doctors.find(d => d.id === booking.doctorId);
                 if (doc) docName = doc.name;
@@ -120,7 +122,7 @@ export default function BillingPage() {
             }
         }
 
-        return { svcName, docName, clnName, svcPrice };
+        return { svcName, docName, clnName, svcPrice, matchedService };
     };
 
     const filteredBookings = bookingSearch.length >= 1
@@ -137,25 +139,39 @@ export default function BillingPage() {
         setBookingSearch('');
         setShowBookingDropdown(false);
 
-        const { svcName, docName, clnName, svcPrice } = resolveNames(booking);
+        const { svcName, docName, clnName, svcPrice, matchedService } = resolveNames(booking);
 
         // Auto-fill all fields
         setClientName(booking.patientName || '');
         setClientPhone(booking.whatsappNumber || '');
         setClientEmail(booking.email || '');
         
+        let finalRegPrice = svcPrice;
+        let finalDiscAmount = 0;
+        let finalUnitPrice = svcPrice;
+
+        if (matchedService) {
+            finalRegPrice = matchedService.regularPrice || matchedService.price || 0;
+            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : finalRegPrice;
+            finalDiscAmount = finalRegPrice - svcFinal;
+            finalUnitPrice = svcFinal;
+        }
+
+        // If the booking itself has a recorded amount different than our base price
         const bookingAmount = (booking as any).amount;
-        const finalPrice = typeof bookingAmount === 'number' && bookingAmount > 0 
-            ? bookingAmount 
-            : svcPrice;
+        if (typeof bookingAmount === 'number' && bookingAmount > 0) {
+            finalUnitPrice = bookingAmount;
+            finalDiscAmount = finalRegPrice > finalUnitPrice ? finalRegPrice - finalUnitPrice : 0;
+            finalRegPrice = finalRegPrice > finalUnitPrice ? finalRegPrice : finalUnitPrice;
+        }
 
         setItems([{
             description: svcName,
             quantity: 1,
-            unitPrice: finalPrice,
-            regularPrice: finalPrice,
-            discountAmount: 0,
-            maxDiscountPercentage: 0,
+            unitPrice: finalUnitPrice,
+            regularPrice: finalRegPrice,
+            discountAmount: finalDiscAmount,
+            maxDiscountPercentage: matchedService?.maxDiscountPercentage || 0,
             consumptions: []
         }]);
         setClinicName(clnName);
