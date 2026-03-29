@@ -394,9 +394,9 @@ export default function BillingPage() {
                             <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><FileText className="w-5 h-5" /> Generate Invoice</h2>
                             <div className="space-y-4">
 
-                                {/* Booking Selector */}
+                                {/* Client Details Auto-fill */}
                                 <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-                                    <label className="block text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-2">📋 Auto-fill from Booking</label>
+                                    <label className="block text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-2">🔍 Search & Auto-fill Client Details</label>
                                     <div className="relative">
                                         <Search className="absolute left-3 top-2.5 w-4 h-4 text-indigo-400" />
                                         <input
@@ -417,7 +417,13 @@ export default function BillingPage() {
                                                         return (
                                                             <button key={b.id} type="button"
                                                                 className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors border-b last:border-b-0 border-gray-100 dark:border-gray-700"
-                                                                onClick={() => handleSelectBooking(b)}>
+                                                                onClick={() => {
+                                                                    setClientName(b.patientName || '');
+                                                                    setClientPhone(b.whatsappNumber || '');
+                                                                    setClientEmail(b.email || '');
+                                                                    setBookingSearch('');
+                                                                    setShowBookingDropdown(false);
+                                                                }}>
                                                                 <div className="flex justify-between items-start">
                                                                     <div>
                                                                         <div className="font-medium text-sm text-gray-900 dark:text-white">{b.patientName}</div>
@@ -440,7 +446,7 @@ export default function BillingPage() {
                                     </div>
                                     {selectedBooking && (
                                         <div className="mt-2 flex items-center gap-2">
-                                            <span className="text-xs text-green-700 dark:text-green-400 font-medium">✓ Booking loaded — all fields filled. You can edit any field below.</span>
+                                            <span className="text-xs text-green-700 dark:text-green-400 font-medium">✓ Client details filled.</span>
                                             <button type="button" onClick={() => { setSelectedBooking(null); resetForm(); }} className="text-xs text-indigo-600 underline">Clear</button>
                                         </div>
                                     )}
@@ -691,7 +697,11 @@ export default function BillingPage() {
                                                         const pkgReg = pkgMatch.totalCost || pkgPriceInc;
                                                         const u = [...items];
                                                         const desc = pkgMatch.validity ? `${val} (Valid for ${pkgMatch.validity} days)` : val;
-                                                        const newItem = { description: desc, quantity: 1, unitPrice: pkgPriceInc, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceInc, maxDiscountPercentage: 0, consumptions: [] };
+                                                        const newItem = { description: desc, quantity: 1, unitPrice: pkgPriceInc, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceInc, maxDiscountPercentage: undefined, consumptions: [] };
+                                                        
+                                                        const noteAppend = "Purchased services won't refund, complete the services before the expiry of validity date.";
+                                                        setNotes(prev => prev ? (prev.includes(noteAppend) ? prev : prev + '\n' + noteAppend) : noteAppend);
+
                                                         if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
                                                             u[0] = newItem;
                                                         } else {
