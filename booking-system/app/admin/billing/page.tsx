@@ -583,7 +583,49 @@ export default function BillingPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Package (if applicable)</label>
-                                        <input type="text" list="packages-list" placeholder="Search or type Package name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={packageDetails} onChange={(e) => setPackageDetails(e.target.value)} />
+                                        <input type="text" list="packages-list" placeholder="Search or type Package name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={packageDetails} 
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setPackageDetails(val);
+                                                
+                                                if (val) {
+                                                    let pkgMatch = null;
+                                                    let matchedClinicName = null;
+                                                    
+                                                    for(const c of clinics) {
+                                                        for(const d of c.departments) {
+                                                            for(const s of d.services) {
+                                                                if (val === `3 Sessions - ${s.name}` && s.threeSessionPackage) {
+                                                                    pkgMatch = s.threeSessionPackage;
+                                                                    matchedClinicName = c.name;
+                                                                    break;
+                                                                }
+                                                                if (val === `6 Sessions - ${s.name}` && s.sixSessionPackage) {
+                                                                    pkgMatch = s.sixSessionPackage;
+                                                                    matchedClinicName = c.name;
+                                                                    break;
+                                                                }
+                                                            }
+                                                            if (pkgMatch) break;
+                                                        }
+                                                        if (pkgMatch) break;
+                                                    }
+                                                    
+                                                    if (pkgMatch) {
+                                                        const u = [...items];
+                                                        if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
+                                                            u[0] = { description: val, quantity: 1, unitPrice: pkgMatch.price, consumptions: [] };
+                                                        } else {
+                                                            u.push({ description: val, quantity: 1, unitPrice: pkgMatch.price, consumptions: [] });
+                                                        }
+                                                        setItems(u);
+                                                        setInvoiceCategory("clinic_package");
+                                                        if (!clinicName && matchedClinicName) {
+                                                            setClinicName(matchedClinicName);
+                                                        }
+                                                    }
+                                                }
+                                            }} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">VAT %</label>
