@@ -417,7 +417,41 @@ export default function BillingPage() {
                                     <label className="block text-sm font-medium mb-2">Services / Items</label>
                                     {items.map((item, idx) => (
                                         <div key={idx} className="flex gap-2 mb-2">
-                                            <input type="text" placeholder="Description" className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.description} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], description: e.target.value }; setItems(u); }} />
+                                            <div className="flex-1 flex gap-1">
+                                                <select
+                                                    className="w-1/3 p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 text-[10px] text-gray-700 dark:text-gray-300 bg-gray-50 focus:outline-none"
+                                                    onChange={e => {
+                                                        const svcId = e.target.value;
+                                                        if(!svcId) return;
+                                                        let svcMatch = null;
+                                                        for(const c of clinics) {
+                                                            for(const d of c.departments) {
+                                                                const hit = d.services.find(s => s.id === svcId);
+                                                                if(hit) { svcMatch = hit; break; }
+                                                            }
+                                                            if (svcMatch) break;
+                                                        }
+                                                        if(svcMatch) {
+                                                            const u = [...items];
+                                                            u[idx] = { ...u[idx], description: svcMatch.name, unitPrice: svcMatch.price || 0 };
+                                                            setItems(u);
+                                                        }
+                                                        e.target.value = ''; // Reset select back to placeholder
+                                                    }}
+                                                >
+                                                    <option value="">+ Template...</option>
+                                                    {clinics.map(c => (
+                                                        <optgroup key={c.id} label={c.name}>
+                                                            {c.departments.map(d => 
+                                                                d.services.map(s => (
+                                                                    <option key={s.id} value={s.id}>{s.name} ({s.price} AED)</option>
+                                                                ))
+                                                            )}
+                                                        </optgroup>
+                                                    ))}
+                                                </select>
+                                                <input type="text" placeholder="Description" className="w-2/3 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.description} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], description: e.target.value }; setItems(u); }} />
+                                            </div>
                                             <input type="number" min="1" placeholder="Qty" className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
                                             <input type="number" min="0" placeholder="Price" className="w-28 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.unitPrice || ''} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], unitPrice: Number(e.target.value) }; setItems(u); }} />
                                             {items.length > 1 && (
