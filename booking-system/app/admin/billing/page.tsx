@@ -146,21 +146,22 @@ export default function BillingPage() {
         setClientPhone(booking.whatsappNumber || '');
         setClientEmail(booking.email || '');
         
-        let finalRegPrice = svcPrice;
+        const vatFact = 1 + (taxPercentage / 100);
+        let finalRegPrice = svcPrice / vatFact;
         let finalDiscAmount = 0;
-        let finalUnitPrice = svcPrice;
+        let finalUnitPrice = svcPrice / vatFact;
 
         if (matchedService) {
-            finalRegPrice = matchedService.regularPrice || matchedService.price || 0;
-            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : finalRegPrice;
-            finalDiscAmount = finalRegPrice - svcFinal;
-            finalUnitPrice = svcFinal;
+            finalRegPrice = (matchedService.regularPrice || matchedService.price || 0) / vatFact;
+            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : (matchedService.regularPrice || matchedService.price || 0);
+            finalDiscAmount = finalRegPrice - (svcFinal / vatFact);
+            finalUnitPrice = svcFinal / vatFact;
         }
 
         // If the booking itself has a recorded amount different than our base price
         const bookingAmount = (booking as any).amount;
         if (typeof bookingAmount === 'number' && bookingAmount > 0) {
-            finalUnitPrice = bookingAmount;
+            finalUnitPrice = bookingAmount / vatFact;
             finalDiscAmount = finalRegPrice > finalUnitPrice ? finalRegPrice - finalUnitPrice : 0;
             finalRegPrice = finalRegPrice > finalUnitPrice ? finalRegPrice : finalUnitPrice;
         }
@@ -182,12 +183,12 @@ export default function BillingPage() {
     };
 
     const vatFactor = 1 + (taxPercentage / 100);
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const subtotal = totalAmount / vatFactor;
-    const taxAmount = totalAmount - subtotal;
+    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const taxAmount = subtotal * (taxPercentage / 100);
+    const totalAmount = subtotal + taxAmount;
     
-    const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0) / vatFactor;
-    const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0) / vatFactor;
+    const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
+    const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
 
     const filtered = searchPhone ? invoices.filter(i => i.clientPhone.includes(searchPhone)) : invoices;
 
@@ -230,19 +231,14 @@ export default function BillingPage() {
     const handleCreateInvoice = async () => {
         if (!clientName || !clientPhone || !generatedBy) return;
 
-        const vatFact = 1 + (taxPercentage / 100);
         const invoiceItems: InvoiceLineItem[] = items.filter(i => i.description).map(i => {
-            const exRegPrice = (i.regularPrice !== undefined ? i.regularPrice : i.unitPrice) / vatFact;
-            const exDiscAmount = (i.discountAmount || 0) / vatFact;
-            const exUnitPrice = i.unitPrice / vatFact;
-
             return {
                 description: i.description,
                 quantity: i.quantity,
-                unitPrice: exUnitPrice,
-                regularPrice: exRegPrice,
-                discountAmount: exDiscAmount,
-                total: i.quantity * exUnitPrice,
+                unitPrice: i.unitPrice,
+                regularPrice: i.regularPrice !== undefined ? i.regularPrice : i.unitPrice,
+                discountAmount: i.discountAmount || 0,
+                total: i.quantity * i.unitPrice,
                 consumptions: i.consumptions || []
             };
         });
@@ -511,8 +507,9 @@ export default function BillingPage() {
                                                             if (matchedService) break;
                                                         }
                                                         if (matchedService && (u[idx].unitPrice === 0 || u[idx].regularPrice === 0)) {
-                                                            const svcReg = matchedService.regularPrice || matchedService.price || 0;
-                                                            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg;
+                                                            const vatFact = 1 + (taxPercentage / 100);
+                                                            const svcReg = (matchedService.regularPrice || matchedService.price || 0) / vatFact;
+                                                            const svcFinal = (matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : (matchedService.regularPrice || matchedService.price || 0)) / vatFact;
                                                             u[idx].regularPrice = svcReg;
                                                             u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
                                                             u[idx].discountAmount = svcReg - svcFinal;
@@ -527,7 +524,7 @@ export default function BillingPage() {
                                                 }} 
                                             />
                                             <input type="number" min="1" placeholder="Qty" className="w-16 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
-                                            <input type="number" min="0" placeholder="Reg.Price" className="w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" title="Includes VAT"
+                                            <input type="number" min="0" placeholder="Reg.Price" className="w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0"
                                                 value={item.regularPrice !== undefined ? item.regularPrice : item.unitPrice || ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -535,7 +532,7 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = u[idx].regularPrice! - (u[idx].discountAmount || 0); 
                                                     setItems(u); 
                                                 }} />
-                                            <input type="number" min="0" placeholder="Discount" className="w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0" title="Includes VAT"
+                                            <input type="number" min="0" placeholder="Discount" className="w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
                                                 value={item.discountAmount !== undefined && item.discountAmount !== 0 ? item.discountAmount : ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -692,8 +689,9 @@ export default function BillingPage() {
                                                     }
                                                     
                                                     if (pkgMatch) {
-                                                        const pkgPrice = pkgMatch.discountedPrice || pkgMatch.totalCost || 0;
-                                                        const pkgReg = pkgMatch.totalCost || pkgPrice;
+                                                        const vatFact = 1 + (taxPercentage / 100);
+                                                        const pkgPrice = (pkgMatch.discountedPrice || pkgMatch.totalCost || 0) / vatFact;
+                                                        const pkgReg = (pkgMatch.totalCost || pkgMatch.discountedPrice || 0) / vatFact;
                                                         const u = [...items];
                                                         const newItem = { description: val, quantity: 1, unitPrice: pkgPrice, regularPrice: pkgReg, discountAmount: pkgReg - pkgPrice, maxDiscountPercentage: 0, consumptions: [] };
                                                         if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
