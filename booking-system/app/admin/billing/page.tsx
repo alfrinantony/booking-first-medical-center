@@ -612,11 +612,12 @@ export default function BillingPage() {
                                                     }
                                                     
                                                     if (pkgMatch) {
+                                                        const pkgPrice = pkgMatch.discountedPrice || pkgMatch.totalCost || 0;
                                                         const u = [...items];
                                                         if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
-                                                            u[0] = { description: val, quantity: 1, unitPrice: pkgMatch.price, consumptions: [] };
+                                                            u[0] = { description: val, quantity: 1, unitPrice: pkgPrice, consumptions: [] };
                                                         } else {
-                                                            u.push({ description: val, quantity: 1, unitPrice: pkgMatch.price, consumptions: [] });
+                                                            u.push({ description: val, quantity: 1, unitPrice: pkgPrice, consumptions: [] });
                                                         }
                                                         setItems(u);
                                                         setInvoiceCategory("clinic_package");
