@@ -146,22 +146,21 @@ export default function BillingPage() {
         setClientPhone(booking.whatsappNumber || '');
         setClientEmail(booking.email || '');
         
-        const vatFact = 1 + (taxPercentage / 100);
-        let finalRegPrice = svcPrice / vatFact;
+        let finalRegPrice = svcPrice;
         let finalDiscAmount = 0;
-        let finalUnitPrice = svcPrice / vatFact;
+        let finalUnitPrice = svcPrice;
 
         if (matchedService) {
-            finalRegPrice = (matchedService.regularPrice || matchedService.price || 0) / vatFact;
-            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : (matchedService.regularPrice || matchedService.price || 0);
-            finalDiscAmount = finalRegPrice - (svcFinal / vatFact);
-            finalUnitPrice = svcFinal / vatFact;
+            finalRegPrice = matchedService.regularPrice || matchedService.price || 0;
+            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : finalRegPrice;
+            finalDiscAmount = finalRegPrice - svcFinal;
+            finalUnitPrice = svcFinal;
         }
 
         // If the booking itself has a recorded amount different than our base price
         const bookingAmount = (booking as any).amount;
         if (typeof bookingAmount === 'number' && bookingAmount > 0) {
-            finalUnitPrice = bookingAmount / vatFact;
+            finalUnitPrice = bookingAmount;
             finalDiscAmount = finalRegPrice > finalUnitPrice ? finalRegPrice - finalUnitPrice : 0;
             finalRegPrice = finalRegPrice > finalUnitPrice ? finalRegPrice : finalUnitPrice;
         }
@@ -182,11 +181,14 @@ export default function BillingPage() {
         setNotes(`Booking ID: ${booking.id} | Doctor: ${docName} | Date: ${booking.date} | Time: ${booking.slot}`);
     };
 
+    // Form state (items) holds INCLUSIVE values!
+    // We strictly strip them ONLY for the summary derivations.
     const vatFactor = 1 + (taxPercentage / 100);
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const taxAmount = subtotal * (taxPercentage / 100);
-    const totalAmount = subtotal + taxAmount;
+    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const subtotal = totalAmount / vatFactor;
+    const taxAmount = totalAmount - subtotal;
     
+    // Also display the inclusive Gross and inclusive Total Discount in the summary
     const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
     const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
 
@@ -507,9 +509,8 @@ export default function BillingPage() {
                                                             if (matchedService) break;
                                                         }
                                                         if (matchedService && (u[idx].unitPrice === 0 || u[idx].regularPrice === 0)) {
-                                                            const vatFact = 1 + (taxPercentage / 100);
-                                                            const svcReg = (matchedService.regularPrice || matchedService.price || 0) / vatFact;
-                                                            const svcFinal = (matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : (matchedService.regularPrice || matchedService.price || 0)) / vatFact;
+                                                            const svcReg = matchedService.regularPrice || matchedService.price || 0;
+                                                            const svcFinal = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg;
                                                             u[idx].regularPrice = svcReg;
                                                             u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
                                                             u[idx].discountAmount = svcReg - svcFinal;
@@ -689,9 +690,8 @@ export default function BillingPage() {
                                                     }
                                                     
                                                     if (pkgMatch) {
-                                                        const vatFact = 1 + (taxPercentage / 100);
-                                                        const pkgPrice = (pkgMatch.discountedPrice || pkgMatch.totalCost || 0) / vatFact;
-                                                        const pkgReg = (pkgMatch.totalCost || pkgMatch.discountedPrice || 0) / vatFact;
+                                                        const pkgPrice = pkgMatch.discountedPrice || pkgMatch.totalCost || 0;
+                                                        const pkgReg = pkgMatch.totalCost || pkgMatch.discountedPrice || 0;
                                                         const u = [...items];
                                                         const newItem = { description: val, quantity: 1, unitPrice: pkgPrice, regularPrice: pkgReg, discountAmount: pkgReg - pkgPrice, maxDiscountPercentage: 0, consumptions: [] };
                                                         if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
@@ -750,12 +750,12 @@ export default function BillingPage() {
                                 <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-1 text-sm">
                                     {totalDiscount > 0 && (
                                         <>
-                                            <div className="flex justify-between text-gray-500"><span>Gross Total</span><span>{grossTotal.toFixed(2)} AED</span></div>
+                                            <div className="flex justify-between text-gray-500"><span>Gross Total (Inc. VAT)</span><span>{grossTotal.toFixed(2)} AED</span></div>
                                             <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{totalDiscount.toFixed(2)} AED</span></div>
                                         </>
                                     )}
-                                    <div className="flex justify-between"><span>Subtotal (After Discount)</span><span>{subtotal.toFixed(2)} AED</span></div>
-                                    <div className="flex justify-between"><span>VAT ({taxPercentage}%)</span><span>{taxAmount.toFixed(2)} AED</span></div>
+                                    <div className="flex justify-between text-gray-500"><span>Amount (Excluding VAT)</span><span>{subtotal.toFixed(2)} AED</span></div>
+                                    <div className="flex justify-between text-gray-500"><span>VAT ({taxPercentage}%)</span><span>{taxAmount.toFixed(2)} AED</span></div>
                                     <div className="flex justify-between font-bold text-lg border-t pt-2 dark:border-gray-600"><span>Total</span><span>{totalAmount.toFixed(2)} AED</span></div>
                                 </div>
 
@@ -809,15 +809,15 @@ export default function BillingPage() {
                                         <>
                                             {vDisc > 0 && (
                                                 <>
-                                                    <div className="flex justify-between text-gray-500"><span>Gross Total</span><span>{vGross.toFixed(2)} AED</span></div>
+                                                    <div className="flex justify-between text-gray-500"><span>Gross Total (Inc. VAT)</span><span>{vGross.toFixed(2)} AED</span></div>
                                                     <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{vDisc.toFixed(2)} AED</span></div>
                                                 </>
                                             )}
                                         </>
                                     );
                                 })()}
-                                <div className="flex justify-between"><span>Subtotal (After Discount)</span><span>{viewingInvoice.subtotal.toFixed(2)} AED</span></div>
-                                <div className="flex justify-between"><span>VAT ({viewingInvoice.taxPercentage}%)</span><span>{viewingInvoice.taxAmount.toFixed(2)} AED</span></div>
+                                <div className="flex justify-between text-gray-500"><span>Amount (Excluding VAT)</span><span>{viewingInvoice.subtotal.toFixed(2)} AED</span></div>
+                                <div className="flex justify-between text-gray-500"><span>VAT ({viewingInvoice.taxPercentage}%)</span><span>{viewingInvoice.taxAmount.toFixed(2)} AED</span></div>
                                 <div className="flex justify-between font-bold text-lg border-t pt-2 dark:border-gray-600"><span>Total</span><span>{viewingInvoice.totalAmount.toFixed(2)} AED</span></div>
                             </div>
                             
