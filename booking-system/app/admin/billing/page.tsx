@@ -256,6 +256,17 @@ export default function BillingPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+            <datalist id="services-list">
+                {Array.from(new Map(clinics.filter(c => clinicName ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).map(s => [s.name, s])).values()).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                    <option key={s.id} value={s.name}>{s.price} AED</option>
+                ))}
+            </datalist>
+            <datalist id="packages-list">
+                {Array.from(new Set(clinics.filter(c => clinicName ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).flatMap(s => { const pkgs = []; if (s.threeSessionPackage) pkgs.push(`3 Sessions - ${s.name}`); if (s.sixSessionPackage) pkgs.push(`6 Sessions - ${s.name}`); return pkgs; }))).sort().map((pkg, i) => (
+                    <option key={i} value={pkg} />
+                ))}
+            </datalist>
+
             <div className="max-w-6xl mx-auto">
                 <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
@@ -422,53 +433,37 @@ export default function BillingPage() {
                                     <label className="block text-sm font-medium mb-2">Services / Items</label>
                                     {items.map((item, idx) => (
                                         <div key={idx} className="flex gap-2 mb-2">
-                                            <div className="flex-1 flex gap-1">
-                                                <select
-                                                    className="w-1/3 p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 text-[10px] text-gray-700 dark:text-gray-300 bg-gray-50 focus:outline-none"
-                                                    onChange={e => {
-                                                        const svcId = e.target.value;
-                                                        if(!svcId) return;
-                                                        let svcMatch = null;
+                                            <input 
+                                                list="services-list" 
+                                                type="text" 
+                                                placeholder="Service name (type to search)" 
+                                                className="flex-1 p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" 
+                                                value={item.description} 
+                                                onChange={(e) => { 
+                                                    const val = e.target.value;
+                                                    const u = [...items]; 
+                                                    u[idx] = { ...u[idx], description: val };
+                                                    if (val) {
+                                                        let matchedService = null;
                                                         let matchedClinic = null;
                                                         for(const c of clinics) {
+                                                            if (clinicName && c.name !== clinicName) continue;
                                                             for(const d of c.departments) {
-                                                                const hit = d.services.find(s => s.id === svcId);
-                                                                if(hit) { svcMatch = hit; matchedClinic = c; break; }
+                                                                const hit = d.services.find(s => s.name === val);
+                                                                if(hit) { matchedService = hit; matchedClinic = c; break; }
                                                             }
-                                                            if (svcMatch) break;
+                                                            if (matchedService) break;
                                                         }
-                                                        if(svcMatch) {
-                                                            const u = [...items];
-                                                            u[idx] = { ...u[idx], description: svcMatch.name, unitPrice: svcMatch.price || 0 };
-                                                            setItems(u);
+                                                        if (matchedService && u[idx].unitPrice === 0) {
+                                                            u[idx].unitPrice = matchedService.price || 0;
                                                             if (!clinicName && matchedClinic) {
                                                                 setClinicName(matchedClinic.name);
                                                             }
                                                         }
-                                                        e.target.value = ''; // Reset select back to placeholder
-                                                    }}
-                                                >
-                                                    <option value="">+ Template...</option>
-                                                    {clinics.filter(c => clinicName ? c.name === clinicName : true).map(c => {
-                                                        const allServices = c.departments.flatMap(d => d.services);
-                                                        const uniqueServicesMap = new Map();
-                                                        allServices.forEach(s => {
-                                                            if (!uniqueServicesMap.has(s.name)) {
-                                                                uniqueServicesMap.set(s.name, s);
-                                                            }
-                                                        });
-                                                        const sortedUniqueServices = Array.from(uniqueServicesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-                                                        return (
-                                                            <optgroup key={c.id} label={c.name}>
-                                                                {sortedUniqueServices.map(s => (
-                                                                    <option key={s.id} value={s.id}>{s.name} ({s.price} AED)</option>
-                                                                ))}
-                                                            </optgroup>
-                                                        );
-                                                    })}
-                                                </select>
-                                                <input type="text" placeholder="Description" className="w-2/3 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.description} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], description: e.target.value }; setItems(u); }} />
-                                            </div>
+                                                    }
+                                                    setItems(u); 
+                                                }} 
+                                            />
                                             <input type="number" min="1" placeholder="Qty" className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
                                             <input type="number" min="0" placeholder="Price" className="w-28 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.unitPrice || ''} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], unitPrice: Number(e.target.value) }; setItems(u); }} />
                                             {items.length > 1 && (
@@ -588,7 +583,7 @@ export default function BillingPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Package (if applicable)</label>
-                                        <input type="text" placeholder="Package name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={packageDetails} onChange={(e) => setPackageDetails(e.target.value)} />
+                                        <input type="text" list="packages-list" placeholder="Search or type Package name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={packageDetails} onChange={(e) => setPackageDetails(e.target.value)} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">VAT %</label>
