@@ -161,14 +161,12 @@ export default function BillingPage() {
             finalRegPrice = finalRegPrice > finalUnitPriceInc ? finalRegPrice : finalUnitPriceInc;
         }
 
-        const vatFact = 1 + (taxPercentage / 100);
-        const finalUnitPriceEx = finalUnitPriceInc / vatFact;
-        const finalDiscAmount = finalRegPrice - finalUnitPriceEx;
+        const finalDiscAmount = finalRegPrice - finalUnitPriceInc;
 
         setItems([{
             description: svcName,
             quantity: 1,
-            unitPrice: finalUnitPriceEx,
+            unitPrice: finalUnitPriceInc,
             regularPrice: finalRegPrice,
             discountAmount: finalDiscAmount,
             maxDiscountPercentage: matchedService?.maxDiscountPercentage || 0,
@@ -249,16 +247,13 @@ export default function BillingPage() {
             return;
         }
 
-        const vatFact = 1 + (taxPercentage / 100);
-        // Validate max discounts
+        // Validate max discounts using pure inclusive comparison mapped from catalog configurations
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
             if (item.maxDiscountPercentage !== undefined && item.regularPrice && item.discountAmount) {
-                const trueInclusiveFinal = item.unitPrice * vatFact;
-                const trueInclusiveDiscount = item.regularPrice - trueInclusiveFinal;
                 const maxAllowedInclusiveDiscount = item.regularPrice * (item.maxDiscountPercentage / 100);
                 
-                if (trueInclusiveDiscount > maxAllowedInclusiveDiscount + 0.01) {
+                if (item.discountAmount > maxAllowedInclusiveDiscount + 0.01) {
                     alert(`Item ${i + 1} discount exceeds maximum allowed of ${item.maxDiscountPercentage}%. Max allowed discount is ${maxAllowedInclusiveDiscount.toFixed(2)} AED.`);
                     return;
                 }
@@ -510,15 +505,13 @@ export default function BillingPage() {
                                                             if (matchedService) break;
                                                         }
                                                         if (matchedService && (u[idx].unitPrice === 0 || u[idx].regularPrice === 0)) {
-                                                            const vatFact = 1 + (taxPercentage / 100);
                                                             const svcReg = matchedService.regularPrice || matchedService.price || 0;
                                                             const svcFinalInc = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg;
-                                                            const svcFinalEx = svcFinalInc / vatFact;
 
                                                             u[idx].regularPrice = svcReg;
                                                             u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
-                                                            u[idx].unitPrice = svcFinalEx;
-                                                            u[idx].discountAmount = svcReg - svcFinalEx;
+                                                            u[idx].unitPrice = svcFinalInc;
+                                                            u[idx].discountAmount = svcReg - svcFinalInc;
                                                             
                                                             if (!clinicName && matchedClinic) {
                                                                 setClinicName(matchedClinic.name);
@@ -694,13 +687,11 @@ export default function BillingPage() {
                                                     }
                                                     
                                                     if (pkgMatch) {
-                                                        const vatFact = 1 + (taxPercentage / 100);
                                                         const pkgPriceInc = pkgMatch.discountedPrice !== undefined ? pkgMatch.discountedPrice : (pkgMatch.totalCost || 0);
                                                         const pkgReg = pkgMatch.totalCost || pkgPriceInc;
-                                                        const pkgPriceEx = pkgPriceInc / vatFact;
                                                         const u = [...items];
                                                         const desc = pkgMatch.validity ? `${val} (Valid for ${pkgMatch.validity} days)` : val;
-                                                        const newItem = { description: desc, quantity: 1, unitPrice: pkgPriceEx, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceEx, maxDiscountPercentage: 0, consumptions: [] };
+                                                        const newItem = { description: desc, quantity: 1, unitPrice: pkgPriceInc, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceInc, maxDiscountPercentage: 0, consumptions: [] };
                                                         if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
                                                             u[0] = newItem;
                                                         } else {
