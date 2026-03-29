@@ -101,13 +101,18 @@ async function ensureBillingLoaded() {
             package: 1, single: 1, pSession: 1, refund: 1, creditNote: 1,
             cash: 1, card: 1, bank: 1, online: 1, legacySequence: 1
         };
-        const data = await loadFromBlob<BillingData>('billing', { invoices: [], counters: defaultCounters });
-        invoices = data.invoices;
-        // Migration mapping for legacy nextSequence
-        if (data.nextSequence !== undefined && (!data.counters || data.counters.legacySequence === 1)) {
-            counters = { ...defaultCounters, legacySequence: data.nextSequence };
+        const data = await loadFromBlob<any>('billing', { invoices: [], counters: defaultCounters });
+        if (Array.isArray(data)) {
+            invoices = data;
+            counters = defaultCounters;
         } else {
-            counters = data.counters || defaultCounters;
+            invoices = data.invoices || [];
+            // Migration mapping for legacy nextSequence
+            if (data.nextSequence !== undefined && (!data.counters || data.counters.legacySequence === 1)) {
+                counters = { ...defaultCounters, legacySequence: data.nextSequence };
+            } else {
+                counters = { ...defaultCounters, ...(data.counters || {}) };
+            }
         }
 }
 

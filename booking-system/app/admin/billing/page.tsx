@@ -97,17 +97,29 @@ export default function BillingPage() {
         for (const clinic of clinics) {
             if (clinic.id === booking.clinicId) {
                 clnName = clinic.name;
-                for (const dept of clinic.departments) {
-                    const svc = dept.services.find(s => s.id === booking.serviceId);
-                    if (svc) {
-                        svcName = svc.name;
-                        svcPrice = svc.price || 0;
-                    }
-                    const doc = dept.doctors.find(d => d.id === booking.doctorId);
-                    if (doc) docName = doc.name;
+            }
+            for (const dept of clinic.departments) {
+                const svc = dept.services.find(s => s.id === booking.serviceId);
+                if (svc) {
+                    svcName = svc.name;
+                    svcPrice = svc.price || 0;
+                }
+                const doc = dept.doctors.find(d => d.id === booking.doctorId);
+                if (doc) docName = doc.name;
+            }
+        }
+        
+        // Fallback to extract the human-readable name from raw ID if service no longer exists
+        if (svcName === booking.serviceId && svcName.includes('-svc-')) {
+            const parts = svcName.split('-svc-');
+            if (parts.length === 2 && parts[0].includes('-')) {
+                const prefixParts = parts[0].split('-');
+                if (prefixParts.length >= 2) {
+                    svcName = prefixParts.slice(1).join('-');
                 }
             }
         }
+
         return { svcName, docName, clnName, svcPrice };
     };
 
