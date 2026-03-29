@@ -14,13 +14,15 @@ export interface InvoiceLineItemConsumption {
 export interface InvoiceLineItem {
     description: string;       // Service name or package name
     quantity: number;
-    unitPrice: number;
+    unitPrice: number;         // Final price after discount
+    regularPrice?: number;     // Original price before discount
     total: number;
     // Inventory fields (legacy single-item deduction)
     medicineId?: string;       // Links to Medicine
     batchId?: string;          // Links to InventoryBatch
     medicineName?: string;     // Display name
     // Modern multi-item deduction array
+    discountAmount?: number;   // Discount applied (AED)
     consumptions?: InvoiceLineItemConsumption[];
     isVoid?: boolean;          // Marked void after refund
 }

@@ -239,7 +239,7 @@ export default function ServiceEditorModal({
                         {/* ══ SECTION 2: Pricing ══ */}
                         <section>
                             <SectionHeader id="pricing" label="Pricing" icon={DollarSign} color="text-green-600" />
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Regular Price (AED) *</label>
                                     <input required type="number" min="0" className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
@@ -249,6 +249,11 @@ export default function ServiceEditorModal({
                                     <label className="block text-sm font-medium mb-1">Discounted Price (AED) *</label>
                                     <input required type="number" min="0" className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
                                         value={formState.discountedPrice || ''} onChange={e => update({ discountedPrice: mode === 'edit' ? (e.target.value ? Number(e.target.value) : undefined) : e.target.value })} placeholder="Client pays this" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Max Staff Discount (%)</label>
+                                    <input type="number" min="0" max="100" className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={formState.maxDiscountPercentage || ''} onChange={e => update({ maxDiscountPercentage: mode === 'edit' ? (e.target.value ? Number(e.target.value) : undefined) : e.target.value })} placeholder="e.g. 10" />
                                 </div>
                             </div>
                             <label className="flex items-center gap-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer mb-4">

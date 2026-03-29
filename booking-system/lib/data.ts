@@ -43,6 +43,7 @@ export interface Service {
     peakSlots?: string[];   // Procedure-specific peak time slots, overrides clinic-wide
     productConsumptions?: ProductConsumption[]; // Products consumed by this service
     isVisible?: boolean; // Whether the service is visible on the booking portal (default: true)
+    maxDiscountPercentage?: number; // Maximum allowed discount percentage
 }
 
 export interface ProductConsumption {

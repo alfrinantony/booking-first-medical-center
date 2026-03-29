@@ -40,6 +40,7 @@ interface ServiceFormState {
     addOns: ServiceAddOn[];
     image: string;
     productConsumptions: { registeredProductId: string; quantityPerService: number }[];
+    maxDiscountPercentage: string | number;
 }
 
 export default function ServicesPage() {
@@ -88,6 +89,7 @@ export default function ServicesPage() {
         addOns: [],
         image: '',
         productConsumptions: [],
+        maxDiscountPercentage: '',
     };
     const [newService, setNewService] = useState<ServiceFormState>(emptyServiceForm);
 
@@ -96,7 +98,7 @@ export default function ServicesPage() {
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingService, setEditingService] = useState<Service & { departmentIds: string[] } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string, minimumIntervalDaysInput?: string, originalName?: string } | null>(null);
+    const [editingService, setEditingService] = useState<Service & { departmentIds: string[] } & { timeWindowStart?: string, timeWindowEnd?: string, followUpDurationInput?: string, minimumIntervalDaysInput?: string, maxDiscountPercentage?: string | number, originalName?: string } | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -248,6 +250,7 @@ export default function ServicesPage() {
                            (newService.regularPrice && String(newService.regularPrice).trim() !== '') ? Number(newService.regularPrice) : 0,
                     regularPrice: newService.regularPrice && String(newService.regularPrice).trim() !== '' ? Number(newService.regularPrice) : undefined,
                     discountedPrice: newService.discountedPrice && String(newService.discountedPrice).trim() !== '' ? Number(newService.discountedPrice) : undefined,
+                    maxDiscountPercentage: newService.maxDiscountPercentage && String(newService.maxDiscountPercentage).trim() !== '' ? Number(newService.maxDiscountPercentage) : undefined,
                     threeSessionPackage: newService.threeSessionTotalCost ? {
                         totalCost: Number(newService.threeSessionTotalCost),
                         validity: Number(newService.threeSessionValidity) || 90,
@@ -324,6 +327,7 @@ export default function ServicesPage() {
                            (editingService.regularPrice !== null && editingService.regularPrice !== undefined && String(editingService.regularPrice).trim() !== '') ? Number(editingService.regularPrice) : Number(editingService.price),
                     regularPrice: editingService.regularPrice !== null && editingService.regularPrice !== undefined && String(editingService.regularPrice).trim() !== '' ? Number(editingService.regularPrice) : null,
                     discountedPrice: editingService.discountedPrice !== null && editingService.discountedPrice !== undefined && String(editingService.discountedPrice).trim() !== '' ? Number(editingService.discountedPrice) : null,
+                    maxDiscountPercentage: editingService.maxDiscountPercentage !== null && editingService.maxDiscountPercentage !== undefined && String(editingService.maxDiscountPercentage).trim() !== '' ? Number(editingService.maxDiscountPercentage) : null,
                     threeSessionPackage: editingService.threeSessionPackage && editingService.threeSessionPackage.totalCost ? editingService.threeSessionPackage : null,
                     sixSessionPackage: editingService.sixSessionPackage && editingService.sixSessionPackage.totalCost ? editingService.sixSessionPackage : null,
                     duration: Number(editingService.duration),
@@ -519,8 +523,9 @@ export default function ServicesPage() {
             timeWindowEnd: service.timeWindow?.end || '',
             followUpDurationInput: service.followUpDuration ? String(service.followUpDuration) : '',
             minimumIntervalDaysInput: service.minimumIntervalDays ? String(service.minimumIntervalDays) : '',
+            maxDiscountPercentage: service.maxDiscountPercentage ?? '',
             originalName: service.name // Track original name for cross-branch matching during rename
-        });
+        } as any);
         // Preload selectedBranchIds with branches that already have this service (by name match)
         const branchesWithService: string[] = [];
         for (const clinic of clinics) {

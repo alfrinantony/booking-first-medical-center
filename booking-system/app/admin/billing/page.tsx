@@ -28,7 +28,7 @@ export default function BillingPage() {
     const [clientPhone, setClientPhone] = useState('');
     const [clientEmail, setClientEmail] = useState('');
     const [invoiceCategory, setInvoiceCategory] = useState('clinic_single');
-    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; medicineId?: string; batchId?: string; consumptions?: { medicineId: string; batchId?: string; quantity: number }[] }[]>([{ description: '', quantity: 1, unitPrice: 0, consumptions: [] }]);
+    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; regularPrice?: number; discountAmount?: number; maxDiscountPercentage?: number; medicineId?: string; batchId?: string; consumptions?: { medicineId: string; batchId?: string; quantity: number }[] }[]>([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
     const [packageDetails, setPackageDetails] = useState('');
     const [taxPercentage, setTaxPercentage] = useState(5);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'online'>('card');
@@ -153,6 +153,9 @@ export default function BillingPage() {
             description: svcName,
             quantity: 1,
             unitPrice: finalPrice,
+            regularPrice: finalPrice,
+            discountAmount: 0,
+            maxDiscountPercentage: 0,
             consumptions: []
         }]);
         setClinicName(clnName);
@@ -170,7 +173,7 @@ export default function BillingPage() {
 
     const resetForm = () => {
         setClientName(''); setClientPhone(''); setClientEmail('');
-        setItems([{ description: '', quantity: 1, unitPrice: 0, consumptions: [] }]);
+        setItems([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
         setPackageDetails(''); setNotes(''); setSelectedBooking(null); setBookingSearch('');
         setDoctorName(''); setBookingDate(''); setBookingTime('');
     };
@@ -211,6 +214,8 @@ export default function BillingPage() {
             description: i.description,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
+            regularPrice: i.regularPrice,
+            discountAmount: i.discountAmount,
             total: i.quantity * i.unitPrice,
             consumptions: i.consumptions || []
         }));
@@ -220,6 +225,18 @@ export default function BillingPage() {
         if (batchErrors.length > 0) {
             alert('Batch errors:\n' + batchErrors.join('\n'));
             return;
+        }
+
+        // Validate max discounts
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.maxDiscountPercentage !== undefined && item.regularPrice && item.discountAmount) {
+                const maxAllowedDiscount = item.regularPrice * (item.maxDiscountPercentage / 100);
+                if (item.discountAmount > maxAllowedDiscount + 0.01) {
+                    alert(`Item ${i + 1} discount exceeds maximum allowed of ${item.maxDiscountPercentage}%. Max allowed discount is ${maxAllowedDiscount.toFixed(2)} AED.`);
+                    return;
+                }
+            }
         }
 
         try {
@@ -466,8 +483,12 @@ export default function BillingPage() {
                                                             }
                                                             if (matchedService) break;
                                                         }
-                                                        if (matchedService && u[idx].unitPrice === 0) {
-                                                            u[idx].unitPrice = matchedService.price || 0;
+                                                        if (matchedService && (u[idx].unitPrice === 0 || u[idx].regularPrice === 0)) {
+                                                            u[idx].regularPrice = matchedService.regularPrice || matchedService.price || 0;
+                                                            u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
+                                                            u[idx].discountAmount = 0;
+                                                            u[idx].unitPrice = u[idx].regularPrice! - u[idx].discountAmount!;
+                                                            
                                                             if (!clinicName && matchedClinic) {
                                                                 setClinicName(matchedClinic.name);
                                                             }
@@ -476,14 +497,32 @@ export default function BillingPage() {
                                                     setItems(u); 
                                                 }} 
                                             />
-                                            <input type="number" min="1" placeholder="Qty" className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
-                                            <input type="number" min="0" placeholder="Price" className="w-28 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={item.unitPrice || ''} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], unitPrice: Number(e.target.value) }; setItems(u); }} />
+                                            <input type="number" min="1" placeholder="Qty" className="w-16 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
+                                            <input type="number" min="0" placeholder="Reg.Price" className="w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" 
+                                                value={item.regularPrice !== undefined ? item.regularPrice : item.unitPrice || ''} 
+                                                onChange={(e) => { 
+                                                    const u = [...items]; 
+                                                    u[idx].regularPrice = Number(e.target.value); 
+                                                    u[idx].unitPrice = u[idx].regularPrice! - (u[idx].discountAmount || 0); 
+                                                    setItems(u); 
+                                                }} />
+                                            <input type="number" min="0" placeholder="Discount" className="w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0" 
+                                                value={item.discountAmount !== undefined && item.discountAmount !== 0 ? item.discountAmount : ''} 
+                                                onChange={(e) => { 
+                                                    const u = [...items]; 
+                                                    u[idx].discountAmount = Number(e.target.value); 
+                                                    u[idx].unitPrice = (u[idx].regularPrice || 0) - u[idx].discountAmount; 
+                                                    setItems(u); 
+                                                }} />
+                                            <div className="w-20 px-2 py-2 text-sm text-right bg-gray-50 dark:bg-gray-800 border rounded-md dark:border-gray-600 self-center flex-shrink-0">
+                                                {item.unitPrice.toFixed(2)}
+                                            </div>
                                             {items.length > 1 && (
                                                 <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-500 px-2">✕</button>
                                             )}
                                         </div>
                                     ))}
-                                    <button type="button" onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: 0, consumptions: [] }])} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">+ Add Item</button>
+                                    <button type="button" onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }])} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">+ Add Item</button>
                                 </div>
 
                                 {/* Inventory Consumption Multi-Matrix */}
@@ -625,11 +664,13 @@ export default function BillingPage() {
                                                     
                                                     if (pkgMatch) {
                                                         const pkgPrice = pkgMatch.discountedPrice || pkgMatch.totalCost || 0;
+                                                        const pkgReg = pkgMatch.totalCost || pkgPrice;
                                                         const u = [...items];
+                                                        const newItem = { description: val, quantity: 1, unitPrice: pkgPrice, regularPrice: pkgReg, discountAmount: pkgReg - pkgPrice, maxDiscountPercentage: 0, consumptions: [] };
                                                         if (u.length === 1 && !u[0].description && u[0].unitPrice === 0) {
-                                                            u[0] = { description: val, quantity: 1, unitPrice: pkgPrice, consumptions: [] };
+                                                            u[0] = newItem;
                                                         } else {
-                                                            u.push({ description: val, quantity: 1, unitPrice: pkgPrice, consumptions: [] });
+                                                            u.push(newItem);
                                                         }
                                                         setItems(u);
                                                         setInvoiceCategory("clinic_package");
@@ -713,10 +754,17 @@ export default function BillingPage() {
                                 {viewingInvoice.packageDetails && <div><span className="text-gray-500">Package:</span> {viewingInvoice.packageDetails}</div>}
                             </div>
                             <table className="w-full text-sm mb-4">
-                                <thead><tr className="border-b dark:border-gray-700"><th className="text-left py-1">Item</th><th className="text-right">Qty</th><th className="text-right">Price</th><th className="text-right">Total</th></tr></thead>
+                                <thead><tr className="border-b dark:border-gray-700"><th className="text-left py-1">Item</th><th className="text-right">Qty</th><th className="text-right">Reg. Price</th><th className="text-right">Disc.</th><th className="text-right">Final Price</th><th className="text-right">Total</th></tr></thead>
                                 <tbody>
                                     {viewingInvoice.items.map((item, idx) => (
-                                        <tr key={idx} className="border-b dark:border-gray-700"><td className="py-1">{item.description}</td><td className="text-right">{item.quantity}</td><td className="text-right">{item.unitPrice.toFixed(2)}</td><td className="text-right">{item.total.toFixed(2)}</td></tr>
+                                        <tr key={idx} className="border-b dark:border-gray-700">
+                                            <td className="py-1 break-words">{item.description}</td>
+                                            <td className="text-right tabular-nums">{item.quantity}</td>
+                                            <td className="text-right tabular-nums">{(item.regularPrice ?? item.unitPrice).toFixed(2)}</td>
+                                            <td className="text-right tabular-nums">{(item.discountAmount ?? 0).toFixed(2)}</td>
+                                            <td className="text-right tabular-nums">{item.unitPrice.toFixed(2)}</td>
+                                            <td className="text-right tabular-nums">{item.total.toFixed(2)}</td>
+                                        </tr>
                                     ))}
                                 </tbody>
                             </table>
