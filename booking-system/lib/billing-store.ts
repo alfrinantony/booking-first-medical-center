@@ -5,15 +5,23 @@
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 import { InventoryBatchStore } from './services-store';
 
+export interface InvoiceLineItemConsumption {
+    medicineId: string;
+    batchId?: string;
+    quantity: number;
+}
+
 export interface InvoiceLineItem {
     description: string;       // Service name or package name
     quantity: number;
     unitPrice: number;
     total: number;
-    // Inventory fields (optional — only for items consumed from inventory)
+    // Inventory fields (legacy single-item deduction)
     medicineId?: string;       // Links to Medicine
     batchId?: string;          // Links to InventoryBatch
     medicineName?: string;     // Display name
+    // Modern multi-item deduction array
+    consumptions?: InvoiceLineItemConsumption[];
     isVoid?: boolean;          // Marked void after refund
 }
 
@@ -177,7 +185,20 @@ export const BillingStore = {
 
         // Auto-deduct inventory batches for items that reference a batchId
         for (const item of invoice.items) {
-            if (item.batchId && item.quantity > 0) {
+            // New multi-consumption logic
+            if (item.consumptions && item.consumptions.length > 0) {
+                for (const consumption of item.consumptions) {
+                    if (consumption.batchId && consumption.quantity > 0) {
+                        try {
+                            await InventoryBatchStore.deductFromBatch(consumption.batchId, consumption.quantity);
+                        } catch (e) {
+                            console.error(`Failed to deduct batch ${consumption.batchId}:`, e);
+                        }
+                    }
+                }
+            } 
+            // Legacy single-consumption logic
+            else if (item.batchId && item.quantity > 0) {
                 try {
                     await InventoryBatchStore.deductFromBatch(item.batchId, item.quantity);
                 } catch (e) {

@@ -28,7 +28,7 @@ export default function BillingPage() {
     const [clientPhone, setClientPhone] = useState('');
     const [clientEmail, setClientEmail] = useState('');
     const [invoiceCategory, setInvoiceCategory] = useState('clinic_single');
-    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; medicineId?: string; batchId?: string }[]>([{ description: '', quantity: 1, unitPrice: 0 }]);
+    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; medicineId?: string; batchId?: string; consumptions?: { medicineId: string; batchId?: string; quantity: number }[] }[]>([{ description: '', quantity: 1, unitPrice: 0, consumptions: [] }]);
     const [packageDetails, setPackageDetails] = useState('');
     const [taxPercentage, setTaxPercentage] = useState(5);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'online'>('card');
@@ -140,7 +140,8 @@ export default function BillingPage() {
         setItems([{
             description: svcName,
             quantity: 1,
-            unitPrice: finalPrice
+            unitPrice: finalPrice,
+            consumptions: []
         }]);
         setClinicName(clnName);
         setDoctorName(docName);
@@ -157,27 +158,33 @@ export default function BillingPage() {
 
     const resetForm = () => {
         setClientName(''); setClientPhone(''); setClientEmail('');
-        setItems([{ description: '', quantity: 1, unitPrice: 0 }]);
+        setItems([{ description: '', quantity: 1, unitPrice: 0, consumptions: [] }]);
         setPackageDetails(''); setNotes(''); setSelectedBooking(null); setBookingSearch('');
         setDoctorName(''); setBookingDate(''); setBookingTime('');
     };
 
     // Validate batch selections before submission
-    const validateBatches = (): string[] => {
+    const validateBatches = () => {
         const errors: string[] = [];
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
-            if (item.batchId && item.medicineId) {
-                const batches = batchesMap[item.medicineId] || [];
-                const batch = batches.find(b => b.id === item.batchId);
-                if (!batch) {
-                    errors.push(`Item ${i + 1}: Selected batch not found`);
-                } else {
-                    if (batch.expiryDate && new Date(batch.expiryDate) < new Date()) {
-                        errors.push(`Item ${i + 1}: Batch ${batch.batchNumber} is expired`);
-                    }
-                    if (batch.quantity < item.quantity) {
-                        errors.push(`Item ${i + 1}: Batch ${batch.batchNumber} has only ${batch.quantity} units (need ${item.quantity})`);
+            const consArray = item.consumptions || [];
+            
+            for (let c = 0; c < consArray.length; c++) {
+                const cons = consArray[c];
+                if (cons.batchId && cons.medicineId) {
+                    const batches = batchesMap[cons.medicineId] || [];
+                    const batch = batches.find(b => b.id === cons.batchId);
+                    if (!batch) {
+                        errors.push(`Item ${i + 1} (Resource ${c + 1}): Selected batch not found`);
+                    } else {
+                        if (batch.expiryDate && new Date(batch.expiryDate) < new Date()) {
+                            errors.push(`Item ${i + 1} (Resource ${c + 1}): Batch ${batch.batchNumber} is expired`);
+                        }
+                        const totalNeeded = cons.quantity * item.quantity;
+                        if (batch.quantity < totalNeeded) {
+                            errors.push(`Item ${i + 1} (Resource ${c + 1}): ${batch.batchNumber} has ${batch.quantity} units (need ${totalNeeded})`);
+                        }
                     }
                 }
             }
@@ -193,9 +200,7 @@ export default function BillingPage() {
             quantity: i.quantity,
             unitPrice: i.unitPrice,
             total: i.quantity * i.unitPrice,
-            medicineId: i.medicineId || undefined,
-            batchId: i.batchId || undefined,
-            medicineName: i.medicineId ? medicines.find(m => m.id === i.medicineId)?.name : undefined,
+            consumptions: i.consumptions || []
         }));
 
         // Validate batch selections
@@ -471,76 +476,111 @@ export default function BillingPage() {
                                             )}
                                         </div>
                                     ))}
-                                    <button type="button" onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: 0 }])} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">+ Add Item</button>
+                                    <button type="button" onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: 0, consumptions: [] }])} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">+ Add Item</button>
                                 </div>
 
-                                {/* Inventory Consumption (optional per line item) */}
+                                {/* Inventory Consumption Multi-Matrix */}
                                 <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 space-y-3">
                                     <label className="block text-sm font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                                        <Package className="w-4 h-4" /> Inventory Consumption (optional)
+                                        <Package className="w-4 h-4" /> Multi-Item Resource Tracker
                                     </label>
-                                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Link line items to inventory batches for automatic stock deduction.</p>
+                                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Link multiple consumable units or boxes directly to a single invoice line item.</p>
                                     {items.map((item, idx) => (
                                         <div key={idx} className="bg-white dark:bg-gray-800 rounded-md p-3 border border-emerald-100 dark:border-emerald-900/30 space-y-2">
-                                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Item {idx + 1}: {item.description || '(no description)'}</div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <div>
-                                                    <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Medicine (optional)</label>
-                                                    <select className="w-full p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
-                                                        value={item.medicineId || ''}
-                                                        onChange={e => {
-                                                            const u = [...items];
-                                                            u[idx] = { ...u[idx], medicineId: e.target.value || undefined, batchId: undefined };
-                                                            setItems(u);
-                                                            if (e.target.value) fetchBatchesForMedicine(e.target.value);
-                                                        }}>
-                                                        <option value="">— None —</option>
-                                                        {medicines.map(m => (
-                                                            <option key={m.id} value={m.id}>{m.name} (Stock: {m.centralStock})</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Batch</label>
-                                                    <select className="w-full p-1.5 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
-                                                        value={item.batchId || ''}
-                                                        disabled={!item.medicineId}
-                                                        onChange={e => {
-                                                            const u = [...items];
-                                                            u[idx] = { ...u[idx], batchId: e.target.value || undefined };
-                                                            setItems(u);
-                                                        }}>
-                                                        <option value="">— Select batch —</option>
-                                                        {(batchesMap[item.medicineId || ''] || []).map(b => {
-                                                            const isExp = b.expiryDate && new Date(b.expiryDate) < new Date();
-                                                            return (
-                                                                <option key={b.id} value={b.id} disabled={!!isExp || b.quantity <= 0}>
-                                                                    {b.batchNumber} — Qty: {b.quantity}{b.expiryDate ? ` — Exp: ${b.expiryDate}` : ''}{isExp ? ' ⛔ EXPIRED' : ''}{b.quantity <= 0 ? ' ⛔ OUT OF STOCK' : ''}
-                                                                </option>
-                                                            );
-                                                        })}
-                                                    </select>
-                                                </div>
+                                            <div className="flex items-center justify-between pb-1 border-b border-gray-100 dark:border-gray-700">
+                                                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Item {idx + 1}: {item.description || '(no description)'} <span className="text-gray-400">(Qty: {item.quantity})</span></div>
+                                                <button type="button" onClick={() => {
+                                                    const u = [...items];
+                                                    u[idx] = { ...item, consumptions: [...(item.consumptions || []), { medicineId: '', quantity: 1 }] };
+                                                    setItems(u);
+                                                }} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200 uppercase tracking-wider bg-emerald-100/50 dark:bg-emerald-900/50 px-2 py-1 rounded">+ Add Resource Option</button>
                                             </div>
-                                            {item.batchId && (() => {
-                                                const batch = (batchesMap[item.medicineId || ''] || []).find(b => b.id === item.batchId);
-                                                if (!batch) return null;
-                                                const isExp = batch.expiryDate && new Date(batch.expiryDate) < new Date();
-                                                const insufficient = batch.quantity < item.quantity;
-                                                if (isExp || insufficient) {
-                                                    return (
-                                                        <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 mt-1">
-                                                            <AlertTriangle className="w-3.5 h-3.5" />
-                                                            {isExp ? 'This batch has expired!' : `Insufficient stock: ${batch.quantity} available, ${item.quantity} needed`}
+
+                                            <div className="space-y-3 pt-1">
+                                                {(item.consumptions || []).length === 0 && (
+                                                    <div className="text-[10px] text-gray-500 italic py-1">No resources linked to this service automatically.</div>
+                                                )}
+                                                {(item.consumptions || []).map((cons, cIdx) => (
+                                                    <div key={cIdx} className="relative pl-4 border-l-2 border-emerald-200 dark:border-emerald-700 mb-2">
+                                                        <button type="button" onClick={() => {
+                                                            const u = [...items];
+                                                            u[idx].consumptions = u[idx].consumptions!.filter((_, i) => i !== cIdx);
+                                                            setItems(u);
+                                                        }} className="absolute -left-[9px] top-1.5 bg-white dark:bg-gray-800 text-red-400 hover:text-red-500 rounded-full w-4 h-4 flex items-center justify-center text-[10px] shadow border border-red-100 dark:border-red-900/50">✕</button>
+
+                                                        <div className="grid grid-cols-12 gap-2 mt-1">
+                                                            <div className="col-span-6 md:col-span-5">
+                                                                <label className="block text-[9px] uppercase tracking-wider font-medium text-gray-500 mb-0.5">Medicine/Consumable</label>
+                                                                <select className="w-full p-1.5 border rounded text-[10px] bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none"
+                                                                    value={cons.medicineId || ''}
+                                                                    onChange={e => {
+                                                                        const u = [...items];
+                                                                        u[idx].consumptions![cIdx] = { ...cons, medicineId: e.target.value, batchId: undefined };
+                                                                        setItems(u);
+                                                                        if (e.target.value) fetchBatchesForMedicine(e.target.value);
+                                                                    }}>
+                                                                    <option value="">— Select Matrix —</option>
+                                                                    {medicines.map(m => (
+                                                                        <option key={m.id} value={m.id}>{m.name} (Stock: {m.centralStock})</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            <div className="col-span-6 md:col-span-5">
+                                                                <label className="block text-[9px] uppercase tracking-wider font-medium text-gray-500 mb-0.5">Physical Batch (Lot)</label>
+                                                                <select className="w-full p-1.5 border rounded text-[10px] bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none"
+                                                                    value={cons.batchId || ''}
+                                                                    disabled={!cons.medicineId}
+                                                                    onChange={e => {
+                                                                        const u = [...items];
+                                                                        u[idx].consumptions![cIdx] = { ...cons, batchId: e.target.value || undefined };
+                                                                        setItems(u);
+                                                                    }}>
+                                                                    <option value="">— Select physical lot —</option>
+                                                                    {(batchesMap[cons.medicineId] || []).map(b => {
+                                                                        const isExp = b.expiryDate && new Date(b.expiryDate) < new Date();
+                                                                        return (
+                                                                            <option key={b.id} value={b.id} disabled={!!isExp || b.quantity <= 0}>
+                                                                                {b.batchNumber} (Qty: {b.quantity})
+                                                                            </option>
+                                                                        );
+                                                                    })}
+                                                                </select>
+                                                            </div>
+                                                            <div className="col-span-12 md:col-span-2">
+                                                                <label className="block text-[9px] uppercase tracking-wider font-medium text-gray-500 mb-0.5">Burn Qty</label>
+                                                                <input type="number" min="1" className="w-full p-1.5 border rounded text-[10px] bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none"
+                                                                    value={cons.quantity}
+                                                                    onChange={e => {
+                                                                        const u = [...items];
+                                                                        u[idx].consumptions![cIdx] = { ...cons, quantity: Number(e.target.value) };
+                                                                        setItems(u);
+                                                                    }} />
+                                                            </div>
                                                         </div>
-                                                    );
-                                                }
-                                                return (
-                                                    <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">
-                                                        ✓ {batch.quantity} units available · Will deduct {item.quantity}
+                                                        
+                                                        {cons.batchId && (() => {
+                                                            const batch = (batchesMap[cons.medicineId] || []).find(b => b.id === cons.batchId);
+                                                            if (!batch) return null;
+                                                            const isExp = batch.expiryDate && new Date(batch.expiryDate) < new Date();
+                                                            const totalNeeded = cons.quantity * item.quantity;
+                                                            const insufficient = batch.quantity < totalNeeded;
+                                                            if (isExp || insufficient) {
+                                                                return (
+                                                                    <div className="flex items-center gap-1.5 text-[10px] text-red-600 dark:text-red-400 mt-1.5 bg-red-50 dark:bg-red-900/20 p-1.5 rounded border border-red-100 dark:border-red-900/50">
+                                                                        <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                                                                        {isExp ? 'This physical lot has EXPIRED!' : `Needs ${totalNeeded} units total (${cons.quantity} × ${item.quantity} services). Only ${batch.quantity} available!`}
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <div className="text-[9px] font-medium text-emerald-600 dark:text-emerald-400 mt-1.5">
+                                                                    ✓ {batch.quantity} raw units available · Processing a {totalNeeded}-unit deduction
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
-                                                );
-                                            })()}
+                                                ))}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
