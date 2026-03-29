@@ -424,10 +424,11 @@ export default function BillingPage() {
                                                         const svcId = e.target.value;
                                                         if(!svcId) return;
                                                         let svcMatch = null;
+                                                        let matchedClinic = null;
                                                         for(const c of clinics) {
                                                             for(const d of c.departments) {
                                                                 const hit = d.services.find(s => s.id === svcId);
-                                                                if(hit) { svcMatch = hit; break; }
+                                                                if(hit) { svcMatch = hit; matchedClinic = c; break; }
                                                             }
                                                             if (svcMatch) break;
                                                         }
@@ -435,6 +436,9 @@ export default function BillingPage() {
                                                             const u = [...items];
                                                             u[idx] = { ...u[idx], description: svcMatch.name, unitPrice: svcMatch.price || 0 };
                                                             setItems(u);
+                                                            if (!clinicName && matchedClinic) {
+                                                                setClinicName(matchedClinic.name);
+                                                            }
                                                         }
                                                         e.target.value = ''; // Reset select back to placeholder
                                                     }}
