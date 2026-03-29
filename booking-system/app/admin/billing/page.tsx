@@ -181,12 +181,13 @@ export default function BillingPage() {
         setNotes(`Booking ID: ${booking.id} | Doctor: ${docName} | Date: ${booking.date} | Time: ${booking.slot}`);
     };
 
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const taxAmount = subtotal * (taxPercentage / 100);
-    const totalAmount = subtotal + taxAmount;
+    const vatFactor = 1 + (taxPercentage / 100);
+    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const subtotal = totalAmount / vatFactor;
+    const taxAmount = totalAmount - subtotal;
     
-    const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
-    const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
+    const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0) / vatFactor;
+    const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0) / vatFactor;
 
     const filtered = searchPhone ? invoices.filter(i => i.clientPhone.includes(searchPhone)) : invoices;
 
@@ -229,15 +230,22 @@ export default function BillingPage() {
     const handleCreateInvoice = async () => {
         if (!clientName || !clientPhone || !generatedBy) return;
 
-        const invoiceItems: InvoiceLineItem[] = items.filter(i => i.description).map(i => ({
-            description: i.description,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            regularPrice: i.regularPrice,
-            discountAmount: i.discountAmount,
-            total: i.quantity * i.unitPrice,
-            consumptions: i.consumptions || []
-        }));
+        const vatFact = 1 + (taxPercentage / 100);
+        const invoiceItems: InvoiceLineItem[] = items.filter(i => i.description).map(i => {
+            const exRegPrice = (i.regularPrice !== undefined ? i.regularPrice : i.unitPrice) / vatFact;
+            const exDiscAmount = (i.discountAmount || 0) / vatFact;
+            const exUnitPrice = i.unitPrice / vatFact;
+
+            return {
+                description: i.description,
+                quantity: i.quantity,
+                unitPrice: exUnitPrice,
+                regularPrice: exRegPrice,
+                discountAmount: exDiscAmount,
+                total: i.quantity * exUnitPrice,
+                consumptions: i.consumptions || []
+            };
+        });
 
         // Validate batch selections
         const batchErrors = validateBatches();
@@ -519,7 +527,7 @@ export default function BillingPage() {
                                                 }} 
                                             />
                                             <input type="number" min="1" placeholder="Qty" className="w-16 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
-                                            <input type="number" min="0" placeholder="Reg.Price" className="w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" 
+                                            <input type="number" min="0" placeholder="Reg.Price" className="w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" title="Includes VAT"
                                                 value={item.regularPrice !== undefined ? item.regularPrice : item.unitPrice || ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -527,7 +535,7 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = u[idx].regularPrice! - (u[idx].discountAmount || 0); 
                                                     setItems(u); 
                                                 }} />
-                                            <input type="number" min="0" placeholder="Discount" className="w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0" 
+                                            <input type="number" min="0" placeholder="Discount" className="w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0" title="Includes VAT"
                                                 value={item.discountAmount !== undefined && item.discountAmount !== 0 ? item.discountAmount : ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
