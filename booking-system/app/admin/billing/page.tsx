@@ -28,7 +28,7 @@ export default function BillingPage() {
     const [clientPhone, setClientPhone] = useState('');
     const [clientEmail, setClientEmail] = useState('');
     const [invoiceCategory, setInvoiceCategory] = useState('clinic_single');
-    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; regularPrice?: number; discountAmount?: number; maxDiscountPercentage?: number; medicineId?: string; batchId?: string; consumptions?: { medicineId: string; batchId?: string; quantity: number }[] }[]>([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
+    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; regularPrice?: number; discountAmount?: number; maxDiscountPercentage?: number; medicineId?: string; batchId?: string; consumptions?: { medicineId: string; batchId?: string; quantity: number }[]; packagePayload?: any }[]>([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
     const [packageDetails, setPackageDetails] = useState('');
     const [taxPercentage, setTaxPercentage] = useState(5);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'online'>('card');
@@ -502,22 +502,54 @@ export default function BillingPage() {
                                                     if (val) {
                                                         let matchedService = null;
                                                         let matchedClinic = null;
+                                                        let isPackageMode = false;
+                                                        let sessionCount = 1;
+                                                        let pkgMatchData: any = null;
+
                                                         for(const c of clinics) {
                                                             if (clinicName && c.name !== clinicName) continue;
                                                             for(const d of c.departments) {
-                                                                const hit = d.services.find(s => s.name === val);
+                                                                // Exact match (Base Service)
+                                                                let hit = d.services.find(s => s.name === val);
                                                                 if(hit) { matchedService = hit; matchedClinic = c; break; }
+
+                                                                // Package match (3 Sessions)
+                                                                hit = d.services.find(s => s.threeSessionPackage && `3 Sessions - ${s.name} (Valid for ${s.threeSessionPackage.validity || 90} days)` === val);
+                                                                if (hit) {
+                                                                    matchedService = hit; matchedClinic = c; isPackageMode = true;
+                                                                    sessionCount = 3; pkgMatchData = hit.threeSessionPackage;
+                                                                    break;
+                                                                }
+
+                                                                // Package match (6 Sessions)
+                                                                hit = d.services.find(s => s.sixSessionPackage && `6 Sessions - ${s.name} (Valid for ${s.sixSessionPackage.validity || 180} days)` === val);
+                                                                if (hit) {
+                                                                    matchedService = hit; matchedClinic = c; isPackageMode = true;
+                                                                    sessionCount = 6; pkgMatchData = hit.sixSessionPackage;
+                                                                    break;
+                                                                }
                                                             }
                                                             if (matchedService) break;
                                                         }
+                                                        
                                                         if (matchedService && (u[idx].unitPrice === 0 || u[idx].regularPrice === 0)) {
-                                                            const svcReg = matchedService.regularPrice || matchedService.price || 0;
-                                                            const svcFinalInc = matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg;
+                                                            const svcReg = isPackageMode && pkgMatchData ? pkgMatchData.totalCost : (matchedService.regularPrice || matchedService.price || 0);
+                                                            const svcFinalInc = isPackageMode && pkgMatchData ? pkgMatchData.discountedPrice : (matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg);
 
                                                             u[idx].regularPrice = svcReg;
                                                             u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
                                                             u[idx].unitPrice = svcFinalInc;
                                                             u[idx].discountAmount = svcReg - svcFinalInc;
+
+                                                            if (isPackageMode && pkgMatchData) {
+                                                                u[idx].packagePayload = {
+                                                                    serviceId: matchedService.id,
+                                                                    serviceName: matchedService.name,
+                                                                    sessionCount: sessionCount,
+                                                                    validity: pkgMatchData.validity || (sessionCount === 3 ? 90 : 180),
+                                                                    price: svcFinalInc
+                                                                };
+                                                            }
                                                             
                                                             if (!clinicName && matchedClinic) {
                                                                 setClinicName(matchedClinic.name);
