@@ -246,6 +246,10 @@ export default function AdminAppointmentsPage() {
     };
 
     const handleEditClick = (booking: Booking) => {
+        if (booking.billingStatus === 'billed') {
+            alert("This appointment has already been billed and cannot be edited.");
+            return;
+        }
         setEditingBooking(booking);
         setEditForm({
             status: booking.status,
@@ -580,11 +584,12 @@ export default function AdminAppointmentsPage() {
                                                                     {b.status === 'completed' && (
                                                                         <div className="mt-2 text-left">
                                                                             <button
-                                                                                onClick={(e) => { e.stopPropagation(); handleGenerateReceipt(b.id); }}
-                                                                                className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 font-bold bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded border border-emerald-100 dark:border-emerald-800"
+                                                                                onClick={(e) => { e.stopPropagation(); if (b.billingStatus !== 'billed') handleGenerateReceipt(b.id); }}
+                                                                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded border ${b.billingStatus === 'billed' ? 'text-gray-500 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed' : 'text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800'}`}
+                                                                                disabled={b.billingStatus === 'billed'}
                                                                             >
                                                                                 <FileText className="w-3 h-3" />
-                                                                                Receipt
+                                                                                {b.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
                                                                             </button>
                                                                         </div>
                                                                     )}
@@ -709,18 +714,21 @@ export default function AdminAppointmentsPage() {
                                     <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
                                         <button
                                             onClick={() => handleEditClick(booking)}
-                                            className="flex-1 text-center text-xs text-indigo-600 font-medium hover:underline"
+                                            className={`flex-1 text-center text-xs font-medium ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'}`}
+                                            disabled={booking.billingStatus === 'billed'}
+                                            title={booking.billingStatus === 'billed' ? 'Cannot edit billed appointments' : ''}
                                         >
-                                            Edit Booking
+                                            {booking.billingStatus === 'billed' ? 'Locked (Billed)' : 'Edit Booking'}
                                         </button>
                                         {booking.status === 'completed' && (
                                             <button
-                                                onClick={() => handleGenerateReceipt(booking.id)}
-                                                className="flex-1 flex items-center justify-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-bold transition-colors border-l border-gray-200 dark:border-gray-700 pl-2"
-                                                title="Generate Receipt"
+                                                onClick={() => booking.billingStatus !== 'billed' && handleGenerateReceipt(booking.id)}
+                                                className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold transition-colors border-l border-gray-200 dark:border-gray-700 pl-2 ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-emerald-600 hover:text-emerald-700'}`}
+                                                disabled={booking.billingStatus === 'billed'}
+                                                title={booking.billingStatus === 'billed' ? "Invoice already generated" : "Generate Receipt"}
                                             >
                                                 <FileText className="w-3.5 h-3.5" />
-                                                Receipt
+                                                {booking.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
                                             </button>
                                         )}
                                         <button
@@ -782,11 +790,12 @@ export default function AdminAppointmentsPage() {
                                 </div>
                                 {editForm.status === 'completed' && (
                                     <button
-                                        onClick={() => handleGenerateReceipt(editingBooking.id)}
-                                        className="mt-2 text-xs flex items-center gap-1 text-indigo-600 hover:underline"
+                                        onClick={() => editingBooking.billingStatus !== 'billed' && handleGenerateReceipt(editingBooking.id)}
+                                        className={`mt-2 text-xs flex items-center gap-1 ${editingBooking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'}`}
+                                        disabled={editingBooking.billingStatus === 'billed'}
                                     >
                                         <FileText className="w-3 h-3" />
-                                        Generate Receipt
+                                        {editingBooking.billingStatus === 'billed' ? 'Invoice Generated' : 'Generate Receipt'}
                                     </button>
                                 )}
                             </div>
