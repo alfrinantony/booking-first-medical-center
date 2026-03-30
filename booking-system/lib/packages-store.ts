@@ -745,14 +745,18 @@ export const PackagesStore = {
     // ── Getters ──
     getCustomerPackages: async (phone: string): Promise<CustomerPackage[]> => {
         await ensurePackagesLoaded();
-        return customerPackages.filter(p => p.customerPhone === phone);
+        const normalizePhone = (p: string) => p.replace(/\s/g, '');
+        const normPhone = normalizePhone(phone);
+        return customerPackages.filter(p => normalizePhone(p.customerPhone) === normPhone);
     },
 
     getMyPackages: async (phone: string): Promise<CustomerPackage[]> => {
         await ensurePackagesLoaded();
         const now = new Date();
+        const normalizePhone = (p: string) => p.replace(/\s/g, '');
+        const normPhone = normalizePhone(phone);
         return customerPackages.filter(p =>
-            p.customerPhone === phone &&
+            normalizePhone(p.customerPhone) === normPhone &&
             p.active &&
             isAfter(parseISO(p.expiryDate), now)
         );
