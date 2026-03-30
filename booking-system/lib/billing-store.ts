@@ -4,6 +4,7 @@
 
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 import { InventoryBatchStore } from './services-store';
+import { PackagesStore } from './packages-store';
 
 export interface InvoiceLineItemConsumption {
     medicineId: string;
@@ -192,6 +193,33 @@ export const BillingStore = {
 
         // Auto-deduct inventory batches for items that reference a batchId
         for (const item of invoice.items) {
+            // New Dashboard Package injection from Clinic Billing interface
+            if ((item as any).packagePayload) {
+                const p = (item as any).packagePayload;
+                try {
+                    const pkgName = `${p.serviceName} - ${p.sessionCount} Sessions`;
+                    const pkg = await PackagesStore.createPackage({
+                        name: pkgName,
+                        description: `${p.sessionCount}-session package for ${p.serviceName}. Valid for ${p.validity} days.`,
+                        price: Number(p.price),
+                        validityInDays: Number(p.validity),
+                        items: [{ serviceId: p.serviceId, serviceName: p.serviceName, count: Number(p.sessionCount) }],
+                        active: true,
+                        source: 'admin',
+                    });
+
+                    // Assign to the customer (Clinic sales are immediately treated as paid if generating a tax invoice)
+                    const method = data.paymentMethod === 'card' || data.paymentMethod === 'online' ? 'credit_card' : 'pay_at_clinic';
+                    const cPkg = await PackagesStore.purchasePackage(pkg.id, invoice.clientName, invoice.clientPhone, method);
+
+                    if (cPkg && (payments.length > 0 || data.totalAmount === 0)) {
+                        await PackagesStore.confirmPayment(cPkg.id);
+                    }
+                } catch (e) {
+                    console.error("Failed to inject dashboard package:", e);
+                }
+            }
+
             // New multi-consumption logic
             if (item.consumptions && item.consumptions.length > 0) {
                 for (const consumption of item.consumptions) {

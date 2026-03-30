@@ -180,9 +180,9 @@ export default function BillingPage() {
     };
 
     const vatFactor = 1 + (taxPercentage / 100);
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const taxAmount = subtotal * (taxPercentage / 100);
-    const totalAmount = subtotal + taxAmount;
+    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const subtotal = totalAmount / vatFactor;
+    const taxAmount = totalAmount - subtotal;
     
     const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
     const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
@@ -236,7 +236,8 @@ export default function BillingPage() {
                 regularPrice: i.regularPrice !== undefined ? i.regularPrice : i.unitPrice,
                 discountAmount: i.discountAmount || 0,
                 total: i.quantity * i.unitPrice,
-                consumptions: i.consumptions || []
+                consumptions: i.consumptions || [],
+                packagePayload: (i as any).packagePayload
             };
         });
 
@@ -672,6 +673,8 @@ export default function BillingPage() {
                                                 if (val) {
                                                     let pkgMatch = null;
                                                     let matchedClinicName = null;
+                                                    let matchedSvc: any = null;
+                                                    let sessionCount = 3;
                                                     
                                                     for(const c of clinics) {
                                                         for(const d of c.departments) {
@@ -679,11 +682,15 @@ export default function BillingPage() {
                                                                 if (val === `3 Sessions - ${s.name}` && s.threeSessionPackage) {
                                                                     pkgMatch = s.threeSessionPackage;
                                                                     matchedClinicName = c.name;
+                                                                    matchedSvc = s;
+                                                                    sessionCount = 3;
                                                                     break;
                                                                 }
                                                                 if (val === `6 Sessions - ${s.name}` && s.sixSessionPackage) {
                                                                     pkgMatch = s.sixSessionPackage;
                                                                     matchedClinicName = c.name;
+                                                                    matchedSvc = s;
+                                                                    sessionCount = 6;
                                                                     break;
                                                                 }
                                                             }
@@ -692,12 +699,21 @@ export default function BillingPage() {
                                                         if (pkgMatch) break;
                                                     }
                                                     
-                                                    if (pkgMatch) {
+                                                    if (pkgMatch && matchedSvc) {
                                                         const pkgPriceInc = pkgMatch.discountedPrice !== undefined ? pkgMatch.discountedPrice : (pkgMatch.totalCost || 0);
                                                         const pkgReg = pkgMatch.totalCost || pkgPriceInc;
                                                         const u = [...items];
                                                         const desc = pkgMatch.validity ? `${val} (Valid for ${pkgMatch.validity} days)` : val;
-                                                        const newItem = { description: desc, quantity: 1, unitPrice: pkgPriceInc, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceInc, maxDiscountPercentage: undefined, consumptions: [] };
+                                                        
+                                                        const packagePayload = {
+                                                            serviceId: matchedSvc.id,
+                                                            serviceName: matchedSvc.name,
+                                                            sessionCount: sessionCount,
+                                                            validity: pkgMatch.validity || 90,
+                                                            price: pkgPriceInc
+                                                        };
+
+                                                        const newItem = { description: desc, quantity: 1, unitPrice: pkgPriceInc, regularPrice: pkgReg, discountAmount: pkgReg - pkgPriceInc, maxDiscountPercentage: undefined, consumptions: [], packagePayload };
                                                         
                                                         const noteAppend = "Purchased services won't refund, complete the services before the expiry of validity date.";
                                                         setNotes(prev => prev ? (prev.includes(noteAppend) ? prev : prev + '\n' + noteAppend) : noteAppend);
