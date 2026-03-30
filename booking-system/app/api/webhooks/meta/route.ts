@@ -105,8 +105,45 @@ export async function POST(req: NextRequest) {
         }
 
         if (body.object === 'whatsapp_business_account') {
-            // WhatsApp messages (future use)
-            console.log('[MetaWebhook] WhatsApp event received (not processed yet)');
+            // WhatsApp Cloud API messages
+            for (const entry of body.entry || []) {
+                for (const change of entry.changes || []) {
+                    if (change.value && change.value.messages) {
+                        const phoneNumberId = change.value.metadata?.phone_number_id;
+                        const contacts = change.value.contacts || [];
+                        
+                        for (const message of change.value.messages) {
+                            if (message.type === 'text' && message.text?.body) {
+                                // Find sender name if available
+                                const contact = contacts.find((c: any) => c.wa_id === message.from);
+                                const senderName = contact?.profile?.name;
+                                
+                                const msg: StoredWebhookMessage = {
+                                    id: message.id || `wa-${Date.now()}`,
+                                    senderId: message.from, // WhatsApp uses phone number as senderId
+                                    senderName: senderName,
+                                    recipientId: phoneNumberId,
+                                    message: message.text.body,
+                                    timestamp: new Date(parseInt(message.timestamp || Date.now().toString()) * (message.timestamp?.length === 10 ? 1000 : 1)).toISOString(),
+                                    platform: 'whatsapp',
+                                    read: false,
+                                };
+                                await storeWebhookMessage(msg);
+
+                                // Trigger WhatsApp Bot asynchronously
+                                try {
+                                    const { processWhatsAppMessage } = await import('@/lib/whatsapp-bot');
+                                    processWhatsAppMessage(msg.senderId, phoneNumberId, message.text.body, senderName).catch(err => {
+                                        console.error('[MetaWebhook] WhatsApp background processing error:', err);
+                                    });
+                                } catch (err) {
+                                    console.error('[MetaWebhook] Failed to import/run wa-bot:', err);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             return new NextResponse('EVENT_RECEIVED', { status: 200 });
         }
 
