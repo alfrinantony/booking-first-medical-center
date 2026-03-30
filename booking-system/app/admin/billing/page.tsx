@@ -179,10 +179,9 @@ export default function BillingPage() {
         setNotes(`Booking ID: ${booking.id} | Doctor: ${docName} | Date: ${booking.date} | Time: ${booking.slot}`);
     };
 
-    const vatFactor = 1 + (taxPercentage / 100);
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const subtotal = totalAmount / vatFactor;
-    const taxAmount = totalAmount - subtotal;
+    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const taxAmount = subtotal * (taxPercentage / 100);
+    const totalAmount = subtotal + taxAmount;
     
     const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
     const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
@@ -537,15 +536,33 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = u[idx].regularPrice! - (u[idx].discountAmount || 0); 
                                                     setItems(u); 
                                                 }} />
-                                            <input type="number" min="0" placeholder="Discount" className="w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
+                                            <input type="number" min="0" max={item.maxDiscountPercentage || ''} placeholder="Disc. %" className="w-20 p-2 border border-blue-300 dark:border-blue-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
+                                                value={item.regularPrice && item.discountAmount ? Number(((item.discountAmount / item.regularPrice) * 100).toFixed(2)) : ''} 
+                                                onChange={(e) => { 
+                                                    const u = [...items]; 
+                                                    let pct = Number(e.target.value);
+                                                    if (u[idx].maxDiscountPercentage !== undefined && u[idx].maxDiscountPercentage !== 0 && pct > u[idx].maxDiscountPercentage!) {
+                                                        pct = u[idx].maxDiscountPercentage!;
+                                                    }
+                                                    const discAmt = (u[idx].regularPrice || 0) * (pct / 100);
+                                                    u[idx].discountAmount = Number(discAmt.toFixed(2)); 
+                                                    u[idx].unitPrice = Number(((u[idx].regularPrice || 0) - u[idx].discountAmount).toFixed(2)); 
+                                                    setItems(u); 
+                                                }} />
+                                            <input type="number" min="0" placeholder="Disc. AED" className="w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
                                                 value={item.discountAmount !== undefined && item.discountAmount !== 0 ? item.discountAmount : ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
-                                                    u[idx].discountAmount = Number(e.target.value); 
-                                                    u[idx].unitPrice = (u[idx].regularPrice || 0) - u[idx].discountAmount; 
+                                                    let maxAmt = (u[idx].regularPrice || 0) * ((u[idx].maxDiscountPercentage !== undefined ? u[idx].maxDiscountPercentage : 100) / 100);
+                                                    let amt = Number(e.target.value);
+                                                    if (u[idx].maxDiscountPercentage !== undefined && u[idx].maxDiscountPercentage !== 0 && amt > maxAmt) {
+                                                        amt = maxAmt;
+                                                    }
+                                                    u[idx].discountAmount = amt; 
+                                                    u[idx].unitPrice = Number(((u[idx].regularPrice || 0) - u[idx].discountAmount).toFixed(2)); 
                                                     setItems(u); 
                                                 }} />
-                                            <div className="w-20 px-2 py-2 text-sm text-right bg-gray-50 dark:bg-gray-800 border rounded-md dark:border-gray-600 self-center flex-shrink-0">
+                                            <div className="w-24 px-2 py-2 text-sm text-right bg-gray-50 dark:bg-gray-800 border rounded-md dark:border-gray-600 self-center flex-shrink-0" title="Discounted Price">
                                                 {item.unitPrice.toFixed(2)}
                                             </div>
                                             {items.length > 1 && (
