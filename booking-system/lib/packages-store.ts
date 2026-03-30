@@ -745,7 +745,14 @@ export const PackagesStore = {
     // ── Getters ──
     getCustomerPackages: async (phone: string): Promise<CustomerPackage[]> => {
         await ensurePackagesLoaded();
-        const normalizePhone = (p: string) => p.replace(/\s/g, '');
+        const normalizePhone = (p: string) => {
+            if (!p) return '';
+            let clean = p.replace(/\D/g, '');
+            if (clean.startsWith('00971')) clean = clean.substring(2);
+            if (clean.startsWith('05')) clean = '971' + clean.substring(1);
+            if (clean.startsWith('97105')) clean = '971' + clean.substring(4);
+            return clean;
+        };
         const normPhone = normalizePhone(phone);
         return customerPackages.filter(p => normalizePhone(p.customerPhone) === normPhone);
     },
@@ -753,7 +760,14 @@ export const PackagesStore = {
     getMyPackages: async (phone: string): Promise<CustomerPackage[]> => {
         await ensurePackagesLoaded();
         const now = new Date();
-        const normalizePhone = (p: string) => p.replace(/\s/g, '');
+        const normalizePhone = (p: string) => {
+            if (!p) return '';
+            let clean = p.replace(/\D/g, '');
+            if (clean.startsWith('00971')) clean = clean.substring(2);
+            if (clean.startsWith('05')) clean = '971' + clean.substring(1);
+            if (clean.startsWith('97105')) clean = '971' + clean.substring(4);
+            return clean;
+        };
         const normPhone = normalizePhone(phone);
         return customerPackages.filter(p =>
             normalizePhone(p.customerPhone) === normPhone &&
