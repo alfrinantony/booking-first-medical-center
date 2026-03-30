@@ -1,0 +1,41 @@
+{
+  "invoiceCategory": "clinic_package",
+  "clientName": "Alfrin Antony",
+  "clientPhone": "+971554556492",
+  "clientEmail": "alfrinantony@gmail.com",
+  "items": [
+    {
+      "description": "3 Sessions - Male Full Body Laser Hair Removal (Valid for 180 days)",
+      "quantity": 1,
+      "unitPrice": 1099,
+      "regularPrice": 1199,
+      "discountAmount": 100,
+      "total": 1099,
+      "consumptions": []
+    }
+  ],
+  "packageDetails": "3 Sessions - Male Full Body Laser Hair Removal",
+  "subtotal": 1099,
+  "taxPercentage": 5,
+  "taxAmount": 54.95,
+  "totalAmount": 1153.95,
+  "paymentMethod": "card",
+  "paymentConfirmed": true,
+  "clinicName": "Al Muraqabat Branch",
+  "generatedBy": "Super Admin",
+  "date": "2026-03-30",
+  "notes": "Purchased services won't refund, complete the services before the expiry of validity date.",
+  "id": "inv-1774829804707",
+  "invoiceNumber": "FMC-PKG-0002",
+  "payments": [
+    {
+      "id": "pay-1774829804707",
+      "amount": 1153.95,
+      "mode": "card",
+      "referenceNumber": "FMC-CRD-0002",
+      "date": "2026-03-30T00:16:44.707Z"
+    }
+  ],
+  "createdAt": "2026-03-30T00:16:44.707Z",
+  "refundStatus": "none"
+}

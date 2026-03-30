@@ -85,6 +85,19 @@ export async function POST(req: NextRequest) {
                             read: false,
                         };
                         await storeWebhookMessage(msg);
+
+                        // Trigger the Automated Instagram Chatbot asynchronously
+                        // Do not await here so we can return 200 OK immediately
+                        if (event.message.text) {
+                            try {
+                                const { processInstagramMessage } = await import('@/lib/instagram-bot');
+                                processInstagramMessage(msg.senderId, event.message.text).catch(err => {
+                                    console.error('[MetaWebhook] Background processing error:', err);
+                                });
+                            } catch (err) {
+                                console.error('[MetaWebhook] Failed to import/run bot:', err);
+                            }
+                        }
                     }
                 }
             }
