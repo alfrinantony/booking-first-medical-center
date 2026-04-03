@@ -67,10 +67,11 @@ function formatDate(d: Date): string {
     return d.toISOString().slice(0, 10).replace(/-/g, '');
 }
 
-function getDates30d() {
+function getDates90d() {
     const end = new Date();
+    end.setDate(end.getDate() + 1); // +1 day to prevent timezone cutoff for today's reviews
     const start = new Date();
-    start.setDate(end.getDate() - 30);
+    start.setDate(end.getDate() - 90); // 90 day history
     return { start: formatDate(start), end: formatDate(end) };
 }
 
@@ -119,7 +120,7 @@ export async function GET() {
         );
     }
 
-    const { start, end } = getDates30d();
+    const { start, end } = getDates90d();
     const conversations: InboxConversation[] = [];
     const messages: Record<string, InboxMessage[]> = {};
 
