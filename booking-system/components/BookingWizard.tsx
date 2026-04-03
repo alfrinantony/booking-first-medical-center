@@ -1946,20 +1946,7 @@ export default function BookingWizard() {
                                     }
                                 </p>
 
-                                {/* Consumables Info Banner */}
-                                {(selectedService.consumableIds || []).length > 0 && (
-                                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 p-3 rounded-lg mb-4">
-                                        <div className="text-sm font-medium text-orange-800 dark:text-orange-300 mb-1">🧴 Consumables included for this procedure:</div>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {(selectedService.consumableIds || []).map((cid: string) => {
-                                                const cons = medicineCatalog.find(m => m.id === cid);
-                                                return cons ? (
-                                                    <span key={cid} className="text-xs bg-orange-100 dark:bg-orange-800/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full">{cons.name}</span>
-                                                ) : null;
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
+
 
                                 <div className="space-y-3 mb-6">
                                     {availableMeds.map(med => {
