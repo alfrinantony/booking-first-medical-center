@@ -94,16 +94,6 @@ export default function CustomerDashboard() {
         fetch(`/api/admin/reviews?customerPhone=${encodeURIComponent(customerId)}`)
             .then(r => r.json()).then((reviews: GoogleReview[]) => {
                 setMyReviews(reviews);
-                // Calculate discount from reviews
-                const fiveStarBranches = new Set(reviews.filter(r => r.rating === 5).map(r => r.clinicId));
-                const hasSubFive = reviews.some(r => r.rating < 5);
-                const percent = hasSubFive ? 0 : Math.min(fiveStarBranches.size, 3);
-                setReviewDiscount({
-                    percent,
-                    reviewedBranches: fiveStarBranches.size,
-                    totalBranches: allClinics.length,
-                    hasSubFiveReview: hasSubFive,
-                });
             }).catch(() => {});
 
         // Check booking history
@@ -125,6 +115,19 @@ export default function CustomerDashboard() {
     useEffect(() => {
         if (user?.phone) fetchUpcomingBookings();
     }, [user?.phone]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Sync reviewDiscount whenever myReviews change
+    useEffect(() => {
+        const fiveStarBranches = new Set(myReviews.filter(r => r.rating === 5).map(r => r.clinicId));
+        const hasSubFive = myReviews.some(r => r.rating < 5);
+        const percent = hasSubFive ? 0 : Math.min(fiveStarBranches.size, 3);
+        setReviewDiscount({
+            percent,
+            reviewedBranches: fiveStarBranches.size,
+            totalBranches: allClinics.length,
+            hasSubFiveReview: hasSubFive,
+        });
+    }, [myReviews]);
 
     const fetchUpcomingBookings = async () => {
         if (!user?.phone) return;
