@@ -122,6 +122,7 @@ async function sendInstagramMessage(recipientId: string, text: string) {
 
     const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${token}`;
     const payload = {
+        messaging_type: 'RESPONSE',
         recipient: { id: recipientId },
         message: { text }
     };

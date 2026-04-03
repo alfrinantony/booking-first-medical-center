@@ -87,11 +87,11 @@ export async function POST(req: NextRequest) {
                         await storeWebhookMessage(msg);
 
                         // Trigger the Automated Instagram Chatbot asynchronously
-                        // Do not await here so we can return 200 OK immediately
+                        // We must await here in serverless environments to prevent the process from being killed
                         if (event.message.text) {
                             try {
                                 const { processInstagramMessage } = await import('@/lib/instagram-bot');
-                                processInstagramMessage(msg.senderId, event.message.text).catch(err => {
+                                await processInstagramMessage(msg.senderId, event.message.text).catch(err => {
                                     console.error('[MetaWebhook] Background processing error:', err);
                                 });
                             } catch (err) {
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
                                 // Trigger WhatsApp Bot asynchronously
                                 try {
                                     const { processWhatsAppMessage } = await import('@/lib/whatsapp-bot');
-                                    processWhatsAppMessage(msg.senderId, phoneNumberId, message.text.body, senderName).catch(err => {
+                                    await processWhatsAppMessage(msg.senderId, phoneNumberId, message.text.body, senderName).catch(err => {
                                         console.error('[MetaWebhook] WhatsApp background processing error:', err);
                                     });
                                 } catch (err) {

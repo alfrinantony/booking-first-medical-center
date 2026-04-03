@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
             if (igCursor) igParams.after = igCursor;
 
             const igConvos = await graphFetch(
-                `/${igUserId}/conversations`,
+                `/${pageId}/conversations`,
                 pageAccessToken,
                 igParams,
             );
@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
 
         let sent = false;
         let errorDetail = '';
-        const senderId = platform === 'instagram' ? igUserId : pageId;
+        const senderId = pageId;
         const sendUrl = `${GRAPH_BASE}/${senderId}/messages?access_token=${pageAccessToken}`;
 
         try {
