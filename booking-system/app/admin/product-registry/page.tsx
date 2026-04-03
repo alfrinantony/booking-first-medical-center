@@ -38,7 +38,7 @@ interface ProductForm {
     registrationBody: string;
     registrationNumber: string;
     registrationExpiry: string;
-    registeredSupplierId: string;
+    registeredSupplierIds: string[];
     registeredSubAgent: string;
     pdfFileName: string;
     minCentralStock: string;
@@ -52,7 +52,7 @@ const emptyForm: ProductForm = {
     category: 'medicine', purchaseUnit: '', storedType: 'Packet',
     numberOfStoredType: '', consumableItemsInside: '', consumableUnit: '',
     registrationBody: '', registrationNumber: '', registrationExpiry: '',
-    registeredSupplierId: '', registeredSubAgent: '', pdfFileName: '',
+    registeredSupplierIds: [], registeredSubAgent: '', pdfFileName: '',
     minCentralStock: '', minAlMuraqabatStock: '', minAlQiyadahStock: '', minSiliconOasisStock: ''
 };
 
@@ -121,6 +121,12 @@ export default function ProductRegistryPage() {
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
+        const selectedIds = form.registeredSupplierIds || [];
+        if (selectedIds.length === 0) {
+            alert('Please select at least one supplier.');
+            return;
+        }
+
         setSubmitting(true);
         try {
             const res = await fetch('/api/admin/registered-products', {
@@ -144,11 +150,17 @@ export default function ProductRegistryPage() {
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editing) return;
+        const selectedIds = editing.registeredSupplierIds || (editing.registeredSupplierId ? [editing.registeredSupplierId] : []);
+        if (selectedIds.length === 0) {
+            alert('Please select at least one supplier.');
+            return;
+        }
+
         setSubmitting(true);
         try {
             const res = await fetch('/api/admin/registered-products', {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editing)
+                body: JSON.stringify({ ...editing, registeredSupplierIds: selectedIds })
             });
             if (res.ok) { await fetchProducts(); setIsEditOpen(false); setEditing(null); }
             else alert('Failed to update product');
@@ -177,7 +189,7 @@ export default function ProductRegistryPage() {
 
     const renderFormFields = (
         values: ProductForm | RegisteredProduct,
-        onChange: (field: string, value: string | number) => void,
+        onChange: (field: string, value: any) => void,
         isEditMode: boolean
     ) => (
         <div className="space-y-4">
@@ -299,12 +311,25 @@ export default function ProductRegistryPage() {
             {/* Supplier & Sub-Agent */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium mb-1">Registered Supplier *</label>
-                    <select required className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                        value={values.registeredSupplierId} onChange={e => onChange('registeredSupplierId', e.target.value)}>
-                        <option value="">Select supplier...</option>
-                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    <label className="block text-sm font-medium mb-1">Registered Suppliers *</label>
+                    <div className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 max-h-40 overflow-y-auto bg-white dark:bg-gray-700">
+                        {suppliers.map(s => {
+                            const selectedIds = values.registeredSupplierIds || ((values as any).registeredSupplierId ? [(values as any).registeredSupplierId] : []);
+                            const isSelected = selectedIds.includes(s.id);
+                            return (
+                                <label key={s.id} className="flex items-start gap-2 mb-2 p-1 hover:bg-gray-50 dark:hover:bg-gray-600 rounded cursor-pointer">
+                                    <input type="checkbox" className="mt-1 flex-shrink-0" checked={isSelected}
+                                        onChange={(e) => {
+                                            const newIds = e.target.checked 
+                                                ? [...selectedIds, s.id] 
+                                                : selectedIds.filter(id => id !== s.id);
+                                            onChange('registeredSupplierIds', newIds);
+                                        }} />
+                                    <span className="text-sm dark:text-gray-300">{s.name}</span>
+                                </label>
+                            );
+                        })}
+                    </div>
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1">Sub-Agent / Distributor</label>
@@ -423,11 +448,19 @@ export default function ProductRegistryPage() {
                                         </td>
                                         <td className="p-4 text-right font-mono text-sm">{p.minCentralStock ?? '—'}</td>
                                         <td className="p-4">
-                                            <div className="flex items-center gap-1.5 text-xs">
-                                                <Truck className="w-3.5 h-3.5 text-gray-400" />
-                                                <span>{getSupplierName(p.registeredSupplierId)}</span>
+                                            <div className="flex flex-col gap-1.5 text-xs">
+                                                {(() => {
+                                                    const sIds = p.registeredSupplierIds?.length ? p.registeredSupplierIds : (p.registeredSupplierId ? [p.registeredSupplierId] : []);
+                                                    if (sIds.length === 0) return <span className="text-gray-400">No Supplier</span>;
+                                                    return sIds.map((id, index) => (
+                                                        <div key={index} className="flex items-center gap-1.5">
+                                                            <Truck className="w-3.5 h-3.5 text-gray-400" />
+                                                            <span>{getSupplierName(id)}</span>
+                                                        </div>
+                                                    ));
+                                                })()}
                                             </div>
-                                            {p.registeredSubAgent && <div className="text-xs text-gray-500 ml-5">via {p.registeredSubAgent}</div>}
+                                            {p.registeredSubAgent && <div className="text-xs text-gray-500 mt-1">via {p.registeredSubAgent}</div>}
                                         </td>
                                         <td className="p-4">
                                             <div className="text-xs font-mono">{p.registrationNumber}</div>

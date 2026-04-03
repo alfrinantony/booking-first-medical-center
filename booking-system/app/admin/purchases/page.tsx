@@ -101,10 +101,11 @@ export default function PurchasesPage() {
                 errors.push(`Item ${idx + 1} (${rp.tradeName}): Registration expired on ${rp.registrationExpiry}. Cannot purchase.`);
             }
 
-            // Check supplier matches
-            if (selectedSupplier && rp.registeredSupplierId !== selectedSupplier) {
-                const regSupplierName = suppliers.find(s => s.id === rp.registeredSupplierId)?.name || 'Unknown';
-                errors.push(`Item ${idx + 1} (${rp.tradeName}): Registered supplier is "${regSupplierName}", but purchase supplier is different.`);
+            // Check supplier matches against all valid suppliers
+            const validSupplierIds = rp.registeredSupplierIds?.length ? rp.registeredSupplierIds : (rp.registeredSupplierId ? [rp.registeredSupplierId] : []);
+            if (selectedSupplier && !validSupplierIds.includes(selectedSupplier)) {
+                const regSupplierNames = validSupplierIds.map(id => suppliers.find(s => s.id === id)?.name || id).join(', ') || 'Unknown';
+                errors.push(`Item ${idx + 1} (${rp.tradeName}): Registered suppliers are "${regSupplierNames}", but purchase supplier is different.`);
             }
         });
 
@@ -319,7 +320,10 @@ export default function PurchasesPage() {
     // Filter registered products by selected supplier
     const getAvailableProducts = () => {
         if (!billForm.supplierId) return registeredProducts;
-        return registeredProducts.filter(rp => rp.registeredSupplierId === billForm.supplierId);
+        return registeredProducts.filter(rp => {
+            const validIds = rp.registeredSupplierIds?.length ? rp.registeredSupplierIds : (rp.registeredSupplierId ? [rp.registeredSupplierId] : []);
+            return validIds.includes(billForm.supplierId);
+        });
     };
 
     if (loading) return <div className="p-8">Loading purchases...</div>;
@@ -545,7 +549,8 @@ export default function PurchasesPage() {
                                             {lineItems.map((li, idx) => {
                                                 const selectedProduct = registeredProducts.find(p => p.id === li.registeredProductId);
                                                 const productExpired = selectedProduct && isExpired(selectedProduct.registrationExpiry);
-                                                const supplierMismatch = selectedProduct && billForm.supplierId && selectedProduct.registeredSupplierId !== billForm.supplierId;
+                                                const validSupplierIds = selectedProduct?.registeredSupplierIds?.length ? selectedProduct.registeredSupplierIds : (selectedProduct?.registeredSupplierId ? [selectedProduct.registeredSupplierId] : []);
+                                                const supplierMismatch = selectedProduct && billForm.supplierId && !validSupplierIds.includes(billForm.supplierId);
 
                                                 return (
                                                     <div key={idx} className={`grid grid-cols-12 gap-2 px-3 py-2 items-center ${productExpired || supplierMismatch ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>

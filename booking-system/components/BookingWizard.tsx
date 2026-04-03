@@ -1921,9 +1921,11 @@ export default function BookingWizard() {
                 showMedicinePicker && selectedService && (() => {
                     const mode = selectedService.medicineSelectionMode || 'choose';
                     const linkedIds = selectedService.medicineIds || [];
-                    const availableMeds = linkedIds.length > 0
-                        ? medicineCatalog.filter(m => linkedIds.includes(m.id))
-                        : medicineCatalog;
+                    const availableMeds = medicineCatalog.filter(m => {
+                        if (!linkedIds.includes(m.id)) return false;
+                        const totalStock = (m.branchStock || []).reduce((sum: number, b: any) => sum + (b.quantity || 0), 0);
+                        return totalStock > 0;
+                    });
                     const isEither = mode === 'either';
 
                     return (
@@ -1962,8 +1964,8 @@ export default function BookingWizard() {
                                 <div className="space-y-3 mb-6">
                                     {availableMeds.map(med => {
                                         const isSelected = selectedMedicineIds.includes(med.id);
-                                        const branchQty = (med.branchStock || []).find(b => b.clinicId === selectedClinic?.id)?.quantity || 0;
-                                        const outOfStock = branchQty <= 0;
+                                        const globalQty = (med.branchStock || []).reduce((sum: number, b: any) => sum + (b.quantity || 0), 0);
+                                        const outOfStock = false; // Already excluded out of stock items
                                         const maxMeds = selectedService.maxMedicines || 0;
                                         const atLimit = !isEither && !isSelected && maxMeds > 0 && selectedMedicineIds.length >= maxMeds;
                                         const isDisabled = outOfStock || atLimit;
@@ -1986,10 +1988,8 @@ export default function BookingWizard() {
                                                     <span className="font-medium text-gray-900 dark:text-white">{med.name}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    {outOfStock ? (
-                                                        <span className="text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">Out of Stock</span>
-                                                    ) : branchQty <= 10 ? (
-                                                        <span className="text-xs font-medium text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-0.5 rounded-full">{branchQty} left</span>
+                                                    {globalQty <= 10 ? (
+                                                        <span className="text-xs font-medium text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-0.5 rounded-full">{globalQty} left in stock</span>
                                                     ) : null}
                                                     <span className="font-bold text-indigo-600 dark:text-indigo-400">+{med.price} AED</span>
                                                 </div>

@@ -126,7 +126,8 @@ export interface RegisteredProduct {
     registrationBody: string; // e.g. MOH, DHA, HAAD
     registrationNumber: string;
     registrationExpiry: string; // ISO date YYYY-MM-DD
-    registeredSupplierId: string; // Must match supplier on purchase
+    registeredSupplierId?: string; // Legacy: single supplier ID
+    registeredSupplierIds?: string[]; // Multiple allowed supplier IDs
     registeredSubAgent?: string; // Sub-agent/distributor
     pdfFileName?: string; // Registration certificate PDF (< 1MB)
     linkedMedicineId?: string; // Optional link to inventory medicine item
@@ -658,7 +659,8 @@ export const initialRegisteredProducts: RegisteredProduct[] = [
         registeredPrice: 1200, category: 'medicine', purchaseUnit: 'Box', storedType: 'Vial',
         numberOfStoredType: 1, consumableItemsInside: 100, consumableUnit: 'units',
         registrationBody: 'MOH', registrationNumber: 'MOH-DRG-2024-0451',
-        registrationExpiry: '2027-12-31', registeredSupplierId: 'sup-1',
+        registrationExpiry: '2027-12-31',
+        registeredSupplierId: 'sup-1', registeredSupplierIds: ['sup-1', 'sup-2'], // Test with multiple
         registeredSubAgent: 'Allergan ME', linkedMedicineId: 'med-1', minCentralStock: 5
     },
     {
@@ -666,7 +668,7 @@ export const initialRegisteredProducts: RegisteredProduct[] = [
         registeredPrice: 850, category: 'medicine', purchaseUnit: 'Box', storedType: 'Prefilled Syringe',
         numberOfStoredType: 2, consumableItemsInside: 2, consumableUnit: 'ml',
         registrationBody: 'DHA', registrationNumber: 'DHA-MED-2025-1120',
-        registrationExpiry: '2028-06-30', registeredSupplierId: 'sup-2',
+        registrationExpiry: '2028-06-30', registeredSupplierId: 'sup-2', registeredSupplierIds: ['sup-2'],
         registeredSubAgent: 'AbbVie Gulf', linkedMedicineId: 'med-2', minCentralStock: 10
     },
     {
@@ -674,14 +676,14 @@ export const initialRegisteredProducts: RegisteredProduct[] = [
         registeredPrice: 45, category: 'em_medicine', purchaseUnit: 'Pack', storedType: 'Vial',
         numberOfStoredType: 10, consumableItemsInside: 10, consumableUnit: 'ml',
         registrationBody: 'MOH', registrationNumber: 'MOH-EM-2024-0089',
-        registrationExpiry: '2027-03-15', registeredSupplierId: 'sup-3', minCentralStock: 20
+        registrationExpiry: '2027-03-15', registeredSupplierId: 'sup-3', registeredSupplierIds: ['sup-3'], minCentralStock: 20
     },
     {
         id: 'rp-4', tradeName: 'Retinoid Cream 0.05%', genericName: 'Tretinoin', itemCode: 'RET-004',
         registeredPrice: 65, category: 'medicine', purchaseUnit: 'Box', storedType: 'Packet',
         numberOfStoredType: 12, consumableItemsInside: 12, consumableUnit: 'tubes',
         registrationBody: 'DHA', registrationNumber: 'DHA-COS-2023-0332',
-        registrationExpiry: '2025-01-31', registeredSupplierId: 'sup-1',
+        registrationExpiry: '2025-01-31', registeredSupplierId: 'sup-1', registeredSupplierIds: ['sup-1', 'sup-4', 'sup-5'],
         registeredSubAgent: 'Pharma Solutions LLC'
     },
 ];

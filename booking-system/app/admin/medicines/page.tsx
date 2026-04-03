@@ -182,6 +182,12 @@ export default function MedicinesPage() {
         return registeredProducts.filter(rp => !linkedIds.includes(rp.id));
     };
 
+    const getProductSuppliersStr = (rp: RegisteredProduct) => {
+        const sIds = rp.registeredSupplierIds?.length ? rp.registeredSupplierIds : (rp.registeredSupplierId ? [rp.registeredSupplierId] : []);
+        if (sIds.length === 0) return 'None';
+        return sIds.map(id => getSupplierName(id)).join(', ');
+    };
+
     const handleToggleNotified = async (med: Medicine) => {
         try {
             await fetch('/api/admin/medicines', {
@@ -310,7 +316,7 @@ export default function MedicinesPage() {
                                                         {isExpired(rp.registrationExpiry) ? '⛔ Reg. Expired' : `✓ Reg. until ${rp.registrationExpiry}`}
                                                     </span>
                                                 )}
-                                                <span className="text-gray-400">Supplier: {getSupplierName(rp.registeredSupplierId)}</span>
+                                                <span className="text-gray-400">Supplier: {getProductSuppliersStr(rp)}</span>
                                                 {rp.registeredSubAgent && <span className="text-gray-400">via {rp.registeredSubAgent}</span>}
                                             </div>
                                             {/* Purchase & Consumable Parameters */}
@@ -412,7 +418,7 @@ export default function MedicinesPage() {
                                         return (
                                             <div className="text-xs text-indigo-600 dark:text-indigo-400 space-y-0.5">
                                                 <div className="flex items-center gap-1"><Link2 className="w-3 h-3" /> {rp.genericName} · {rp.registrationBody}: {rp.registrationNumber}</div>
-                                                <div>Supplier: {getSupplierName(rp.registeredSupplierId)} {rp.registeredSubAgent ? `via ${rp.registeredSubAgent}` : ''}</div>
+                                                <div>Supplier: {getProductSuppliersStr(rp)} {rp.registeredSubAgent ? `via ${rp.registeredSubAgent}` : ''}</div>
                                                 <div className="text-[10px] text-indigo-500 flex items-center gap-1">🔒 Registry fields are locked. Only enter purchased units below.</div>
                                             </div>
                                         );
@@ -549,7 +555,7 @@ export default function MedicinesPage() {
                                         if (!rp) return null;
                                         return (
                                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                {rp.genericName} · Reg: {rp.registrationNumber} · Supplier: {getSupplierName(rp.registeredSupplierId)}
+                                                {rp.genericName} · Reg: {rp.registrationNumber} · Supplier: {getProductSuppliersStr(rp)}
                                             </div>
                                         );
                                     })()}
