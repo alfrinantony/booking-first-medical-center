@@ -1,6 +1,18 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { SettingsStore } from '@/lib/settings-store';
+import { loadFromBlob } from '@/lib/blob-persistence';
+
+interface StoredWebhookMessage {
+    id: string;
+    senderId: string;
+    senderName?: string;
+    recipientId: string;
+    message: string;
+    timestamp: string;
+    platform: 'facebook' | 'instagram' | 'whatsapp';
+    read: boolean;
+}
 
 // ─────────────────────────────────────────────────────────────
 // Meta DMs API — Fetches Facebook Messenger & Instagram DMs
@@ -110,6 +122,28 @@ export async function GET(request: NextRequest) {
                 }
                 messages.reverse(); // oldest first
             }
+            
+            // Also merge from webhook buffer to ensure latest messages are present
+            try {
+                const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
+                const relevantWebhooks = webhookData.messages.filter(m => m.senderId === conversationId && m.platform === platform);
+                for (const wm of relevantWebhooks) {
+                    if (!messages.find(m => m.id === wm.id)) {
+                        messages.push({
+                            id: wm.id,
+                            from: wm.senderId,
+                            fromName: wm.senderName || 'User',
+                            message: wm.message,
+                            timestamp: wm.timestamp,
+                            isFromPage: false,
+                        });
+                    }
+                }
+                messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            } catch (wErr) {
+                console.error(`[MetaDMs] Webhook load error for messages:`, wErr);
+            }
+            
             return NextResponse.json({ messages });
         } catch (err) {
             console.error(`[MetaDMs] Error fetching messages for ${conversationId}:`, err);
@@ -233,6 +267,39 @@ export async function GET(request: NextRequest) {
         } catch (err) {
             console.error('[MetaDMs] Instagram conversations error:', err);
         }
+    }
+
+    // ── 3. Merge Webhook Messages (Fallback for missing/lagging Graph API) ──
+    try {
+        const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
+        
+        for (const msg of webhookData.messages) {
+            if (msg.platform !== 'instagram' && msg.platform !== 'facebook') continue;
+            
+            let existingConvo = conversations.find(c => c.participantId === msg.senderId);
+            if (!existingConvo) {
+                existingConvo = {
+                    id: `${msg.platform}-dm-${msg.senderId}`,
+                    platform: msg.platform,
+                    messageType: 'dm',
+                    participantName: msg.senderName || `${msg.platform === 'instagram' ? 'Instagram' : 'Facebook'} User`,
+                    participantId: msg.senderId,
+                    graphConversationId: msg.senderId, // for lazy loading
+                    lastMessageContent: msg.message,
+                    lastMessageTimestamp: msg.timestamp,
+                    unreadCount: msg.read ? 0 : 1,
+                    messages: []
+                };
+                conversations.push(existingConvo);
+            } else {
+                if (new Date(msg.timestamp).getTime() > new Date(existingConvo.lastMessageTimestamp).getTime()) {
+                    existingConvo.lastMessageContent = msg.message;
+                    existingConvo.lastMessageTimestamp = msg.timestamp;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[MetaDMs] Webhook integration error:', err);
     }
 
     // Sort by most recent
