@@ -7,7 +7,7 @@ import { Send, Search, Facebook, Instagram, Phone, MoreVertical, Star, Clock, Bo
 import { format, formatDistanceToNow } from 'date-fns';
 
 // Platforms not yet connected
-const COMING_SOON_PLATFORMS: Platform[] = ['whatsapp', 'tiktok', 'linkedin'];
+const COMING_SOON_PLATFORMS: Platform[] = ['tiktok', 'linkedin'];
 
 // Google "G" icon SVG component
 function GoogleIcon({ className }: { className?: string }) {

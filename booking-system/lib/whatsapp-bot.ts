@@ -126,7 +126,7 @@ RULES:
     }
 }
 
-async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId: string, text: string) {
+export async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId: string, text: string) {
     const token = process.env.META_PAGE_ACCESS_TOKEN; // Often used as the System User token for WhatsApp too on integrated setups
     if (!token) {
         console.warn('[WaBot] No META_PAGE_ACCESS_TOKEN configured. Cannot send reply.');

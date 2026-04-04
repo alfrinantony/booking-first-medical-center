@@ -57,7 +57,7 @@ async function graphFetch(path: string, token: string, extra: Record<string, str
 
 interface DMConversation {
     id: string;
-    platform: 'facebook' | 'instagram';
+    platform: 'facebook' | 'instagram' | 'whatsapp';
     messageType: 'dm';
     participantName: string;
     participantAvatar?: string;
@@ -126,6 +126,7 @@ export async function GET(request: NextRequest) {
             // Also merge from webhook buffer to ensure latest messages are present
             try {
                 const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
+                // We check if it matches the participant ID. Note: for WhatsApp, conversationId IS the phone number (senderId)
                 const relevantWebhooks = webhookData.messages.filter(m => m.senderId === conversationId && m.platform === platform);
                 for (const wm of relevantWebhooks) {
                     if (!messages.find(m => m.id === wm.id)) {
@@ -274,15 +275,22 @@ export async function GET(request: NextRequest) {
         const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
         
         for (const msg of webhookData.messages) {
-            if (msg.platform !== 'instagram' && msg.platform !== 'facebook') continue;
+            if (msg.platform !== 'instagram' && msg.platform !== 'facebook' && msg.platform !== 'whatsapp') continue;
             
             let existingConvo = conversations.find(c => c.participantId === msg.senderId);
             if (!existingConvo) {
+                let pName = msg.senderName || 'User';
+                if (!msg.senderName) {
+                    if (msg.platform === 'instagram') pName = 'Instagram User';
+                    else if (msg.platform === 'facebook') pName = 'Facebook User';
+                    else if (msg.platform === 'whatsapp') pName = 'WhatsApp User';
+                }
+
                 existingConvo = {
                     id: `${msg.platform}-dm-${msg.senderId}`,
                     platform: msg.platform,
                     messageType: 'dm',
-                    participantName: msg.senderName || `${msg.platform === 'instagram' ? 'Instagram' : 'Facebook'} User`,
+                    participantName: pName,
                     participantId: msg.senderId,
                     graphConversationId: msg.senderId, // for lazy loading
                     lastMessageContent: msg.message,
@@ -290,6 +298,10 @@ export async function GET(request: NextRequest) {
                     unreadCount: msg.read ? 0 : 1,
                     messages: []
                 };
+                // Store WhatsApp Business Phone ID dynamically in case it's needed for replies
+                if (msg.platform === 'whatsapp') {
+                    (existingConvo as any).waPhoneNumberId = msg.recipientId; 
+                }
                 conversations.push(existingConvo);
             } else {
                 if (new Date(msg.timestamp).getTime() > new Date(existingConvo.lastMessageTimestamp).getTime()) {
@@ -339,6 +351,26 @@ export async function POST(request: NextRequest) {
         const sendUrl = `${GRAPH_BASE}/${senderId}/messages?access_token=${pageAccessToken}`;
 
         try {
+            if (platform === 'whatsapp') {
+                const { sendWhatsAppMessage } = await import('@/lib/whatsapp-bot');
+                
+                // Extract the business phone number ID from the body if passed from the frontend
+                let waPhoneNumberId = body.waPhoneNumberId || process.env.META_WA_PHONE_NUMBER_ID;
+                if (!waPhoneNumberId) {
+                    // Try to dig it out from existing sessions or webhook-messages cache if not provided
+                    const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
+                    const match = webhookData.messages.find(m => m.senderId === recipientId && m.platform === 'whatsapp');
+                    waPhoneNumberId = match?.recipientId || '';
+                }
+
+                if (!waPhoneNumberId) {
+                    return NextResponse.json({ error: 'WhatsApp Phone Number ID missing' }, { status: 500 });
+                }
+
+                await sendWhatsAppMessage(recipientId, waPhoneNumberId, content);
+                return NextResponse.json({ success: true, sent: true, message: 'WhatsApp message sent' });
+            }
+
             // ── Attempt 1: Standard RESPONSE (works within 24h window) ──
             const responsePayload = {
                 recipient: { id: recipientId },
