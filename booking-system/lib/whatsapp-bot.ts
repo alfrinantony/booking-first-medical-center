@@ -127,9 +127,14 @@ RULES:
 }
 
 export async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId: string, text: string) {
-    const token = process.env.META_PAGE_ACCESS_TOKEN; // Often used as the System User token for WhatsApp too on integrated setups
+    const { SettingsStore } = await import('@/lib/settings-store');
+    const settings = await SettingsStore.getSettings();
+    
+    // Prioritize dedicated whatsapp token, fallback to shared messenger token or env var
+    const token = settings.whatsappAccessToken || settings.messengerAccessToken || process.env.META_PAGE_ACCESS_TOKEN;
+    
     if (!token) {
-        console.warn('[WaBot] No META_PAGE_ACCESS_TOKEN configured. Cannot send reply.');
+        console.warn('[WaBot] No WhatsApp Access Token configured. Cannot send reply.');
         return;
     }
 
