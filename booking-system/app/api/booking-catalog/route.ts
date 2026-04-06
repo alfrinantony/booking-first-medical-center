@@ -139,6 +139,6 @@ export async function GET() {
         categories: orderedCategories,
         services,
         clinics: clinicSummaries,
-        schedules: Scheduler.getAllSchedules(),
+        schedules: await Scheduler.getAllSchedules(),
     });
 }

@@ -25,7 +25,7 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [dob, setDob] = useState('');
-    const [gender, setGender] = useState<'male' | 'female'>('male');
+    const [gender, setGender] = useState<'' | 'male' | 'female'>('');
 
     // OTP state
     const [otpCode, setOtpCode] = useState('');
@@ -565,10 +565,12 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
                                 <select
+                                    required
                                     value={gender}
-                                    onChange={e => setGender(e.target.value as 'male' | 'female')}
+                                    onChange={e => setGender(e.target.value as '' | 'male' | 'female')}
                                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 >
+                                    <option value="" disabled>Please select gender</option>
                                     <option value="male">Male</option>
                                     <option value="female">Female</option>
                                 </select>

@@ -94,7 +94,7 @@ export async function GET(request: Request) {
     const { ResourcesStore } = require('@/lib/resources-store');
 
     // ── 2. Get Base Schedule Slots (15-min checkpoints representing doctor availability) ──
-    let baseScheduleSlots: string[] = Scheduler.getSchedule(doctorId, date, clinicId);
+    let baseScheduleSlots: string[] = await Scheduler.getSchedule(doctorId, date, clinicId);
     if (baseScheduleSlots.length === 0) {
         baseScheduleSlots = timeSlots;
     }
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
             closingTime: closingMinutes,
         };
         if (otherBranches && clinicId) {
-            response.otherBranchSlots = Scheduler.getOtherBranchSlots(doctorId, date, clinicId);
+            response.otherBranchSlots = await Scheduler.getOtherBranchSlots(doctorId, date, clinicId);
         }
         return NextResponse.json(response);
     }
@@ -306,7 +306,7 @@ export async function GET(request: Request) {
         closingTime: closingMinutes,
     };
     if (otherBranches && clinicId) {
-        response.otherBranchSlots = Scheduler.getOtherBranchSlots(doctorId, date, clinicId);
+        response.otherBranchSlots = await Scheduler.getOtherBranchSlots(doctorId, date, clinicId);
     }
 
     return NextResponse.json(response);
@@ -350,7 +350,7 @@ export async function POST(request: Request) {
             }
         }
 
-        const updatedSchedule = Scheduler.setSchedule(doctorId, date, slots, clinicId || 'default');
+        const updatedSchedule = await Scheduler.setSchedule(doctorId, date, slots, clinicId || 'default');
         return NextResponse.json(updatedSchedule);
     } catch (error) {
         return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
