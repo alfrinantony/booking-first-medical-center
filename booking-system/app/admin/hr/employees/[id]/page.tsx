@@ -1076,12 +1076,14 @@ export default function EmployeeDetailPage() {
                         <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                             <Briefcase className="w-5 h-5 text-indigo-600" /> Monthly Salary Breakdown
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
                             {[
                                 { label: 'Basic', value: payroll.salary.basicSalary },
                                 { label: 'Housing', value: payroll.salary.housingAllowance },
                                 { label: 'Transport', value: payroll.salary.transportAllowance },
                                 { label: 'Other', value: payroll.salary.otherAllowances },
+                                { label: 'Work', value: payroll.salary.workAllowance || 0 },
+                                { label: 'Training', value: payroll.salary.trainingAllowance || 0 },
                                 { label: 'Gross Salary', value: payroll.salary.grossSalary, highlight: true },
                             ].map(item => (
                                 <div key={item.label} className={`p-3 rounded-lg ${item.highlight ? 'bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800' : 'bg-gray-50 dark:bg-gray-700/50'}`}>
