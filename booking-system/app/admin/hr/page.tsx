@@ -130,34 +130,42 @@ export default function HRDashboardPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <Link href="/admin/hr/employees"
                     className="flex items-center gap-4 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-xl p-5 transition-colors group"
                 >
-                    <UserPlus className="w-10 h-10 text-indigo-600" />
+                    <UserPlus className="w-10 h-10 text-indigo-600 flex-shrink-0" />
                     <div className="flex-1">
                         <h3 className="font-semibold text-gray-900 dark:text-white">Manage Employees</h3>
-                        <p className="text-sm text-gray-500">Add, edit, view employee profiles</p>
+                        <p className="text-sm text-gray-500">Add, edit, view profiles</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
                 </Link>
 
                 <Link href="/admin/hr/payroll"
                     className="flex items-center gap-4 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-xl p-5 transition-colors group"
                 >
-                    <Calculator className="w-10 h-10 text-green-600" />
+                    <Calculator className="w-10 h-10 text-green-600 flex-shrink-0" />
                     <div className="flex-1">
                         <h3 className="font-semibold text-gray-900 dark:text-white">Payroll & EOS</h3>
-                        <p className="text-sm text-gray-500">Salary, gratuity, leave calculations</p>
+                        <p className="text-sm text-gray-500">Calculate salary & leave</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors" />
+                </Link>
+
+                <Link href="/admin/hr/calendar"
+                    className="flex items-center gap-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-xl p-5 transition-colors group"
+                >
+                    <Clock className="w-10 h-10 text-blue-600 flex-shrink-0" />
+                    <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">HR Calendar</h3>
+                        <p className="text-sm text-gray-500">Manage public holidays</p>
+                    </div>
                 </Link>
 
                 <div className="flex items-center gap-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl p-5">
-                    <FileWarning className="w-10 h-10 text-orange-600" />
+                    <FileWarning className="w-10 h-10 text-orange-600 flex-shrink-0" />
                     <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">Document Alerts</h3>
-                        <p className="text-sm text-gray-500">{expired.length} expired, {expiringSoon.length} expiring soon</p>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Doc Alerts</h3>
+                        <p className="text-sm text-gray-500">{expired.length} expired, {expiringSoon.length} expiring</p>
                     </div>
                 </div>
             </div>

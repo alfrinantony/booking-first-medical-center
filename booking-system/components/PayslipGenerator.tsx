@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Calculator, Printer, Clock, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Calculator, Printer, Clock, AlertTriangle, Save, CheckCircle } from 'lucide-react';
 import type { Employee } from '@/lib/hr-store';
 import { HRPayroll } from '@/lib/hr-payroll-store';
 import type { MonthlyPayslip, OvertimeCompensation } from '@/lib/hr-payroll-store';
@@ -43,6 +43,92 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
     const [damagesReason, setDamagesReason] = useState('');
 
     const [payslip, setPayslip] = useState<MonthlyPayslip | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+    const [loadingData, setLoadingData] = useState(false);
+
+    const loadDetails = useCallback(async () => {
+        setLoadingData(true);
+        setSaveSuccess(false);
+
+        try {
+            const params = new URLSearchParams({ employeeId: employee.id, month: String(month), year: String(year) });
+            const res = await fetch(`/api/admin/hr/payslips?${params}`);
+            let loaded = false;
+            
+            if (res.ok) {
+                const data = await res.json();
+                if (data.found && data.record) {
+                    const r = data.record;
+                    setDaysWorked(r.daysWorked);
+                    setAnnualLeave(r.annualLeave);
+                    setSickLeave(r.sickLeave);
+                    setUnpaidLeave(r.unpaidLeave);
+                    setAbsentDays(r.absentDays);
+                    setPhDays(r.phDays);
+                    setCumSick(r.cumSick);
+                    setIncomeProfitAch(r.incomeProfitAch);
+                    setPkgSalesAch(r.pkgSalesAch);
+                    setReferralCount(r.referralCount);
+                    setBlocked(r.blocked);
+                    setExpectedHours(r.expectedHours);
+                    setActualHours(r.actualHours);
+                    setPreviousOT(r.previousOT);
+                    setOtCompensation(r.otCompensation);
+                    setAdvanceDeduction(r.advanceDeduction);
+                    setAdvanceTotal(r.advanceTotal);
+                    setAdvanceRemaining(r.advanceRemaining);
+                    setPenaltyAmount(r.penaltyAmount);
+                    setPenaltyReason(r.penaltyReason);
+                    setDamagesAmount(r.damagesAmount);
+                    setDamagesReason(r.damagesReason);
+                    setPayslip(r.payslip);
+                    loaded = true;
+                }
+            }
+
+            if (!loaded) {
+                // Fetch HR calendar for this month
+                const calRes = await fetch(`/api/admin/hr/calendar?month=${month}&year=${year}`);
+                if (calRes.ok) {
+                    const holidays = await calRes.json();
+                    setPhDays(holidays.length);
+                    setExpectedHours(240 - (holidays.length * 8));
+                } else {
+                    setPhDays(0);
+                    setExpectedHours(240);
+                }
+                
+                // Reset defaults
+                setDaysWorked(22);
+                setAnnualLeave(0);
+                setSickLeave(0);
+                setUnpaidLeave(0);
+                setAbsentDays(0);
+                setCumSick(employee.sickLeavesTaken || 0);
+                setIncomeProfitAch(0);
+                setPkgSalesAch(0);
+                setReferralCount(0);
+                setBlocked(false);
+                setActualHours(240);
+                setPreviousOT(0);
+                setOtCompensation('PAID');
+                setAdvanceDeduction(0);
+                setAdvanceTotal(0);
+                setAdvanceRemaining(0);
+                setPenaltyAmount(0);
+                setPenaltyReason('');
+                setDamagesAmount(0);
+                setDamagesReason('');
+                setPayslip(null);
+            }
+        } catch (err) { console.error(err); }
+        finally { setLoadingData(false); }
+    }, [employee.id, employee.sickLeavesTaken, month, year]);
+
+    useEffect(() => {
+        loadDetails();
+    }, [loadDetails]);
 
     const generate = () => {
         const calDays = daysInMonth(month, year);
@@ -68,6 +154,36 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
             damagesReason,
         });
         setPayslip(ps);
+        return ps;
+    };
+
+    const saveDetails = async () => {
+        setSaving(true);
+        setSaveSuccess(false);
+
+        const ps = generate();
+
+        try {
+            const res = await fetch('/api/admin/hr/payslips', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    employeeId: employee.id, month, year, daysWorked, annualLeave, sickLeave, unpaidLeave,
+                    absentDays, phDays, cumSick, incomeProfitAch, pkgSalesAch, referralCount,
+                    blocked, expectedHours, actualHours, previousOT, otCompensation,
+                    advanceDeduction, advanceTotal, advanceRemaining, penaltyAmount,
+                    penaltyReason, damagesAmount, damagesReason, payslip: ps
+                })
+            });
+            if (res.ok) {
+                setSaveSuccess(true);
+                setTimeout(() => setSaveSuccess(false), 3000); // Hide success message after 3s
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const printPayslip = () => {
@@ -95,7 +211,12 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
     const inp = "w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm";
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {loadingData && (
+                <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10 rounded-xl">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+            )}
             {/* Input Form */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -257,10 +378,22 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     </div>
                 </div>
 
-                <button onClick={generate}
-                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 text-sm font-semibold flex items-center gap-2">
-                    <Calculator className="w-4 h-4" /> Generate Payslip
-                </button>
+                <div className="flex items-center gap-3">
+                    <button onClick={generate}
+                        className="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 px-6 py-2.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-sm font-semibold flex items-center gap-2">
+                        <Calculator className="w-4 h-4" /> Preview Payslip
+                    </button>
+                    <button onClick={saveDetails} disabled={saving}
+                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
+                        {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : <Save className="w-4 h-4" />}
+                        Save Details &amp; Payslip
+                    </button>
+                    {saveSuccess && (
+                        <span className="text-sm font-medium text-green-600 flex items-center gap-1">
+                            <CheckCircle className="w-4 h-4" /> Saved Successfully!
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Payslip Output */}
