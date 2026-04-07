@@ -14,6 +14,7 @@ export interface PayslipRecord {
     unpaidLeave: number;
     absentDays: number;
     phDays: number;
+    offDays: number;
     cumSick: number;
     incomeProfitAch: number;
     pkgSalesAch: number;

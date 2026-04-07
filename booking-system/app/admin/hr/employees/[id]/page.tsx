@@ -195,8 +195,6 @@ export default function EmployeeDetailPage() {
                                 { label: 'Date of Birth', key: 'dateOfBirth', type: 'date' },
                                 { label: 'Nationality', key: 'nationality' },
                                 { label: 'Employee Number', key: 'employeeNumber' },
-                                { label: 'Religion', key: 'religion' },
-                                { label: 'IBAN Number', key: 'ibanNumber' },
                             ].map(f => (
                                 <div key={f.key}>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">{f.label}</label>
@@ -207,6 +205,33 @@ export default function EmployeeDetailPage() {
                                     />
                                 </div>
                             ))}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Religion</label>
+                                <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    value={editForm.religion || ''}
+                                    onChange={e => setEditForm({ ...editForm, religion: e.target.value })}>
+                                    <option value="">Select...</option>
+                                    <option value="Islam">Islam</option>
+                                    <option value="Christianity">Christianity</option>
+                                    <option value="Hinduism">Hinduism</option>
+                                    <option value="Buddhism">Buddhism</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">IBAN Number</label>
+                                <input type="text" maxLength={23} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm uppercase"
+                                    value={editForm.ibanNumber || ''}
+                                    placeholder="AE000000000000000000000"
+                                    onChange={e => {
+                                        let val = e.target.value.toUpperCase();
+                                        if (val.length > 0 && !val.startsWith('A')) val = 'A';
+                                        if (val.length > 1 && !val.startsWith('AE')) val = 'AE' + val.substring(2);
+                                        if (val.length > 2) val = 'AE' + val.substring(2).replace(/[^0-9]/g, '');
+                                        setEditForm({ ...editForm, ibanNumber: val.substring(0, 23) });
+                                    }}
+                                />
+                            </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Gender</label>
                                 <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
@@ -404,8 +429,14 @@ export default function EmployeeDetailPage() {
 
                     {/* Incentive Criteria */}
                     <fieldset className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                        <legend className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-2">Incentive Criteria</legend>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <legend className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-2">Incentive Criteria & Additional Allowances</legend>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Monthly Responsibility Allowance (AED)</label>
+                                <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    value={(editForm as any).monthlyAdditionalResponsibilityAllowance || 0}
+                                    onChange={e => setEditForm({ ...editForm, monthlyAdditionalResponsibilityAllowance: Number(e.target.value) })} />
+                            </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Incentive Based On</label>
                                 <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
@@ -765,7 +796,6 @@ export default function EmployeeDetailPage() {
                                 { label: 'Work Permit #', key: 'workPermitNumber' },
                                 { label: 'Work Permit Expiry', key: 'workPermitExpiry', type: 'date' },
                                 { label: 'Work Permit Issue Date', key: 'workPermitIssueDate', type: 'date' },
-                                { label: 'LC Personal #', key: 'lcPersonalNumber' },
                                 { label: 'LC Designation', key: 'lcDesignation' },
                             ].map(f => (
                                 <div key={f.key}>
@@ -777,6 +807,16 @@ export default function EmployeeDetailPage() {
                                     />
                                 </div>
                             ))}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">LC Personal #</label>
+                                <input type="text" maxLength={14} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    value={(editForm as any).lcPersonalNumber || ''}
+                                    onChange={e => {
+                                        const val = e.target.value.replace(/[^0-9]/g, '').substring(0, 14);
+                                        setEditForm({ ...editForm, lcPersonalNumber: val });
+                                    }}
+                                />
+                            </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Labor Card Status</label>
                                 <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"

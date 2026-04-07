@@ -96,6 +96,7 @@ export interface Employee {
     reviewThresholdPercent?: number; // min client review % required (e.g. 10 or 15)
     reviewPenaltyMonths?: number;   // consecutive months of not meeting review → incentives blocked (2-6)
     reviewPenaltyTypes?: string[];  // which incentive types get blocked on penalty
+    monthlyAdditionalResponsibilityAllowance?: number; // AED per month for added duties
 
     // Leave
     annualLeaveEntitlement: number; // days per year, default 30

@@ -23,6 +23,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
     const [unpaidLeave, setUnpaidLeave] = useState(0);
     const [absentDays, setAbsentDays] = useState(0);
     const [phDays, setPhDays] = useState(0);
+    const [offDays, setOffDays] = useState(0);
     const [cumSick, setCumSick] = useState(employee.sickLeavesTaken || 0);
     const [incomeProfitAch, setIncomeProfitAch] = useState(0);
     const [pkgSalesAch, setPkgSalesAch] = useState(0);
@@ -66,6 +67,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     setUnpaidLeave(r.unpaidLeave);
                     setAbsentDays(r.absentDays);
                     setPhDays(r.phDays);
+                    setOffDays(r.offDays || 0);
                     setCumSick(r.cumSick);
                     setIncomeProfitAch(r.incomeProfitAch);
                     setPkgSalesAch(r.pkgSalesAch);
@@ -92,14 +94,19 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                 const calRes = await fetch(`/api/admin/hr/calendar?month=${month}&year=${year}`);
                 if (calRes.ok) {
                     const holidays = await calRes.json();
-                    setPhDays(holidays.length);
-                    setExpectedHours(240 - (holidays.length * 8));
+                    let eligible = 0;
+                    const weeklyOff = employee.weeklyOffDays || ['Friday'];
+                    holidays.forEach((h: any) => {
+                        const dayName = new Date(h.date).toLocaleDateString('en-US', { weekday: 'long' });
+                        if (!weeklyOff.includes(dayName)) eligible++;
+                    });
+                    setPhDays(eligible);
                 } else {
                     setPhDays(0);
-                    setExpectedHours(240);
                 }
                 
                 // Reset defaults
+                setOffDays(0);
                 setDaysWorked(22);
                 setAnnualLeave(0);
                 setSickLeave(0);
@@ -129,6 +136,17 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
     useEffect(() => {
         loadDetails();
     }, [loadDetails]);
+
+    // Auto-calculate Days Worked and Expected Hours when constraints change
+    useEffect(() => {
+        if (loadingData) return; // prevent overriding freshly loaded data before it renders
+        const totalCalDays = daysInMonth(month, year);
+        const totalLeaves = annualLeave + sickLeave + unpaidLeave + absentDays + phDays + offDays;
+        const computedDaysWorked = Math.max(0, totalCalDays - totalLeaves);
+        
+        setDaysWorked(computedDaysWorked);
+        setExpectedHours(computedDaysWorked * 8);
+    }, [annualLeave, sickLeave, unpaidLeave, absentDays, phDays, offDays, month, year, loadingData]);
 
     const generate = () => {
         const calDays = daysInMonth(month, year);
@@ -169,7 +187,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     employeeId: employee.id, month, year, daysWorked, annualLeave, sickLeave, unpaidLeave,
-                    absentDays, phDays, cumSick, incomeProfitAch, pkgSalesAch, referralCount,
+                    absentDays, phDays, offDays, cumSick, incomeProfitAch, pkgSalesAch, referralCount,
                     blocked, expectedHours, actualHours, previousOT, otCompensation,
                     advanceDeduction, advanceTotal, advanceRemaining, penaltyAmount,
                     penaltyReason, damagesAmount, damagesReason, payslip: ps
@@ -264,6 +282,10 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">PH Days</label>
                         <input type="number" min="0" className={inp} value={phDays} onChange={e => setPhDays(Number(e.target.value))} />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">OFF Days</label>
+                        <input type="number" min="0" className={inp} value={offDays} onChange={e => setOffDays(Number(e.target.value))} />
                     </div>
                 </div>
 
@@ -434,6 +456,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                                     <th className="text-left p-2 text-xs border">Unpaid Leave</th>
                                     <th className="text-left p-2 text-xs border">Absent</th>
                                     <th className="text-left p-2 text-xs border">PH Days</th>
+                                    <th className="text-left p-2 text-xs border">Off Days</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -445,6 +468,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                                     <td className="p-2 border">{payslip.unpaidLeaveDays}</td>
                                     <td className="p-2 border text-red-600">{payslip.absentDays}</td>
                                     <td className="p-2 border text-blue-600 font-medium">{payslip.phDays}</td>
+                                    <td className="p-2 border text-gray-600 font-medium">{offDays}</td>
                                 </tr>
                             </tbody>
                         </table>
