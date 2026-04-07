@@ -75,9 +75,27 @@ export async function POST(req: NextRequest) {
             for (const entry of body.entry || []) {
                 for (const event of entry.messaging || []) {
                     if (event.message) {
+                        let senderName = '';
+                        if (event.sender?.id) {
+                            // Fetch IG user info
+                            const token = process.env.META_PAGE_ACCESS_TOKEN;
+                            if (token) {
+                                try {
+                                    const userInfoRes = await fetch(`https://graph.facebook.com/v19.0/${event.sender.id}?fields=name,username&access_token=${token}`);
+                                    if (userInfoRes.ok) {
+                                        const userInfo = await userInfoRes.json();
+                                        senderName = userInfo.name || userInfo.username || '';
+                                    }
+                                } catch (err) {
+                                    console.error('[MetaWebhook] Failed to fetch IG user profile:', err);
+                                }
+                            }
+                        }
+
                         const msg: StoredWebhookMessage = {
                             id: event.message.mid || `ig-${Date.now()}`,
                             senderId: event.sender?.id || '',
+                            senderName,
                             recipientId: event.recipient?.id || '',
                             message: event.message.text || '[Attachment]',
                             timestamp: new Date(event.timestamp || Date.now()).toISOString(),

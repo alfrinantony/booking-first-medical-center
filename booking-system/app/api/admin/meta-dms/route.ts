@@ -126,8 +126,10 @@ export async function GET(request: NextRequest) {
             // Also merge from webhook buffer to ensure latest messages are present
             try {
                 const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
-                // We check if it matches the participant ID. Note: for WhatsApp, conversationId IS the phone number (senderId)
-                const relevantWebhooks = webhookData.messages.filter(m => m.senderId === conversationId && m.platform === platform);
+                // Include webhooks where the customer is EITHER the sender (inbound) OR the recipient (outbound echo)
+                const relevantWebhooks = webhookData.messages.filter(m => 
+                    (m.senderId === conversationId || m.recipientId === conversationId) && m.platform === platform
+                );
                 for (const wm of relevantWebhooks) {
                     if (!messages.find(m => m.id === wm.id)) {
                         messages.push({
@@ -136,7 +138,7 @@ export async function GET(request: NextRequest) {
                             fromName: wm.senderName || 'User',
                             message: wm.message,
                             timestamp: wm.timestamp,
-                            isFromPage: false,
+                            isFromPage: wm.senderId === ownerId || wm.senderId === pageId || wm.senderId === igUserId,
                         });
                     }
                 }
@@ -277,7 +279,12 @@ export async function GET(request: NextRequest) {
         for (const msg of webhookData.messages) {
             if (msg.platform !== 'instagram' && msg.platform !== 'facebook' && msg.platform !== 'whatsapp') continue;
             
-            let existingConvo = conversations.find(c => c.participantId === msg.senderId);
+            const isClinicSender = (msg.platform === 'instagram' && msg.senderId === igUserId) || 
+                                   (msg.platform === 'facebook' && msg.senderId === pageId);
+            
+            const customerId = isClinicSender ? msg.recipientId : msg.senderId;
+            
+            let existingConvo = conversations.find(c => c.participantId === customerId);
             if (!existingConvo) {
                 let pName = msg.senderName || 'User';
                 if (!msg.senderName) {
@@ -287,12 +294,12 @@ export async function GET(request: NextRequest) {
                 }
 
                 existingConvo = {
-                    id: `${msg.platform}-dm-${msg.senderId}`,
+                    id: `${msg.platform}-dm-${customerId}`,
                     platform: msg.platform,
                     messageType: 'dm',
                     participantName: pName,
-                    participantId: msg.senderId,
-                    graphConversationId: msg.senderId, // for lazy loading
+                    participantId: customerId,
+                    graphConversationId: customerId, // for lazy loading
                     lastMessageContent: msg.message,
                     lastMessageTimestamp: msg.timestamp,
                     unreadCount: msg.read ? 0 : 1,
@@ -307,6 +314,10 @@ export async function GET(request: NextRequest) {
                 if (new Date(msg.timestamp).getTime() > new Date(existingConvo.lastMessageTimestamp).getTime()) {
                     existingConvo.lastMessageContent = msg.message;
                     existingConvo.lastMessageTimestamp = msg.timestamp;
+                }
+                // Enrich the participant name if the Graph API missed it but the webhook caught it
+                if (msg.senderName && existingConvo.participantName.includes('User')) {
+                    existingConvo.participantName = msg.senderName;
                 }
             }
         }
