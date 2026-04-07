@@ -201,6 +201,7 @@ export const HRPayroll = {
             unpaidLeaveDays: number;
             absentDays: number;
             phDays: number;          // Public Holiday days (full pay)
+            offDays: number;         // Off days (full pay)
             // Cumulative sick leave days taken this year (for pay tier calc)
             cumulativeSickDaysThisYear: number;
             // Incentive achieved amounts
@@ -227,12 +228,13 @@ export const HRPayroll = {
         const p = params;
         const dailyGross = (employee.basicSalary + employee.housingAllowance +
             employee.transportAllowance + (employee.workAllowance || 0) +
-            (employee.trainingAllowance || 0) + employee.otherAllowances) / 30;
+            (employee.trainingAllowance || 0) + employee.otherAllowances) / p.totalCalendarDays;
 
         // --- EARNINGS ---
         const workDaysSalary = round(dailyGross * p.daysWorked);
         const annualLeavePay = round(dailyGross * p.annualLeaveDays); // full pay
         const phDaysPay = round(dailyGross * p.phDays); // full pay for public holidays
+        const offDaysPay = round(dailyGross * p.offDays); // full pay for off days
 
         // Sick leave pay tiers (based on cumulative days this year)
         let sickPay = 0;
@@ -301,9 +303,6 @@ export const HRPayroll = {
         }
 
         // --- DEDUCTIONS ---
-        const unpaidDeduction = round(dailyGross * p.unpaidLeaveDays);
-        const absentDeduction = round(dailyGross * p.absentDays);
-
         // UAE Labor Law: penalty deductions ≤ 5 days' wages per month
         const fiveDaysWages = round(dailyGross * 5);
         const rawPenalty = Math.max(0, p.penaltyDeduction);
@@ -314,10 +313,10 @@ export const HRPayroll = {
         const damagesDeduction = round(Math.max(0, p.damagesDeduction));
 
         // Sum all deductions before cap
-        const rawTotalDeductions = unpaidDeduction + absentDeduction + penaltyDeduction + salaryAdvanceDeduction + damagesDeduction;
+        const rawTotalDeductions = penaltyDeduction + salaryAdvanceDeduction + damagesDeduction;
 
         // --- TOTALS ---
-        const totalEarnings = workDaysSalary + annualLeavePay + phDaysPay + sickPay + workAllowance + trainingAllowance + totalIncentives + overtimeAmount;
+        const totalEarnings = workDaysSalary + annualLeavePay + phDaysPay + sickPay + offDaysPay + workAllowance + trainingAllowance + totalIncentives + overtimeAmount;
 
         // UAE Labor Law: total deductions ≤ 50% of monthly wage
         const maxDeduction = round(totalEarnings * 0.5);
@@ -357,6 +356,7 @@ export const HRPayroll = {
             annualLeavePay,
             sickLeavePay: sickPay,
             phDaysPay,
+            offDaysPay,
             // Incentives
             incomeProfitIncentive,
             packageSalesIncentive,
@@ -364,8 +364,8 @@ export const HRPayroll = {
             totalIncentives,
             incentivesBlocked: p.incentivesBlocked,
             // Deductions
-            unpaidDeduction,
-            absentDeduction,
+            unpaidDeduction: 0,
+            absentDeduction: 0,
             salaryAdvanceDeduction,
             advanceTotalAmount: p.advanceTotalAmount,
             advanceRemainingBalance: p.advanceRemainingBalance,
@@ -422,6 +422,7 @@ export interface MonthlyPayslip {
     annualLeavePay: number;
     sickLeavePay: number;
     phDaysPay: number;
+    offDaysPay: number;
     incomeProfitIncentive: number;
     packageSalesIncentive: number;
     referralIncentive: number;

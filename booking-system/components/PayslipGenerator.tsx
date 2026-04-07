@@ -155,7 +155,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
             totalCalendarDays: calDays,
             daysWorked, annualLeaveDays: annualLeave,
             sickLeaveDays: sickLeave, unpaidLeaveDays: unpaidLeave,
-            absentDays, phDays,
+            absentDays, phDays, offDays,
             cumulativeSickDaysThisYear: cumSick,
             incomeProfitAchieved: incomeProfitAch,
             packageSalesAchieved: pkgSalesAch,
@@ -531,6 +531,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                                         <tr className="border-b"><td className="p-2">Work Days Salary ({payslip.daysWorked} days × AED {payslip.dailyRate})</td><td className="p-2 right text-right font-medium">{payslip.workDaysSalary.toLocaleString()}</td></tr>
                                         {payslip.annualLeaveDays > 0 && <tr className="border-b"><td className="p-2">Annual Leave Pay ({payslip.annualLeaveDays} days)</td><td className="p-2 text-right font-medium">{payslip.annualLeavePay.toLocaleString()}</td></tr>}
                                         {payslip.phDays > 0 && <tr className="border-b"><td className="p-2">🏖️ PH Days Pay ({payslip.phDays} days)</td><td className="p-2 text-right font-medium">{payslip.phDaysPay.toLocaleString()}</td></tr>}
+                                        {offDays > 0 && <tr className="border-b"><td className="p-2">🛌 Off Days Pay ({offDays} days)</td><td className="p-2 text-right font-medium">{payslip.offDaysPay?.toLocaleString()}</td></tr>}
                                         {payslip.sickLeaveDays > 0 && <tr className="border-b"><td className="p-2">Sick Leave Pay ({payslip.sickLeaveDays} days)</td><td className="p-2 text-right font-medium">{payslip.sickLeavePay.toLocaleString()}</td></tr>}
                                         {payslip.workAllowance > 0 && <tr className="border-b"><td className="p-2">Work Allowance</td><td className="p-2 text-right font-medium">{payslip.workAllowance.toLocaleString()}</td></tr>}
                                         {payslip.trainingAllowance > 0 && <tr className="border-b"><td className="p-2">Training Allowance</td><td className="p-2 text-right font-medium">{payslip.trainingAllowance.toLocaleString()}</td></tr>}
@@ -548,8 +549,6 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                                 <h4 className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2">Deductions</h4>
                                 <table className="w-full text-sm border-collapse">
                                     <tbody>
-                                        {payslip.unpaidDeduction > 0 && <tr className="border-b"><td className="p-2">Unpaid Leave ({payslip.unpaidLeaveDays} days)</td><td className="p-2 text-right font-medium text-red-600">{payslip.unpaidDeduction.toLocaleString()}</td></tr>}
-                                        {payslip.absentDeduction > 0 && <tr className="border-b"><td className="p-2">Absent Days ({payslip.absentDays} days)</td><td className="p-2 text-right font-medium text-red-600">{payslip.absentDeduction.toLocaleString()}</td></tr>}
                                         {payslip.salaryAdvanceDeduction > 0 && (
                                             <tr className="border-b bg-orange-50 dark:bg-orange-900/10">
                                                 <td className="p-2">
