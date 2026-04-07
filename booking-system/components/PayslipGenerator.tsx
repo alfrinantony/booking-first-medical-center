@@ -28,6 +28,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
     const [incomeProfitAch, setIncomeProfitAch] = useState(0);
     const [pkgSalesAch, setPkgSalesAch] = useState(0);
     const [referralCount, setReferralCount] = useState(0);
+    const [respAllowanceAch, setRespAllowanceAch] = useState(0);
     const [blocked, setBlocked] = useState(false);
     // Hours & Overtime
     const [expectedHours, setExpectedHours] = useState(240);
@@ -72,6 +73,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     setIncomeProfitAch(r.incomeProfitAch);
                     setPkgSalesAch(r.pkgSalesAch);
                     setReferralCount(r.referralCount);
+                    setRespAllowanceAch(r.responsibilityAllowanceAch || 0);
                     setBlocked(r.blocked);
                     setExpectedHours(r.expectedHours);
                     setActualHours(r.actualHours);
@@ -116,6 +118,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                 setIncomeProfitAch(0);
                 setPkgSalesAch(0);
                 setReferralCount(0);
+                setRespAllowanceAch(0);
                 setBlocked(false);
                 setActualHours(240);
                 setPreviousOT(0);
@@ -159,7 +162,9 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
             cumulativeSickDaysThisYear: cumSick,
             incomeProfitAchieved: incomeProfitAch,
             packageSalesAchieved: pkgSalesAch,
-            referralCount, incentivesBlocked: blocked,
+            referralCount,
+            responsibilityAllowanceAchieved: respAllowanceAch,
+            incentivesBlocked: blocked,
             expectedHours, actualHours,
             previousOvertimeHours: previousOT,
             overtimeCompensation: otCompensation,
@@ -188,6 +193,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                 body: JSON.stringify({
                     employeeId: employee.id, month, year, daysWorked, annualLeave, sickLeave, unpaidLeave,
                     absentDays, phDays, offDays, cumSick, incomeProfitAch, pkgSalesAch, referralCount,
+                    responsibilityAllowanceAch: respAllowanceAch,
                     blocked, expectedHours, actualHours, previousOT, otCompensation,
                     advanceDeduction, advanceTotal, advanceRemaining, penaltyAmount,
                     penaltyReason, damagesAmount, damagesReason, payslip: ps
@@ -377,7 +383,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                 </div>
 
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Incentives Achieved</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4">
                     <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">
                             {employee.incentiveBasis || 'Income/Profit'} Achieved (AED)
@@ -391,6 +397,10 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Referral Count</label>
                         <input type="number" min="0" className={inp} value={referralCount} onChange={e => setReferralCount(Number(e.target.value))} />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Monthly Responsibility Allowance (AED)</label>
+                        <input type="number" min="0" className={inp} value={respAllowanceAch} onChange={e => setRespAllowanceAch(Number(e.target.value))} />
                     </div>
                     <div className="flex items-end">
                         <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -539,6 +549,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                                         {payslip.incomeProfitIncentive > 0 && <tr className="border-b bg-green-50 dark:bg-green-900/10"><td className="p-2">📈 Income/Profit Incentive</td><td className="p-2 text-right font-medium text-green-700">{payslip.incomeProfitIncentive.toLocaleString()}</td></tr>}
                                         {payslip.packageSalesIncentive > 0 && <tr className="border-b bg-green-50 dark:bg-green-900/10"><td className="p-2">📦 Package Sales Incentive</td><td className="p-2 text-right font-medium text-green-700">{payslip.packageSalesIncentive.toLocaleString()}</td></tr>}
                                         {payslip.referralIncentive > 0 && <tr className="border-b bg-green-50 dark:bg-green-900/10"><td className="p-2">🤝 Referral Incentive</td><td className="p-2 text-right font-medium text-green-700">{payslip.referralIncentive.toLocaleString()}</td></tr>}
+                                        {payslip.responsibilityAllowanceIncentive > 0 && <tr className="border-b bg-green-50 dark:bg-green-900/10"><td className="p-2">⭐ Responsibility Allowance</td><td className="p-2 text-right font-medium text-green-700">{payslip.responsibilityAllowanceIncentive.toLocaleString()}</td></tr>}
                                         <tr className="bg-indigo-50 dark:bg-indigo-900/20 font-bold"><td className="p-2">Total Earnings</td><td className="p-2 text-right text-indigo-700">{payslip.totalEarnings.toLocaleString()}</td></tr>
                                     </tbody>
                                 </table>

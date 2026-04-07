@@ -212,6 +212,7 @@ export const HRPayroll = {
             incomeProfitAchieved: number;
             packageSalesAchieved: number;
             referralCount: number;
+            responsibilityAllowanceAchieved?: number;
             // Override incentive block
             incentivesBlocked: boolean; // true if review threshold penalty is active
             // Working hours & overtime
@@ -259,6 +260,7 @@ export const HRPayroll = {
         let incomeProfitIncentive = 0;
         let packageSalesIncentive = 0;
         let referralIncentive = 0;
+        const responsibilityAllowanceIncentive = p.responsibilityAllowanceAchieved || 0;
 
         if (!p.incentivesBlocked) {
             // Income/Profit incentive
@@ -293,7 +295,7 @@ export const HRPayroll = {
             }
         }
 
-        const totalIncentives = incomeProfitIncentive + packageSalesIncentive + referralIncentive;
+        const totalIncentives = incomeProfitIncentive + packageSalesIncentive + referralIncentive + responsibilityAllowanceIncentive;
 
         // --- HOURS & OVERTIME ---
         const overtimeHours = round(p.actualHours - p.expectedHours); // +ve = OT, -ve = UT
@@ -365,6 +367,7 @@ export const HRPayroll = {
             incomeProfitIncentive,
             packageSalesIncentive,
             referralIncentive,
+            responsibilityAllowanceIncentive,
             totalIncentives,
             incentivesBlocked: p.incentivesBlocked,
             // Deductions
@@ -430,6 +433,7 @@ export interface MonthlyPayslip {
     incomeProfitIncentive: number;
     packageSalesIncentive: number;
     referralIncentive: number;
+    responsibilityAllowanceIncentive: number;
     totalIncentives: number;
     incentivesBlocked: boolean;
     unpaidDeduction: number;

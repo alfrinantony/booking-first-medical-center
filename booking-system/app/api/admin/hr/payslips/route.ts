@@ -29,7 +29,7 @@ export async function POST(request: Request) {
         const {
             employeeId, month, year, daysWorked, annualLeave, sickLeave, unpaidLeave,
             absentDays, phDays, offDays, cumSick, incomeProfitAch, pkgSalesAch, referralCount,
-            blocked, expectedHours, actualHours, previousOT, otCompensation,
+            responsibilityAllowanceAch, blocked, expectedHours, actualHours, previousOT, otCompensation,
             advanceDeduction, advanceTotal, advanceRemaining, penaltyAmount,
             penaltyReason, damagesAmount, damagesReason, payslip
         } = body;
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         const saved = await HRPayslipStore.save({
             employeeId, month, year, daysWorked, annualLeave, sickLeave, unpaidLeave,
             absentDays, phDays, offDays, cumSick, incomeProfitAch, pkgSalesAch, referralCount,
-            blocked, expectedHours, actualHours, previousOT, otCompensation,
+            responsibilityAllowanceAch, blocked, expectedHours, actualHours, previousOT, otCompensation,
             advanceDeduction, advanceTotal, advanceRemaining, penaltyAmount,
             penaltyReason, damagesAmount, damagesReason, payslip
         });

@@ -19,6 +19,7 @@ export interface PayslipRecord {
     incomeProfitAch: number;
     pkgSalesAch: number;
     referralCount: number;
+    responsibilityAllowanceAch?: number;
     blocked: boolean;
     expectedHours: number;
     actualHours: number;
