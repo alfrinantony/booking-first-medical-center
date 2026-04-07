@@ -146,17 +146,13 @@ export default function PayrollPage() {
                 </div>
             ) : (
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-x-auto">
-                    <table className="w-full text-left min-w-[1200px]">
+                    <table className="w-full text-left min-w-[900px]">
                         <thead>
                             <tr className="bg-gray-50 dark:bg-gray-700/50 text-xs text-gray-500 uppercase">
                                 <th className="px-4 py-3">Employee</th>
                                 <th className="px-4 py-3">Department</th>
                                 <th className="px-4 py-3 text-right">Basic</th>
-                                <th className="px-4 py-3 text-right">Housing</th>
-                                <th className="px-4 py-3 text-right">Transport</th>
-                                <th className="px-4 py-3 text-right">Work</th>
-                                <th className="px-4 py-3 text-right">Training</th>
-                                <th className="px-4 py-3 text-right">Other</th>
+                                <th className="px-4 py-3 text-right">Allowances</th>
                                 <th className="px-4 py-3 text-right">Gross Salary</th>
                                 <th className="px-4 py-3 text-right">Service (yrs)</th>
                                 <th className="px-4 py-3 text-right">Leave Bal.</th>
@@ -174,11 +170,7 @@ export default function PayrollPage() {
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{row.department}</td>
                                     <td className="px-4 py-3 text-sm text-right font-mono text-gray-900 dark:text-gray-100">{row.basicSalary.toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-sm text-right font-mono text-gray-500">{row.housingAllowance.toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-sm text-right font-mono text-gray-500">{row.transportAllowance.toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-sm text-right font-mono text-gray-500">{row.workAllowance.toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-sm text-right font-mono text-gray-500">{row.trainingAllowance.toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-sm text-right font-mono text-gray-500">{row.otherAllowances.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-sm text-right font-mono text-gray-500">{(row.housingAllowance + row.transportAllowance + row.workAllowance + row.trainingAllowance + row.otherAllowances).toLocaleString()}</td>
                                     <td className="px-4 py-3 text-sm text-right font-mono font-semibold text-indigo-600 dark:text-indigo-400">{row.grossSalary.toLocaleString()}</td>
                                     <td className="px-4 py-3 text-sm text-right">{row.yearsOfService}</td>
                                     <td className="px-4 py-3 text-sm text-right">
@@ -200,7 +192,7 @@ export default function PayrollPage() {
                         </tbody>
                         <tfoot>
                             <tr className="bg-gray-50 dark:bg-gray-700/50 font-semibold text-sm">
-                                <td className="px-4 py-3" colSpan={8}>Total ({payroll.length} employees)</td>
+                                <td className="px-4 py-3" colSpan={4}>Total ({payroll.length} employees)</td>
                                 <td className="px-4 py-3 text-right font-mono text-indigo-600">{totals.grossSalary.toLocaleString()}</td>
                                 <td className="px-4 py-3" colSpan={2}></td>
                                 <td className="px-4 py-3 text-right font-mono">{totals.gratuity.toLocaleString()}</td>
