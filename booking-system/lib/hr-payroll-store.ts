@@ -12,6 +12,8 @@ export interface SalaryBreakdown {
     basicSalary: number;
     housingAllowance: number;
     transportAllowance: number;
+    workAllowance: number;
+    trainingAllowance: number;
     otherAllowances: number;
     grossSalary: number;
     dailyRate: number;
@@ -62,11 +64,13 @@ export const HRPayroll = {
     /** Monthly salary breakdown */
     calculateSalary: (employee: Employee): SalaryBreakdown => {
         const gross = employee.basicSalary + employee.housingAllowance +
-            employee.transportAllowance + employee.otherAllowances;
+            employee.transportAllowance + (employee.workAllowance || 0) + (employee.trainingAllowance || 0) + employee.otherAllowances;
         return {
             basicSalary: employee.basicSalary,
             housingAllowance: employee.housingAllowance,
             transportAllowance: employee.transportAllowance,
+            workAllowance: employee.workAllowance || 0,
+            trainingAllowance: employee.trainingAllowance || 0,
             otherAllowances: employee.otherAllowances,
             grossSalary: gross,
             dailyRate: Math.round((gross / 30) * 100) / 100,
