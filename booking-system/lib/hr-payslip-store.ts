@@ -55,6 +55,11 @@ export const HRPayslipStore = {
         return payslips.find(p => p.employeeId === employeeId && p.month === month && p.year === year) || null;
     },
 
+    getByMonth: async (month: number, year: number): Promise<PayslipRecord[]> => {
+        await ensureStoreLoaded();
+        return payslips.filter(p => p.month === month && p.year === year);
+    },
+
     save: async (data: Omit<PayslipRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<PayslipRecord> => {
         await ensureStoreLoaded();
         const existingIndex = payslips.findIndex(p => p.employeeId === data.employeeId && p.month === data.month && p.year === data.year);

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
     Users, AlertTriangle, UserPlus, Calculator,
     Clock, FileWarning, ChevronRight, Briefcase,
-    CheckCircle, UserX, Coffee
+    CheckCircle, UserX, Coffee, FileText
 } from 'lucide-react';
 
 interface ExpiryAlert {
@@ -148,6 +148,16 @@ export default function HRDashboardPage() {
                     <div className="flex-1">
                         <h3 className="font-semibold text-gray-900 dark:text-white">Payroll & EOS</h3>
                         <p className="text-sm text-gray-500">Calculate salary & leave</p>
+                    </div>
+                </Link>
+
+                <Link href="/admin/hr/reports/monthly"
+                    className="flex items-center gap-4 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-xl p-5 transition-colors group"
+                >
+                    <FileText className="w-10 h-10 text-purple-600 flex-shrink-0" />
+                    <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Monthly Reports</h3>
+                        <p className="text-sm text-gray-500">View generated payslips</p>
                     </div>
                 </Link>
 
