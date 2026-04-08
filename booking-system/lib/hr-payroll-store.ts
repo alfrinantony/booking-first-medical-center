@@ -322,7 +322,7 @@ export const HRPayroll = {
         const rawTotalDeductions = penaltyDeduction + salaryAdvanceDeduction + damagesDeduction;
 
         // --- TOTALS ---
-        const totalEarnings = workDaysSalary + annualLeavePay + phDaysPay + sickPay + offDaysPay + workAllowance + trainingAllowance + totalIncentives + overtimeAmount;
+        const totalEarnings = workDaysSalary + annualLeavePay + phDaysPay + sickPay + offDaysPay + totalIncentives + overtimeAmount;
 
         // UAE Labor Law: total deductions ≤ 50% of monthly wage
         const maxDeduction = round(totalEarnings * 0.5);
