@@ -109,7 +109,7 @@ export default function MonthlyPayrollReportPage() {
             `"${r.designation}"`,
             r.isGenerated ? 'Generated' : 'Not Generated',
             r.formInputs ? r.formInputs.daysWorked : '-',
-            r.formInputs ? (r.formInputs.annualLeave + r.formInputs.sickLeave + r.formInputs.unpaidLeave + r.formInputs.absentDays + r.formInputs.phDays + r.formInputs.offDays) : '-',
+            r.formInputs ? (r.formInputs.annualLeave + r.formInputs.sickLeave + r.formInputs.unpaidLeave + r.formInputs.absentDays + r.formInputs.phDays) : '-',
             r.formInputs ? r.formInputs.netOvertimeHours : '-',
             r.payslip ? r.payslip.totalEarnings : '-',
             r.payslip ? r.payslip.totalDeductions : '-',
@@ -256,7 +256,7 @@ export default function MonthlyPayrollReportPage() {
                                             <>
                                                 <td className="px-4 py-3 text-right text-sm">{row.formInputs.daysWorked}</td>
                                                 <td className="px-4 py-3 text-right text-sm text-gray-500">
-                                                    {row.formInputs.annualLeave + row.formInputs.sickLeave + row.formInputs.unpaidLeave + row.formInputs.absentDays + row.formInputs.phDays + row.formInputs.offDays}
+                                                    {row.formInputs.annualLeave + row.formInputs.sickLeave + row.formInputs.unpaidLeave + row.formInputs.absentDays + row.formInputs.phDays}
                                                 </td>
                                                 <td className="px-4 py-3 text-right text-sm font-medium">
                                                     {row.formInputs.netOvertimeHours > 0 ? `+${row.formInputs.netOvertimeHours}` : row.formInputs.netOvertimeHours}
