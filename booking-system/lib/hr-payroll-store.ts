@@ -40,8 +40,15 @@ export interface EndOfServiceCalculation {
     terminationType: TerminationType;
     gratuity: GratuityCalculation;
     leaveEncashment: number;
+    pendingSalary: number;
+    earlyNoticeDeduction: number;
+    absentInNoticePeriod: number;
+    uniformExpenses: number;
+    otherDeductions: number;
+    totalDeductions: number;
     totalEOS: number;
 }
+
 
 // ── Helpers ──
 
@@ -162,7 +169,18 @@ export const HRPayroll = {
      * - Resignation (> 5 years): 2/3 gratuity
      * - End of contract: full gratuity
      */
-    calculateEndOfService: (employee: Employee, terminationType: TerminationType, endDate?: string): EndOfServiceCalculation => {
+    calculateEndOfService: (
+        employee: Employee,
+        terminationType: TerminationType,
+        endDate?: string,
+        extras?: {
+            pendingSalary?: number;
+            earlyNoticeDeduction?: number;
+            absentInNoticePeriod?: number;
+            uniformExpenses?: number;
+            otherDeductions?: number;
+        }
+    ): EndOfServiceCalculation => {
         const gratuity = HRPayroll.calculateGratuity(employee, endDate);
         const leaveBalance = HRPayroll.calculateLeaveBalance(employee);
 
@@ -181,11 +199,26 @@ export const HRPayroll = {
             adjustedGratuity = Math.round(adjustedGratuity * 100) / 100;
         }
 
+        const pendingSalary = extras?.pendingSalary || 0;
+        const earlyNoticeDeduction = extras?.earlyNoticeDeduction || 0;
+        const absentInNoticePeriod = extras?.absentInNoticePeriod || 0;
+        const uniformExpenses = extras?.uniformExpenses || 0;
+        const otherDeductions = extras?.otherDeductions || 0;
+
+        const totalDeductions = earlyNoticeDeduction + absentInNoticePeriod + uniformExpenses + otherDeductions;
+        const totalEOS = (leaveBalance.leaveEncashmentAmount + gratuity.gratuityAmount + pendingSalary) - totalDeductions;
+
         return {
             terminationType,
             gratuity: { ...gratuity, gratuityAmount: adjustedGratuity },
             leaveEncashment: leaveBalance.leaveEncashmentAmount,
-            totalEOS: Math.round((adjustedGratuity + leaveBalance.leaveEncashmentAmount) * 100) / 100,
+            pendingSalary,
+            earlyNoticeDeduction,
+            absentInNoticePeriod,
+            uniformExpenses,
+            otherDeductions,
+            totalDeductions,
+            totalEOS: Math.round(totalEOS * 100) / 100,
         };
     },
 

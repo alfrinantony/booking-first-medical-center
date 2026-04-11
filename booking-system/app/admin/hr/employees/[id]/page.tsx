@@ -13,6 +13,7 @@ import { WORKPLACES, VISA_ISSUING_BRANCHES, LABOR_CARD_STATUSES, DEPARTMENTS } f
 import type { EmployeeDocument, DocumentCategory, DocumentCategoryInfo } from '@/lib/hr-documents-store';
 import { DOCUMENT_CATEGORIES } from '@/lib/hr-documents-store';
 import type { TerminationType } from '@/lib/hr-payroll-store';
+import { HRPayroll } from '@/lib/hr-payroll-store';
 import LeaveTab from '@/components/LeaveTab';
 import PayslipGenerator from '@/components/PayslipGenerator';
 
@@ -41,6 +42,13 @@ export default function EmployeeDetailPage() {
     const [uploadNotes, setUploadNotes] = useState('');
     const [uploading, setUploading] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState<Set<DocumentCategory>>(new Set(['RECRUITMENT', 'LEGAL']));
+
+    // Dynamic EOS State
+    const [eosPendingSalary, setEosPendingSalary] = useState(0);
+    const [eosEarlyNoticeDeduction, setEosEarlyNoticeDeduction] = useState(0);
+    const [eosAbsentInNoticePeriod, setEosAbsentInNoticePeriod] = useState(0);
+    const [eosUniformExpenses, setEosUniformExpenses] = useState(0);
+    const [eosOtherDeductions, setEosOtherDeductions] = useState(0);
 
     const loadEmployee = useCallback(async () => {
         try {
@@ -137,6 +145,14 @@ export default function EmployeeDetailPage() {
         { key: 'payroll', label: 'Payroll & EOS', icon: <Calculator className="w-4 h-4" /> },
         { key: 'leave', label: 'Leave', icon: <CalendarDays className="w-4 h-4" /> },
     ];
+
+    const dynamicEOS = employee ? HRPayroll.calculateEndOfService(employee, terminationType, undefined, {
+        pendingSalary: eosPendingSalary,
+        earlyNoticeDeduction: eosEarlyNoticeDeduction,
+        absentInNoticePeriod: eosAbsentInNoticePeriod,
+        uniformExpenses: eosUniformExpenses,
+        otherDeductions: eosOtherDeductions
+    }) : null;
 
     const getDocExpiryBadge = (doc: EmployeeDocument) => {
         if (!doc.expiryDate) return null;
@@ -1121,37 +1137,74 @@ export default function EmployeeDetailPage() {
                     </div>
 
                     {/* End of Service Calculator */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">End of Service Calculator</h3>
-                        <div className="mb-4">
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Termination Type</label>
-                            <select className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                value={terminationType}
-                                onChange={e => setTerminationType(e.target.value as TerminationType)}>
-                                <option value="EMPLOYER_TERMINATION">Employer Termination</option>
-                                <option value="RESIGNATION">Resignation</option>
-                                <option value="END_OF_CONTRACT">End of Contract</option>
-                            </select>
+                    {dynamicEOS && (
+                        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4">End of Service Calculator</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Termination Type</label>
+                                    <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={terminationType}
+                                        onChange={e => setTerminationType(e.target.value as TerminationType)}>
+                                        <option value="EMPLOYER_TERMINATION">Employer Termination</option>
+                                        <option value="RESIGNATION">Resignation</option>
+                                        <option value="END_OF_CONTRACT">End of Contract</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Pending Salary (AED)</label>
+                                    <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={eosPendingSalary} onChange={e => setEosPendingSalary(Number(e.target.value))} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Early Notice Deduction (AED)</label>
+                                    <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={eosEarlyNoticeDeduction} onChange={e => setEosEarlyNoticeDeduction(Number(e.target.value))} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Absent in Notice Period (AED)</label>
+                                    <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={eosAbsentInNoticePeriod} onChange={e => setEosAbsentInNoticePeriod(Number(e.target.value))} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Uniform Expenses (AED)</label>
+                                    <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={eosUniformExpenses} onChange={e => setEosUniformExpenses(Number(e.target.value))} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Other Deductions (AED)</label>
+                                    <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                        value={eosOtherDeductions} onChange={e => setEosOtherDeductions(Number(e.target.value))} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
+                                    <p className="text-xs text-gray-500 mb-1">Total Deductions</p>
+                                    <p className="text-xl font-bold text-red-600">AED {dynamicEOS.totalDeductions.toLocaleString()}</p>
+                                </div>
+                                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
+                                    <p className="text-xs text-gray-500 mb-1">Full Gratuity</p>
+                                    <p className="text-xl font-bold text-gray-900 dark:text-white">AED {payroll.gratuity.gratuityAmount.toLocaleString()}</p>
+                                </div>
+                                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
+                                    <p className="text-xs text-gray-500 mb-1">Adjusted Gratuity</p>
+                                    <p className="text-xl font-bold text-gray-900 dark:text-white">AED {dynamicEOS.gratuity.gratuityAmount.toLocaleString()}</p>
+                                </div>
+                                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
+                                    <p className="text-xs text-gray-500 mb-1">Leave Encashment</p>
+                                    <p className="text-xl font-bold text-gray-900 dark:text-white">AED {dynamicEOS.leaveEncashment.toLocaleString()}</p>
+                                </div>
+                                <div className="p-4 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-300 dark:border-indigo-700">
+                                    <p className="text-xs text-indigo-600 mb-1">Total End of Service</p>
+                                    <p className="text-2xl font-bold text-indigo-700">AED {dynamicEOS.totalEOS.toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-4 text-center">
+                                Formula: (Leave Encashment + Full/Adjusted Gratuity + Pending Salary) - (Early Notice + Absent in Notice + Uniform + Other Deductions)
+                            </p>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                                <p className="text-xs text-gray-500 mb-1">Full Gratuity</p>
-                                <p className="text-xl font-bold text-gray-900 dark:text-white">AED {payroll.gratuity.gratuityAmount.toLocaleString()}</p>
-                            </div>
-                            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                                <p className="text-xs text-gray-500 mb-1">Adjusted Gratuity</p>
-                                <p className="text-xl font-bold text-gray-900 dark:text-white">AED {payroll.endOfService.gratuity.gratuityAmount.toLocaleString()}</p>
-                            </div>
-                            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                                <p className="text-xs text-gray-500 mb-1">Leave Encashment</p>
-                                <p className="text-xl font-bold text-gray-900 dark:text-white">AED {payroll.endOfService.leaveEncashment.toLocaleString()}</p>
-                            </div>
-                            <div className="p-4 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-300 dark:border-indigo-700">
-                                <p className="text-xs text-indigo-600 mb-1">Total End of Service</p>
-                                <p className="text-2xl font-bold text-indigo-700">AED {payroll.endOfService.totalEOS.toLocaleString()}</p>
-                            </div>
-                        </div>
-                    </div>
+                    )}
                 </div>
             )}
 
