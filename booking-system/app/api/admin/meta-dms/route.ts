@@ -26,6 +26,7 @@ const GRAPH_BASE = 'https://graph.facebook.com/v19.0';
  */
 async function getMetaCreds() {
     let pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN || '';
+    let igAccessToken = process.env.META_IG_ACCESS_TOKEN || pageAccessToken;
     let pageId = process.env.META_PAGE_ID || '';
     let igUserId = process.env.META_IG_USER_ID || '';
 
@@ -33,6 +34,7 @@ async function getMetaCreds() {
         try {
             const settings = await SettingsStore.getSettings();
             pageAccessToken = pageAccessToken || settings.messengerAccessToken || '';
+            igAccessToken = igAccessToken || settings.messengerAccessToken || '';
             pageId = pageId || settings.metaPageId || '';
             igUserId = igUserId || settings.metaIgUserId || '';
         } catch (e) {
@@ -40,7 +42,7 @@ async function getMetaCreds() {
         }
     }
 
-    return { pageAccessToken, pageId, igUserId };
+    return { pageAccessToken, igAccessToken, pageId, igUserId };
 }
 
 async function graphFetch(path: string, token: string, extra: Record<string, string> = {}) {
@@ -84,7 +86,7 @@ interface DMMessage {
  * With ?conversationId=xxx&platform=facebook: returns messages for one conversation (lazy load).
  */
 export async function GET(request: NextRequest) {
-    const { pageAccessToken, pageId, igUserId } = await getMetaCreds();
+    const { pageAccessToken, igAccessToken, pageId, igUserId } = await getMetaCreds();
 
     if (!pageAccessToken || !pageId) {
         return NextResponse.json(
@@ -102,10 +104,11 @@ export async function GET(request: NextRequest) {
     if (conversationId) {
         const platform = url.searchParams.get('platform') || 'facebook';
         const ownerId = platform === 'instagram' ? igUserId : pageId;
+        const accessToken = platform === 'instagram' ? igAccessToken : pageAccessToken;
         try {
             const msgData = await graphFetch(
                 `/${conversationId}/messages`,
-                pageAccessToken,
+                accessToken,
                 { fields: 'message,from,created_time', limit: '25' },
             );
             const messages: DMMessage[] = [];
@@ -228,7 +231,7 @@ export async function GET(request: NextRequest) {
 
             const igConvos = await graphFetch(
                 `/${pageId}/conversations`,
-                pageAccessToken,
+                igAccessToken,
                 igParams,
             );
 
@@ -351,15 +354,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'content and recipientId are required' }, { status: 400 });
         }
 
-        const { pageAccessToken, pageId, igUserId } = await getMetaCreds();
-        if (!pageAccessToken) {
+        const { pageAccessToken, igAccessToken, pageId, igUserId } = await getMetaCreds();
+        if (!pageAccessToken && !igAccessToken) {
             return NextResponse.json({ error: 'Meta credentials not configured' }, { status: 500 });
         }
 
         let sent = false;
         let errorDetail = '';
-        const senderId = pageId;
-        const sendUrl = `${GRAPH_BASE}/${senderId}/messages?access_token=${pageAccessToken}`;
+        const senderId = platform === 'instagram' ? igUserId : pageId;
+        const accessToken = platform === 'instagram' ? igAccessToken : pageAccessToken;
+        const sendUrl = `${GRAPH_BASE}/${senderId}/messages?access_token=${accessToken}`;
 
         try {
             if (platform === 'whatsapp') {

@@ -37,11 +37,26 @@ export async function GET(request: Request) {
     }
 
     // All employees payroll summary
-    const employees = await HRStore.getAll({ status: 'ACTIVE' });
+    const viewType = searchParams.get('viewType') || 'active'; // 'active' or 'separated'
+    
+    let employees;
+    if (viewType === 'separated') {
+        const all = await HRStore.getAll();
+        employees = all.filter(e => e.status === 'RESIGNED' || e.status === 'TERMINATED');
+    } else {
+        employees = await HRStore.getAll({ status: 'ACTIVE' });
+    }
+
     const payrollSummary = employees.map(emp => {
         const salary = HRPayroll.calculateSalary(emp);
         const leaveBalance = HRPayroll.calculateLeaveBalance(emp);
         const gratuity = HRPayroll.calculateGratuity(emp);
+
+        let endOfService = null;
+        if (viewType === 'separated') {
+            const termType: TerminationType = emp.status === 'RESIGNED' ? 'RESIGNATION' : 'EMPLOYER_TERMINATION';
+            endOfService = HRPayroll.calculateEndOfService(emp, termType);
+        }
 
         return {
             id: emp.id,
@@ -50,6 +65,7 @@ export async function GET(request: Request) {
             designation: emp.designation,
             department: emp.department,
             joiningDate: emp.joiningDate,
+            status: emp.status,
             grossSalary: salary.grossSalary,
             basicSalary: salary.basicSalary,
             housingAllowance: salary.housingAllowance,
@@ -61,6 +77,7 @@ export async function GET(request: Request) {
             leaveEncashment: leaveBalance.leaveEncashmentAmount,
             gratuityAccrued: gratuity.gratuityAmount,
             yearsOfService: gratuity.yearsOfService,
+            endOfService
         };
     });
 

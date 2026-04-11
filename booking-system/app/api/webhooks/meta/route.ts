@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
                         let senderName = '';
                         if (event.sender?.id) {
                             // Fetch IG user info
-                            const token = process.env.META_PAGE_ACCESS_TOKEN;
+                            const token = process.env.META_IG_ACCESS_TOKEN || process.env.META_PAGE_ACCESS_TOKEN;
                             if (token) {
                                 try {
                                     const userInfoRes = await fetch(`https://graph.facebook.com/v19.0/${event.sender.id}?fields=name,username&access_token=${token}`);

@@ -114,9 +114,9 @@ RULES:
 }
 
 async function sendInstagramMessage(recipientId: string, text: string) {
-    const token = process.env.META_PAGE_ACCESS_TOKEN;
+    const token = process.env.META_IG_ACCESS_TOKEN || process.env.META_PAGE_ACCESS_TOKEN;
     if (!token) {
-        console.warn('[IgBot] No META_PAGE_ACCESS_TOKEN configured. Cannot send reply.');
+        console.warn('[IgBot] No META_IG_ACCESS_TOKEN or META_PAGE_ACCESS_TOKEN configured. Cannot send reply.');
         return;
     }
 
