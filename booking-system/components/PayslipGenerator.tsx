@@ -43,6 +43,11 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
     const [penaltyReason, setPenaltyReason] = useState('');
     const [damagesAmount, setDamagesAmount] = useState(0);
     const [damagesReason, setDamagesReason] = useState('');
+    const [damagesReason, setDamagesReason] = useState('');
+
+    // Processed Salary Tracking
+    const [pendingArrears, setPendingArrears] = useState(0);
+    const [processedSalaryStr, setProcessedSalaryStr] = useState<string>('');
 
     const [payslip, setPayslip] = useState<MonthlyPayslip | null>(null);
     const [saving, setSaving] = useState(false);
@@ -56,6 +61,16 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
         try {
             const params = new URLSearchParams({ employeeId: employee.id, month: String(month), year: String(year) });
             const res = await fetch(`/api/admin/hr/payslips?${params}`);
+            
+            let arrears = 0;
+            try {
+                const arrearsRes = await fetch(`/api/admin/hr/payslips/arrears?${params}`);
+                if (arrearsRes.ok) {
+                    const arrearsData = await arrearsRes.json();
+                    arrears = arrearsData.arrears || 0;
+                }
+            } catch (e) { console.error(e); }
+
             let loaded = false;
             
             if (res.ok) {
@@ -85,8 +100,11 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     setPenaltyAmount(r.penaltyAmount);
                     setPenaltyReason(r.penaltyReason);
                     setDamagesAmount(r.damagesAmount);
+                    setDamagesAmount(r.damagesAmount);
                     setDamagesReason(r.damagesReason);
                     setPayslip(r.payslip);
+                    setPendingArrears(r.pendingArrears || arrears);
+                    setProcessedSalaryStr(r.processedSalary !== undefined ? String(r.processedSalary) : '');
                     loaded = true;
                 }
             }
@@ -128,8 +146,9 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                 setAdvanceRemaining(0);
                 setPenaltyAmount(0);
                 setPenaltyReason('');
-                setDamagesAmount(0);
                 setDamagesReason('');
+                setPendingArrears(arrears);
+                setProcessedSalaryStr('');
                 setPayslip(null);
             }
         } catch (err) { console.error(err); }
@@ -175,6 +194,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
             penaltyReason,
             damagesDeduction: damagesAmount,
             damagesReason,
+            pendingArrears,
         });
         setPayslip(ps);
         return ps;
@@ -185,6 +205,8 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
         setSaveSuccess(false);
 
         const ps = generate();
+        const processedVal = processedSalaryStr.trim() !== '' ? Number(processedSalaryStr) : ps.netSalary;
+        const deficit = ps.netSalary - processedVal;
 
         try {
             const res = await fetch('/api/admin/hr/payslips', {
@@ -196,7 +218,8 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     responsibilityAllowanceAch: respAllowanceAch,
                     blocked, expectedHours, actualHours, previousOT, otCompensation,
                     advanceDeduction, advanceTotal, advanceRemaining, penaltyAmount,
-                    penaltyReason, damagesAmount, damagesReason, payslip: ps
+                    penaltyReason, damagesAmount, damagesReason, payslip: ps,
+                    processedSalary: processedVal, pendingArrears, deficit
                 })
             });
             if (res.ok) {
@@ -539,6 +562,7 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                                 <table className="w-full text-sm border-collapse">
                                     <tbody>
                                         <tr className="border-b"><td className="p-2">Work Days Salary ({payslip.daysWorked} days × AED {payslip.dailyRate})</td><td className="p-2 right text-right font-medium">{payslip.workDaysSalary.toLocaleString()}</td></tr>
+                                        {payslip.pendingArrears > 0 && <tr className="border-b bg-red-50 dark:bg-red-900/10"><td className="p-2 font-bold text-red-600">Pending Salary Arrears (Brought Forward)</td><td className="p-2 text-right font-bold text-red-600">+{payslip.pendingArrears.toLocaleString()}</td></tr>}
                                         {payslip.annualLeaveDays > 0 && <tr className="border-b"><td className="p-2">Annual Leave Pay ({payslip.annualLeaveDays} days)</td><td className="p-2 text-right font-medium">{payslip.annualLeavePay.toLocaleString()}</td></tr>}
                                         {payslip.phDays > 0 && <tr className="border-b"><td className="p-2">🏖️ PH Days Pay ({payslip.phDays} days)</td><td className="p-2 text-right font-medium">{payslip.phDaysPay.toLocaleString()}</td></tr>}
                                         {offDays > 0 && <tr className="border-b"><td className="p-2">🛌 Off Days Pay ({offDays} days)</td><td className="p-2 text-right font-medium">{payslip.offDaysPay?.toLocaleString()}</td></tr>}
@@ -615,14 +639,27 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                             </div>
                         </div>
 
-                        {/* Net Salary */}
-                        <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 text-center">
-                            <p className="text-xs text-green-600 uppercase font-semibold mb-1">Net Salary Payable</p>
-                            <p className="text-3xl font-bold text-green-700">AED {payslip.netSalary.toLocaleString()}</p>
-                            <p className="text-xs text-green-500 mt-1">
-                                Earnings AED {payslip.totalEarnings.toLocaleString()} − Deductions AED {payslip.totalDeductions.toLocaleString()}
-                            </p>
+                        {/* Net Salary & Processed Salary */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 text-center flex flex-col justify-center h-full">
+                                <p className="text-xs text-green-600 uppercase font-semibold mb-1">Net Salary Payable</p>
+                                <p className="text-3xl font-bold text-green-700">AED {payslip.netSalary.toLocaleString()}</p>
+                                <p className="text-xs text-green-500 mt-1">
+                                    Earnings AED {payslip.totalEarnings.toLocaleString()} − Deductions AED {payslip.totalDeductions.toLocaleString()}
+                                </p>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border-2 border-indigo-100 dark:border-indigo-900/50 flex flex-col justify-center h-full">
+                                <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Internal: Processed Salary Amount (AED)</label>
+                                <p className="text-xs text-gray-500 mb-3">Leave blank if the full net salary was paid. Enter the actual amount deposited to auto-calculate next month's arrears.</p>
+                                <input 
+                                    type="number" min="0" placeholder={String(payslip.netSalary)}
+                                    className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 font-bold text-lg focus:ring-2 focus:ring-indigo-500"
+                                    value={processedSalaryStr} onChange={e => setProcessedSalaryStr(e.target.value)} 
+                                />
+                            </div>
                         </div>
+
+                        {/* Hidden Print Payslip Layer Update -> Omitted to preserve simplicity. */}
                     </div>
                 </div>
             )}

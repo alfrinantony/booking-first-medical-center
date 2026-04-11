@@ -248,6 +248,8 @@ export const HRPayroll = {
             responsibilityAllowanceAchieved?: number;
             // Override incentive block
             incentivesBlocked: boolean; // true if review threshold penalty is active
+            // Pending Salary
+            pendingArrears: number;      // Carried over from last month's deficit
             // Working hours & overtime
             expectedHours: number;       // expected working hours this month
             actualHours: number;         // actual hours worked
@@ -355,7 +357,7 @@ export const HRPayroll = {
         const rawTotalDeductions = penaltyDeduction + salaryAdvanceDeduction + damagesDeduction;
 
         // --- TOTALS ---
-        const totalEarnings = workDaysSalary + annualLeavePay + phDaysPay + sickPay + offDaysPay + totalIncentives + overtimeAmount;
+        const totalEarnings = workDaysSalary + annualLeavePay + phDaysPay + sickPay + offDaysPay + totalIncentives + overtimeAmount + (p.pendingArrears || 0);
 
         // UAE Labor Law: total deductions ≤ 50% of monthly wage
         const maxDeduction = round(totalEarnings * 0.5);
@@ -396,6 +398,7 @@ export const HRPayroll = {
             sickLeavePay: sickPay,
             phDaysPay,
             offDaysPay,
+            pendingArrears: p.pendingArrears || 0,
             // Incentives
             incomeProfitIncentive,
             packageSalesIncentive,
@@ -463,6 +466,7 @@ export interface MonthlyPayslip {
     sickLeavePay: number;
     phDaysPay: number;
     offDaysPay: number;
+    pendingArrears: number;
     incomeProfitIncentive: number;
     packageSalesIncentive: number;
     referralIncentive: number;

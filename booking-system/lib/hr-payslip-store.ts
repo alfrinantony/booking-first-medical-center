@@ -36,6 +36,11 @@ export interface PayslipRecord {
     // Generated
     payslip: MonthlyPayslip | null;
     
+    // Processed & Arrears Tracking
+    pendingArrears: number;      // Brought forward from previous month(s)
+    processedSalary: number;     // What was actually paid
+    deficit: number;             // netSalary - processedSalary
+
     createdAt: string;
     updatedAt: string;
 }
@@ -59,6 +64,22 @@ export const HRPayslipStore = {
     getByMonth: async (month: number, year: number): Promise<PayslipRecord[]> => {
         await ensureStoreLoaded();
         return payslips.filter(p => p.month === month && p.year === year);
+    },
+
+    calculateTotalArrearsForEmployee: async (employeeId: string, beforeMonth: number, beforeYear: number): Promise<number> => {
+        await ensureStoreLoaded();
+        const records = payslips.filter(p => p.employeeId === employeeId);
+        
+        // Sum all generated netSalaries minus all processedSalaries
+        // for any records BEFORE the target month/year.
+        let totalDeficit = 0;
+        for (const r of records) {
+            // Check if record is strictly before the target date
+            if (r.year < beforeYear || (r.year === beforeYear && r.month < beforeMonth)) {
+                totalDeficit += (r.deficit || 0); // use explicit deficit on record
+            }
+        }
+        return Math.round(totalDeficit * 100) / 100;
     },
 
     save: async (data: Omit<PayslipRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<PayslipRecord> => {

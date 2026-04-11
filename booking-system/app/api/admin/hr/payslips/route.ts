@@ -31,7 +31,8 @@ export async function POST(request: Request) {
             absentDays, phDays, offDays, cumSick, incomeProfitAch, pkgSalesAch, referralCount,
             responsibilityAllowanceAch, blocked, expectedHours, actualHours, previousOT, otCompensation,
             advanceDeduction, advanceTotal, advanceRemaining, penaltyAmount,
-            penaltyReason, damagesAmount, damagesReason, payslip
+            penaltyReason, damagesAmount, damagesReason, payslip,
+            processedSalary, pendingArrears, deficit
         } = body;
 
         if (!employeeId || !month || !year) {
@@ -43,7 +44,10 @@ export async function POST(request: Request) {
             absentDays, phDays, offDays, cumSick, incomeProfitAch, pkgSalesAch, referralCount,
             responsibilityAllowanceAch, blocked, expectedHours, actualHours, previousOT, otCompensation,
             advanceDeduction, advanceTotal, advanceRemaining, penaltyAmount,
-            penaltyReason, damagesAmount, damagesReason, payslip
+            penaltyReason, damagesAmount, damagesReason, payslip,
+            processedSalary: Number(processedSalary) || (payslip?.netSalary || 0),
+            pendingArrears: Number(pendingArrears) || 0,
+            deficit: Number(deficit) || 0
         });
 
         return NextResponse.json({ success: true, record: saved });

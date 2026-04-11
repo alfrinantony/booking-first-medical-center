@@ -68,10 +68,44 @@ export default function EmployeeDetailPage() {
         if (res.ok) setDocuments(await res.json());
     }, [employeeId]);
 
+    const loadEOS = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/admin/hr/eos?employeeId=${employeeId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.found && data.record) {
+                    const c = data.record.calculation;
+                    setTerminationType(c.terminationType);
+                    setEosPendingSalary(c.pendingSalary);
+                    setEosEarlyNoticeDeduction(c.earlyNoticeDeduction);
+                    setEosAbsentInNoticePeriod(c.absentInNoticePeriod);
+                    setEosUniformExpenses(c.uniformExpenses);
+                    setEosOtherDeductions(c.otherDeductions);
+                    return true;
+                }
+            }
+        } catch (e) { console.error(e); }
+        return false;
+    }, [employeeId]);
+
     const loadPayroll = useCallback(async () => {
         const res = await fetch(`/api/admin/hr/payroll?employeeId=${employeeId}&terminationType=${terminationType}`);
         if (res.ok) setPayroll(await res.json());
-    }, [employeeId, terminationType]);
+
+        // Check if EOS was previously saved
+        const hasSavedEOS = await loadEOS();
+        if (!hasSavedEOS) {
+            // Fetch default arrears for currently loaded pending salary
+            const now = new Date();
+            try {
+                const arrearsRes = await fetch(`/api/admin/hr/payslips/arrears?employeeId=${employeeId}&month=${now.getMonth() + 1}&year=${now.getFullYear()}`);
+                if (arrearsRes.ok) {
+                    const arrearsData = await arrearsRes.json();
+                    setEosPendingSalary(arrearsData.arrears || 0);
+                }
+            } catch (e) { console.error(e); }
+        }
+    }, [employeeId, terminationType, loadEOS]);
 
     useEffect(() => {
         Promise.all([loadEmployee(), loadDocuments()]).then(() => setLoading(false));
@@ -129,6 +163,20 @@ export default function EmployeeDetailPage() {
         if (!confirm('Delete this document?')) return;
         await fetch(`/api/admin/hr/documents/${docId}`, { method: 'DELETE' });
         loadDocuments();
+    };
+
+    const saveEOS = async () => {
+        if (!dynamicEOS) return;
+        try {
+            const res = await fetch('/api/admin/hr/eos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employeeId, calculation: dynamicEOS })
+            });
+            if (res.ok) {
+                alert('End of Service calculation saved successfully!');
+            }
+        } catch (err) { console.error(err); }
     };
 
     const printEOS = () => {
@@ -1169,9 +1217,14 @@ export default function EmployeeDetailPage() {
                         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                                 <h3 className="font-semibold text-gray-900 dark:text-white">End of Service Calculator</h3>
-                                <button onClick={printEOS} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium flex items-center gap-2 transition-colors">
-                                    <Printer className="w-4 h-4" /> Print Final Settlement
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={saveEOS} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium flex items-center gap-2 transition-colors">
+                                        <Save className="w-4 h-4" /> Save Final Settlement
+                                    </button>
+                                    <button onClick={printEOS} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium flex items-center gap-2 transition-colors">
+                                        <Printer className="w-4 h-4" /> Print
+                                    </button>
+                                </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                 <div>
