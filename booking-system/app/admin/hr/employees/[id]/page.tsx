@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
     ArrowLeft, Save, User, FileText, Calculator, CalendarDays,
     Upload, Trash2, Download, AlertTriangle, CheckCircle, Clock,
-    Briefcase, ChevronDown, ChevronRight
+    Briefcase, ChevronDown, ChevronRight, Printer
 } from 'lucide-react';
 import type { Employee, EmployeeStatus, EmploymentType, Gender } from '@/lib/hr-store';
 import { WORKPLACES, VISA_ISSUING_BRANCHES, LABOR_CARD_STATUSES, DEPARTMENTS } from '@/lib/hr-store';
@@ -129,6 +129,34 @@ export default function EmployeeDetailPage() {
         if (!confirm('Delete this document?')) return;
         await fetch(`/api/admin/hr/documents/${docId}`, { method: 'DELETE' });
         loadDocuments();
+    };
+
+    const printEOS = () => {
+        const el = document.getElementById('eos-print');
+        if (!el || !employee || !dynamicEOS) return;
+        const w = window.open('', '_blank');
+        if (!w) return;
+        w.document.write(`<html><head><title>Final Settlement - ${employee.firstName} ${employee.lastName}</title>
+        <style>
+            body { font-family: 'Segoe UI', sans-serif; margin: 40px; color: #222; }
+            h1 { text-align: center; margin-bottom: 5px; color: #111; font-size: 24px; }
+            h2 { border-bottom: 2px solid #222; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 16px; }
+            p { margin: 8px 0; font-size: 14px; }
+            .header { text-align: center; margin-bottom: 40px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background: #f9f9f9; width: 60%; font-weight: 600; }
+            .right { text-align: right; }
+            .total { font-weight: bold; font-size: 16px; background: #eef2ff !important; }
+            .total td { font-weight: bold; }
+            .subtitle { color: #555; text-align: center; margin-bottom: 30px; font-size: 14px; letter-spacing: 1px; }
+            .signature-box { margin-top: 80px; display: flex; justify-content: space-between; }
+            .sig-line { border-top: 1px solid #000; width: 250px; text-align: center; padding-top: 10px; margin-top: 60px; font-weight: bold; font-size: 14px; }
+            .red-text { color: #d97706; }
+            @media print { body { margin: 20px; } }
+        </style></head><body>${el.innerHTML}</body></html>`);
+        w.document.close();
+        w.print();
     };
 
     if (loading || !employee) {
@@ -1139,7 +1167,12 @@ export default function EmployeeDetailPage() {
                     {/* End of Service Calculator */}
                     {dynamicEOS && (
                         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4">End of Service Calculator</h3>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                                <h3 className="font-semibold text-gray-900 dark:text-white">End of Service Calculator</h3>
+                                <button onClick={printEOS} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium flex items-center gap-2 transition-colors">
+                                    <Printer className="w-4 h-4" /> Print Final Settlement
+                                </button>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">Termination Type</label>
@@ -1203,6 +1236,64 @@ export default function EmployeeDetailPage() {
                             <p className="text-xs text-gray-500 mt-4 text-center">
                                 Formula: (Leave Encashment + Full/Adjusted Gratuity + Pending Salary) - (Early Notice + Absent in Notice + Uniform + Other Deductions)
                             </p>
+
+                            {/* Hidden Print Container */}
+                            <div id="eos-print" style={{ display: 'none' }}>
+                                <div className="header">
+                                    <h1>First Medical Center LLC</h1>
+                                    <p className="subtitle">END OF SERVICE / FINAL SETTLEMENT PAYSLIP</p>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+                                    <div>
+                                        <p><strong>Employee Name:</strong> {employee.firstName} {employee.lastName}</p>
+                                        <p><strong>Employee Code:</strong> {employee.employeeCode || '-'}</p>
+                                        <p><strong>Designation:</strong> {employee.designation || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p><strong>Department:</strong> {employee.department || '-'}</p>
+                                        <p><strong>Date of Joining:</strong> {employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : '-'}</p>
+                                        <p><strong>Termination Type:</strong> {terminationType.replace(/_/g, ' ')}</p>
+                                    </div>
+                                </div>
+
+                                <h2>Earnings & Entitlements</h2>
+                                <table>
+                                    <tbody>
+                                        <tr><th>Leave Encashment</th><td className="right">AED {dynamicEOS.leaveEncashment.toLocaleString()}</td></tr>
+                                        <tr><th>Gratuity Accrued</th><td className="right">AED {payroll.gratuity.gratuityAmount.toLocaleString()}</td></tr>
+                                        <tr><th>Pending Salary</th><td className="right">AED {dynamicEOS.pendingSalary.toLocaleString()}</td></tr>
+                                    </tbody>
+                                </table>
+
+                                <h2>Deductions & Adjustments</h2>
+                                <table>
+                                    <tbody>
+                                        <tr><th>Gratuity Adjustment (Resignation Rules)</th><td className="right red-text">AED {(payroll.gratuity.gratuityAmount - dynamicEOS.gratuity.gratuityAmount).toLocaleString()}</td></tr>
+                                        <tr><th>Early Notice Deduction</th><td className="right red-text">AED {dynamicEOS.earlyNoticeDeduction.toLocaleString()}</td></tr>
+                                        <tr><th>Absent in Notice Period</th><td className="right red-text">AED {dynamicEOS.absentInNoticePeriod.toLocaleString()}</td></tr>
+                                        <tr><th>Uniform Expenses / Damages</th><td className="right red-text">AED {dynamicEOS.uniformExpenses.toLocaleString()}</td></tr>
+                                        <tr><th>Other Deductions</th><td className="right red-text">AED {dynamicEOS.otherDeductions.toLocaleString()}</td></tr>
+                                    </tbody>
+                                </table>
+
+                                <table>
+                                    <tbody>
+                                        <tr className="total"><th>Total Final Settlement Payable</th><td className="right">AED {dynamicEOS.totalEOS.toLocaleString()}</td></tr>
+                                    </tbody>
+                                </table>
+
+                                <div className="signature-box">
+                                    <div>
+                                        <div className="sig-line">Employer Signature & Stamp</div>
+                                    </div>
+                                    <div>
+                                        <div className="sig-line">Employee Signature</div>
+                                        <p style={{ marginTop: '10px', fontSize: '11px', color: '#666', textAlign: 'center', width: '250px' }}>
+                                            I acknowledge receipt of all my dues and final settlement in full, leaving no pending claims.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
