@@ -1133,7 +1133,11 @@ export default function EmployeeDetailPage() {
                                 <option value="END_OF_CONTRACT">End of Contract</option>
                             </select>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                                <p className="text-xs text-gray-500 mb-1">Full Gratuity</p>
+                                <p className="text-xl font-bold text-gray-900 dark:text-white">AED {payroll.gratuity.gratuityAmount.toLocaleString()}</p>
+                            </div>
                             <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                                 <p className="text-xs text-gray-500 mb-1">Adjusted Gratuity</p>
                                 <p className="text-xl font-bold text-gray-900 dark:text-white">AED {payroll.endOfService.gratuity.gratuityAmount.toLocaleString()}</p>

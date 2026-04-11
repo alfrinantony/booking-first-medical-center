@@ -225,6 +225,7 @@ export default function PayrollPage() {
                                     <th className="px-4 py-3">Employee</th>
                                     <th className="px-4 py-3">Status</th>
                                     <th className="px-4 py-3 text-right">Service (yrs)</th>
+                                    <th className="px-4 py-3 text-right">Full Gratuity</th>
                                     <th className="px-4 py-3 text-right">Adjusted Gratuity</th>
                                     <th className="px-4 py-3 text-right">Leave Encash</th>
                                     <th className="px-4 py-3 text-right">Total EOS</th>
@@ -263,6 +264,7 @@ export default function PayrollPage() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-sm text-right">{row.yearsOfService}</td>
+                                            <td className="px-4 py-3 text-sm text-right font-mono">{row.gratuityAccrued.toLocaleString()}</td>
                                             <td className="px-4 py-3 text-sm text-right font-mono" title={row.endOfService?.gratuity.breakdown}>{(row.endOfService?.gratuity.gratuityAmount || 0).toLocaleString()}</td>
                                             <td className="px-4 py-3 text-sm text-right font-mono">{(row.endOfService?.leaveEncashment || 0).toLocaleString()}</td>
                                             <td className="px-4 py-3 text-sm text-right font-mono font-semibold text-indigo-600 dark:text-indigo-400">{(row.endOfService?.totalEOS || 0).toLocaleString()}</td>
@@ -291,6 +293,7 @@ export default function PayrollPage() {
                                 ) : (
                                     <>
                                         <td className="px-4 py-3" colSpan={3}>Total ({payroll.length} separated employees)</td>
+                                        <td className="px-4 py-3 text-right font-mono">{payroll.reduce((sum, r) => sum + r.gratuityAccrued, 0).toLocaleString()}</td>
                                         <td className="px-4 py-3 text-right font-mono">{totals.gratuity.toLocaleString()}</td>
                                         <td className="px-4 py-3 text-right font-mono">{totals.leaveEncash.toLocaleString()}</td>
                                         <td className="px-4 py-3 text-right font-mono text-indigo-600">{totals.totalEOS.toLocaleString()}</td>
