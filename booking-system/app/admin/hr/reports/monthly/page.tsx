@@ -98,7 +98,7 @@ export default function MonthlyPayrollReportPage() {
         
         const headers = [
             'Emp Code', 'Name', 'Department', 'Designation', 'Status',
-            'Days Worked', 'Leaves/Absent', 'OT Hrs',
+            'Days Worked', 'Leaves', 'OT Hrs',
             'Gross Earnings', 'Deductions', 'Net Salary'
         ];
         
@@ -108,8 +108,8 @@ export default function MonthlyPayrollReportPage() {
             `"${r.department}"`,
             `"${r.designation}"`,
             r.isGenerated ? 'Generated' : 'Not Generated',
-            r.formInputs ? r.formInputs.daysWorked : '-',
-            r.formInputs ? (r.formInputs.annualLeave + r.formInputs.sickLeave + r.formInputs.unpaidLeave + r.formInputs.absentDays + r.formInputs.phDays) : '-',
+            r.formInputs ? (r.formInputs.daysWorked + r.formInputs.offDays + r.formInputs.phDays) : '-',
+            r.formInputs ? (r.formInputs.absentDays + r.formInputs.unpaidLeave) : '-',
             r.formInputs ? r.formInputs.netOvertimeHours : '-',
             r.payslip ? r.payslip.totalEarnings : '-',
             r.payslip ? r.payslip.totalDeductions : '-',
@@ -226,7 +226,7 @@ export default function MonthlyPayrollReportPage() {
                                     <th className="px-4 py-3">Employee</th>
                                     <th className="px-4 py-3">Status</th>
                                     <th className="px-4 py-3 text-right">Days Work</th>
-                                    <th className="px-4 py-3 text-right">Leaves/Off</th>
+                                    <th className="px-4 py-3 text-right">Leaves</th>
                                     <th className="px-4 py-3 text-right">OT Hrs</th>
                                     <th className="px-4 py-3 text-right">Earnings</th>
                                     <th className="px-4 py-3 text-right">Deductions</th>
@@ -254,9 +254,11 @@ export default function MonthlyPayrollReportPage() {
                                         
                                         {row.isGenerated && row.formInputs && row.payslip ? (
                                             <>
-                                                <td className="px-4 py-3 text-right text-sm">{row.formInputs.daysWorked}</td>
+                                                <td className="px-4 py-3 text-right text-sm">
+                                                    {row.formInputs.daysWorked + row.formInputs.offDays + row.formInputs.phDays}
+                                                </td>
                                                 <td className="px-4 py-3 text-right text-sm text-gray-500">
-                                                    {row.formInputs.annualLeave + row.formInputs.sickLeave + row.formInputs.unpaidLeave + row.formInputs.absentDays + row.formInputs.phDays}
+                                                    {row.formInputs.absentDays + row.formInputs.unpaidLeave}
                                                 </td>
                                                 <td className="px-4 py-3 text-right text-sm font-medium">
                                                     {row.formInputs.netOvertimeHours > 0 ? `+${row.formInputs.netOvertimeHours}` : row.formInputs.netOvertimeHours}
