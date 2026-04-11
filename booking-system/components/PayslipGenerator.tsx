@@ -433,6 +433,25 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     </div>
                 </div>
 
+                <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 mb-6">
+                    <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                        <div>
+                            <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Final Bank Processing</h4>
+                            <p className="text-xs text-indigo-500">
+                                Leave blank to record the full Net Salary as paid. <br/> If paying less than the total, enter the exact amount here to automatically track the deficit.
+                            </p>
+                        </div>
+                        <div className="w-full sm:w-64 flex-shrink-0">
+                            <label className="block text-xs font-bold text-indigo-600 mb-1 uppercase tracking-wide">Processed Salary (AED)</label>
+                            <input 
+                                type="number" min="0" placeholder="Auto Calculate Full Net"
+                                className="w-full p-2.5 border-2 border-indigo-300 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 font-bold"
+                                value={processedSalaryStr} onChange={e => setProcessedSalaryStr(e.target.value)} 
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 <div className="flex items-center gap-3">
                     <button onClick={generate}
                         className="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 px-6 py-2.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-sm font-semibold flex items-center gap-2">
@@ -639,24 +658,13 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                             </div>
                         </div>
 
-                        {/* Net Salary & Processed Salary */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 text-center flex flex-col justify-center h-full">
-                                <p className="text-xs text-green-600 uppercase font-semibold mb-1">Net Salary Payable</p>
-                                <p className="text-3xl font-bold text-green-700">AED {payslip.netSalary.toLocaleString()}</p>
-                                <p className="text-xs text-green-500 mt-1">
-                                    Earnings AED {payslip.totalEarnings.toLocaleString()} − Deductions AED {payslip.totalDeductions.toLocaleString()}
-                                </p>
-                            </div>
-                            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border-2 border-indigo-100 dark:border-indigo-900/50 flex flex-col justify-center h-full">
-                                <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Internal: Processed Salary Amount (AED)</label>
-                                <p className="text-xs text-gray-500 mb-3">Leave blank if the full net salary was paid. Enter the actual amount deposited to auto-calculate next month's arrears.</p>
-                                <input 
-                                    type="number" min="0" placeholder={String(payslip.netSalary)}
-                                    className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 font-bold text-lg focus:ring-2 focus:ring-indigo-500"
-                                    value={processedSalaryStr} onChange={e => setProcessedSalaryStr(e.target.value)} 
-                                />
-                            </div>
+                        {/* Net Salary Payable */}
+                        <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 text-center mt-4">
+                            <p className="text-xs text-green-600 uppercase font-semibold mb-1">Net Salary Payable</p>
+                            <p className="text-3xl font-bold text-green-700">AED {payslip.netSalary.toLocaleString()}</p>
+                            <p className="text-xs text-green-500 mt-1">
+                                Earnings AED {payslip.totalEarnings.toLocaleString()} − Deductions AED {payslip.totalDeductions.toLocaleString()}
+                            </p>
                         </div>
 
                         {/* Hidden Print Payslip Layer Update -> Omitted to preserve simplicity. */}
