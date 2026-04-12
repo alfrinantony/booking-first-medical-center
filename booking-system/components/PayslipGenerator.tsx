@@ -43,7 +43,6 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
     const [penaltyReason, setPenaltyReason] = useState('');
     const [damagesAmount, setDamagesAmount] = useState(0);
     const [damagesReason, setDamagesReason] = useState('');
-    const [damagesReason, setDamagesReason] = useState('');
 
     // Processed Salary Tracking
     const [pendingArrears, setPendingArrears] = useState(0);
@@ -99,7 +98,6 @@ export default function PayslipGenerator({ employee }: { employee: Employee }) {
                     setAdvanceRemaining(r.advanceRemaining);
                     setPenaltyAmount(r.penaltyAmount);
                     setPenaltyReason(r.penaltyReason);
-                    setDamagesAmount(r.damagesAmount);
                     setDamagesAmount(r.damagesAmount);
                     setDamagesReason(r.damagesReason);
                     setPayslip(r.payslip);
