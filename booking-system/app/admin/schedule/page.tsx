@@ -329,6 +329,7 @@ export default function SchedulePage() {
                 setMessage(`Schedule saved for ${selectedDates.length - skippedDaysOff} date(s)!${skippedNote}`);
                 // Re-fetch to confirm the UI reflects exactly what the backend sees
                 await fetchSchedule();
+                setSelectedDates([]); // Clear selection to prevent accidental bulk-overwrite on next save
                 setTimeout(() => setMessage(''), 4000);
             } else {
                 setMessage('Failed to save for some dates.');
