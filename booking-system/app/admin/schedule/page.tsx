@@ -63,6 +63,10 @@ export default function SchedulePage() {
     const [hrRegularOffDays, setHrRegularOffDays] = useState<string[]>([]);
     const [hrLoading, setHrLoading] = useState(false);
 
+    // Doctor's specific HR employee link and leaves
+    const [matchedEmployeeId, setMatchedEmployeeId] = useState<string>('');
+    const [doctorLeaves, setDoctorLeaves] = useState<LeaveEntry[]>([]);
+
     // Fetch live clinic data from API (same source as Doctors page)
     useEffect(() => {
         const fetchClinics = async () => {
@@ -121,12 +125,18 @@ export default function SchedulePage() {
                         });
                     }
 
-                    if (matched && matched.weeklyOffDays && Array.isArray(matched.weeklyOffDays)) {
-                        setHrRegularOffDays(matched.weeklyOffDays);
-                    } else if (matched && matched.weeklyOff) {
-                         // Fallback if data is stored as a single string
-                         setHrRegularOffDays([matched.weeklyOff]);
+                    if (matched) {
+                        setMatchedEmployeeId(matched.id);
+                        if (matched.weeklyOffDays && Array.isArray(matched.weeklyOffDays)) {
+                            setHrRegularOffDays(matched.weeklyOffDays);
+                        } else if (matched.weeklyOff) {
+                             // Fallback if data is stored as a single string
+                             setHrRegularOffDays([matched.weeklyOff]);
+                        } else {
+                            setHrRegularOffDays([]);
+                        }
                     } else {
+                        setMatchedEmployeeId('');
                         setHrRegularOffDays([]);
                     }
                 }
@@ -139,6 +149,33 @@ export default function SchedulePage() {
 
         fetchHrData();
     }, [selectedDoctorId, selectedDoctor]);
+
+    // Fetch doctor's specific approved leaves for the calendar month
+    useEffect(() => {
+        if (!matchedEmployeeId) {
+            setDoctorLeaves([]);
+            return;
+        }
+
+        const fetchDoctorMonthLeaves = async () => {
+            const startStr = format(startOfWeek(startOfMonth(calendarMonth)), 'yyyy-MM-dd');
+            const endStr = format(endOfWeek(endOfMonth(calendarMonth)), 'yyyy-MM-dd');
+            try {
+                const res = await fetch(`/api/admin/schedule-leave?startDate=${startStr}&endDate=${endStr}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const leaves = (data.leaves || []).filter((l: any) => 
+                        l.employeeId === matchedEmployeeId && l.status === 'APPROVED'
+                    );
+                    setDoctorLeaves(leaves);
+                }
+            } catch (error) {
+                console.error('Failed to fetch doctor leaves', error);
+            }
+        };
+
+        fetchDoctorMonthLeaves();
+    }, [calendarMonth, matchedEmployeeId]);
 
     // Helper: Pick a color theme based on the clinic's position in the overall clinics array
     const getBranchColors = useCallback((clinicId: string) => {
@@ -416,10 +453,20 @@ export default function SchedulePage() {
                                             const isDayOff = daysOff.includes(day.getDay());
                                             const isToday = isTodayFn(day);
 
+                                            let isLeave = false;
+                                            for (const leave of doctorLeaves) {
+                                                if (dateStr >= leave.startDate && dateStr <= leave.endDate) {
+                                                    isLeave = true;
+                                                    break;
+                                                }
+                                            }
+
                                             let cellClass = 'text-gray-300 dark:text-gray-600'; // out-of-month
                                             if (inMonth) {
                                                 if (isSelected) {
                                                     cellClass = 'bg-indigo-600 text-white font-bold';
+                                                } else if (isLeave) {
+                                                    cellClass = 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 font-bold border border-orange-200 dark:border-orange-800';
                                                 } else if (isDayOff) {
                                                     cellClass = 'bg-red-50 dark:bg-red-900/20 text-red-400 line-through';
                                                 } else {
@@ -430,9 +477,10 @@ export default function SchedulePage() {
                                             return (
                                                 <button
                                                     key={idx}
-                                                    onClick={() => inMonth && toggleDate(dateStr)}
-                                                    disabled={!inMonth}
-                                                    className={`relative w-full aspect-square flex items-center justify-center text-xs transition-all rounded-md m-px ${cellClass}`}
+                                                    onClick={() => inMonth && !isLeave && toggleDate(dateStr)}
+                                                    disabled={!inMonth || isLeave}
+                                                    title={isLeave ? 'Doctor is on Approved Leave' : ''}
+                                                    className={`relative w-full aspect-square flex items-center justify-center text-xs transition-all rounded-md m-px ${cellClass} ${isLeave ? 'cursor-not-allowed opacity-75' : ''}`}
                                                 >
                                                     {day.getDate()}
                                                     {isToday && (
