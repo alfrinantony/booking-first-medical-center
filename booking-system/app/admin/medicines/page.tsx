@@ -15,6 +15,7 @@ export default function MedicinesPage() {
     const [isDistributeOpen, setIsDistributeOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeSearch, setActiveSearch] = useState('');
 
     const [newMedicine, setNewMedicine] = useState({ name: '', price: '', centralStock: '', expiryDate: '', category: 'medicine' as 'medicine' | 'consumable' | 'em_medicine', minCentralStock: '', itemCode: '', purchaseUnit: '', itemsPerPurchaseUnit: '', consumableUnit: '', registeredProductId: '', batchNumber: '', storedType: '', numberOfStoredType: '', consumableItemsInside: '', purchasedUnits: '' });
     const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
@@ -210,15 +211,24 @@ export default function MedicinesPage() {
                         <p className="text-gray-600 dark:text-gray-400">Medicines & consumables with per-branch stock tracking. Linked to Product Registry.</p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                                type="text"
-                                placeholder="Search by name or code..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                            />
+                        <div className="flex gap-2">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name or code..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') setActiveSearch(searchTerm); }}
+                                    className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                            </div>
+                            <button
+                                onClick={() => setActiveSearch(searchTerm)}
+                                className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-indigo-700 transition-colors"
+                            >
+                                <Search className="w-4 h-4" /> Search
+                            </button>
                         </div>
                         <button onClick={() => setIsDistributeOpen(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors">
                             <ArrowRightLeft className="w-4 h-4" /> Distribute to Branch
@@ -236,8 +246,9 @@ export default function MedicinesPage() {
                             <div className="text-center py-12 text-gray-500">No items in the inventory yet.</div>
                         ) : [...medicines]
                             .filter(med => 
-                                med.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                (med.itemCode && med.itemCode.toLowerCase().includes(searchTerm.toLowerCase()))
+                                !activeSearch ||
+                                med.name.toLowerCase().includes(activeSearch.toLowerCase()) || 
+                                (med.itemCode && med.itemCode.toLowerCase().includes(activeSearch.toLowerCase()))
                             )
                             .sort((a, b) => a.name.localeCompare(b.name))
                             .map(med => {
@@ -384,16 +395,21 @@ export default function MedicinesPage() {
                                             Central: {med.centralStock}{med.minCentralStock ? ` (min ${med.minCentralStock})` : ''}
                                         </div>
 
-                                        {/* Branch Stock */}
-                                        {(med.branchStock || []).map(bs => (
-                                            <div key={bs.clinicId} className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border ${isBelowMin(bs.quantity, bs.minQuantity) || bs.quantity <= 0 ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
-                                                : isNearMin(bs.quantity, bs.minQuantity) || bs.quantity <= 5 ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400'
-                                                    : 'bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400'
-                                                }`}>
-                                                <MapPin className="w-3.5 h-3.5" />
-                                                {getClinicName(bs.clinicId)}: {bs.quantity}{bs.minQuantity ? ` (min ${bs.minQuantity})` : ''}
-                                            </div>
-                                        ))}
+                                        {/* All Branch Stock — show every clinic, defaulting to 0 if not in branchStock */}
+                                        {clinics.map(clinic => {
+                                            const bs = (med.branchStock || []).find(b => b.clinicId === clinic.id);
+                                            const qty = bs ? bs.quantity : 0;
+                                            const minQty = bs?.minQuantity;
+                                            return (
+                                                <div key={clinic.id} className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border ${isBelowMin(qty, minQty) || qty <= 0 ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
+                                                    : isNearMin(qty, minQty) || qty <= 5 ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400'
+                                                        : 'bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400'
+                                                    }`}>
+                                                    <MapPin className="w-3.5 h-3.5" />
+                                                    {clinic.name}: {qty}{minQty ? ` (min ${minQty})` : ''}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             );
