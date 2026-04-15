@@ -88,6 +88,55 @@ export interface DistributionRecord {
     notes?: string;
 }
 
+// ── 4-Step Stock Transfer ──────────────────────────────────────
+export type TransferStatus = 'requested' | 'approved' | 'in_transit' | 'received' | 'cancelled';
+
+export interface StockTransferRequest {
+    id: string;
+    medicineId: string;
+    fromLocation: string;       // 'central' | clinicId
+    toLocation: string;         // clinicId
+    quantity: number;
+    status: TransferStatus;
+    requestedBy: string;        // user display name
+    requestedAt: string;        // ISO datetime
+    approvedBy?: string;
+    approvedAt?: string;
+    dispatchedAt?: string;
+    receivedAt?: string;
+    notes?: string;
+    cancellationReason?: string;
+}
+
+// ── Expired Stock Quarantine ───────────────────────────────────
+export interface ExpiredStockRecord {
+    id: string;
+    medicineId: string;
+    medicineName: string;
+    quantity: number;
+    expiryDate: string;         // ISO date of original expiry
+    movedAt: string;            // ISO datetime when quarantined
+    movedBy: string;            // Super Admin display name
+    batchNumber?: string;
+    disposalDate?: string;      // When physically destroyed
+    disposalNotes?: string;
+    location: string;           // 'central' | clinicId — where it came from
+    year: number;               // Year for annual waste reporting
+}
+
+// ── Stock Adjustment Audit ─────────────────────────────────────
+export interface StockAdjustmentRecord {
+    id: string;
+    medicineId: string;
+    medicineName: string;
+    location: string;           // 'central' | clinicId
+    previousQty: number;
+    newQty: number;
+    adjustedBy: string;         // Supervisor/Admin display name
+    adjustedAt: string;         // ISO datetime
+    reason: string;             // Mandatory explanation
+}
+
 export interface Supplier {
     id: string;
     name: string;

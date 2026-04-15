@@ -1,4 +1,4 @@
-import { clinics as initialClinics, Clinic, Service, Medicine, medicineCatalog as initialMedicines, Supplier, initialSuppliers, PurchaseRecord, initialPurchases, DistributionRecord, RegisteredProduct, initialRegisteredProducts, InventoryBatch, BranchStockEntry } from './data';
+import { clinics as initialClinics, Clinic, Service, Medicine, medicineCatalog as initialMedicines, Supplier, initialSuppliers, PurchaseRecord, initialPurchases, DistributionRecord, RegisteredProduct, initialRegisteredProducts, InventoryBatch, BranchStockEntry, StockTransferRequest, TransferStatus, ExpiredStockRecord, StockAdjustmentRecord } from './data';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 // ── Clinics (shared backing store for Services + Doctors + Clinics) ─────
@@ -614,4 +614,233 @@ export const RegisteredProductStore = {
         }
         return false;
     }
+};
+
+// ── Stock Transfer Requests (4-step workflow) ─────────────────
+let transferStore: StockTransferRequest[] = [];
+async function ensureTransfersLoaded() {
+    transferStore = await loadFromBlob<StockTransferRequest[]>('stock-transfers', []);
+}
+
+export const StockTransferStore = {
+    getAll: async (): Promise<StockTransferRequest[]> => {
+        await ensureTransfersLoaded();
+        return [...transferStore].sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+    },
+
+    getByMedicine: async (medicineId: string): Promise<StockTransferRequest[]> => {
+        await ensureTransfersLoaded();
+        return transferStore.filter(t => t.medicineId === medicineId);
+    },
+
+    getActiveByMedicine: async (medicineId: string): Promise<StockTransferRequest[]> => {
+        await ensureTransfersLoaded();
+        return transferStore.filter(t => t.medicineId === medicineId && !['received', 'cancelled'].includes(t.status));
+    },
+
+    create: async (data: Omit<StockTransferRequest, 'id' | 'requestedAt' | 'status'>): Promise<StockTransferRequest> => {
+        await ensureTransfersLoaded();
+        const record: StockTransferRequest = {
+            ...data,
+            id: `tr-${Date.now()}`,
+            status: 'requested',
+            requestedAt: new Date().toISOString(),
+        };
+        transferStore.push(record);
+        await saveToBlob('stock-transfers', transferStore);
+        return record;
+    },
+
+    updateStatus: async (
+        id: string,
+        newStatus: TransferStatus,
+        actorName: string,
+        extra?: { cancellationReason?: string }
+    ): Promise<{ success: boolean; error?: string; record?: StockTransferRequest }> => {
+        await ensureTransfersLoaded();
+        const idx = transferStore.findIndex(t => t.id === id);
+        if (idx === -1) return { success: false, error: 'Transfer not found' };
+        const t = transferStore[idx];
+
+        // Validate transitions
+        const valid: Record<TransferStatus, TransferStatus[]> = {
+            requested: ['approved', 'cancelled'],
+            approved: ['in_transit', 'cancelled'],
+            in_transit: ['received', 'cancelled'],
+            received: [],
+            cancelled: [],
+        };
+        if (!valid[t.status].includes(newStatus)) {
+            return { success: false, error: `Cannot move from ${t.status} to ${newStatus}` };
+        }
+
+        // ── Stock mutations ──
+        if (newStatus === 'approved') {
+            // Deduct from source at approval
+            const ok = t.fromLocation === 'central'
+                ? await MedicineStore.deductStock(t.medicineId, t.quantity)
+                : await MedicineStore.deductStock(t.medicineId, t.quantity, t.fromLocation);
+            if (!ok) return { success: false, error: 'Insufficient stock at source location' };
+            t.approvedBy = actorName;
+            t.approvedAt = new Date().toISOString();
+        } else if (newStatus === 'in_transit') {
+            t.dispatchedAt = new Date().toISOString();
+        } else if (newStatus === 'received') {
+            // Credit to destination
+            await ensureMedicinesLoaded();
+            const med = medicineStore.find(m => m.id === t.medicineId);
+            if (!med) return { success: false, error: 'Medicine not found' };
+            const branch = med.branchStock.find(b => b.clinicId === t.toLocation);
+            if (branch) { branch.quantity += t.quantity; } else { med.branchStock.push({ clinicId: t.toLocation, quantity: t.quantity }); }
+            await saveToBlob('medicines', medicineStore);
+            t.receivedAt = new Date().toISOString();
+        } else if (newStatus === 'cancelled') {
+            // Refund source if stock was already deducted (approved or in_transit)
+            if (['approved', 'in_transit'].includes(t.status)) {
+                if (t.fromLocation === 'central') {
+                    await MedicineStore.addCentralStock(t.medicineId, t.quantity);
+                } else {
+                    await ensureMedicinesLoaded();
+                    const med = medicineStore.find(m => m.id === t.medicineId);
+                    if (med) {
+                        const branch = med.branchStock.find(b => b.clinicId === t.fromLocation);
+                        if (branch) { branch.quantity += t.quantity; } else { med.branchStock.push({ clinicId: t.fromLocation, quantity: t.quantity }); }
+                        await saveToBlob('medicines', medicineStore);
+                    }
+                }
+            }
+            if (extra?.cancellationReason) t.cancellationReason = extra.cancellationReason;
+        }
+
+        t.status = newStatus;
+        transferStore[idx] = t;
+        await saveToBlob('stock-transfers', transferStore);
+        return { success: true, record: t };
+    },
+};
+
+// ── Expired Stock Quarantine ─────────────────────────────────
+let expiredStockStore: ExpiredStockRecord[] = [];
+async function ensureExpiredStockLoaded() {
+    expiredStockStore = await loadFromBlob<ExpiredStockRecord[]>('expired-stock', []);
+}
+
+export const ExpiredStockStore = {
+    getAll: async (): Promise<ExpiredStockRecord[]> => {
+        await ensureExpiredStockLoaded();
+        return [...expiredStockStore].sort((a, b) => b.movedAt.localeCompare(a.movedAt));
+    },
+
+    getByYear: async (year: number): Promise<ExpiredStockRecord[]> => {
+        await ensureExpiredStockLoaded();
+        return expiredStockStore.filter(r => r.year === year);
+    },
+
+    add: async (data: {
+        medicineId: string;
+        medicineName: string;
+        quantity: number;
+        expiryDate: string;
+        location: string;
+        movedBy: string;
+        batchNumber?: string;
+    }): Promise<{ success: boolean; error?: string; record?: ExpiredStockRecord }> => {
+        await ensureExpiredStockLoaded();
+        await ensureMedicinesLoaded();
+
+        const med = medicineStore.find(m => m.id === data.medicineId);
+        if (!med) return { success: false, error: 'Medicine not found' };
+
+        // Deduct from location
+        if (data.location === 'central') {
+            if (med.centralStock < data.quantity) return { success: false, error: 'Insufficient central stock' };
+            med.centralStock -= data.quantity;
+        } else {
+            const branch = med.branchStock.find(b => b.clinicId === data.location);
+            if (!branch || branch.quantity < data.quantity) return { success: false, error: 'Insufficient branch stock' };
+            branch.quantity -= data.quantity;
+        }
+        await saveToBlob('medicines', medicineStore);
+
+        const record: ExpiredStockRecord = {
+            id: `exp-${Date.now()}`,
+            ...data,
+            movedAt: new Date().toISOString(),
+            year: new Date().getFullYear(),
+        };
+        expiredStockStore.push(record);
+        await saveToBlob('expired-stock', expiredStockStore);
+        return { success: true, record };
+    },
+
+    updateDisposal: async (id: string, disposalDate: string, disposalNotes: string): Promise<boolean> => {
+        await ensureExpiredStockLoaded();
+        const idx = expiredStockStore.findIndex(r => r.id === id);
+        if (idx === -1) return false;
+        expiredStockStore[idx].disposalDate = disposalDate;
+        expiredStockStore[idx].disposalNotes = disposalNotes;
+        await saveToBlob('expired-stock', expiredStockStore);
+        return true;
+    },
+};
+
+// ── Stock Adjustment Audit ─────────────────────────────────────
+let adjustmentStore: StockAdjustmentRecord[] = [];
+async function ensureAdjustmentsLoaded() {
+    adjustmentStore = await loadFromBlob<StockAdjustmentRecord[]>('stock-adjustments', []);
+}
+
+export const StockAdjustmentStore = {
+    getAll: async (): Promise<StockAdjustmentRecord[]> => {
+        await ensureAdjustmentsLoaded();
+        return [...adjustmentStore].sort((a, b) => b.adjustedAt.localeCompare(a.adjustedAt));
+    },
+
+    add: async (data: {
+        medicineId: string;
+        medicineName: string;
+        location: string;
+        newQty: number;
+        adjustedBy: string;
+        reason: string;
+    }): Promise<{ success: boolean; error?: string; record?: StockAdjustmentRecord }> => {
+        await ensureAdjustmentsLoaded();
+        await ensureMedicinesLoaded();
+
+        if (!data.reason?.trim()) return { success: false, error: 'Reason is required' };
+
+        const med = medicineStore.find(m => m.id === data.medicineId);
+        if (!med) return { success: false, error: 'Medicine not found' };
+
+        let previousQty: number;
+        if (data.location === 'central') {
+            previousQty = med.centralStock;
+            med.centralStock = data.newQty;
+        } else {
+            const branch = med.branchStock.find(b => b.clinicId === data.location);
+            if (branch) {
+                previousQty = branch.quantity;
+                branch.quantity = data.newQty;
+            } else {
+                previousQty = 0;
+                med.branchStock.push({ clinicId: data.location, quantity: data.newQty });
+            }
+        }
+        await saveToBlob('medicines', medicineStore);
+
+        const record: StockAdjustmentRecord = {
+            id: `adj-${Date.now()}`,
+            medicineId: data.medicineId,
+            medicineName: data.medicineName,
+            location: data.location,
+            previousQty,
+            newQty: data.newQty,
+            adjustedBy: data.adjustedBy,
+            adjustedAt: new Date().toISOString(),
+            reason: data.reason.trim(),
+        };
+        adjustmentStore.push(record);
+        await saveToBlob('stock-adjustments', adjustmentStore);
+        return { success: true, record };
+    },
 };
