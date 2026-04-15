@@ -85,7 +85,7 @@ export default function MedicinesPage() {
     /* ─── Load user from localStorage ─── */
     useEffect(() => {
         try {
-            const raw = localStorage.getItem('adminUser');
+            const raw = sessionStorage.getItem('adminUser');
             if (raw) {
                 const u = JSON.parse(raw);
                 setUserName(u.name || 'Admin');
