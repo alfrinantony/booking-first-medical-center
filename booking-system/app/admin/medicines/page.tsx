@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Pill, Package, CalendarClock, Warehouse, ArrowRightLeft, MapPin, AlertTriangle, BellOff, Bell, Hash, Boxes, Droplets, ClipboardCheck, Link2, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Edit2, Pill, Package, CalendarClock, Warehouse, ArrowRightLeft, MapPin, AlertTriangle, BellOff, Bell, Hash, Boxes, Droplets, ClipboardCheck, Link2, ExternalLink, Search } from 'lucide-react';
 import { Medicine, Clinic, RegisteredProduct, Supplier } from '@/lib/data';
 
 export default function MedicinesPage() {
@@ -14,6 +14,7 @@ export default function MedicinesPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDistributeOpen, setIsDistributeOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [newMedicine, setNewMedicine] = useState({ name: '', price: '', centralStock: '', expiryDate: '', category: 'medicine' as 'medicine' | 'consumable' | 'em_medicine', minCentralStock: '', itemCode: '', purchaseUnit: '', itemsPerPurchaseUnit: '', consumableUnit: '', registeredProductId: '', batchNumber: '', storedType: '', numberOfStoredType: '', consumableItemsInside: '', purchasedUnits: '' });
     const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
@@ -208,11 +209,21 @@ export default function MedicinesPage() {
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Inventory</h1>
                         <p className="text-gray-600 dark:text-gray-400">Medicines & consumables with per-branch stock tracking. Linked to Product Registry.</p>
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={() => setIsDistributeOpen(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-emerald-700 transition-colors">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                placeholder="Search by name or code..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                            />
+                        </div>
+                        <button onClick={() => setIsDistributeOpen(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors">
                             <ArrowRightLeft className="w-4 h-4" /> Distribute to Branch
                         </button>
-                        <button onClick={() => setIsAddModalOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-indigo-700 transition-colors">
+                        <button onClick={() => setIsAddModalOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors">
                             <Plus className="w-4 h-4" /> Add Item
                         </button>
                     </div>
@@ -223,7 +234,13 @@ export default function MedicinesPage() {
                     <div className="divide-y divide-gray-100 dark:divide-gray-700">
                         {medicines.length === 0 ? (
                             <div className="text-center py-12 text-gray-500">No items in the inventory yet.</div>
-                        ) : [...medicines].sort((a, b) => a.name.localeCompare(b.name)).map(med => {
+                        ) : [...medicines]
+                            .filter(med => 
+                                med.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                (med.itemCode && med.itemCode.toLowerCase().includes(searchTerm.toLowerCase()))
+                            )
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map(med => {
                             const rp = getRegisteredProduct(med);
                             return (
                                 <div key={med.id} className="p-5 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
@@ -352,6 +369,12 @@ export default function MedicinesPage() {
 
                                     {/* Stock Breakdown Row */}
                                     <div className="flex flex-wrap gap-2 ml-14">
+                                        {/* Total Stock */}
+                                        <div className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg border bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300 shadow-sm">
+                                            <Boxes className="w-4 h-4" />
+                                            Total Stock: {getTotalStock(med)}
+                                        </div>
+
                                         {/* Central Stock */}
                                         <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border ${isBelowMin(med.centralStock, med.minCentralStock) || med.centralStock <= 0 ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
                                             : isNearMin(med.centralStock, med.minCentralStock) || med.centralStock <= 10 ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400'

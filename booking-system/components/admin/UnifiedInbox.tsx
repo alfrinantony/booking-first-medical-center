@@ -161,7 +161,7 @@ export default function UnifiedInbox() {
     ];
 
     return (
-        <div className="flex flex-col h-[calc(100vh-6rem)]">
+        <div className="flex flex-col h-full bg-white dark:bg-gray-800">
             {/* Platform Tabs */}
             <div className="flex items-center gap-1.5 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
                 {platformTabs.map(tab => {
@@ -200,7 +200,7 @@ export default function UnifiedInbox() {
                 })}
             </div>
 
-            <div className="flex flex-1 bg-white dark:bg-gray-800 rounded-b-lg shadow overflow-hidden">
+            <div className="flex flex-1 overflow-hidden">
                 {/* Sidebar - Conversation List */}
                 <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 flex flex-col">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -444,7 +444,7 @@ export default function UnifiedInbox() {
                                                         AI Auto-Reply
                                                     </div>
                                                 )}
-                                                <p>{msg.content}</p>
+                                                <p className="break-words whitespace-pre-wrap">{msg.content}</p>
                                                 <div className={`text-[10px] mt-1 text-right ${isStaff ? (msg.isAutoReply ? 'text-purple-200' : 'text-indigo-200') : 'text-gray-400'}`}>
                                                     {format(new Date(msg.timestamp), 'h:mm a')}
                                                     {isStaff && msg.repliedByUserName && !msg.isAutoReply && (
