@@ -76,6 +76,7 @@ export default function MedicinesPage() {
     const [userName, setUserName] = useState('Admin');
     const [userRole, setUserRole] = useState<'SUPER_ADMIN' | 'ADMIN' | 'DOCTOR' | 'STAFF'>('ADMIN');
     const [canEditInventory, setCanEditInventory] = useState(false);
+    const [canApproveTransfer, setCanApproveTransfer] = useState(false);
 
     /* ── Print ref ── */
     const printAreaRef = useRef<HTMLDivElement>(null);
@@ -89,8 +90,11 @@ export default function MedicinesPage() {
                 setUserName(u.name || 'Admin');
                 setUserRole(u.role || 'ADMIN');
                 const isSuperAdmin = u.role === 'SUPER_ADMIN';
+                const isAdmin = u.role === 'ADMIN' || isSuperAdmin;
                 const hasEditPerm = Array.isArray(u.permissions?.inventory) && u.permissions.inventory.includes('edit');
                 setCanEditInventory(isSuperAdmin || hasEditPerm);
+                // Any admin (ADMIN or SUPER_ADMIN) can approve transfer requests
+                setCanApproveTransfer(isAdmin);
             }
         } catch { /* ignore */ }
     }, []);
@@ -569,7 +573,7 @@ export default function MedicinesPage() {
                                                                 <span><strong>{getClinicName(tr.fromLocation)}</strong> → <strong>{getClinicName(tr.toLocation)}</strong></span>
                                                                 <span className="text-gray-400">by {tr.requestedBy}</span>
                                                                 {/* Action buttons per status */}
-                                                                {tr.status === 'requested' && canEditInventory && (
+                                                                {tr.status === 'requested' && canApproveTransfer && (
                                                                     <button onClick={() => handleTransferAction(tr.id, 'approved')} className="ml-auto px-2 py-0.5 rounded bg-violet-600 text-white text-[10px] font-semibold hover:bg-violet-700 transition-colors" disabled={submitting}>Approve</button>
                                                                 )}
                                                                 {tr.status === 'approved' && canEditInventory && (
@@ -643,7 +647,7 @@ export default function MedicinesPage() {
                                                 {/* Action row */}
                                                 {!['received', 'cancelled'].includes(tr.status) && (
                                                     <div className="flex gap-2 mt-2">
-                                                        {tr.status === 'requested' && canEditInventory && <button onClick={() => handleTransferAction(tr.id, 'approved')} className="px-3 py-1 rounded bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700" disabled={submitting}>✓ Approve</button>}
+                                                        {tr.status === 'requested' && canApproveTransfer && <button onClick={() => handleTransferAction(tr.id, 'approved')} className="px-3 py-1 rounded bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700" disabled={submitting}>✓ Approve</button>}
                                                         {tr.status === 'approved' && canEditInventory && <button onClick={() => handleTransferAction(tr.id, 'in_transit')} className="px-3 py-1 rounded bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700" disabled={submitting}>🚚 Mark Dispatched</button>}
                                                         {tr.status === 'in_transit' && canEditInventory && <button onClick={() => handleTransferAction(tr.id, 'received')} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700" disabled={submitting}>📦 Mark Received</button>}
                                                         {isSuperAdmin && <button onClick={() => { const r = prompt('Cancellation reason:'); if (r !== null) handleTransferAction(tr.id, 'cancelled', r); }} className="px-3 py-1 rounded bg-red-100 text-red-700 text-xs font-semibold hover:bg-red-200" disabled={submitting}>✕ Cancel</button>}
