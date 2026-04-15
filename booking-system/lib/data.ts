@@ -98,14 +98,18 @@ export interface StockTransferRequest {
     toLocation: string;         // clinicId
     quantity: number;
     status: TransferStatus;
+    // ── Audit Trail ──────────────────────────────
     requestedBy: string;        // user display name
     requestedAt: string;        // ISO datetime
-    approvedBy?: string;
-    approvedAt?: string;
-    dispatchedAt?: string;
-    receivedAt?: string;
-    notes?: string;
+    approvedBy?: string;        // user who approved
+    approvedAt?: string;        // ISO datetime
+    transportedBy?: string;     // user who dispatched (marked in_transit)
+    dispatchedAt?: string;      // ISO datetime
+    receivedBy?: string;        // user who confirmed receipt
+    receivedAt?: string;        // ISO datetime
+    cancelledBy?: string;       // user who cancelled
     cancellationReason?: string;
+    notes?: string;
 }
 
 // ── Expired Stock Quarantine ───────────────────────────────────

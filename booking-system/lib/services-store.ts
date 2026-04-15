@@ -684,6 +684,7 @@ export const StockTransferStore = {
             t.approvedBy = actorName;
             t.approvedAt = new Date().toISOString();
         } else if (newStatus === 'in_transit') {
+            t.transportedBy = actorName;
             t.dispatchedAt = new Date().toISOString();
         } else if (newStatus === 'received') {
             // Credit to destination
@@ -693,6 +694,7 @@ export const StockTransferStore = {
             const branch = med.branchStock.find(b => b.clinicId === t.toLocation);
             if (branch) { branch.quantity += t.quantity; } else { med.branchStock.push({ clinicId: t.toLocation, quantity: t.quantity }); }
             await saveToBlob('medicines', medicineStore);
+            t.receivedBy = actorName;
             t.receivedAt = new Date().toISOString();
         } else if (newStatus === 'cancelled') {
             // Refund source if stock was already deducted (approved or in_transit)
@@ -709,6 +711,7 @@ export const StockTransferStore = {
                     }
                 }
             }
+            t.cancelledBy = actorName;
             if (extra?.cancellationReason) t.cancellationReason = extra.cancellationReason;
         }
 

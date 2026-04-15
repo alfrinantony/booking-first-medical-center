@@ -74,9 +74,10 @@ export default function MedicinesPage() {
 
     /* ── User/role ── */
     const [userName, setUserName] = useState('Admin');
+    const [userId, setUserId] = useState('');
+    const [userClinicIds, setUserClinicIds] = useState<string[]>([]);
     const [userRole, setUserRole] = useState<'SUPER_ADMIN' | 'ADMIN' | 'DOCTOR' | 'STAFF'>('ADMIN');
     const [canEditInventory, setCanEditInventory] = useState(false);
-    const [canApproveTransfer, setCanApproveTransfer] = useState(false);
 
     /* ── Print ref ── */
     const printAreaRef = useRef<HTMLDivElement>(null);
@@ -88,13 +89,12 @@ export default function MedicinesPage() {
             if (raw) {
                 const u = JSON.parse(raw);
                 setUserName(u.name || 'Admin');
+                setUserId(u.id || '');
+                setUserClinicIds(Array.isArray(u.clinicIds) ? u.clinicIds : []);
                 setUserRole(u.role || 'ADMIN');
                 const isSuperAdmin = u.role === 'SUPER_ADMIN';
-                const isAdmin = u.role === 'ADMIN' || isSuperAdmin;
                 const hasEditPerm = Array.isArray(u.permissions?.inventory) && u.permissions.inventory.includes('edit');
                 setCanEditInventory(isSuperAdmin || hasEditPerm);
-                // Any admin (ADMIN or SUPER_ADMIN) can approve transfer requests
-                setCanApproveTransfer(isAdmin);
             }
         } catch { /* ignore */ }
     }, []);
@@ -237,7 +237,7 @@ export default function MedicinesPage() {
         try {
             const res = await fetch('/api/admin/stock-transfers', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ medicineId: transferForm.medicineId, fromLocation: transferForm.fromLocation, toLocation: transferForm.toLocation, quantity: Number(transferForm.quantity), requestedBy: userName, notes: transferForm.notes || undefined })
+                body: JSON.stringify({ medicineId: transferForm.medicineId, fromLocation: transferForm.fromLocation, toLocation: transferForm.toLocation, quantity: Number(transferForm.quantity), requestedBy: userName, requesterId: userId, notes: transferForm.notes || undefined })
             });
             if (res.ok) { await fetchTransfers(); await fetchMedicines(); setIsTransferModalOpen(false); setTransferForm({ medicineId: '', fromLocation: 'central', toLocation: '', quantity: '', notes: '' }); }
             else { const err = await res.json(); alert(err.error || 'Failed to create transfer'); }
@@ -249,7 +249,7 @@ export default function MedicinesPage() {
         try {
             const res = await fetch('/api/admin/stock-transfers', {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, status, actorName: userName, cancellationReason: reason })
+                body: JSON.stringify({ id, status, actorName: userName, actorId: userId, cancellationReason: reason })
             });
             if (res.ok) { await fetchTransfers(); await fetchMedicines(); }
             else { const err = await res.json(); alert(err.error || 'Failed'); }
@@ -313,6 +313,29 @@ export default function MedicinesPage() {
     if (loading) return <div className="p-8 text-gray-500">Loading inventory...</div>;
 
     const isSuperAdmin = userRole === 'SUPER_ADMIN';
+
+    /* ── Branch-based transfer permission helpers ── */
+    // Returns true if the logged-in user can approve or dispatch a transfer (= assigned to SENDING branch)
+    const canApproveOrDispatch = (tr: StockTransferRequest) => {
+        if (isSuperAdmin) return true;
+        if (tr.fromLocation === 'central') return canEditInventory; // central managed by inventory editors
+        return userClinicIds.includes(tr.fromLocation);
+    };
+    // Returns true if the logged-in user can confirm receipt (= assigned to RECEIVING branch)
+    const canReceiveTransfer = (tr: StockTransferRequest) => {
+        if (isSuperAdmin) return true;
+        return userClinicIds.includes(tr.toLocation);
+    };
+    // Clinics the current user is allowed to request stock for (= their branches)
+    const requestableToClinics = isSuperAdmin ? clinics : clinics.filter(c => userClinicIds.includes(c.id));
+
+    /* ── Audit timeline format helper ── */
+    const fmtDT = (iso?: string) => {
+        if (!iso) return null;
+        const d = new Date(iso);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
+            d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    };
 
     /* ─── Filtered medicines ─── */
     const filteredMeds = [...medicines]
@@ -572,14 +595,14 @@ export default function MedicinesPage() {
                                                                 <ChevronRight className="w-3 h-3 text-gray-400" />
                                                                 <span><strong>{getClinicName(tr.fromLocation)}</strong> → <strong>{getClinicName(tr.toLocation)}</strong></span>
                                                                 <span className="text-gray-400">by {tr.requestedBy}</span>
-                                                                {/* Action buttons per status */}
-                                                                {tr.status === 'requested' && canApproveTransfer && (
+                                                                {/* Action buttons per status — branch-RBAC enforced */}
+                                                                {tr.status === 'requested' && canApproveOrDispatch(tr) && (
                                                                     <button onClick={() => handleTransferAction(tr.id, 'approved')} className="ml-auto px-2 py-0.5 rounded bg-violet-600 text-white text-[10px] font-semibold hover:bg-violet-700 transition-colors" disabled={submitting}>Approve</button>
                                                                 )}
-                                                                {tr.status === 'approved' && canEditInventory && (
+                                                                {tr.status === 'approved' && canApproveOrDispatch(tr) && (
                                                                     <button onClick={() => handleTransferAction(tr.id, 'in_transit')} className="ml-auto px-2 py-0.5 rounded bg-amber-600 text-white text-[10px] font-semibold hover:bg-amber-700 transition-colors" disabled={submitting}>Dispatch</button>
                                                                 )}
-                                                                {tr.status === 'in_transit' && canEditInventory && (
+                                                                {tr.status === 'in_transit' && canReceiveTransfer(tr) && (
                                                                     <button onClick={() => handleTransferAction(tr.id, 'received')} className="ml-auto px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-semibold hover:bg-emerald-700 transition-colors" disabled={submitting}>Confirm Received</button>
                                                                 )}
                                                                 {['requested', 'approved', 'in_transit'].includes(tr.status) && isSuperAdmin && (
@@ -622,13 +645,34 @@ export default function MedicinesPage() {
                                                         </div>
                                                         <div className="text-xs text-gray-500 flex flex-wrap gap-2">
                                                             <span><strong>{getClinicName(tr.fromLocation)}</strong> → <strong>{getClinicName(tr.toLocation)}</strong></span>
-                                                            <span>Requested by {tr.requestedBy} on {new Date(tr.requestedAt).toLocaleDateString()}</span>
-                                                            {tr.approvedBy && <span>Approved by {tr.approvedBy}</span>}
-                                                            {tr.dispatchedAt && <span>Dispatched {new Date(tr.dispatchedAt).toLocaleDateString()}</span>}
-                                                            {tr.receivedAt && <span>Received {new Date(tr.receivedAt).toLocaleDateString()}</span>}
-                                                            {tr.cancellationReason && <span className="text-red-500">Cancelled: {tr.cancellationReason}</span>}
+                                                            {tr.notes && <span className="text-gray-400">Note: {tr.notes}</span>}
                                                         </div>
-                                                        {tr.notes && <p className="text-xs text-gray-400 mt-0.5">Note: {tr.notes}</p>}
+
+                                                        {/* ── Full Audit Timeline ── */}
+                                                        <div className="mt-2 space-y-1">
+                                                            {[
+                                                                { label: 'Requested by', actor: tr.requestedBy, time: tr.requestedAt, color: 'text-blue-600', dot: 'bg-blue-500' },
+                                                                { label: 'Approved by', actor: tr.approvedBy, time: tr.approvedAt, color: 'text-violet-600', dot: 'bg-violet-500' },
+                                                                { label: 'Dispatched by', actor: tr.transportedBy, time: tr.dispatchedAt, color: 'text-amber-600', dot: 'bg-amber-500' },
+                                                                { label: 'Received by', actor: tr.receivedBy, time: tr.receivedAt, color: 'text-emerald-600', dot: 'bg-emerald-500' },
+                                                                { label: 'Cancelled by', actor: tr.cancelledBy, time: undefined, color: 'text-red-600', dot: 'bg-red-500' },
+                                                            ].map((step, si2) => (
+                                                                (step.actor || step.time) ? (
+                                                                    <div key={si2} className="flex items-start gap-2 text-[11px]">
+                                                                        <span className={`mt-0.5 flex-shrink-0 w-2 h-2 rounded-full ${step.dot}`} />
+                                                                        <span className={`font-semibold ${step.color}`}>{step.label}:</span>
+                                                                        <span className="text-gray-700 dark:text-gray-300 font-medium">{step.actor || '—'}</span>
+                                                                        {step.time && <span className="text-gray-400 ml-auto whitespace-nowrap">{fmtDT(step.time)}</span>}
+                                                                    </div>
+                                                                ) : null
+                                                            ))}
+                                                            {tr.cancellationReason && (
+                                                                <div className="flex items-center gap-2 text-[11px] text-red-500">
+                                                                    <span className="w-2 h-2 rounded-full bg-red-300 flex-shrink-0" />
+                                                                    <span>Reason: {tr.cancellationReason}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     {/* Step progress bar */}
                                                     {tr.status !== 'cancelled' && (
@@ -644,12 +688,12 @@ export default function MedicinesPage() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                {/* Action row */}
+                                                {/* Action row — branch-RBAC enforced */}
                                                 {!['received', 'cancelled'].includes(tr.status) && (
                                                     <div className="flex gap-2 mt-2">
-                                                        {tr.status === 'requested' && canApproveTransfer && <button onClick={() => handleTransferAction(tr.id, 'approved')} className="px-3 py-1 rounded bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700" disabled={submitting}>✓ Approve</button>}
-                                                        {tr.status === 'approved' && canEditInventory && <button onClick={() => handleTransferAction(tr.id, 'in_transit')} className="px-3 py-1 rounded bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700" disabled={submitting}>🚚 Mark Dispatched</button>}
-                                                        {tr.status === 'in_transit' && canEditInventory && <button onClick={() => handleTransferAction(tr.id, 'received')} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700" disabled={submitting}>📦 Mark Received</button>}
+                                                        {tr.status === 'requested' && canApproveOrDispatch(tr) && <button onClick={() => handleTransferAction(tr.id, 'approved')} className="px-3 py-1 rounded bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700" disabled={submitting}>✓ Approve</button>}
+                                                        {tr.status === 'approved' && canApproveOrDispatch(tr) && <button onClick={() => handleTransferAction(tr.id, 'in_transit')} className="px-3 py-1 rounded bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700" disabled={submitting}>🚚 Mark Dispatched</button>}
+                                                        {tr.status === 'in_transit' && canReceiveTransfer(tr) && <button onClick={() => handleTransferAction(tr.id, 'received')} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700" disabled={submitting}>📦 Mark Received</button>}
                                                         {isSuperAdmin && <button onClick={() => { const r = prompt('Cancellation reason:'); if (r !== null) handleTransferAction(tr.id, 'cancelled', r); }} className="px-3 py-1 rounded bg-red-100 text-red-700 text-xs font-semibold hover:bg-red-200" disabled={submitting}>✕ Cancel</button>}
                                                     </div>
                                                 )}
