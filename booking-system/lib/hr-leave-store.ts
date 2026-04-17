@@ -199,6 +199,36 @@ export async function updateLeaveStatus(id: string, status: LeaveStatus, approve
     return lr;
 }
 
+/** Super Admin only: update any field on a leave request */
+export async function updateLeaveRecord(
+    id: string,
+    patch: {
+        leaveType?: LeaveType;
+        startDate?: string;
+        endDate?: string;
+        totalDays?: number;
+        reason?: string;
+        status?: LeaveStatus;
+        approvedBy?: string;
+        rejectedReason?: string;
+    }
+): Promise<LeaveRequest | null> {
+    await ensureLeaveLoaded();
+    const lr = leaveRequests.find(l => l.id === id);
+    if (!lr) return null;
+    if (patch.leaveType !== undefined) lr.leaveType = patch.leaveType;
+    if (patch.startDate !== undefined) lr.startDate = patch.startDate;
+    if (patch.endDate !== undefined) lr.endDate = patch.endDate;
+    if (patch.totalDays !== undefined) lr.totalDays = patch.totalDays;
+    if (patch.reason !== undefined) lr.reason = patch.reason;
+    if (patch.status !== undefined) lr.status = patch.status;
+    if (patch.approvedBy !== undefined) lr.approvedBy = patch.approvedBy;
+    if (patch.rejectedReason !== undefined) lr.rejectedReason = patch.rejectedReason;
+    lr.updatedAt = new Date().toISOString();
+    await saveLeave();
+    return lr;
+}
+
 export async function createLeavePlanning(data: Omit<LeavePlanning, 'id' | 'createdAt'>): Promise<LeavePlanning> {
     await ensureLeaveLoaded();
     const lp: LeavePlanning = {

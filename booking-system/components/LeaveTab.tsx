@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { CalendarDays, Clock, Trash2, AlertTriangle } from 'lucide-react';
+import { CalendarDays, Clock, Trash2, AlertTriangle, Edit2, Save, X, ShieldCheck } from 'lucide-react';
 import { LEAVE_TYPES, UAE_LEAVE_RULES } from '@/lib/hr-leave-store';
 import type { Employee } from '@/lib/hr-store';
 import type { LeaveRequest, LeavePlanning, LeaveType, LeaveStatus } from '@/lib/hr-leave-store';
@@ -11,6 +11,20 @@ export default function LeaveTab({ employeeId, employee }: { employeeId: string;
     const [showRequestForm, setShowRequestForm] = useState(false);
     const [showPlanForm, setShowPlanForm] = useState(false);
     const [loadingLeave, setLoadingLeave] = useState(true);
+
+    // Super admin detection
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    const [adminName, setAdminName] = useState('Admin');
+
+    // Edit state
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState<{
+        leaveType: LeaveType;
+        startDate: string;
+        endDate: string;
+        reason: string;
+        status: LeaveStatus;
+    }>({ leaveType: 'Annual Leave', startDate: '', endDate: '', reason: '', status: 'APPROVED' });
 
     // Request form
     const [reqType, setReqType] = useState<LeaveType>('Annual Leave');
@@ -23,6 +37,18 @@ export default function LeaveTab({ employeeId, employee }: { employeeId: string;
     const [planStart, setPlanStart] = useState('');
     const [planEnd, setPlanEnd] = useState('');
     const [planNotes, setPlanNotes] = useState('');
+
+    // Read session on mount
+    useEffect(() => {
+        try {
+            const raw = sessionStorage.getItem('adminUser');
+            if (raw) {
+                const u = JSON.parse(raw);
+                setIsSuperAdmin(u.role === 'SUPER_ADMIN');
+                setAdminName(u.name || 'Admin');
+            }
+        } catch { /* ignore */ }
+    }, []);
 
     const loadLeave = useCallback(async () => {
         setLoadingLeave(true);
@@ -57,8 +83,43 @@ export default function LeaveTab({ employeeId, employee }: { employeeId: string;
         await fetch('/api/admin/hr/leave', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'updateStatus', id, status, approvedBy: 'Admin' }),
+            body: JSON.stringify({ action: 'updateStatus', id, status, approvedBy: adminName }),
         });
+        loadLeave();
+    };
+
+    // Super Admin: open edit form for any leave record
+    const startEdit = (lr: LeaveRequest) => {
+        setEditingId(lr.id);
+        setEditForm({
+            leaveType: lr.leaveType,
+            startDate: lr.startDate,
+            endDate: lr.endDate,
+            reason: lr.reason,
+            status: lr.status,
+        });
+    };
+
+    // Super Admin: save edits
+    const saveEdit = async () => {
+        if (!editingId) return;
+        const days = calcDays(editForm.startDate, editForm.endDate);
+        await fetch('/api/admin/hr/leave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'updateLeave',
+                id: editingId,
+                leaveType: editForm.leaveType,
+                startDate: editForm.startDate,
+                endDate: editForm.endDate,
+                totalDays: days,
+                reason: editForm.reason,
+                status: editForm.status,
+                approvedBy: editForm.status === 'APPROVED' ? adminName : undefined,
+            }),
+        });
+        setEditingId(null);
         loadLeave();
     };
 
@@ -108,6 +169,16 @@ export default function LeaveTab({ employeeId, employee }: { employeeId: string;
                     <div><strong>Paternity/Parental:</strong> 5 paid days</div>
                 </div>
             </div>
+
+            {/* Super Admin Badge */}
+            {isSuperAdmin && (
+                <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-2.5">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                        <strong>Super Admin Mode:</strong> You can edit any leave record, including approved ones, by clicking the <Edit2 className="w-3 h-3 inline" /> button.
+                    </p>
+                </div>
+            )}
 
             {/* Absent Warning */}
             {b.absentWarning && (
@@ -243,34 +314,141 @@ export default function LeaveTab({ employeeId, employee }: { employeeId: string;
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {leaveData.requests.map(lr => (
-                                    <tr key={lr.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                                        <td className="p-3 font-medium">{lr.leaveType}</td>
-                                        <td className="p-3 text-gray-500">{lr.startDate} → {lr.endDate}</td>
-                                        <td className="p-3 text-center">{lr.totalDays}</td>
-                                        <td className="p-3 text-gray-500 max-w-[200px] truncate">{lr.reason}</td>
-                                        <td className="p-3 text-center">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[lr.status]}`}>
-                                                {lr.status}
-                                            </span>
-                                        </td>
-                                        <td className="p-3 text-center">
-                                            {lr.status === 'PENDING' && (
-                                                <div className="flex gap-1 justify-center">
-                                                    <button onClick={() => updateStatus(lr.id, 'APPROVED')}
-                                                        className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
-                                                        ✓ Approve
-                                                    </button>
-                                                    <button onClick={() => updateStatus(lr.id, 'REJECTED')}
-                                                        className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">
-                                                        ✗ Reject
-                                                    </button>
+                                    <React.Fragment key={lr.id}>
+                                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                            <td className="p-3 font-medium">{lr.leaveType}</td>
+                                            <td className="p-3 text-gray-500">{lr.startDate} → {lr.endDate}</td>
+                                            <td className="p-3 text-center">{lr.totalDays}</td>
+                                            <td className="p-3 text-gray-500 max-w-[200px] truncate">{lr.reason}</td>
+                                            <td className="p-3 text-center">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[lr.status]}`}>
+                                                    {lr.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                <div className="flex gap-1 justify-center items-center">
+                                                    {/* Approve / Reject for PENDING */}
+                                                    {lr.status === 'PENDING' && (
+                                                        <>
+                                                            <button onClick={() => updateStatus(lr.id, 'APPROVED')}
+                                                                className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
+                                                                ✓ Approve
+                                                            </button>
+                                                            <button onClick={() => updateStatus(lr.id, 'REJECTED')}
+                                                                className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">
+                                                                ✗ Reject
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {/* For non-PENDING, show approvedBy info */}
+                                                    {lr.status !== 'PENDING' && (
+                                                        <span className="text-xs text-gray-400">{lr.approvedBy ? `by ${lr.approvedBy}` : '—'}</span>
+                                                    )}
+                                                    {/* Super Admin: Edit button for ALL statuses */}
+                                                    {isSuperAdmin && editingId !== lr.id && (
+                                                        <button
+                                                            onClick={() => startEdit(lr)}
+                                                            className="ml-1 p-1.5 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors"
+                                                            title="Edit leave record (Super Admin)"
+                                                        >
+                                                            <Edit2 className="w-3 h-3" />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            )}
-                                            {lr.status !== 'PENDING' && (
-                                                <span className="text-xs text-gray-400">{lr.approvedBy ? `by ${lr.approvedBy}` : '—'}</span>
-                                            )}
-                                        </td>
-                                    </tr>
+                                            </td>
+                                        </tr>
+
+                                        {/* Inline Edit Form (Super Admin only) */}
+                                        {isSuperAdmin && editingId === lr.id && (
+                                            <tr>
+                                                <td colSpan={6} className="px-3 pb-3">
+                                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4">
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <ShieldCheck className="w-4 h-4 text-amber-600" />
+                                                            <h4 className="font-semibold text-xs text-amber-800 dark:text-amber-300 uppercase tracking-wide">
+                                                                Super Admin — Edit Leave Record
+                                                            </h4>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Leave Type</label>
+                                                                <select
+                                                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                                                    value={editForm.leaveType}
+                                                                    onChange={e => setEditForm({ ...editForm, leaveType: e.target.value as LeaveType })}
+                                                                >
+                                                                    {LEAVE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
+                                                                <input
+                                                                    type="date"
+                                                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                                                    value={editForm.startDate}
+                                                                    onChange={e => setEditForm({ ...editForm, startDate: e.target.value })}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+                                                                <input
+                                                                    type="date"
+                                                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                                                    value={editForm.endDate}
+                                                                    onChange={e => setEditForm({ ...editForm, endDate: e.target.value })}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Days</label>
+                                                                <input
+                                                                    readOnly
+                                                                    className="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-600 text-sm font-mono"
+                                                                    value={calcDays(editForm.startDate, editForm.endDate)}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                                                                <select
+                                                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                                                    value={editForm.status}
+                                                                    onChange={e => setEditForm({ ...editForm, status: e.target.value as LeaveStatus })}
+                                                                >
+                                                                    <option value="PENDING">PENDING</option>
+                                                                    <option value="APPROVED">APPROVED</option>
+                                                                    <option value="REJECTED">REJECTED</option>
+                                                                    <option value="CANCELLED">CANCELLED</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-3">
+                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Reason</label>
+                                                            <textarea
+                                                                rows={2}
+                                                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                                                value={editForm.reason}
+                                                                onChange={e => setEditForm({ ...editForm, reason: e.target.value })}
+                                                                placeholder="Leave reason..."
+                                                            />
+                                                        </div>
+                                                        <div className="flex justify-end gap-2 mt-3">
+                                                            <button
+                                                                onClick={() => setEditingId(null)}
+                                                                className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                                                            >
+                                                                <X className="w-3 h-3" /> Cancel
+                                                            </button>
+                                                            <button
+                                                                onClick={saveEdit}
+                                                                className="flex items-center gap-1 px-4 py-1.5 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700 font-medium transition-colors"
+                                                            >
+                                                                <Save className="w-3 h-3" /> Save Changes
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 ))}
                             </tbody>
                         </table>

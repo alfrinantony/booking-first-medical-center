@@ -6,6 +6,7 @@ import {
     getLeaveBalance,
     createLeaveRequest,
     updateLeaveStatus,
+    updateLeaveRecord,
     createLeavePlanning,
     deleteLeavePlanning,
     UAE_LEAVE_RULES,
@@ -44,6 +45,22 @@ export async function POST(req: NextRequest) {
 
     if (action === 'updateStatus') {
         const lr = await updateLeaveStatus(body.id, body.status as LeaveStatus, body.approvedBy, body.rejectedReason);
+        if (!lr) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        return NextResponse.json(lr);
+    }
+
+    // Super Admin: edit all fields of an approved (or any) leave record
+    if (action === 'updateLeave') {
+        const lr = await updateLeaveRecord(body.id, {
+            leaveType: body.leaveType as LeaveType | undefined,
+            startDate: body.startDate,
+            endDate: body.endDate,
+            totalDays: body.totalDays,
+            reason: body.reason,
+            status: body.status as LeaveStatus | undefined,
+            approvedBy: body.approvedBy,
+            rejectedReason: body.rejectedReason,
+        });
         if (!lr) return NextResponse.json({ error: 'Not found' }, { status: 404 });
         return NextResponse.json(lr);
     }
