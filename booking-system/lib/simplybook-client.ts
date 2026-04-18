@@ -1,102 +1,122 @@
 /**
- * SimplyBook.me JSON-RPC Public API Client
- * Docs: https://user-api.simplybook.it/
+ * SimplyBook.me JSON-RPC Client
+ * Supports both Public API and Admin API.
  *
- * Authentication flow:
- *   1. POST /login → getToken(company, apiKey) → returns token (valid ~1 hour)
- *   2. All subsequent calls use headers: X-Company-Login + X-User-Token
+ * Public API:  https://user-api.simplybook.it/
+ * Admin API:   https://user-api.simplybook.it/admin/
+ *
+ * Auth flow (public):  getToken(company, apiKey)
+ * Auth flow (admin):   getUserToken(company, adminLogin, adminPassword)
  */
 
 const LOGIN_ENDPOINT = 'https://user-api.simplybook.it/login';
-const API_ENDPOINT = 'https://user-api.simplybook.it/';
+const PUBLIC_ENDPOINT = 'https://user-api.simplybook.it/';
+const ADMIN_ENDPOINT = 'https://user-api.simplybook.it/admin/';
 
 const COMPANY = process.env.SIMPLYBOOK_COMPANY_LOGIN || 'firstmedicalcenter';
 const API_KEY = process.env.SIMPLYBOOK_API_KEY || '';
+const ADMIN_LOGIN = process.env.SIMPLYBOOK_ADMIN_LOGIN || '';
+const ADMIN_PASSWORD = process.env.SIMPLYBOOK_ADMIN_PASSWORD || '';
 
-// ── In-memory token cache (per cold-start) ──
-let cachedToken: string | null = null;
-let tokenExpiresAt = 0; // epoch ms
+// ── Token cache ──
+let publicToken: string | null = null;
+let publicTokenExpiresAt = 0;
 
-async function rpcCall(endpoint: string, method: string, params: unknown[], headers: Record<string, string> = {}): Promise<unknown> {
-    const body = JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method,
-        params,
-    });
+let adminToken: string | null = null;
+let adminTokenExpiresAt = 0;
 
+// ── Core RPC helper ──
+async function rpcCall(
+    endpoint: string,
+    method: string,
+    params: unknown[],
+    headers: Record<string, string> = {}
+): Promise<unknown> {
     const res = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...headers,
-        },
-        body,
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
         cache: 'no-store',
     });
 
     if (!res.ok) {
-        throw new Error(`SimplyBook HTTP error ${res.status}: ${await res.text()}`);
+        const text = await res.text();
+        throw new Error(`SimplyBook HTTP ${res.status}: ${text}`);
     }
 
     const json = await res.json() as { result?: unknown; error?: { message: string; code: number } };
-
-    if (json.error) {
-        throw new Error(`SimplyBook RPC error [${json.error.code}]: ${json.error.message}`);
-    }
-
+    if (json.error) throw new Error(`SimplyBook RPC [${json.error.code}]: ${json.error.message}`);
     return json.result;
 }
 
-/**
- * Get (or refresh) the public user token.
- * Tokens are cached for 55 minutes to avoid repeated auth calls.
- */
-export async function getToken(): Promise<string> {
+// ── Public token ──
+export async function getPublicToken(): Promise<string> {
     const now = Date.now();
-    if (cachedToken && now < tokenExpiresAt) {
-        return cachedToken;
-    }
-
-    const token = await rpcCall(LOGIN_ENDPOINT, 'getToken', [COMPANY, API_KEY]) as string;
-    cachedToken = token;
-    tokenExpiresAt = now + 55 * 60 * 1000; // 55 minutes
-    return token;
+    if (publicToken && now < publicTokenExpiresAt) return publicToken;
+    publicToken = await rpcCall(LOGIN_ENDPOINT, 'getToken', [COMPANY, API_KEY]) as string;
+    publicTokenExpiresAt = now + 55 * 60 * 1000;
+    return publicToken;
 }
 
-/**
- * Make an authenticated call to the public SimplyBook API.
- */
+// ── Admin token ──
+export async function getAdminToken(): Promise<string> {
+    const now = Date.now();
+    if (adminToken && now < adminTokenExpiresAt) return adminToken;
+    adminToken = await rpcCall(LOGIN_ENDPOINT, 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]) as string;
+    adminTokenExpiresAt = now + 55 * 60 * 1000;
+    return adminToken;
+}
+
+// ── Authenticated callers ──
 export async function callPublic(method: string, params: unknown[] = []): Promise<unknown> {
-    const token = await getToken();
-    return rpcCall(API_ENDPOINT, method, params, {
+    const token = await getPublicToken();
+    return rpcCall(PUBLIC_ENDPOINT, method, params, {
         'X-Company-Login': COMPANY,
         'X-User-Token': token,
     });
 }
 
-// ── Typed helper interfaces ──
+export async function callAdmin(method: string, params: unknown[] = []): Promise<unknown> {
+    const token = await getAdminToken();
+    return rpcCall(ADMIN_ENDPOINT, method, params, {
+        'X-Company-Login': COMPANY,
+        'X-User-Token': token,
+    });
+}
 
+// ── Typed interfaces ──
 export interface SimplyBookBookingDetail {
     id: string | number;
-    record_date: string;        // "2026-04-18"
-    start_date_time: string;    // "2026-04-18 10:00:00"
+    record_date?: string;
+    start_date_time: string;
     end_date_time: string;
     event_id: string | number;
     unit_id: string | number;
-    client_id: string | number;
-    // Client info
+    client_id?: string | number;
+    client?: Record<string, string>;
+    status?: string;
+    booking_hash?: string;
+    [key: string]: unknown;
+}
+
+export interface SimplyBookAdminBooking {
+    id: string | number;
+    start_date_time: string;
+    end_date_time: string;
+    event_id: string | number;
+    event_name?: string;
+    unit_id: string | number;
+    unit_name?: string;
+    client_id?: string | number;
     client?: {
         name?: string;
         email?: string;
         phone?: string;
+        id?: string | number;
     };
-    // Service / provider resolved names (populated by us)
-    serviceName?: string;
-    providerName?: string;
-    // Status from SimplyBook
-    status?: string;
-    // Raw additional fields
+    status?: string;        // "confirmed", "canceled", "pending", etc.
+    booking_hash?: string;
+    record_date?: string;   // creation date
     [key: string]: unknown;
 }
 
@@ -104,8 +124,7 @@ export interface SimplyBookEvent {
     id: string | number;
     name: string;
     duration: number;
-    price: string | number;
-    category_id?: string | number;
+    price?: string | number;
 }
 
 export interface SimplyBookUnit {
@@ -113,26 +132,48 @@ export interface SimplyBookUnit {
     name: string;
 }
 
-/**
- * Get booking details using booking_id and booking_hash (provided by webhook).
- * Uses the public getBookingDetails method.
- */
+// ── Admin: fetch bookings by date range ──
+export async function getAdminBookings(
+    dateFrom: string,   // "YYYY-MM-DD"
+    dateTo: string,
+    limit = 200,
+    skip = 0
+): Promise<SimplyBookAdminBooking[]> {
+    try {
+        const filter = {
+            date_from: dateFrom,
+            date_to: dateTo,
+        };
+        const result = await callAdmin('getBookings', [filter, limit, skip]);
+        if (Array.isArray(result)) return result as SimplyBookAdminBooking[];
+        if (result && typeof result === 'object') return Object.values(result) as SimplyBookAdminBooking[];
+        return [];
+    } catch (err) {
+        console.error('[SimplyBook] getAdminBookings failed:', err);
+        throw err;
+    }
+}
+
+// ── Public: single booking by hash (for webhook) ──
 export async function getBookingDetailsByHash(
     bookingId: string,
     bookingHash: string
 ): Promise<SimplyBookBookingDetail | null> {
     try {
-        const result = await callPublic('getBookingDetails', [bookingId, bookingHash]);
-        return result as SimplyBookBookingDetail;
-    } catch (err) {
-        console.error('[SimplyBook] getBookingDetails failed:', err);
-        return null;
+        return await callPublic('getBookingDetails', [bookingId, bookingHash]) as SimplyBookBookingDetail;
+    } catch {
+        // Fallback: try admin single booking lookup
+        try {
+            const result = await callAdmin('getBookingDetails', [bookingId]) as SimplyBookBookingDetail;
+            return result;
+        } catch (err2) {
+            console.error('[SimplyBook] getBookingDetails fallback failed:', err2);
+            return null;
+        }
     }
 }
 
-/**
- * Get list of all services (events).
- */
+// ── Service & Provider lists (public) ──
 export async function getServiceList(): Promise<SimplyBookEvent[]> {
     try {
         const result = await callPublic('getEventList', [false, true]) as unknown;
@@ -145,9 +186,6 @@ export async function getServiceList(): Promise<SimplyBookEvent[]> {
     }
 }
 
-/**
- * Get list of all providers (units / practitioners).
- */
 export async function getProviderList(): Promise<SimplyBookUnit[]> {
     try {
         const result = await callPublic('getUnitList', [false, true]) as unknown;

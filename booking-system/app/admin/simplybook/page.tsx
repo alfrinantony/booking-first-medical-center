@@ -210,13 +210,21 @@ export default function SimplyBookPage() {
     const handleManualSync = async () => {
         setSyncing(true);
         try {
-            const res = await fetch('/api/admin/simplybook?sync=true');
-            if (res.ok) {
-                setLastSync(new Date().toLocaleTimeString('en-AE'));
+            const params = new URLSearchParams({ sync: 'true', from: dateFrom, to: dateTo });
+            const res = await fetch(`/api/admin/simplybook?${params}`);
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setLastSync(`${new Date().toLocaleTimeString('en-AE')} (${data.synced} bookings)`);
+            } else {
+                console.error('Sync error:', data);
             }
             await fetchBookings();
             await fetchStats();
-        } catch { /* ignore */ } finally { setSyncing(false); }
+        } catch (err) {
+            console.error('Sync failed:', err);
+        } finally {
+            setSyncing(false);
+        }
     };
 
     // Debounced search re-fetch
@@ -258,7 +266,7 @@ export default function SimplyBookPage() {
                             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow transition-colors disabled:opacity-50"
                         >
                             <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                            {syncing ? 'Syncing...' : 'Sync Services'}
+                            {syncing ? 'Importing...' : 'Import from SimplyBook'}
                         </button>
                         <a
                             href="https://firstmedicalcenter.secure.simplybook.it/v2/management/"
