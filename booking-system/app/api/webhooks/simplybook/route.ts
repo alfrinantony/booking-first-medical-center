@@ -2,136 +2,166 @@
  * SimplyBook.me Webhook Handler
  * POST /api/webhooks/simplybook
  *
- * SimplyBook sends a raw POST with JSON payload on every booking event.
- * Payload fields:
- *   booking_id        — SimplyBook booking ID
- *   booking_hash      — hash for public API lookup
- *   company           — company login (for verification)
- *   notification_type — "create" | "change" | "cancel" | "notify"
+ * SimplyBook fires this on every booking event.
+ * Strategy:
+ *   1. Parse ALL fields SimplyBook sends (it sends more than just id/hash)
+ *   2. Save a record IMMEDIATELY from the payload (never drop a booking)
+ *   3. Attempt to enrich via public API getBookingDetails — update if successful
  *
- * Setup in SimplyBook admin:
- *   Plugins → API → Callback URL: https://ai.dubaifmc.com/api/webhooks/simplybook
+ * Callback URL to set in SimplyBook:
+ *   https://ai.dubaifmc.com/api/webhooks/simplybook
  */
 
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { getBookingDetailsByHash, getServiceList, getProviderList } from '@/lib/simplybook-client';
+import { getBookingDetailsByHash } from '@/lib/simplybook-client';
 import { SimplybookStore, SimplybookRecord } from '@/lib/simplybook-store';
 
 const EXPECTED_COMPANY = process.env.SIMPLYBOOK_COMPANY_LOGIN || 'firstmedicalcenter';
 
-function deriveStatus(notificationType: string, rawStatus?: string): SimplybookRecord['status'] {
-    if (notificationType === 'cancel') return 'cancelled';
-    if (notificationType === 'create') return 'confirmed';
-    if (notificationType === 'change') return 'confirmed';
-    if (rawStatus === 'canceled' || rawStatus === 'cancelled') return 'cancelled';
-    return 'pending';
+// ── Parse raw payload (JSON or form-encoded) ──
+async function parsePayload(request: NextRequest): Promise<Record<string, unknown>> {
+    const contentType = request.headers.get('content-type') || '';
+    const text = await request.text();
+    if (!text) return {};
+
+    if (contentType.includes('application/json')) {
+        try { return JSON.parse(text); } catch { return {}; }
+    }
+
+    // form-encoded fallback
+    const params = new URLSearchParams(text);
+    const obj: Record<string, unknown> = {};
+    params.forEach((v, k) => { obj[k] = v; });
+
+    // SimplyBook also embeds JSON in a "data" field sometimes
+    if (obj.data && typeof obj.data === 'string') {
+        try { Object.assign(obj, JSON.parse(obj.data as string)); } catch { /* ignore */ }
+    }
+
+    return obj;
+}
+
+function deriveStatus(notifType: string, rawStatus?: string): SimplybookRecord['status'] {
+    if (notifType === 'cancel') return 'cancelled';
+    const s = String(rawStatus || '').toLowerCase();
+    if (s.includes('cancel')) return 'cancelled';
+    if (s.includes('pending') || s.includes('new')) return 'pending';
+    return 'confirmed';
+}
+
+function parseDateTime(dt: string): { date: string; time: string } {
+    if (!dt) return { date: '', time: '' };
+    const [date = '', time = ''] = dt.split(' ');
+    return { date, time: time.substring(0, 5) };
 }
 
 export async function POST(request: NextRequest) {
     try {
-        // ── Parse body ──
-        let payload: { booking_id?: string; booking_hash?: string; company?: string; notification_type?: string };
-        try {
-            payload = await request.json();
-        } catch {
-            const text = await request.text();
-            // SimplyBook sometimes sends form-encoded data
-            const params = new URLSearchParams(text);
-            payload = {
-                booking_id: params.get('booking_id') || undefined,
-                booking_hash: params.get('booking_hash') || undefined,
-                company: params.get('company') || undefined,
-                notification_type: params.get('notification_type') || undefined,
-            };
+        const payload = await parsePayload(request);
+        console.log('[SimplyBook webhook] Received payload:', JSON.stringify(payload).substring(0, 500));
+
+        const bookingId  = String(payload.booking_id  || payload.id        || '');
+        const bookingHash = String(payload.booking_hash || payload.hash    || '');
+        const company    = String(payload.company      || EXPECTED_COMPANY);
+        const notifType  = String(payload.notification_type || payload.action || 'create');
+
+        if (!bookingId) {
+            console.warn('[SimplyBook webhook] No booking_id in payload');
+            return NextResponse.json({ ok: false, error: 'Missing booking_id' }, { status: 400 });
         }
 
-        const { booking_id, booking_hash, company, notification_type } = payload;
-
-        // ── Validate ──
-        if (!booking_id || !booking_hash) {
-            console.warn('[SimplyBook webhook] Missing booking_id or booking_hash');
-            return NextResponse.json({ ok: false, error: 'Missing fields' }, { status: 400 });
-        }
-
-        if (company && company !== EXPECTED_COMPANY) {
-            console.warn(`[SimplyBook webhook] Company mismatch: received "${company}"`);
+        if (company !== EXPECTED_COMPANY) {
             return NextResponse.json({ ok: false, error: 'Company mismatch' }, { status: 403 });
         }
 
-        const notifType = notification_type || 'create';
-
-        // ── Handle cancel (no need to fetch details) ──
+        // ── Handle cancel immediately ──
         if (notifType === 'cancel') {
-            await SimplybookStore.cancel(String(booking_id));
-            console.log(`[SimplyBook webhook] Cancelled booking ${booking_id}`);
-            return NextResponse.json({ ok: true, action: 'cancelled' });
+            await SimplybookStore.cancel(bookingId);
+            console.log(`[SimplyBook webhook] Cancelled booking ${bookingId}`);
+            return NextResponse.json({ ok: true, action: 'cancelled', bookingId });
         }
 
-        // ── Fetch full booking details ──
-        const detail = await getBookingDetailsByHash(String(booking_id), String(booking_hash));
+        // ── Extract whatever fields SimplyBook included in payload ──
+        // SimplyBook includes inline client/service data in newer API versions
+        const clientData  = (payload.client  as Record<string, string>) || {};
+        const rawStart    = String(payload.start_date_time || payload.date_time || payload.start_time || '');
+        const rawEnd      = String(payload.end_date_time   || payload.end_time  || '');
+        const { date, time } = parseDateTime(rawStart);
 
-        if (!detail) {
-            // Still acknowledge but log the error
-            console.error(`[SimplyBook webhook] Could not fetch details for booking ${booking_id}`);
-            return NextResponse.json({ ok: true, action: 'acknowledged_no_detail' });
-        }
-
-        // ── Resolve service & provider names ──
-        const [services, providers] = await Promise.all([getServiceList(), getProviderList()]);
-
-        const service = services.find(s => String(s.id) === String(detail.event_id));
-        const provider = providers.find(p => String(p.id) === String(detail.unit_id));
-
-        // ── Parse date/time ──
-        const startDT: string = (detail.start_date_time as string) || '';
-        const endDT: string = (detail.end_date_time as string) || '';
-        const [dateStr = '', timeStr = ''] = startDT.split(' ');
-
-        // ── Extract client info ──
-        const client = (detail.client as Record<string, string>) || {};
-        const clientName = client.name || client.fname ? `${client.fname || ''} ${client.lname || ''}`.trim() : '';
-        const clientEmail = client.email || '';
-        const clientPhone = client.phone || '';
-
-        // ── Upsert into store ──
-        const record: SimplybookRecord = {
-            sbId: String(booking_id),
-            sbHash: String(booking_hash),
-            company: company || EXPECTED_COMPANY,
-            startDateTime: startDT,
-            endDateTime: endDT,
-            date: dateStr,
-            time: timeStr.substring(0, 5), // "HH:MM"
-            eventId: String(detail.event_id),
-            unitId: String(detail.unit_id),
-            serviceName: service?.name || `Service #${detail.event_id}`,
-            providerName: provider?.name || `Provider #${detail.unit_id}`,
-            clientId: String(detail.client_id || ''),
-            clientName: clientName || `Client #${detail.client_id}`,
-            clientEmail,
-            clientPhone,
-            status: deriveStatus(notifType, String(detail.status || '')),
+        const minimalRecord: SimplybookRecord = {
+            sbId:           bookingId,
+            sbHash:         bookingHash,
+            company,
+            startDateTime:  rawStart,
+            endDateTime:    rawEnd,
+            date:           date || new Date().toISOString().split('T')[0],
+            time,
+            eventId:        String(payload.event_id  || payload.service_id || ''),
+            unitId:         String(payload.unit_id   || payload.staff_id   || ''),
+            serviceName:    String(payload.event_name || payload.service_name || `Booking #${bookingId}`),
+            providerName:   String(payload.unit_name  || payload.staff_name   || 'Staff'),
+            clientId:       String(payload.client_id  || clientData.id || ''),
+            clientName:     String(clientData.name    || payload.client_name  || `Client`),
+            clientEmail:    String(clientData.email   || payload.client_email || ''),
+            clientPhone:    String(clientData.phone   || payload.client_phone || ''),
+            status:         deriveStatus(notifType, String(payload.status || '')),
             notificationType: notifType,
-            receivedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            raw: detail as Record<string, unknown>,
+            receivedAt:     new Date().toISOString(),
+            updatedAt:      new Date().toISOString(),
+            raw:            payload,
         };
 
-        await SimplybookStore.upsert(record);
+        // ── Save immediately — never drop a booking ──
+        await SimplybookStore.upsert(minimalRecord);
+        console.log(`[SimplyBook webhook] Saved minimal record for booking ${bookingId}`);
 
-        console.log(`[SimplyBook webhook] Processed booking ${booking_id} (${notifType}) — ${record.clientName} @ ${startDT}`);
+        // ── Try to enrich with full details from public API ──
+        if (bookingHash) {
+            try {
+                const detail = await getBookingDetailsByHash(bookingId, bookingHash);
+                if (detail) {
+                    const enrichedStart = String(detail.start_date_time || rawStart);
+                    const enrichedEnd   = String(detail.end_date_time   || rawEnd);
+                    const { date: eDate, time: eTime } = parseDateTime(enrichedStart);
+                    const dc = (detail.client as Record<string, string>) || {};
 
-        return NextResponse.json({ ok: true, action: notifType, bookingId: booking_id });
+                    const enriched: SimplybookRecord = {
+                        ...minimalRecord,
+                        startDateTime: enrichedStart,
+                        endDateTime:   enrichedEnd,
+                        date:          eDate || minimalRecord.date,
+                        time:          eTime || minimalRecord.time,
+                        eventId:       String(detail.event_id || minimalRecord.eventId),
+                        unitId:        String(detail.unit_id  || minimalRecord.unitId),
+                        clientId:      String(detail.client_id || minimalRecord.clientId),
+                        clientName:    dc.name || (dc.fname ? `${dc.fname} ${dc.lname || ''}`.trim() : minimalRecord.clientName),
+                        clientEmail:   dc.email || minimalRecord.clientEmail,
+                        clientPhone:   dc.phone || minimalRecord.clientPhone,
+                        status:        deriveStatus(notifType, String(detail.status || '')),
+                        raw:           detail as Record<string, unknown>,
+                        updatedAt:     new Date().toISOString(),
+                    };
+
+                    await SimplybookStore.upsert(enriched);
+                    console.log(`[SimplyBook webhook] Enriched booking ${bookingId} — ${enriched.clientName} @ ${enrichedStart}`);
+                }
+            } catch (enrichErr) {
+                // Don't fail — minimal record is already saved
+                console.warn(`[SimplyBook webhook] Enrichment failed for ${bookingId}:`, enrichErr);
+            }
+        }
+
+        return NextResponse.json({ ok: true, action: notifType, bookingId });
 
     } catch (err) {
         console.error('[SimplyBook webhook] Unhandled error:', err);
-        // Always return 200 to avoid SimplyBook retry storms
+        // Always 200 to avoid SimplyBook retry storms
         return NextResponse.json({ ok: false, error: String(err) }, { status: 200 });
     }
 }
 
-// SimplyBook may send a GET ping to verify the URL
+// SimplyBook pings GET to verify the URL is reachable
 export async function GET() {
     return NextResponse.json({ ok: true, service: 'SimplyBook Webhook Receiver', status: 'active' });
 }
