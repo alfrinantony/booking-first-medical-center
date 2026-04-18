@@ -6,7 +6,7 @@ import {
     Stethoscope, CheckCircle, XCircle, AlertCircle, Loader2,
     Phone, Mail, Hash, ChevronRight, X, Wifi, WifiOff, Filter
 } from 'lucide-react';
-import { SimplybookRecord } from '@/lib/simplybook-store';
+import type { SimplybookRecord } from '@/lib/simplybook-store';
 
 // ── Types ──
 type StatusFilter = 'all' | 'confirmed' | 'cancelled' | 'pending';
