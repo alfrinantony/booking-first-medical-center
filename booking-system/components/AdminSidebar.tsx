@@ -75,10 +75,18 @@ export default function AdminSidebar() {
             )}
 
             {hasRead('appointments') && (
-                <Link href="/admin/appointments" className={mainLinkClass('/admin/appointments')}>
-                    <Calendar className="w-4 h-4 shrink-0" />
-                    Appointments
-                </Link>
+                <>
+                    <Link href="/admin/appointments" className={mainLinkClass('/admin/appointments')}>
+                        <Calendar className="w-4 h-4 shrink-0" />
+                        Appointments
+                    </Link>
+                    {user?.role === 'SUPER_ADMIN' && (
+                        <Link href="/admin/simplybook" className={subLinkClass('/admin/simplybook')}>
+                            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                            SimplyBook Sync
+                        </Link>
+                    )}
+                </>
             )}
 
             {hasRead('clients') && (
