@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Plus, Search, Edit2, Trash2, ArrowLeftRight, History, AlertTriangle, Wrench,
-    Package, MapPin, Filter, X, ChevronDown, ChevronUp, Calendar, Shield
+    Package, MapPin, Filter, X, ChevronDown, ChevronUp, Calendar, Shield, Printer
 } from 'lucide-react';
 import { User } from '@/lib/users-types';
 
@@ -264,6 +264,204 @@ export default function EquipmentPage() {
         return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${s?.color || ''}`}>{s?.label || status}</span>;
     };
 
+    const handlePrintItem = (item: EquipmentItem) => {
+        const statusLabel = (s: string) => STATUS_OPTIONS.find(o => o.value === s)?.label || s;
+        const statusColor = (s: string) => {
+            if (s === 'active') return '#15803d';
+            if (s === 'maintenance') return '#b45309';
+            if (s === 'damaged') return '#dc2626';
+            return '#6b7280';
+        };
+        const statusBg = (s: string) => {
+            if (s === 'active') return '#dcfce7';
+            if (s === 'maintenance') return '#fef3c7';
+            if (s === 'damaged') return '#fee2e2';
+            return '#f3f4f6';
+        };
+        const isLow = item.quantity <= item.lowStockThreshold && item.status === 'active';
+        const warrantyExpired = item.warrantyExpiry && new Date(item.warrantyExpiry) < today;
+        const field = (label: string, value: string, highlight?: string) =>
+            `<div class="field">
+                <div class="field-label">${label}</div>
+                <div class="field-value" ${highlight ? `style="color:${highlight}"` : ''}>${value || '—'}</div>
+            </div>`;
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Equipment Detail — ${item.name}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; background: #fff; padding: 32px; font-size: 12px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #4f46e5; }
+  .header-left h1 { font-size: 22px; font-weight: 800; color: #1e1b4b; margin-bottom: 2px; }
+  .header-left p { font-size: 11px; color: #6b7280; }
+  .meta { text-align: right; font-size: 10px; color: #6b7280; line-height: 1.6; }
+  .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; margin-top: 8px; }
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 10px; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #e0e7ff; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }
+  .field-label { font-size: 9px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .field-value { font-size: 13px; font-weight: 600; color: #1f2937; }
+  .alert-box { border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .alert-box.red { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
+  .alert-box.amber { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; }
+  .notes-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #374151; min-height: 50px; }
+  .footer { margin-top: 28px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+  @media print { body { padding: 16px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <h1>🏥 Equipment Detail Report</h1>
+    <p>Dubai First Medical Center — Equipment Management System</p>
+    <div class="status-badge" style="background:${statusBg(item.status)};color:${statusColor(item.status)}">${statusLabel(item.status)}</div>
+  </div>
+  <div class="meta">
+    <div><strong>Printed:</strong> ${new Date().toLocaleString()}</div>
+    <div><strong>Branch:</strong> ${branchName(item.branchId)}</div>
+    <div><strong>ID:</strong> ${item.id}</div>
+  </div>
+</div>
+
+${isLow ? `<div class="alert-box red">⚠ Low Stock Alert — Quantity (${item.quantity}) is at or below threshold (${item.lowStockThreshold})</div>` : ''}
+${warrantyExpired ? `<div class="alert-box amber">⏰ Warranty Expired — expired on ${item.warrantyExpiry}</div>` : ''}
+
+<div class="section">
+  <div class="section-title">Equipment Information</div>
+  <div class="grid">
+    ${field('Equipment Name', item.name)}
+    ${field('Brand / Model', item.brand)}
+    ${field('Serial Number', item.serialNumber)}
+    ${field('Category', item.category)}
+    ${field('Branch / Location', branchName(item.branchId))}
+    ${field('Assigned Department', item.assignedDepartment)}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Stock & Status</div>
+  <div class="grid">
+    ${field('Quantity', String(item.quantity), isLow ? '#dc2626' : undefined)}
+    ${field('Low Stock Threshold', String(item.lowStockThreshold))}
+    ${field('Status', statusLabel(item.status), statusColor(item.status))}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Dates & Warranty</div>
+  <div class="grid">
+    ${field('Purchase Date', item.purchaseDate)}
+    ${field('Warranty Expiry', item.warrantyExpiry, warrantyExpired ? '#dc2626' : undefined)}
+    ${field('Next Maintenance', item.nextMaintenanceDate || '')}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Notes</div>
+  <div class="notes-box">${item.notes || 'No notes recorded.'}</div>
+</div>
+
+<div class="footer">Dubai First Medical Center · Confidential · Generated by Equipment Management System</div>
+<script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`;
+
+        const win = window.open('', '_blank', 'width=900,height=700');
+        if (win) { win.document.write(html); win.document.close(); }
+    };
+
+    const handlePrint = () => {
+        const statusLabel = (s: string) => STATUS_OPTIONS.find(o => o.value === s)?.label || s;
+        const filterDesc = [
+            filterBranch ? `Branch: ${branchName(filterBranch)}` : 'All Branches',
+            filterCategory ? `Category: ${filterCategory}` : 'All Categories',
+            filterStatus ? `Status: ${statusLabel(filterStatus)}` : 'All Statuses',
+            searchTerm ? `Search: "${searchTerm}"` : '',
+        ].filter(Boolean).join(' · ');
+
+        const rows = filtered.map(item => {
+            const isLow = item.quantity <= item.lowStockThreshold && item.status === 'active';
+            const warrantyExpired = item.warrantyExpiry && new Date(item.warrantyExpiry) < today;
+            return `<tr>
+                <td>${item.name}${item.brand ? `<br/><small style="color:#6b7280">${item.brand}</small>` : ''}${item.serialNumber ? `<br/><small style="color:#6b7280">SN: ${item.serialNumber}</small>` : ''}</td>
+                <td>${item.category}</td>
+                <td>${branchName(item.branchId)}</td>
+                <td style="text-align:center;font-weight:bold;color:${isLow ? '#dc2626' : '#111827'}">${item.quantity}${isLow ? ' ⚠' : ''}</td>
+                <td>${statusLabel(item.status)}</td>
+                <td style="color:${warrantyExpired ? '#dc2626' : '#374151'};${warrantyExpired ? 'text-decoration:line-through' : ''}">${item.warrantyExpiry || '—'}</td>
+                <td>${item.nextMaintenanceDate || '—'}</td>
+                <td>${item.notes || '—'}</td>
+            </tr>`;
+        }).join('');
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Equipment Inventory Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; background: #fff; padding: 24px; font-size: 11px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid #4f46e5; }
+  .header h1 { font-size: 20px; font-weight: 700; color: #1e1b4b; }
+  .header p { font-size: 10px; color: #6b7280; margin-top: 3px; }
+  .meta { text-align: right; font-size: 10px; color: #6b7280; }
+  .stats { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat-card { background: #f5f3ff; border: 1px solid #e0e7ff; border-radius: 8px; padding: 10px 16px; min-width: 100px; text-align: center; }
+  .stat-card .val { font-size: 22px; font-weight: 700; color: #4f46e5; }
+  .stat-card .lbl { font-size: 9px; color: #6366f1; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .stat-card.amber .val { color: #d97706; } .stat-card.amber { background: #fffbeb; border-color: #fde68a; } .stat-card.amber .lbl { color: #d97706; }
+  .stat-card.red .val { color: #dc2626; } .stat-card.red { background: #fef2f2; border-color: #fecaca; } .stat-card.red .lbl { color: #dc2626; }
+  .stat-card.blue .val { color: #2563eb; } .stat-card.blue { background: #eff6ff; border-color: #bfdbfe; } .stat-card.blue .lbl { color: #2563eb; }
+  .filters { font-size: 10px; color: #6b7280; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 10px; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #4f46e5; color: #fff; }
+  thead th { padding: 7px 8px; text-align: left; font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+  tbody tr:nth-child(even) { background: #f9fafb; }
+  tbody tr:hover { background: #f5f3ff; }
+  td { padding: 6px 8px; vertical-align: top; border-bottom: 1px solid #f3f4f6; font-size: 10.5px; }
+  small { font-size: 9px; }
+  .footer { margin-top: 20px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>🏥 Equipment Inventory Report</h1>
+    <p>Dubai First Medical Center — Equipment Management System</p>
+  </div>
+  <div class="meta">
+    <div>Printed: ${new Date().toLocaleString()}</div>
+    <div>Total shown: ${filtered.length} item(s)</div>
+  </div>
+</div>
+<div class="stats">
+  <div class="stat-card"><div class="val">${totalCount}</div><div class="lbl">Total Items</div></div>
+  ${branchCounts.map(b => `<div class="stat-card blue"><div class="val">${b.count}</div><div class="lbl">${b.name.replace(' Branch', '')}</div></div>`).join('')}
+  <div class="stat-card amber"><div class="val">${maintenanceCount}</div><div class="lbl">Maintenance</div></div>
+  <div class="stat-card red"><div class="val">${damagedCount}</div><div class="lbl">Damaged</div></div>
+  <div class="stat-card amber"><div class="val">${lowStockItems.length}</div><div class="lbl">Low Stock</div></div>
+</div>
+<div class="filters">🔍 Filters applied: ${filterDesc}</div>
+<table>
+<thead><tr>
+  <th>Equipment</th><th>Category</th><th>Branch</th><th>Qty</th><th>Status</th><th>Warranty</th><th>Next Maintenance</th><th>Notes</th>
+</tr></thead>
+<tbody>${rows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#9ca3af">No records found</td></tr>'}</tbody>
+</table>
+<div class="footer">Dubai First Medical Center · Confidential · Generated by Equipment Management System</div>
+<script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`;
+
+        const win = window.open('', '_blank', 'width=1100,height=750');
+        if (win) { win.document.write(html); win.document.close(); }
+    };
+
     // ── Form fields (shared by Add and Edit) ──
     const renderFormFields = () => (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -362,17 +560,23 @@ export default function EquipmentPage() {
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Equipment Inventory</h1>
                         <p className="text-gray-500 dark:text-gray-400 text-sm">Track, manage, and transfer equipment across all branches</p>
                     </div>
-                    <button onClick={() => { 
-                        const allowedBranches = BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id));
-                        setFormData({
-                            ...emptyForm,
-                            branchId: allowedBranches.length > 0 ? allowedBranches[0].id : ''
-                        }); 
-                        setShowAddModal(true); 
-                    }}
-                        className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm">
-                        <Plus className="w-4 h-4" /> Add Equipment
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={handlePrint}
+                            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                            <Printer className="w-4 h-4" /> Print
+                        </button>
+                        <button onClick={() => { 
+                            const allowedBranches = BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id));
+                            setFormData({
+                                ...emptyForm,
+                                branchId: allowedBranches.length > 0 ? allowedBranches[0].id : ''
+                            }); 
+                            setShowAddModal(true); 
+                        }}
+                            className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm">
+                            <Plus className="w-4 h-4" /> Add Equipment
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Alerts ── */}
@@ -538,6 +742,10 @@ export default function EquipmentPage() {
                                                     <button onClick={() => openHistory(item)} title="History"
                                                         className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors">
                                                         <History className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button onClick={() => handlePrintItem(item)} title="Print Details"
+                                                        className="p-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 text-violet-500 transition-colors">
+                                                        <Printer className="w-3.5 h-3.5" />
                                                     </button>
                                                     <button onClick={() => handleDelete(item.id)} title="Delete"
                                                         className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors">
