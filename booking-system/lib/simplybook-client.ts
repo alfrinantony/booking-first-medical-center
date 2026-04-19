@@ -2,10 +2,12 @@
  * SimplyBook.me API Client
  *
  * Auth strategy:
- *   We use getToken(company, apiKey) — NOT getUserToken — because getUserToken
- *   is blocked when the Google Authenticator plugin is active on the account.
- *   getToken works with the API key alone and grants access to both public
- *   and admin API methods without triggering the 2FA restriction.
+ *   Admin calls use getUserToken(company, login, userApiKey) where the "password"
+ *   is the User API Key generated in SimplyBook → Account Info → User Api Keys.
+ *   User API Keys bypass the Google Authenticator 2FA restriction and email
+ *   verification, while still granting full admin API access.
+ *
+ *   Public calls use getToken(company, apiKey) for catalogue/booking widget methods.
  *
  * Endpoints:
  *   Login:  https://user-api.simplybook.it/login
@@ -19,12 +21,17 @@ const PUBLIC_ENDPOINT = 'https://user-api.simplybook.it/';
 const ADMIN_ENDPOINT  = 'https://user-api.simplybook.it/admin/';
 
 // ── Credentials ──
-const COMPANY = process.env.SIMPLYBOOK_COMPANY_LOGIN || 'firstmedicalcenter';
-const API_KEY = process.env.SIMPLYBOOK_API_KEY       || '';
+const COMPANY        = process.env.SIMPLYBOOK_COMPANY_LOGIN  || 'firstmedicalcenter';
+const API_KEY        = process.env.SIMPLYBOOK_API_KEY        || '';
+const ADMIN_LOGIN    = process.env.SIMPLYBOOK_ADMIN_LOGIN    || '';
+const ADMIN_PASSWORD = process.env.SIMPLYBOOK_ADMIN_PASSWORD || ''; // Use User API Key here
 
-// ── Token cache (single token used for both public & admin calls) ──
-let cachedToken: string | null = null;
-let tokenExpiresAt = 0;
+// ── Token caches ──
+let publicToken: string | null = null;
+let publicTokenExpiresAt = 0;
+
+let adminToken: string | null = null;
+let adminTokenExpiresAt = 0;
 
 // ── Core JSON-RPC helper ──
 async function rpcCall(
@@ -45,22 +52,28 @@ async function rpcCall(
     return json.result;
 }
 
-// ── Get API token via getToken(company, apiKey) — no 2FA required ──
-export async function getApiToken(): Promise<string> {
+// ── Public token via getToken(company, apiKey) ──
+export async function getPublicToken(): Promise<string> {
     const now = Date.now();
-    if (cachedToken && now < tokenExpiresAt) return cachedToken;
-    cachedToken = await rpcCall(LOGIN_ENDPOINT, 'getToken', [COMPANY, API_KEY]) as string;
-    tokenExpiresAt = now + 55 * 60 * 1000; // 55-minute cache
-    return cachedToken;
+    if (publicToken && now < publicTokenExpiresAt) return publicToken;
+    publicToken = await rpcCall(LOGIN_ENDPOINT, 'getToken', [COMPANY, API_KEY]) as string;
+    publicTokenExpiresAt = now + 55 * 60 * 1000;
+    return publicToken;
 }
 
-// ── Keep backward-compat exports ──
-export const getPublicToken = getApiToken;
-export const getAdminToken  = getApiToken;
+// ── Admin token via getUserToken(company, login, userApiKey) ──
+// Uses User API Key as "password" — bypasses Google Authenticator 2FA
+export async function getAdminToken(): Promise<string> {
+    const now = Date.now();
+    if (adminToken && now < adminTokenExpiresAt) return adminToken;
+    adminToken = await rpcCall(LOGIN_ENDPOINT, 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]) as string;
+    adminTokenExpiresAt = now + 55 * 60 * 1000;
+    return adminToken;
+}
 
 // ── Authenticated call to PUBLIC endpoint ──
 export async function callPublic(method: string, params: unknown[] = []): Promise<unknown> {
-    const token = await getApiToken();
+    const token = await getPublicToken();
     return rpcCall(PUBLIC_ENDPOINT, method, params, {
         'X-Company-Login': COMPANY,
         'X-User-Token':    token,
@@ -69,7 +82,7 @@ export async function callPublic(method: string, params: unknown[] = []): Promis
 
 // ── Authenticated call to ADMIN endpoint ──
 export async function callAdmin(method: string, params: unknown[] = []): Promise<unknown> {
-    const token = await getApiToken();
+    const token = await getAdminToken();
     return rpcCall(ADMIN_ENDPOINT, method, params, {
         'X-Company-Login': COMPANY,
         'X-User-Token':    token,
@@ -192,10 +205,9 @@ export async function getBookingDetailsByHash(
     }
 }
 
-// ── Service & Provider lists ──
+// ── Service list (try admin first for all services, fallback to public) ──
 export async function getServiceList(): Promise<SimplyBookEvent[]> {
     try {
-        // Try admin first (returns all services), fall back to public
         const result = await callAdmin('getEventList', []) as unknown;
         if (Array.isArray(result)) return result as SimplyBookEvent[];
         if (result && typeof result === 'object') return Object.values(result) as SimplyBookEvent[];
@@ -213,9 +225,9 @@ export async function getServiceList(): Promise<SimplyBookEvent[]> {
     }
 }
 
+// ── Provider list (try admin first, fallback to public) ──
 export async function getProviderList(): Promise<SimplyBookUnit[]> {
     try {
-        // Try admin first (returns all providers), fall back to public
         const result = await callAdmin('getUnitList', []) as unknown;
         if (Array.isArray(result)) return result as SimplyBookUnit[];
         if (result && typeof result === 'object') return Object.values(result) as SimplyBookUnit[];
