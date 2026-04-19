@@ -52,7 +52,7 @@ async function rpcCall(
     return json.result;
 }
 
-// ── Public token via getToken(company, apiKey) ──
+// ── Public token via getToken(company, apiKey) — no 2FA required ──
 export async function getPublicToken(): Promise<string> {
     const now = Date.now();
     if (publicToken && now < publicTokenExpiresAt) return publicToken;
@@ -61,13 +61,35 @@ export async function getPublicToken(): Promise<string> {
     return publicToken;
 }
 
-// ── Admin token via getUserToken(company, login, userApiKey) ──
-// Uses User API Key as "password" — bypasses Google Authenticator 2FA
+// ── Admin token ──
+// Primary: getUserToken(company, login, userApiKey) — full admin access
+// Fallback: getToken(company, apiKey) — used when 2FA blocks getUserToken
 export async function getAdminToken(): Promise<string> {
     const now = Date.now();
     if (adminToken && now < adminTokenExpiresAt) return adminToken;
-    adminToken = await rpcCall(LOGIN_ENDPOINT, 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]) as string;
+
+    // Try admin login first
+    if (ADMIN_LOGIN && ADMIN_PASSWORD) {
+        try {
+            adminToken = await rpcCall(LOGIN_ENDPOINT, 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]) as string;
+            adminTokenExpiresAt = now + 55 * 60 * 1000;
+            console.log('[SimplyBook] Admin token obtained via getUserToken');
+            return adminToken;
+        } catch (err) {
+            const msg = String(err);
+            // If blocked by 2FA / Google Authenticator, fall through to public token
+            if (msg.includes('-32000') || msg.includes('Authenticator') || msg.includes('two-factor')) {
+                console.warn('[SimplyBook] getUserToken blocked by 2FA, falling back to getToken');
+            } else {
+                throw err; // Re-throw non-2FA errors
+            }
+        }
+    }
+
+    // Fallback: use public API key token (works against admin endpoint too)
+    adminToken = await rpcCall(LOGIN_ENDPOINT, 'getToken', [COMPANY, API_KEY]) as string;
     adminTokenExpiresAt = now + 55 * 60 * 1000;
+    console.log('[SimplyBook] Admin token obtained via getToken (fallback)');
     return adminToken;
 }
 
