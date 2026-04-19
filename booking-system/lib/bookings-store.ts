@@ -97,6 +97,38 @@ export const BookingsStore = {
         return bookings.find(b => b.id === id);
     },
 
+    /**
+     * Lightweight insert for SimplyBook-sourced bookings.
+     * Skips medicine/consumable stock deduction (handled by SimplyBook).
+     * Tags the booking with source='simplybook' and sbId for traceability.
+     */
+    addSimplyBook: async (booking: Omit<Booking, 'id' | 'createdAt'> & { source?: string; sbId?: string }) => {
+        await ensureLoaded();
+        // Prevent duplicates: if a booking with this sbId already exists, return it
+        const { source: _s, sbId, ...rest } = booking as any;
+        if (sbId) {
+            const existing = bookings.find(b => (b as any).sbId === sbId);
+            if (existing) return existing;
+        }
+        const newBooking: Booking = {
+            ...rest,
+            id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
+            createdAt: new Date().toISOString(),
+            statusHistory: [{
+                timestamp: new Date().toISOString(),
+                oldStatus: '',
+                newStatus: booking.status || 'confirmed',
+                changedBy: 'SimplyBook Sync',
+            }],
+            // Store extra fields on the object (TypeScript ignores extra props at runtime)
+            ...(sbId ? { sbId } : {}),
+            ...(source ? { source: 'simplybook' } : {}),
+        } as Booking & { sbId?: string; source?: string };
+        bookings.push(newBooking);
+        await saveToBlob('bookings', bookings);
+        return newBooking;
+    },
+
     update: async (id: string, updates: Partial<Booking> & { staffName?: string }) => {
         await ensureLoaded();
         const index = bookings.findIndex(b => b.id === id);

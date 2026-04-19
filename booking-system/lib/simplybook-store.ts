@@ -33,6 +33,13 @@ export interface SimplybookRecord {
     status: 'confirmed' | 'cancelled' | 'pending' | 'noshow' | 'unknown';
     notificationType: string; // raw: create | change | cancel | notify
 
+    // Doctor matching — set during sync
+    matchStatus: 'matched' | 'unmatched' | 'pending';
+    matchedDoctorId?: string;   // Doctor.id in app
+    matchedClinicId?: string;   // Clinic.id in app
+    matchedDeptId?: string;     // Department.id in app
+    syncedToBookingsId?: string; // Booking.id written to BookingsStore
+
     // Meta
     receivedAt: string;      // ISO timestamp when we received the webhook
     updatedAt: string;

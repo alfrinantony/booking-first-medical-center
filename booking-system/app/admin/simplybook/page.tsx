@@ -4,12 +4,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Calendar, Search, RefreshCw, ExternalLink, User, Clock,
     Stethoscope, CheckCircle, XCircle, AlertCircle, Loader2,
-    Phone, Mail, Hash, ChevronRight, X, Wifi, WifiOff, Filter
+    Phone, Mail, Hash, ChevronRight, X, Wifi, WifiOff, Filter,
+    AlertTriangle, Link2, Link2Off
 } from 'lucide-react';
 import type { SimplybookRecord } from '@/lib/simplybook-store';
+import Link from 'next/link';
 
 // ── Types ──
 type StatusFilter = 'all' | 'confirmed' | 'cancelled' | 'pending';
+type MatchFilter  = 'all' | 'matched' | 'unmatched';
 
 interface Stats { total: number; confirmed: number; cancelled: number; pending: number; }
 
@@ -61,6 +64,15 @@ function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; o
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-mono">SB#{booking.sbId}</span>
                                 <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">SimplyBook</span>
+                                {booking.matchStatus === 'matched' ? (
+                                    <span className="text-xs bg-emerald-400/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <Link2 className="w-3 h-3" /> Matched to Doctor
+                                    </span>
+                                ) : (
+                                    <span className="text-xs bg-amber-400/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <Link2Off className="w-3 h-3" /> Doctor Not Found
+                                    </span>
+                                )}
                             </div>
                             <h2 className="text-xl font-bold">{booking.clientName}</h2>
                             <p className="text-indigo-100 text-sm mt-0.5">{booking.serviceName}</p>
@@ -71,16 +83,52 @@ function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; o
                     </div>
                     <div className="flex items-center gap-3 mt-3">
                         {statusBadge(booking.status)}
-                        <span className="text-xs text-indigo-100">
-                            via {booking.notificationType} event
-                        </span>
+                        <span className="text-xs text-indigo-100">via {booking.notificationType} event</span>
                     </div>
                 </div>
 
                 {/* Body */}
                 <div className="p-5 space-y-4">
+                    {/* Match info */}
+                    {booking.matchStatus === 'matched' && booking.matchedDoctorId && (
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-xl p-3">
+                            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1">
+                                <Link2 className="w-3 h-3" /> Synced to Appointments Calendar
+                            </p>
+                            <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                                Doctor ID: <span className="font-mono">{booking.matchedDoctorId}</span>
+                                {booking.syncedToBookingsId && <> · Booking: <span className="font-mono">{booking.syncedToBookingsId}</span></>}
+                            </p>
+                        </div>
+                    )}
+                    {booking.matchStatus === 'unmatched' && (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3">
+                            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> Provider Not Matched
+                            </p>
+                            <p className="text-xs text-amber-700 dark:text-amber-300">
+                                "{booking.providerName}" was not found in the app's doctor list.
+                                Add this doctor to a clinic to auto-assign future bookings.
+                            </p>
+                            <Link href="/admin/doctors" className="text-xs font-semibold text-amber-700 hover:underline mt-1 inline-block">
+                                → Manage Doctors
+                            </Link>
+                        </div>
+                    )}
+
                     {/* Date & Time */}
                     <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+                            <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">Date</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">{formatDate(booking.date)}</p>
+                        </div>
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+                            <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">Time</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">
+                                {formatTime(booking.startDateTime)} – {formatTime(booking.endDateTime)}
+                            </p>
+                        </div>
+                    </div>
                         <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
                             <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">Date</p>
                             <p className="text-sm font-bold text-gray-900 dark:text-white">{formatDate(booking.date)}</p>
@@ -160,6 +208,7 @@ export default function SimplyBookPage() {
     const [stats, setStats] = useState<Stats>({ total: 0, confirmed: 0, cancelled: 0, pending: 0 });
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState<{synced:number; matched:number; unmatched:number} | null>(null);
     const [lastSync, setLastSync] = useState<string | null>(null);
     const [webhookOnline, setWebhookOnline] = useState<boolean | null>(null);
 
@@ -167,6 +216,7 @@ export default function SimplyBookPage() {
     const [dateFrom, setDateFrom] = useState(sevenDaysAgo());
     const [dateTo, setDateTo] = useState(today());
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [matchFilter, setMatchFilter] = useState<MatchFilter>('all');
     const [search, setSearch] = useState('');
 
     // Detail modal
@@ -179,12 +229,13 @@ export default function SimplyBookPage() {
                 from: dateFrom,
                 to: dateTo,
                 ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+                ...(matchFilter !== 'all'  ? { match:  matchFilter  } : {}),
                 ...(search ? { search } : {}),
             });
             const res = await fetch(`/api/admin/simplybook?${params}`);
             if (res.ok) setBookings(await res.json());
         } catch { /* ignore */ } finally { setLoading(false); }
-    }, [dateFrom, dateTo, statusFilter, search]);
+    }, [dateFrom, dateTo, statusFilter, matchFilter, search]);
 
     const fetchStats = useCallback(async () => {
         try {
@@ -215,6 +266,7 @@ export default function SimplyBookPage() {
             const data = await res.json();
             if (res.ok && data.ok) {
                 setLastSync(`${new Date().toLocaleTimeString('en-AE')} (${data.synced} bookings)`);
+                setSyncResult({ synced: data.synced, matched: data.matched ?? 0, unmatched: data.unmatched ?? 0 });
             } else {
                 console.error('Sync error:', data);
             }
@@ -295,6 +347,25 @@ export default function SimplyBookPage() {
                         icon={<AlertCircle className="w-5 h-5 text-amber-500" />} />
                 </div>
 
+                {/* ── Post-Sync Result Banner ── */}
+                {syncResult && (
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-xl p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-center">
+                            <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{syncResult.synced}</p>
+                            <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider">Total Synced</p>
+                        </div>
+                        <div className="rounded-xl p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-center">
+                            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{syncResult.matched}</p>
+                            <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider">Matched to Doctors</p>
+                        </div>
+                        <div className="rounded-xl p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-center cursor-pointer"
+                            onClick={() => setMatchFilter('unmatched')}>
+                            <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{syncResult.unmatched}</p>
+                            <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Unmatched → Review</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* ── Webhook Setup Banner ── */}
                 {bookings.length === 0 && !loading && (
                     <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-5">
@@ -324,19 +395,16 @@ export default function SimplyBookPage() {
                 {/* ── Filters ── */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
                     <div className="flex flex-wrap gap-3 items-end">
-                        {/* Date from */}
                         <div className="flex-1 min-w-[140px]">
                             <label className="block text-xs font-semibold text-gray-500 mb-1.5">From</label>
                             <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); fetchBookings(); }}
                                 className="w-full p-2 text-sm border rounded-xl dark:bg-gray-700 dark:border-gray-600" />
                         </div>
-                        {/* Date to */}
                         <div className="flex-1 min-w-[140px]">
                             <label className="block text-xs font-semibold text-gray-500 mb-1.5">To</label>
                             <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); fetchBookings(); }}
                                 className="w-full p-2 text-sm border rounded-xl dark:bg-gray-700 dark:border-gray-600" />
                         </div>
-                        {/* Status filter */}
                         <div className="flex-1 min-w-[140px]">
                             <label className="block text-xs font-semibold text-gray-500 mb-1.5">Status</label>
                             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as StatusFilter)}
@@ -347,7 +415,15 @@ export default function SimplyBookPage() {
                                 <option value="pending">Pending</option>
                             </select>
                         </div>
-                        {/* Search */}
+                        <div className="flex-1 min-w-[140px]">
+                            <label className="block text-xs font-semibold text-gray-500 mb-1.5">Doctor Match</label>
+                            <select value={matchFilter} onChange={e => setMatchFilter(e.target.value as MatchFilter)}
+                                className="w-full p-2 text-sm border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                <option value="all">All Bookings</option>
+                                <option value="matched">✅ Matched (in Calendar)</option>
+                                <option value="unmatched">⚠️ Unmatched (Review)</option>
+                            </select>
+                        </div>
                         <div className="flex-1 min-w-[200px]">
                             <label className="block text-xs font-semibold text-gray-500 mb-1.5">Search</label>
                             <div className="relative">
@@ -356,7 +432,6 @@ export default function SimplyBookPage() {
                                     className="w-full pl-9 p-2 text-sm border rounded-xl dark:bg-gray-700 dark:border-gray-600" />
                             </div>
                         </div>
-                        {/* Apply */}
                         <button onClick={fetchBookings}
                             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors">
                             <Filter className="w-4 h-4" /> Apply
@@ -394,7 +469,9 @@ export default function SimplyBookPage() {
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {bookings.map(b => (
                                         <tr key={b.sbId}
-                                            className="hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors cursor-pointer"
+                                            className={`hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors cursor-pointer ${
+                                                b.matchStatus === 'unmatched' ? 'bg-amber-50/40 dark:bg-amber-900/5' : ''
+                                            }`}
                                             onClick={() => setSelected(b)}>
                                             <td className="px-4 py-3">
                                                 <p className="font-semibold text-gray-900 dark:text-white">{formatDate(b.date)}</p>
@@ -421,9 +498,19 @@ export default function SimplyBookPage() {
                                             </td>
                                             <td className="px-4 py-3">{statusBadge(b.status)}</td>
                                             <td className="px-4 py-3">
-                                                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                                                    <ExternalLink className="w-3 h-3" /> SimplyBook
-                                                </span>
+                                                {b.matchStatus === 'matched' ? (
+                                                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                                        <Link2 className="w-3 h-3" /> In Calendar
+                                                    </span>
+                                                ) : b.matchStatus === 'unmatched' ? (
+                                                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                                        <AlertTriangle className="w-3 h-3" /> Review
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                                                        <ExternalLink className="w-3 h-3" /> SimplyBook
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <button className="p-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg transition-colors text-indigo-500">
