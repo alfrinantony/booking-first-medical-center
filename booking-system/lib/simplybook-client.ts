@@ -107,6 +107,8 @@ export interface SimplyBookAdminBooking {
     client_id?: string | number;
     client?: {
         name?: string;
+        fname?: string;
+        lname?: string;
         email?: string;
         phone?: string;
         id?: string | number;
@@ -117,6 +119,16 @@ export interface SimplyBookAdminBooking {
     status?: string;        // "confirmed", "canceled", "pending", etc.
     booking_hash?: string;
     record_date?: string;
+    [key: string]: unknown;
+}
+
+export interface SimplyBookClient {
+    id: string | number;
+    name?: string;
+    fname?: string;
+    lname?: string;
+    email?: string;
+    phone?: string;
     [key: string]: unknown;
 }
 
@@ -144,6 +156,32 @@ export async function getAdminBookings(
     if (Array.isArray(result)) return result as SimplyBookAdminBooking[];
     if (result && typeof result === 'object') return Object.values(result) as SimplyBookAdminBooking[];
     return [];
+}
+
+// ── Admin: fetch a single booking with full details ──
+export async function getAdminBooking(
+    bookingId: string | number
+): Promise<SimplyBookAdminBooking | null> {
+    try {
+        const result = await callAdmin('getBooking', [bookingId]);
+        return result as SimplyBookAdminBooking | null;
+    } catch (err) {
+        console.error(`[SimplyBook] getBooking(${bookingId}) failed:`, err);
+        return null;
+    }
+}
+
+// ── Admin: fetch all clients (for name lookup) ──
+export async function getAdminClientList(): Promise<SimplyBookClient[]> {
+    try {
+        const result = await callAdmin('getClientList', [{}]) as unknown;
+        if (Array.isArray(result)) return result as SimplyBookClient[];
+        if (result && typeof result === 'object') return Object.values(result) as SimplyBookClient[];
+        return [];
+    } catch (err) {
+        console.error('[SimplyBook] getClientList failed:', err);
+        return [];
+    }
 }
 
 // ── Public: single booking by hash (for webhook) ──

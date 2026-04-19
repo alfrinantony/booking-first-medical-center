@@ -14,7 +14,7 @@
 
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { getBookingDetailsByHash } from '@/lib/simplybook-client';
+import { getBookingDetailsByHash, getAdminBooking, getServiceList, getProviderList } from '@/lib/simplybook-client';
 import { SimplybookStore, SimplybookRecord } from '@/lib/simplybook-store';
 
 const EXPECTED_COMPANY = process.env.SIMPLYBOOK_COMPANY_LOGIN || 'firstmedicalcenter';
@@ -116,40 +116,60 @@ export async function POST(request: NextRequest) {
         await SimplybookStore.upsert(minimalRecord);
         console.log(`[SimplyBook webhook] Saved minimal record for booking ${bookingId}`);
 
-        // ── Try to enrich with full details from public API ──
-        if (bookingHash) {
-            try {
-                const detail = await getBookingDetailsByHash(bookingId, bookingHash);
-                if (detail) {
-                    const enrichedStart = String(detail.start_date_time || rawStart);
-                    const enrichedEnd   = String(detail.end_date_time   || rawEnd);
-                    const { date: eDate, time: eTime } = parseDateTime(enrichedStart);
-                    const dc = (detail.client as Record<string, string>) || {};
+        // ── Try to enrich with full admin details (names instead of IDs) ──
+        try {
+            const [adminDetail, services, providers] = await Promise.all([
+                getAdminBooking(bookingId),
+                getServiceList(),
+                getProviderList(),
+            ]);
 
-                    const enriched: SimplybookRecord = {
-                        ...minimalRecord,
-                        startDateTime: enrichedStart,
-                        endDateTime:   enrichedEnd,
-                        date:          eDate || minimalRecord.date,
-                        time:          eTime || minimalRecord.time,
-                        eventId:       String(detail.event_id || minimalRecord.eventId),
-                        unitId:        String(detail.unit_id  || minimalRecord.unitId),
-                        clientId:      String(detail.client_id || minimalRecord.clientId),
-                        clientName:    dc.name || (dc.fname ? `${dc.fname} ${dc.lname || ''}`.trim() : minimalRecord.clientName),
-                        clientEmail:   dc.email || minimalRecord.clientEmail,
-                        clientPhone:   dc.phone || minimalRecord.clientPhone,
-                        status:        deriveStatus(notifType, String(detail.status || '')),
-                        raw:           detail as Record<string, unknown>,
-                        updatedAt:     new Date().toISOString(),
-                    };
+            // Also try public hash-based details as fallback
+            const publicDetail = bookingHash ? await getBookingDetailsByHash(bookingId, bookingHash).catch(() => null) : null;
+            const detail = adminDetail || publicDetail;
 
-                    await SimplybookStore.upsert(enriched);
-                    console.log(`[SimplyBook webhook] Enriched booking ${bookingId} — ${enriched.clientName} @ ${enrichedStart}`);
-                }
-            } catch (enrichErr) {
-                // Don't fail — minimal record is already saved
-                console.warn(`[SimplyBook webhook] Enrichment failed for ${bookingId}:`, enrichErr);
+            const serviceMap = new Map(services.map(s => [String(s.id), s.name]));
+            const providerMap = new Map(providers.map(p => [String(p.id), p.name]));
+
+            if (detail) {
+                const enrichedStart = String(detail.start_date_time || rawStart);
+                const enrichedEnd   = String(detail.end_date_time   || rawEnd);
+                const { date: eDate, time: eTime } = parseDateTime(enrichedStart);
+                const dc = (detail.client as Record<string, string>) || {};
+
+                const resolvedEventId = String(detail.event_id || minimalRecord.eventId);
+                const resolvedUnitId  = String(detail.unit_id  || minimalRecord.unitId);
+
+                const enriched: SimplybookRecord = {
+                    ...minimalRecord,
+                    startDateTime: enrichedStart,
+                    endDateTime:   enrichedEnd,
+                    date:          eDate || minimalRecord.date,
+                    time:          eTime || minimalRecord.time,
+                    eventId:       resolvedEventId,
+                    unitId:        resolvedUnitId,
+                    // Resolve real service & provider names
+                    serviceName:   (detail as Record<string, unknown>).event_name as string ||
+                                   serviceMap.get(resolvedEventId) ||
+                                   minimalRecord.serviceName,
+                    providerName:  (detail as Record<string, unknown>).unit_name as string ||
+                                   providerMap.get(resolvedUnitId) ||
+                                   minimalRecord.providerName,
+                    clientId:      String(detail.client_id || minimalRecord.clientId),
+                    clientName:    dc.name || (dc.fname ? `${dc.fname} ${dc.lname || ''}`.trim() : minimalRecord.clientName),
+                    clientEmail:   dc.email || minimalRecord.clientEmail,
+                    clientPhone:   dc.phone || minimalRecord.clientPhone,
+                    status:        deriveStatus(notifType, String(detail.status || '')),
+                    raw:           detail as Record<string, unknown>,
+                    updatedAt:     new Date().toISOString(),
+                };
+
+                await SimplybookStore.upsert(enriched);
+                console.log(`[SimplyBook webhook] Enriched booking ${bookingId} — ${enriched.clientName} / ${enriched.serviceName} / ${enriched.providerName} @ ${enrichedStart}`);
             }
+        } catch (enrichErr) {
+            // Don't fail — minimal record is already saved
+            console.warn(`[SimplyBook webhook] Enrichment failed for ${bookingId}:`, enrichErr);
         }
 
         return NextResponse.json({ ok: true, action: notifType, bookingId });
