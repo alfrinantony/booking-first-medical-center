@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
-import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, CheckCircle, Pill, UserPlus, X, History, Sparkles } from 'lucide-react';
+import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, Pill, UserPlus, X, History, Sparkles, ExternalLink } from 'lucide-react';
 import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
+import type { SimplybookRecord } from '@/lib/simplybook-store';
 import {
     format, startOfMonth, endOfMonth, eachDayOfInterval,
     isSameMonth, isSameDay, isToday,
@@ -13,6 +14,7 @@ import {
 
 export default function AdminAppointmentsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
+    const [sbBookings, setSbBookings] = useState<SimplybookRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [medicineCatalog, setMedicineCatalog] = useState<Medicine[]>([]);
     const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -95,6 +97,25 @@ export default function AdminAppointmentsPage() {
         return () => clearTimeout(timeoutId);
     }, [selectedClinicId, selectedDeptId, selectedDoctorId, searchQuery]);
 
+    // Fetch SimplyBook bookings for current month ± 1 week
+    useEffect(() => {
+        const fetchSbBookings = async () => {
+            try {
+                const from = new Date();
+                from.setMonth(from.getMonth() - 1);
+                const to = new Date();
+                to.setMonth(to.getMonth() + 2);
+                const fmt = (d: Date) => d.toISOString().split('T')[0];
+                const res = await fetch(`/api/admin/simplybook?from=${fmt(from)}&to=${fmt(to)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) setSbBookings(data);
+                }
+            } catch { /* ignore */ }
+        };
+        fetchSbBookings();
+    }, []);
+
     useEffect(() => {
         fetch('/api/admin/medicines').then(r => r.json()).then(data => {
             if (Array.isArray(data)) setMedicineCatalog(data);
@@ -127,7 +148,13 @@ export default function AdminAppointmentsPage() {
         return bookings.filter(b => b.date === dateStr);
     };
 
+    const getSbBookingsForDate = (date: Date) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        return sbBookings.filter(b => b.date === dateStr && b.status !== 'cancelled');
+    };
+
     const selectedDayBookings = getBookingsForDate(selectedDate);
+    const selectedDaySbBookings = getSbBookingsForDate(selectedDate);
 
     const getServiceName = (booking: Booking) => {
         if (booking.serviceName) return booking.serviceName;
@@ -514,6 +541,7 @@ export default function AdminAppointmentsPage() {
                     )}
 
                     <div className={`grid gap-2 flex-1 ${viewMode === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
+
                         {calendarDays.map((day) => {
                             const dayBookings = getBookingsForDate(day);
                             const isSelected = isSameDay(day, selectedDate);
@@ -626,18 +654,27 @@ export default function AdminAppointmentsPage() {
                                         {format(day, 'd')}
                                     </span>
 
-                                    {dayBookings.length > 0 && (
+                                    {(dayBookings.length > 0 || getSbBookingsForDate(day).length > 0) && (
                                         <div className="flex flex-col gap-1 w-full">
-                                            <div className="flex items-center gap-1 justify-center">
-                                                <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full">
-                                                    {dayBookings.length}
-                                                </span>
+                                            <div className="flex items-center gap-1 justify-center flex-wrap">
+                                                {dayBookings.length > 0 && (
+                                                    <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full">
+                                                        {dayBookings.length}
+                                                    </span>
+                                                )}
+                                                {getSbBookingsForDate(day).length > 0 && (
+                                                    <span className="text-xs font-bold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">
+                                                        +{getSbBookingsForDate(day).length}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex gap-0.5 justify-center flex-wrap px-1">
-                                                {dayBookings.slice(0, 5).map((b, i) => (
+                                                {dayBookings.slice(0, 3).map((b, i) => (
                                                     <div key={i} className={`w-1 h-1 rounded-full ${b.anyDoctor ? 'bg-orange-500' : 'bg-indigo-500'}`} />
                                                 ))}
-                                                {dayBookings.length > 5 && <div className="w-1 h-1 rounded-full bg-gray-400" />}
+                                                {getSbBookingsForDate(day).slice(0, 3).map((_, i) => (
+                                                    <div key={`sb-${i}`} className="w-1 h-1 rounded-full bg-violet-500" />
+                                                ))}
                                             </div>
                                         </div>
                                     )}
@@ -654,95 +691,104 @@ export default function AdminAppointmentsPage() {
                     </h2>
 
                     <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-                        {selectedDayBookings.length > 0 ? (
-                            selectedDayBookings.map((booking) => (
-                                <div key={booking.id} className={`p-3 rounded-lg border transition-colors ${booking.anyDoctor ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 hover:border-orange-400' : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-indigo-300'}`}>
-                                    <div className="text-[10px] text-gray-400 font-mono mb-1.5 pb-1.5 border-b border-gray-100 dark:border-gray-700/50 flex justify-between">
-                                        <span>#{booking.id.slice(0, 8).toUpperCase()}</span>
+                        {/* ── Regular bookings ── */}
+                        {selectedDayBookings.map((booking) => (
+                            <div key={booking.id} className={`p-3 rounded-lg border transition-colors ${booking.anyDoctor ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 hover:border-orange-400' : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-indigo-300'}`}>
+                                <div className="text-[10px] text-gray-400 font-mono mb-1.5 pb-1.5 border-b border-gray-100 dark:border-gray-700/50 flex justify-between">
+                                    <span>#{booking.id.slice(0, 8).toUpperCase()}</span>
+                                </div>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-indigo-500" />
+                                        {booking.slot}
                                     </div>
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                            <Clock className="w-4 h-4 text-indigo-500" />
-                                            {booking.slot}
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                                booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                                    booking.status === 'no_show' ? 'bg-red-200 text-red-800 font-bold' : 'bg-gray-100 text-gray-700'
-                                                }`}>
-                                                {booking.status}
-                                            </span>
-                                            {booking.statusHistory && booking.statusHistory.length > 0 && (
-                                                <span className="text-[9px] text-gray-400">
-                                                    {format(new Date(booking.statusHistory[booking.statusHistory.length - 1].timestamp), 'MMM d, h:mm a')}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200 mb-1 font-medium">
-                                        <User className="w-3.5 h-3.5 text-gray-400" />
-                                        {booking.patientName}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 font-medium mb-1">
-                                        <Sparkles className="w-3.5 h-3.5" />
-                                        {getServiceName(booking)}
-                                    </div>
-
-                                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex flex-col gap-1">
-                                        <div className="flex items-center gap-1">
-                                            <MapPin className="w-3 h-3" /> Branch: {getClinicName(booking)}
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Stethoscope className="w-3 h-3" /> {getDoctorName(booking)}
-                                        </div>
-                                        {booking.selectedMedicineIds && booking.selectedMedicineIds.length > 0 && (
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                {booking.selectedMedicineIds.map(id => {
-                                                    const med = medicineCatalog.find(m => m.id === id);
-                                                    return med ? (
-                                                        <span key={id} className="inline-flex items-center gap-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-[10px] px-1.5 py-0.5 rounded-full">
-                                                            <Pill className="w-2.5 h-2.5" />
-                                                            {med.name}
-                                                        </span>
-                                                    ) : null;
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
-                                        <button
-                                            onClick={() => handleEditClick(booking)}
-                                            className={`flex-1 text-center text-xs font-medium ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'}`}
-                                            disabled={booking.billingStatus === 'billed'}
-                                            title={booking.billingStatus === 'billed' ? 'Cannot edit billed appointments' : ''}
-                                        >
-                                            {booking.billingStatus === 'billed' ? 'Locked (Billed)' : 'Edit Booking'}
-                                        </button>
-                                        {booking.status === 'completed' && (
-                                            <button
-                                                onClick={() => booking.billingStatus !== 'billed' && handleGenerateReceipt(booking.id)}
-                                                className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold transition-colors border-l border-gray-200 dark:border-gray-700 pl-2 ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-emerald-600 hover:text-emerald-700'}`}
-                                                disabled={booking.billingStatus === 'billed'}
-                                                title={booking.billingStatus === 'billed' ? "Invoice already generated" : "Generate Receipt"}
-                                            >
-                                                <FileText className="w-3.5 h-3.5" />
-                                                {booking.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => { setHistoryBooking(booking); setIsHistoryOpen(true); }}
-                                            className="flex items-center justify-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium transition-colors border-l border-gray-200 dark:border-gray-700 pl-2"
-                                            title="View status history"
-                                        >
-                                            <History className="w-3.5 h-3.5" />
-                                            History
-                                        </button>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                            booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                                booking.status === 'no_show' ? 'bg-red-200 text-red-800 font-bold' : 'bg-gray-100 text-gray-700'
+                                            }`}>
+                                            {booking.status}
+                                        </span>
                                     </div>
                                 </div>
-                            ))
-                        ) : (
+                                <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200 mb-1 font-medium">
+                                    <User className="w-3.5 h-3.5 text-gray-400" />
+                                    {booking.patientName}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 font-medium mb-1">
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    {getServiceName(booking)}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex flex-col gap-1">
+                                    <div className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Branch: {getClinicName(booking)}</div>
+                                    <div className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {getDoctorName(booking)}</div>
+                                </div>
+                                <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+                                    <button onClick={() => handleEditClick(booking)}
+                                        className={`flex-1 text-center text-xs font-medium ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'}`}
+                                        disabled={booking.billingStatus === 'billed'}>
+                                        {booking.billingStatus === 'billed' ? 'Locked (Billed)' : 'Edit Booking'}
+                                    </button>
+                                    {booking.status === 'completed' && (
+                                        <button onClick={() => booking.billingStatus !== 'billed' && handleGenerateReceipt(booking.id)}
+                                            className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold border-l border-gray-200 dark:border-gray-700 pl-2 ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-emerald-600 hover:text-emerald-700'}`}
+                                            disabled={booking.billingStatus === 'billed'}>
+                                            <FileText className="w-3.5 h-3.5" />
+                                            {booking.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
+                                        </button>
+                                    )}
+                                    <button onClick={() => { setHistoryBooking(booking); setIsHistoryOpen(true); }}
+                                        className="flex items-center justify-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium border-l border-gray-200 dark:border-gray-700 pl-2">
+                                        <History className="w-3.5 h-3.5" /> History
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* ── SimplyBook bookings ── */}
+                        {selectedDaySbBookings.map((sb) => (
+                            <div key={`sb-${sb.sbId}`} className="p-3 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-900/10 hover:border-violet-400 transition-colors">
+                                <div className="flex justify-between items-center mb-1.5 pb-1.5 border-b border-violet-100 dark:border-violet-800/50">
+                                    <span className="text-[10px] font-mono text-violet-400">SB#{sb.sbId}</span>
+                                    <span className="text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                        <ExternalLink className="w-2.5 h-2.5" /> SimplyBook
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-violet-500" />
+                                        {sb.time || sb.startDateTime.split(' ')[1]?.substring(0,5) || '—'}
+                                    </div>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                        sb.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                        sb.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                        sb.status === 'pending'   ? 'bg-amber-100 text-amber-700' :
+                                        'bg-gray-100 text-gray-700'}`}>
+                                        {sb.status}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200 mb-1 font-medium">
+                                    <User className="w-3.5 h-3.5 text-gray-400" />
+                                    {sb.clientName}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-violet-700 dark:text-violet-300 font-medium mb-1">
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    {sb.serviceName}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/50 flex flex-col gap-1">
+                                    <div className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {sb.providerName}</div>
+                                    {sb.clientPhone && <div className="flex items-center gap-1"><User className="w-3 h-3" /> {sb.clientPhone}</div>}
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/50">
+                                    <Link href="/admin/simplybook"
+                                        className="flex items-center justify-center gap-1 text-xs text-violet-600 hover:text-violet-800 font-medium">
+                                        <ExternalLink className="w-3 h-3" /> View in SimplyBook
+                                    </Link>
+                                </div>
+                            </div>
+                        ))}
+
+                        {selectedDayBookings.length === 0 && selectedDaySbBookings.length === 0 && (
                             <div className="text-center py-12 text-gray-500">
                                 <p>No appointments for this day.</p>
                             </div>
