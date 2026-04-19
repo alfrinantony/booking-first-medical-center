@@ -43,8 +43,8 @@ async function getRestAdminToken(): Promise<string> {
     const now = Date.now();
     if (restAdminToken && now < restTokenExpiresAt) return restAdminToken;
 
-    // Try refresh first if we have a refresh token
-    if (restRefreshToken && now < restTokenExpiresAt + 10 * 60 * 1000) {
+    // Try refresh token if available
+    if (restRefreshToken) {
         try {
             const res = await fetch(`${REST_BASE}/admin/auth/refresh`, {
                 method: 'POST',
@@ -57,50 +57,68 @@ async function getRestAdminToken(): Promise<string> {
                 restAdminToken = data.token;
                 if (data.refresh_token) restRefreshToken = data.refresh_token;
                 restTokenExpiresAt = now + 55 * 60 * 1000;
-                console.log('[SimplyBook REST] Token refreshed');
                 return restAdminToken;
             }
-        } catch { /* fall through to full auth */ }
+        } catch { /* fall through */ }
     }
 
-    // Full authentication with API Key + Secret Key
-    // Method 1: API Key auth (recommended by SimplyBook for programmatic use)
-    const authBody = {
-        company: COMPANY,
-        login:   API_KEY,
-        password: SECRET_KEY,
-    };
-
-    let res = await fetch(`${REST_BASE}/admin/auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(authBody),
-        cache: 'no-store',
-    });
-
-    // Method 2: Fall back to user login + API user key
-    if (!res.ok && ADMIN_LOGIN && ADMIN_PASSWORD) {
-        console.warn('[SimplyBook REST] API key auth failed, trying user login...');
-        res = await fetch(`${REST_BASE}/admin/auth`, {
+    // Attempt 1: REST v2 with API Key + Secret Key
+    try {
+        const res = await fetch(`${REST_BASE}/admin/auth`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company: COMPANY, login: ADMIN_LOGIN, password: ADMIN_PASSWORD }),
+            body: JSON.stringify({ company: COMPANY, login: API_KEY, password: SECRET_KEY }),
             cache: 'no-store',
         });
+        if (res.ok) {
+            const data = await res.json() as { token: string; refresh_token?: string };
+            restAdminToken = data.token;
+            if (data.refresh_token) restRefreshToken = data.refresh_token;
+            restTokenExpiresAt = now + 55 * 60 * 1000;
+            console.log('[SimplyBook REST] Token via API Key + Secret Key');
+            return restAdminToken;
+        }
+        console.warn('[SimplyBook REST] API Key auth failed, status:', res.status, await res.text());
+    } catch (e) {
+        console.warn('[SimplyBook REST] API Key auth exception:', e);
     }
 
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`SimplyBook REST auth failed (${res.status}): ${text}`);
+    // Attempt 2: REST v2 with User API Key (admin login)
+    if (ADMIN_LOGIN && ADMIN_PASSWORD) {
+        try {
+            const res = await fetch(`${REST_BASE}/admin/auth`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ company: COMPANY, login: ADMIN_LOGIN, password: ADMIN_PASSWORD }),
+                cache: 'no-store',
+            });
+            if (res.ok) {
+                const data = await res.json() as { token: string; refresh_token?: string };
+                restAdminToken = data.token;
+                if (data.refresh_token) restRefreshToken = data.refresh_token;
+                restTokenExpiresAt = now + 55 * 60 * 1000;
+                console.log('[SimplyBook REST] Token via Admin Login + API User Key');
+                return restAdminToken;
+            }
+            console.warn('[SimplyBook REST] Admin login failed, status:', res.status, await res.text());
+        } catch (e) {
+            console.warn('[SimplyBook REST] Admin login exception:', e);
+        }
     }
 
-    const data = await res.json() as { token: string; refresh_token?: string };
-    restAdminToken = data.token;
-    if (data.refresh_token) restRefreshToken = data.refresh_token;
-    restTokenExpiresAt = now + 55 * 60 * 1000;
-    console.log('[SimplyBook REST] Admin token obtained via REST v2 API Key auth');
-    return restAdminToken;
+    // Attempt 3: JSON-RPC getToken (public, limited admin access)
+    try {
+        const token = await rpcCall(JSONRPC_LOGIN, 'getToken', [COMPANY, API_KEY]) as string;
+        restAdminToken = token;
+        restTokenExpiresAt = now + 55 * 60 * 1000;
+        console.warn('[SimplyBook] Fell back to public getToken — admin methods may be limited');
+        return restAdminToken;
+    } catch (e) {
+        console.error('[SimplyBook] All auth methods failed:', e);
+        throw new Error(`SimplyBook: all authentication methods failed. Last error: ${e}`);
+    }
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // REST Admin API v2 – Generic GET
