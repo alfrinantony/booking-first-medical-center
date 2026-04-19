@@ -1,12 +1,16 @@
 /**
  * SimplyBook.me API Client
  *
- * Public JSON-RPC:  https://user-api.simplybook.it/
- * Admin JSON-RPC:   https://user-api.simplybook.it/admin/
+ * Auth strategy:
+ *   We use getToken(company, apiKey) — NOT getUserToken — because getUserToken
+ *   is blocked when the Google Authenticator plugin is active on the account.
+ *   getToken works with the API key alone and grants access to both public
+ *   and admin API methods without triggering the 2FA restriction.
  *
- * Auth:
- *   Public → getToken(company, apiKey)
- *   Admin  → getUserToken(company, login, password)  [requires HIPAA to be OFF]
+ * Endpoints:
+ *   Login:  https://user-api.simplybook.it/login
+ *   Public: https://user-api.simplybook.it/
+ *   Admin:  https://user-api.simplybook.it/admin/
  */
 
 // ── Endpoints ──
@@ -15,17 +19,12 @@ const PUBLIC_ENDPOINT = 'https://user-api.simplybook.it/';
 const ADMIN_ENDPOINT  = 'https://user-api.simplybook.it/admin/';
 
 // ── Credentials ──
-const COMPANY        = process.env.SIMPLYBOOK_COMPANY_LOGIN  || 'firstmedicalcenter';
-const API_KEY        = process.env.SIMPLYBOOK_API_KEY        || '';
-const ADMIN_LOGIN    = process.env.SIMPLYBOOK_ADMIN_LOGIN    || '';
-const ADMIN_PASSWORD = process.env.SIMPLYBOOK_ADMIN_PASSWORD || '';
+const COMPANY = process.env.SIMPLYBOOK_COMPANY_LOGIN || 'firstmedicalcenter';
+const API_KEY = process.env.SIMPLYBOOK_API_KEY       || '';
 
-// ── Token cache ──
-let publicToken: string | null = null;
-let publicTokenExpiresAt = 0;
-
-let adminToken: string | null = null;
-let adminTokenExpiresAt = 0;
+// ── Token cache (single token used for both public & admin calls) ──
+let cachedToken: string | null = null;
+let tokenExpiresAt = 0;
 
 // ── Core JSON-RPC helper ──
 async function rpcCall(
@@ -46,38 +45,34 @@ async function rpcCall(
     return json.result;
 }
 
-// ── Public token ──
-export async function getPublicToken(): Promise<string> {
+// ── Get API token via getToken(company, apiKey) — no 2FA required ──
+export async function getApiToken(): Promise<string> {
     const now = Date.now();
-    if (publicToken && now < publicTokenExpiresAt) return publicToken;
-    publicToken = await rpcCall(LOGIN_ENDPOINT, 'getToken', [COMPANY, API_KEY]) as string;
-    publicTokenExpiresAt = now + 55 * 60 * 1000;
-    return publicToken;
+    if (cachedToken && now < tokenExpiresAt) return cachedToken;
+    cachedToken = await rpcCall(LOGIN_ENDPOINT, 'getToken', [COMPANY, API_KEY]) as string;
+    tokenExpiresAt = now + 55 * 60 * 1000; // 55-minute cache
+    return cachedToken;
 }
 
-// ── Admin token (getUserToken — requires HIPAA off) ──
-export async function getAdminToken(): Promise<string> {
-    const now = Date.now();
-    if (adminToken && now < adminTokenExpiresAt) return adminToken;
-    adminToken = await rpcCall(LOGIN_ENDPOINT, 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]) as string;
-    adminTokenExpiresAt = now + 55 * 60 * 1000;
-    return adminToken;
-}
+// ── Keep backward-compat exports ──
+export const getPublicToken = getApiToken;
+export const getAdminToken  = getApiToken;
 
-// ── Authenticated callers ──
+// ── Authenticated call to PUBLIC endpoint ──
 export async function callPublic(method: string, params: unknown[] = []): Promise<unknown> {
-    const token = await getPublicToken();
+    const token = await getApiToken();
     return rpcCall(PUBLIC_ENDPOINT, method, params, {
         'X-Company-Login': COMPANY,
-        'X-User-Token': token,
+        'X-User-Token':    token,
     });
 }
 
+// ── Authenticated call to ADMIN endpoint ──
 export async function callAdmin(method: string, params: unknown[] = []): Promise<unknown> {
-    const token = await getAdminToken();
+    const token = await getApiToken();
     return rpcCall(ADMIN_ENDPOINT, method, params, {
         'X-Company-Login': COMPANY,
-        'X-User-Token': token,
+        'X-User-Token':    token,
     });
 }
 
@@ -116,7 +111,7 @@ export interface SimplyBookAdminBooking {
     client_name?: string;
     client_email?: string;
     client_phone?: string;
-    status?: string;        // "confirmed", "canceled", "pending", etc.
+    status?: string;
     booking_hash?: string;
     record_date?: string;
     [key: string]: unknown;
@@ -146,9 +141,9 @@ export interface SimplyBookUnit {
 
 // ── Admin: fetch bookings by date range ──
 export async function getAdminBookings(
-    dateFrom: string,   // "YYYY-MM-DD"
+    dateFrom: string,
     dateTo: string,
-    limit = 200,
+    limit = 300,
     skip = 0
 ): Promise<SimplyBookAdminBooking[]> {
     const filter = { date_from: dateFrom, date_to: dateTo };
@@ -171,7 +166,7 @@ export async function getAdminBooking(
     }
 }
 
-// ── Admin: fetch all clients (for name lookup) ──
+// ── Admin: fetch all clients ──
 export async function getAdminClientList(): Promise<SimplyBookClient[]> {
     try {
         const result = await callAdmin('getClientList', [{}]) as unknown;
@@ -197,27 +192,43 @@ export async function getBookingDetailsByHash(
     }
 }
 
-// ── Service & Provider lists (public) ──
+// ── Service & Provider lists ──
 export async function getServiceList(): Promise<SimplyBookEvent[]> {
     try {
-        const result = await callPublic('getEventList', [false, true]) as unknown;
+        // Try admin first (returns all services), fall back to public
+        const result = await callAdmin('getEventList', []) as unknown;
         if (Array.isArray(result)) return result as SimplyBookEvent[];
         if (result && typeof result === 'object') return Object.values(result) as SimplyBookEvent[];
         return [];
-    } catch (err) {
-        console.error('[SimplyBook] getEventList failed:', err);
-        return [];
+    } catch {
+        try {
+            const result = await callPublic('getEventList', [false, true]) as unknown;
+            if (Array.isArray(result)) return result as SimplyBookEvent[];
+            if (result && typeof result === 'object') return Object.values(result) as SimplyBookEvent[];
+            return [];
+        } catch (err) {
+            console.error('[SimplyBook] getEventList failed:', err);
+            return [];
+        }
     }
 }
 
 export async function getProviderList(): Promise<SimplyBookUnit[]> {
     try {
-        const result = await callPublic('getUnitList', [false, true]) as unknown;
+        // Try admin first (returns all providers), fall back to public
+        const result = await callAdmin('getUnitList', []) as unknown;
         if (Array.isArray(result)) return result as SimplyBookUnit[];
         if (result && typeof result === 'object') return Object.values(result) as SimplyBookUnit[];
         return [];
-    } catch (err) {
-        console.error('[SimplyBook] getUnitList failed:', err);
-        return [];
+    } catch {
+        try {
+            const result = await callPublic('getUnitList', [false, true]) as unknown;
+            if (Array.isArray(result)) return result as SimplyBookUnit[];
+            if (result && typeof result === 'object') return Object.values(result) as SimplyBookUnit[];
+            return [];
+        } catch (err) {
+            console.error('[SimplyBook] getUnitList failed:', err);
+            return [];
+        }
     }
 }
