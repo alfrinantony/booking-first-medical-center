@@ -744,8 +744,8 @@ export default function AdminAppointmentsPage() {
                                     <div className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Branch: {getClinicName(booking)}</div>
                                     <div className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {getDoctorName(booking)}</div>
                                     {/* ── Payment Status ── */}
-                                    <div className="flex items-center gap-1 mt-1">
-                                        <CreditCard className="w-3 h-3" />
+                                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                                        <CreditCard className="w-3 h-3 flex-shrink-0" />
                                         {booking.isFollowUp ? (
                                             <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 px-1.5 py-0.5 rounded-full">
                                                 ✓ Free Follow-Up
@@ -771,6 +771,18 @@ export default function AdminAppointmentsPage() {
                                                 Pay at Clinic
                                             </span>
                                         )}
+                                        {/* SB Invoice number + link */}
+                                        {booking.source === 'simplybook' && booking.sbInvoiceId && (
+                                            <a
+                                                href={`https://firstmedicalcenter.secure.simplybook.it/v2/management/#bookings/booking/${booking.sbId}`}
+                                                target="_blank" rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 text-[10px] font-mono text-violet-500 hover:text-violet-700 underline"
+                                                title="Open in SimplyBook"
+                                            >
+                                                <ExternalLink className="w-2.5 h-2.5" />
+                                                INV#{booking.sbInvoiceId}
+                                            </a>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
@@ -779,10 +791,23 @@ export default function AdminAppointmentsPage() {
                                         disabled={booking.billingStatus === 'billed'}>
                                         {booking.billingStatus === 'billed' ? 'Locked (Billed)' : 'Edit Booking'}
                                     </button>
-                                    {booking.status === 'completed' && (
+                                    {/* Show receipt button for: completed bookings, online-paid, or SB-paid */}
+                                    {(booking.status === 'completed' ||
+                                      booking.paymentMethod === 'online' ||
+                                      booking.paymentMethod === 'card' ||
+                                      booking.paymentMethod === 'package' ||
+                                      (booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid')
+                                    ) && (
                                         <button onClick={() => booking.billingStatus !== 'billed' && handleGenerateReceipt(booking.id)}
-                                            className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold border-l border-gray-200 dark:border-gray-700 pl-2 ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-emerald-600 hover:text-emerald-700'}`}
-                                            disabled={booking.billingStatus === 'billed'}>
+                                            className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold border-l border-gray-200 dark:border-gray-700 pl-2 ${
+                                                booking.billingStatus === 'billed'
+                                                    ? 'text-gray-400 cursor-not-allowed'
+                                                    : booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid'
+                                                        ? 'text-violet-600 hover:text-violet-700'
+                                                        : 'text-emerald-600 hover:text-emerald-700'
+                                            }`}
+                                            disabled={booking.billingStatus === 'billed'}
+                                            title={booking.billingStatus === 'billed' ? 'Already billed' : 'Generate receipt / invoice'}>
                                             <FileText className="w-3.5 h-3.5" />
                                             {booking.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
                                         </button>

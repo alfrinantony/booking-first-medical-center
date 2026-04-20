@@ -156,8 +156,15 @@ export default function BillingPage() {
 
         // If the booking itself has a recorded amount different than our base price
         const bookingAmount = (booking as any).amount;
-        if (typeof bookingAmount === 'number' && bookingAmount > 0) {
-            finalUnitPriceInc = bookingAmount;
+        const sbAmount = (booking as any).sbInvoiceAmount; // For SimplyBook-sourced bookings
+        const effectiveAmount = typeof bookingAmount === 'number' && bookingAmount > 0
+            ? bookingAmount
+            : typeof sbAmount === 'number' && sbAmount > 0
+            ? sbAmount
+            : null;
+
+        if (effectiveAmount !== null) {
+            finalUnitPriceInc = effectiveAmount;
             finalRegPrice = finalRegPrice > finalUnitPriceInc ? finalRegPrice : finalUnitPriceInc;
         }
 
@@ -176,7 +183,22 @@ export default function BillingPage() {
         setDoctorName(docName);
         setBookingDate(booking.date || '');
         setBookingTime(booking.slot || '');
-        setNotes(`Booking ID: ${booking.id} | Doctor: ${docName} | Date: ${booking.date} | Time: ${booking.slot}`);
+
+        // Auto-set payment method
+        const bkPaymentMethod = (booking as any).paymentMethod;
+        const sbPaymentStatus = (booking as any).sbPaymentStatus;
+        if (bkPaymentMethod === 'online' || bkPaymentMethod === 'card' || sbPaymentStatus === 'paid') {
+            setPaymentMethod('online');
+        } else if (bkPaymentMethod === 'cash') {
+            setPaymentMethod('cash');
+        }
+
+        // Build notes — include SB invoice ref if available
+        const sbInvoiceId = (booking as any).sbInvoiceId;
+        const sbId = (booking as any).sbId;
+        const sbNote = sbInvoiceId ? ` | SB Invoice: INV#${sbInvoiceId}` : (sbId ? ` | SimplyBook ID: #${sbId}` : '');
+        setNotes(`Booking ID: ${booking.id} | Doctor: ${docName} | Date: ${booking.date} | Time: ${booking.slot}${sbNote}`);
+
     };
 
     const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
