@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -10,13 +10,13 @@ import {
 import type { SimplybookRecord } from '@/lib/simplybook-store';
 import Link from 'next/link';
 
-// ── Types ──
+// â”€â”€ Types â”€â”€
 type StatusFilter = 'all' | 'confirmed' | 'cancelled' | 'pending';
 type MatchFilter  = 'all' | 'matched' | 'unmatched';
 
 interface Stats { total: number; confirmed: number; cancelled: number; pending: number; }
 
-// ── Helpers ──
+// â”€â”€ Helpers â”€â”€
 function statusBadge(status: SimplybookRecord['status']) {
     const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
         confirmed: { label: 'Confirmed', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', icon: <CheckCircle className="w-3 h-3" /> },
@@ -34,13 +34,13 @@ function statusBadge(status: SimplybookRecord['status']) {
 }
 
 function formatTime(dt: string) {
-    if (!dt) return '—';
+    if (!dt) return 'â€”';
     const parts = dt.split(' ');
     return parts[1] ? parts[1].substring(0, 5) : dt;
 }
 
 function formatDate(d: string) {
-    if (!d) return '—';
+    if (!d) return 'â€”';
     try {
         return new Date(d + 'T00:00:00').toLocaleDateString('en-AE', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     } catch { return d; }
@@ -52,7 +52,7 @@ function sevenDaysAgo() {
     return d.toISOString().split('T')[0];
 }
 
-// ── Detail Modal ──
+// â”€â”€ Detail Modal â”€â”€
 function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; onClose: () => void }) {
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -97,7 +97,7 @@ function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; o
                             </p>
                             <p className="text-xs text-emerald-700 dark:text-emerald-300">
                                 Doctor ID: <span className="font-mono">{booking.matchedDoctorId}</span>
-                                {booking.syncedToBookingsId && <> · Booking: <span className="font-mono">{booking.syncedToBookingsId}</span></>}
+                                {booking.syncedToBookingsId && <> Â· Booking: <span className="font-mono">{booking.syncedToBookingsId}</span></>}
                             </p>
                         </div>
                     )}
@@ -111,7 +111,7 @@ function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; o
                                 Add this doctor to a clinic to auto-assign future bookings.
                             </p>
                             <Link href="/admin/doctors" className="text-xs font-semibold text-amber-700 hover:underline mt-1 inline-block">
-                                → Manage Doctors
+                                â†’ Manage Doctors
                             </Link>
                         </div>
                     )}
@@ -125,18 +125,7 @@ function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; o
                         <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
                             <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">Time</p>
                             <p className="text-sm font-bold text-gray-900 dark:text-white">
-                                {formatTime(booking.startDateTime)} – {formatTime(booking.endDateTime)}
-                            </p>
-                        </div>
-                    </div>
-                        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
-                            <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">Date</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">{formatDate(booking.date)}</p>
-                        </div>
-                        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
-                            <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">Time</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">
-                                {formatTime(booking.startDateTime)} – {formatTime(booking.endDateTime)}
+                                {formatTime(booking.startDateTime)} â€“ {formatTime(booking.endDateTime)}
                             </p>
                         </div>
                     </div>
@@ -153,7 +142,7 @@ function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; o
                         <Row icon={<User className="w-4 h-4 text-gray-400" />} label="Name" value={booking.clientName} />
                         {booking.clientEmail && <Row icon={<Mail className="w-4 h-4 text-gray-400" />} label="Email" value={booking.clientEmail} />}
                         {booking.clientPhone && <Row icon={<Phone className="w-4 h-4 text-gray-400" />} label="Phone" value={booking.clientPhone} />}
-                        <Row icon={<Hash className="w-4 h-4 text-gray-400" />} label="Client ID" value={booking.clientId || '—'} />
+                        <Row icon={<Hash className="w-4 h-4 text-gray-400" />} label="Client ID" value={booking.clientId || 'â€”'} />
                     </div>
 
                     {/* Meta */}
@@ -189,7 +178,7 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
     );
 }
 
-// ── Stat Card ──
+// â”€â”€ Stat Card â”€â”€
 function StatCard({ label, value, color, icon }: { label: string; value: number; color: string; icon: React.ReactNode }) {
     return (
         <div className={`rounded-2xl p-4 flex items-center gap-3 border ${color}`}>
@@ -202,7 +191,7 @@ function StatCard({ label, value, color, icon }: { label: string; value: number;
     );
 }
 
-// ── Main Page ──
+// â”€â”€ Main Page â”€â”€
 export default function SimplyBookPage() {
     const [bookings, setBookings] = useState<SimplybookRecord[]>([]);
     const [stats, setStats] = useState<Stats>({ total: 0, confirmed: 0, cancelled: 0, pending: 0 });
@@ -289,7 +278,7 @@ export default function SimplyBookPage() {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-6">
 
-                {/* ── Header ── */}
+                {/* â”€â”€ Header â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -331,7 +320,7 @@ export default function SimplyBookPage() {
                     </div>
                 </div>
 
-                {/* ── Stat Cards ── */}
+                {/* â”€â”€ Stat Cards â”€â”€ */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <StatCard label="Today Total" value={stats.total}
                         color="bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300"
@@ -347,7 +336,7 @@ export default function SimplyBookPage() {
                         icon={<AlertCircle className="w-5 h-5 text-amber-500" />} />
                 </div>
 
-                {/* ── Post-Sync Result Banner ── */}
+                {/* â”€â”€ Post-Sync Result Banner â”€â”€ */}
                 {syncResult && (
                     <div className="grid grid-cols-3 gap-3">
                         <div className="rounded-xl p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-center">
@@ -361,12 +350,12 @@ export default function SimplyBookPage() {
                         <div className="rounded-xl p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-center cursor-pointer"
                             onClick={() => setMatchFilter('unmatched')}>
                             <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{syncResult.unmatched}</p>
-                            <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Unmatched → Review</p>
+                            <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Unmatched â†’ Review</p>
                         </div>
                     </div>
                 )}
 
-                {/* ── Webhook Setup Banner ── */}
+                {/* â”€â”€ Webhook Setup Banner â”€â”€ */}
                 {bookings.length === 0 && !loading && (
                     <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-5">
                         <div className="flex items-start gap-3">
@@ -382,17 +371,17 @@ export default function SimplyBookPage() {
                                     https://ai.dubaifmc.com/api/webhooks/simplybook
                                 </div>
                                 <ol className="text-sm text-indigo-700 dark:text-indigo-300 space-y-1 list-decimal list-inside">
-                                    <li>Go to SimplyBook Admin → Custom Features → API</li>
+                                    <li>Go to SimplyBook Admin â†’ Custom Features â†’ API</li>
                                     <li>Scroll to <strong>Callback URL</strong> and paste the URL above</li>
                                     <li>Enable triggers: <strong>Create, Change, Cancel, Remind</strong></li>
-                                    <li>Click Save — bookings will flow in automatically</li>
+                                    <li>Click Save â€” bookings will flow in automatically</li>
                                 </ol>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* ── Filters ── */}
+                {/* â”€â”€ Filters â”€â”€ */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
                     <div className="flex flex-wrap gap-3 items-end">
                         <div className="flex-1 min-w-[140px]">
@@ -420,8 +409,8 @@ export default function SimplyBookPage() {
                             <select value={matchFilter} onChange={e => setMatchFilter(e.target.value as MatchFilter)}
                                 className="w-full p-2 text-sm border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                                 <option value="all">All Bookings</option>
-                                <option value="matched">✅ Matched (in Calendar)</option>
-                                <option value="unmatched">⚠️ Unmatched (Review)</option>
+                                <option value="matched">âœ… Matched (in Calendar)</option>
+                                <option value="unmatched">âš ï¸ Unmatched (Review)</option>
                             </select>
                         </div>
                         <div className="flex-1 min-w-[200px]">
@@ -439,7 +428,7 @@ export default function SimplyBookPage() {
                     </div>
                 </div>
 
-                {/* ── Bookings Table ── */}
+                {/* â”€â”€ Bookings Table â”€â”€ */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
@@ -477,7 +466,7 @@ export default function SimplyBookPage() {
                                                 <p className="font-semibold text-gray-900 dark:text-white">{formatDate(b.date)}</p>
                                                 <p className="text-xs text-indigo-500 flex items-center gap-1 mt-0.5">
                                                     <Clock className="w-3 h-3" />
-                                                    {formatTime(b.startDateTime)} – {formatTime(b.endDateTime)}
+                                                    {formatTime(b.startDateTime)} â€“ {formatTime(b.endDateTime)}
                                                 </p>
                                             </td>
                                             <td className="px-4 py-3">
@@ -528,7 +517,7 @@ export default function SimplyBookPage() {
                     {bookings.length > 0 && (
                         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-400 flex items-center justify-between">
                             <span>{bookings.length} booking{bookings.length !== 1 ? 's' : ''} shown</span>
-                            <span>Auto-updates via webhook · SimplyBook.me</span>
+                            <span>Auto-updates via webhook Â· SimplyBook.me</span>
                         </div>
                     )}
                 </div>
