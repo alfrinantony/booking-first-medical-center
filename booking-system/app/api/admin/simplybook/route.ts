@@ -21,6 +21,7 @@ import {
     getAdminBookings,
     getServiceList,
     getProviderList,
+    getInvoiceList,
     SimplyBookAdminBooking,
 } from '@/lib/simplybook-client';
 
@@ -267,6 +268,14 @@ export async function GET(request: NextRequest) {
 
             console.log(`[SimplyBook sync] ${sbBookings.length} bookings from ${dateFrom} to ${effectiveTo}`);
 
+            // Fetch invoices in parallel (one extra call, not N calls)
+            const invoices = await getInvoiceList(dateFrom, effectiveTo);
+            const invoiceMap = new Map<string, typeof invoices[0]>();
+            for (const inv of invoices) {
+                if (inv.booking_id) invoiceMap.set(String(inv.booking_id), inv);
+            }
+            console.log(`[SimplyBook sync] ${invoices.length} invoices fetched`);
+
             // Build lookup maps
             const serviceMap  = new Map<string, string>(services.map(s  => [String(s.id),  s.name]));
             const providerMap = new Map<string, string>(providers.map(p => [String(p.id),  p.name]));
@@ -289,14 +298,37 @@ export async function GET(request: NextRequest) {
 
                 const matchResult = rawProviderName ? matchDoctor(rawProviderName, doctorIndex) : null;
 
-                // Build empty clientMap (we already have names directly from booking)
-                const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
+            // Build empty clientMap (we already have names directly from booking)
+            const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
                 const record = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
 
                 // Carry over syncedToBookingsId from existing record if present
                 const existing = existingMap.get(record.sbId);
                 if (existing?.syncedToBookingsId) {
                     record.syncedToBookingsId = existing.syncedToBookingsId;
+                }
+
+                // Attach payment/invoice data
+                const inv = invoiceMap.get(record.sbId);
+                if (inv) {
+                    record.invoiceId       = String(inv.id);
+                    record.invoiceAmount   = typeof inv.amount === 'number' ? inv.amount : undefined;
+                    record.paidAmount      = typeof inv.paid_amount === 'number' ? inv.paid_amount : undefined;
+                    record.invoiceCurrency = typeof inv.currency === 'string' ? inv.currency : 'AED';
+                    record.paymentType     = (inv.type === 'online' || inv.type === 'offline') ? inv.type : undefined;
+                    record.paymentDate     = typeof inv.payment_datetime === 'string' ? inv.payment_datetime : undefined;
+                    const rawStatus = String(inv.status || '').toLowerCase();
+                    record.paymentStatus   = rawStatus === 'paid' ? 'paid'
+                        : rawStatus === 'partial' ? 'partial'
+                        : rawStatus === 'new' ? 'new'
+                        : rawStatus === 'pending' ? 'pending'
+                        : 'unpaid';
+                } else {
+                    // Try to extract from raw booking fields as fallback
+                    const raw = booking as Record<string, unknown>;
+                    if (raw.invoice_amount) record.invoiceAmount = typeof raw.invoice_amount === 'number' ? raw.invoice_amount : undefined;
+                    if (raw.payment_status) record.paymentStatus = String(raw.payment_status) as typeof record.paymentStatus;
+                    if (raw.invoice_currency) record.invoiceCurrency = String(raw.invoice_currency);
                 }
 
                 if (matchResult && record.status !== 'cancelled' && record.status !== 'noshow') {
@@ -350,12 +382,20 @@ export async function GET(request: NextRequest) {
             : dateTo;
 
         try {
-            const [sbBookings, services, providers, clinics] = await Promise.all([
+            const [sbBookings, services, providers, clinics, invoices] = await Promise.all([
                 getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
                 ServicesStore.getClinics() as Promise<Clinic[]>,
+                getInvoiceList(dateFrom, effectiveTo),
             ]);
+
+            // Build invoice map: booking_id → invoice
+            const invoiceMap = new Map<string, typeof invoices[0]>();
+            for (const inv of invoices) {
+                if (inv.booking_id) invoiceMap.set(String(inv.booking_id), inv);
+            }
+            console.log(`[SimplyBook migrate] ${sbBookings.length} bookings, ${invoices.length} invoices`);
 
             const serviceMap  = new Map<string, string>(services.map(s  => [String(s.id), s.name]));
             const providerMap = new Map<string, string>(providers.map(p => [String(p.id), p.name]));
@@ -376,12 +416,30 @@ export async function GET(request: NextRequest) {
                 const sbRecord = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
                 sbUpsertBatch.push(sbRecord);
 
-                // Extract billing info from raw SimplyBook booking object
+                // Extract billing info — prefer invoice map, fall back to raw booking fields
                 const raw = booking as Record<string, unknown>;
-                const invoiceAmount   = typeof raw.invoice_amount  === 'number' ? raw.invoice_amount  as number  : undefined;
-                const invoiceCurrency = typeof raw.invoice_currency === 'string' ? raw.invoice_currency as string : 'AED';
-                const paymentStatus   = typeof raw.payment_status  === 'string' ? raw.payment_status  as string  : undefined;
-                const invoiceId       = raw.invoice_id ? String(raw.invoice_id) : undefined;
+                const inv = invoiceMap.get(String((booking as any).id || ''));
+                const invoiceId       = inv ? String(inv.id) : (raw.invoice_id ? String(raw.invoice_id) : undefined);
+                const invoiceAmount   = inv?.amount ?? (typeof raw.invoice_amount === 'number' ? raw.invoice_amount : undefined);
+                const invoiceCurrency = (typeof inv?.currency === 'string' ? inv.currency : null) ?? (typeof raw.invoice_currency === 'string' ? raw.invoice_currency : 'AED');
+                const paidAmount      = typeof inv?.paid_amount === 'number' ? inv.paid_amount : undefined;
+                const rawPmtStatus    = String(inv?.status || raw.payment_status || '').toLowerCase();
+                const paymentStatus   = rawPmtStatus === 'paid' ? 'paid'
+                    : rawPmtStatus === 'partial' ? 'partial'
+                    : rawPmtStatus === 'new' ? 'new'
+                    : rawPmtStatus === 'pending' ? 'pending'
+                    : rawPmtStatus ? 'unpaid' : undefined;
+                const paymentType     = (inv?.type === 'online' || inv?.type === 'offline') ? inv.type as 'online' | 'offline' : undefined;
+                const paymentDate     = typeof inv?.payment_datetime === 'string' ? inv.payment_datetime : undefined;
+
+                // Also enrich the SB record with payment info
+                sbRecord.invoiceId       = invoiceId;
+                sbRecord.invoiceAmount   = invoiceAmount;
+                sbRecord.paidAmount      = paidAmount;
+                sbRecord.invoiceCurrency = invoiceCurrency;
+                sbRecord.paymentStatus   = paymentStatus;
+                sbRecord.paymentType     = paymentType;
+                sbRecord.paymentDate     = paymentDate;
 
                 // Map SB status to Booking status
                 const bookingStatus = toBookingStatus(String(booking.status || ''));
@@ -409,12 +467,14 @@ export async function GET(request: NextRequest) {
                     source:       'simplybook',
                     sbId:         sbRecord.sbId,
                     sbHash:       sbRecord.sbHash,
-                    sbProviderName:   rawProviderName || undefined,
-                    sbServiceName:    sbRecord.serviceName,
-                    sbInvoiceId:      invoiceId,
-                    sbInvoiceAmount:  invoiceAmount,
+                    sbProviderName:    rawProviderName || undefined,
+                    sbServiceName:     sbRecord.serviceName,
+                    sbInvoiceId:       invoiceId,
+                    sbInvoiceAmount:   invoiceAmount,
                     sbInvoiceCurrency: invoiceCurrency,
-                    sbPaymentStatus:  paymentStatus,
+                    sbPaymentStatus:   paymentStatus,
+                    // Extra payment detail
+                    paymentMethod:     paymentType === 'online' ? 'online' : undefined,
                 } as any);
             }
 
@@ -437,6 +497,68 @@ export async function GET(request: NextRequest) {
             });
         } catch (err) {
             console.error('[SimplyBook migrate] failed:', err);
+            return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+        }
+    }
+
+    // ── Refresh Payments mode — update payment status on existing migrated bookings ──
+    // GET /api/admin/simplybook?refresh_payments=true&from=&to=
+    if (sp.get('refresh_payments') === 'true') {
+        const today = new Date().toISOString().split('T')[0];
+        const thirtyAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dateFrom = sp.get('from') || thirtyAgo;
+        const dateTo   = sp.get('to')   || today;
+        try {
+            const invoices = await getInvoiceList(dateFrom, dateTo);
+            let updated = 0;
+
+            for (const inv of invoices) {
+                if (!inv.booking_id) continue;
+                const bookingId = String(inv.booking_id);
+                const rawStatus = String(inv.status || '').toLowerCase();
+                const paymentStatus = rawStatus === 'paid' ? 'paid'
+                    : rawStatus === 'partial' ? 'partial' : 'unpaid';
+
+                // Update SB store
+                const sbRecord = await SimplybookStore.getById(bookingId);
+                if (sbRecord) {
+                    await SimplybookStore.upsert({
+                        ...sbRecord,
+                        invoiceId:       String(inv.id),
+                        invoiceAmount:   typeof inv.amount === 'number' ? inv.amount : sbRecord.invoiceAmount,
+                        paidAmount:      typeof inv.paid_amount === 'number' ? inv.paid_amount : sbRecord.paidAmount,
+                        invoiceCurrency: typeof inv.currency === 'string' ? inv.currency : 'AED',
+                        paymentStatus,
+                        paymentType:     inv.type === 'online' ? 'online' : 'offline',
+                        paymentDate:     typeof inv.payment_datetime === 'string' ? inv.payment_datetime : undefined,
+                    });
+                }
+
+                // Update BookingsStore via sbId
+                const appBookings = await BookingsStore.getAll();
+                const appBooking = appBookings.find((b: any) => b.sbId === bookingId);
+                if (appBooking) {
+                    await BookingsStore.update(appBooking.id, {
+                        sbPaymentStatus:   paymentStatus as any,
+                        sbInvoiceAmount:   typeof inv.amount === 'number' ? inv.amount : undefined,
+                        sbInvoiceCurrency: typeof inv.currency === 'string' ? inv.currency : 'AED',
+                        sbInvoiceId:       String(inv.id),
+                        paymentMethod:     inv.type === 'online' ? 'online' : undefined,
+                    } as any);
+                    updated++;
+                }
+            }
+
+            return NextResponse.json({
+                ok: true,
+                invoicesFetched: invoices.length,
+                bookingsUpdated: updated,
+                dateFrom,
+                dateTo,
+                refreshedAt: new Date().toISOString(),
+            });
+        } catch (err) {
+            console.error('[SimplyBook refresh_payments] failed:', err);
             return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
         }
     }

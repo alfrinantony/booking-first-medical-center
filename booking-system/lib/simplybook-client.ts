@@ -187,6 +187,19 @@ export interface SimplyBookUnit {
     name: string;
 }
 
+export interface SimplyBookInvoice {
+    id: string | number;          // invoice ID
+    booking_id?: string | number; // linked booking ID
+    amount?: number;              // total invoice amount
+    paid_amount?: number;         // how much was paid
+    rest?: number;                // outstanding balance
+    status?: string;              // "new", "pending", "paid", "unpaid", "partial"
+    type?: string;                // "online", "offline"
+    currency?: string;            // e.g. "AED"
+    payment_datetime?: string;    // when payment was made
+    [key: string]: unknown;
+}
+
 // ── Admin: fetch bookings by date range ──
 export async function getAdminBookings(
     dateFrom: string,
@@ -280,5 +293,21 @@ export async function getProviderList(): Promise<SimplyBookUnit[]> {
             console.error('[SimplyBook] getUnitList failed:', err);
             return [];
         }
+    }
+}
+// ── Invoice list (payment data per booking) ──
+export async function getInvoiceList(
+    dateFrom: string,
+    dateTo: string
+): Promise<SimplyBookInvoice[]> {
+    try {
+        const filter = { date_from: dateFrom, date_to: dateTo, status: 'all' };
+        const result = await callAdmin('getInvoiceList', [filter, 1000, 0]);
+        if (Array.isArray(result)) return result as SimplyBookInvoice[];
+        if (result && typeof result === 'object') return Object.values(result) as SimplyBookInvoice[];
+        return [];
+    } catch (err) {
+        console.warn('[SimplyBook] getInvoiceList failed (invoice plugin may not be enabled):', String(err).substring(0, 150));
+        return [];
     }
 }

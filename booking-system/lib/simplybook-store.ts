@@ -44,6 +44,15 @@ export interface SimplybookRecord {
     receivedAt: string;      // ISO timestamp when we received the webhook
     updatedAt: string;
 
+    // ── Payment / Invoice fields (from SimplyBook getInvoiceList) ──
+    invoiceId?: string;             // SimplyBook invoice ID
+    invoiceAmount?: number;         // Total invoice amount
+    paidAmount?: number;            // Amount actually paid
+    invoiceCurrency?: string;       // e.g. "AED"
+    paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'pending' | 'new'; // Payment state
+    paymentType?: 'online' | 'offline';  // How it was paid
+    paymentDate?: string;           // ISO datetime of payment
+
     // Raw snapshot from SimplyBook
     raw?: Record<string, unknown>;
 }

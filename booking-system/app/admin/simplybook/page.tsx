@@ -5,7 +5,7 @@ import {
     Calendar, Search, RefreshCw, ExternalLink, User, Clock,
     Stethoscope, CheckCircle, XCircle, AlertCircle, Loader2,
     Phone, Mail, Hash, ChevronRight, X, Wifi, WifiOff, Filter,
-    AlertTriangle, Link2, Link2Off
+    AlertTriangle, Link2, CreditCard
 } from 'lucide-react';
 import type { SimplybookRecord } from '@/lib/simplybook-store';
 import Link from 'next/link';
@@ -33,6 +33,35 @@ function statusBadge(status: SimplybookRecord['status']) {
     );
 }
 
+
+function paymentBadge(record: SimplybookRecord) {
+    const status = record.paymentStatus;
+    const amount = record.invoiceAmount;
+    const paid   = record.paidAmount;
+    const cur    = record.invoiceCurrency || 'AED';
+    if (!status || status === 'new') {
+        return <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 px-1.5 py-0.5 rounded-full">No Invoice</span>;
+    }
+    if (status === 'paid') {
+        return (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
+                <CheckCircle className="w-2.5 h-2.5" /> Paid{amount ? ` · ${amount} ${cur}` : ''}{record.paymentType === 'online' ? ' · Online' : ''}
+            </span>
+        );
+    }
+    if (status === 'partial') {
+        return (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-1.5 py-0.5 rounded-full">
+                <AlertCircle className="w-2.5 h-2.5" /> Partial{paid ? ` · ${paid}/${amount} ${cur}` : ''}
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 px-1.5 py-0.5 rounded-full">
+            <XCircle className="w-2.5 h-2.5" /> Unpaid{amount ? ` · ${amount} ${cur}` : ''}
+        </span>
+    );
+}
 function formatTime(dt: string) {
     if (!dt) return 'â€”';
     const parts = dt.split(' ');
@@ -197,6 +226,8 @@ export default function SimplyBookPage() {
     const [stats, setStats] = useState<Stats>({ total: 0, confirmed: 0, cancelled: 0, pending: 0 });
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
+    const [refreshingPayments, setRefreshingPayments] = useState(false);
+    const [paymentRefreshResult, setPaymentRefreshResult] = useState<{invoicesFetched:number; bookingsUpdated:number} | null>(null);
     const [syncResult, setSyncResult] = useState<{synced:number; matched:number; unmatched:number} | null>(null);
     const [migrating, setMigrating] = useState(false);
     const [migrateResult, setMigrateResult] = useState<{migrated:number; skipped:number; matched:number; unmatched:number; total:number} | null>(null);
@@ -271,6 +302,26 @@ export default function SimplyBookPage() {
         }
     };
 
+    const handleRefreshPayments = async () => {
+        setRefreshingPayments(true);
+        setPaymentRefreshResult(null);
+        try {
+            const params = new URLSearchParams({ refresh_payments: 'true', from: dateFrom, to: dateTo });
+            const res = await fetch(`/api/admin/simplybook?${params}`);
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setPaymentRefreshResult({ invoicesFetched: data.invoicesFetched ?? 0, bookingsUpdated: data.bookingsUpdated ?? 0 });
+            } else {
+                alert(`Payment refresh failed: ${data.error || 'Unknown error'}`);
+            }
+            await fetchBookings();
+        } catch (err) {
+            console.error('Payment refresh failed:', err);
+        } finally {
+            setRefreshingPayments(false);
+        }
+    };
+
     const handleMigrate = async (from: string, to: string) => {
         setMigrating(true);
         setMigrateResult(null);
@@ -339,6 +390,14 @@ export default function SimplyBookPage() {
                         >
                             <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
                             {syncing ? 'Importing...' : 'Import from SimplyBook'}
+                        </button>
+                        <button
+                            onClick={handleRefreshPayments}
+                            disabled={refreshingPayments}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow transition-colors disabled:opacity-50"
+                        >
+                            <CreditCard className={w-4 h-4 \} />
+                            {refreshingPayments ? 'Refreshing...' : 'Refresh Payments'}
                         </button>
                         <a
                             href="https://firstmedicalcenter.secure.simplybook.it/v2/management/"
@@ -528,6 +587,7 @@ export default function SimplyBookPage() {
                                         <th className="px-4 py-3">Service</th>
                                         <th className="px-4 py-3">Provider</th>
                                         <th className="px-4 py-3">Status</th>
+                                         <th className="px-4 py-3">Payment</th>
                                         <th className="px-4 py-3">Source</th>
                                         <th className="px-4 py-3 text-right">Details</th>
                                     </tr>
@@ -563,6 +623,7 @@ export default function SimplyBookPage() {
                                                 </p>
                                             </td>
                                             <td className="px-4 py-3">{statusBadge(b.status)}</td>
+                                             <td className="px-4 py-3">{paymentBadge(b)}</td>
                                             <td className="px-4 py-3">
                                                 {b.matchStatus === 'matched' ? (
                                                     <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
