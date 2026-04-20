@@ -322,6 +322,99 @@ export async function GET(request: NextRequest) {
         }
     }
 
+    // ── Enrich mode — re-fetch real names via public API for stored bookings ──
+    // GET /api/admin/simplybook?enrich=true
+    // Uses getBookingDetailsByHash (public API, no admin auth) to fill in real names.
+    if (sp.get('enrich') === 'true') {
+        try {
+            const { getBookingDetailsByHash, getServiceList, getProviderList } = await import('@/lib/simplybook-client');
+
+            // Load all stored bookings + public catalogues
+            const [allBookings, services, providers] = await Promise.all([
+                SimplybookStore.getAll(),
+                getServiceList(),
+                getProviderList(),
+            ]);
+
+            const serviceMap = new Map<string, string>(services.map(s => [String(s.id), s.name]));
+            const providerMap = new Map<string, string>(providers.map(p => [String(p.id), p.name]));
+
+            // Only process bookings that still have placeholder names
+            const toEnrich = allBookings.filter(b =>
+                !b.clientName ||
+                b.clientName === 'Client' ||
+                b.clientName.startsWith('Client #') ||
+                b.providerName === 'Staff' ||
+                b.providerName.startsWith('Provider #') ||
+                b.serviceName.startsWith('Booking #') ||
+                b.serviceName.startsWith('Service #')
+            );
+
+            console.log(`[SimplyBook enrich] ${toEnrich.length} bookings need enrichment out of ${allBookings.length}`);
+
+            let enriched = 0, failed = 0;
+
+            // Process in batches of 5 (avoid rate limiting)
+            for (let i = 0; i < toEnrich.length; i += 5) {
+                const batch = toEnrich.slice(i, i + 5);
+                await Promise.all(batch.map(async (record) => {
+                    if (!record.sbHash) { failed++; return; }
+                    try {
+                        const detail = await getBookingDetailsByHash(record.sbId, record.sbHash);
+                        if (!detail) { failed++; return; }
+
+                        const dc = (detail.client as Record<string, string>) || {};
+                        const resolvedEventId = String(detail.event_id || record.eventId);
+                        const resolvedUnitId  = String(detail.unit_id  || record.unitId);
+
+                        const updatedRecord: SimplybookRecord = {
+                            ...record,
+                            eventId: resolvedEventId,
+                            unitId:  resolvedUnitId,
+                            startDateTime: String(detail.start_date_time || record.startDateTime),
+                            endDateTime:   String(detail.end_date_time   || record.endDateTime),
+                            serviceName:
+                                (detail as Record<string, unknown>).event_name as string ||
+                                serviceMap.get(resolvedEventId) ||
+                                record.serviceName,
+                            providerName:
+                                (detail as Record<string, unknown>).unit_name as string ||
+                                providerMap.get(resolvedUnitId) ||
+                                record.providerName,
+                            clientId:    String(detail.client_id || record.clientId),
+                            clientName:  dc.name || (dc.fname ? `${dc.fname} ${dc.lname || ''}`.trim() : record.clientName),
+                            clientEmail: dc.email || record.clientEmail,
+                            clientPhone: dc.phone || record.clientPhone,
+                            updatedAt:   new Date().toISOString(),
+                        };
+
+                        await SimplybookStore.upsert(updatedRecord);
+                        enriched++;
+                        console.log(`[enrich] ${record.sbId} → ${updatedRecord.clientName} / ${updatedRecord.serviceName} / ${updatedRecord.providerName}`);
+                    } catch (e) {
+                        failed++;
+                        console.warn(`[enrich] Failed ${record.sbId}:`, e);
+                    }
+                }));
+
+                // Small delay between batches to avoid rate limiting
+                if (i + 5 < toEnrich.length) await new Promise(r => setTimeout(r, 300));
+            }
+
+            return NextResponse.json({
+                ok: true,
+                total: allBookings.length,
+                needEnrichment: toEnrich.length,
+                enriched,
+                failed,
+                enrichedAt: new Date().toISOString(),
+            });
+        } catch (err) {
+            console.error('[SimplyBook enrich] failed:', err);
+            return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+        }
+    }
+
     // ── List mode ──
     const dateFrom = sp.get('from');
     const dateTo = sp.get('to');
