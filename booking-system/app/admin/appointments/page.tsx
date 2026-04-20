@@ -154,7 +154,9 @@ export default function AdminAppointmentsPage() {
     };
 
     const selectedDayBookings = getBookingsForDate(selectedDate);
-    const selectedDaySbBookings = getSbBookingsForDate(selectedDate);
+    // Exclude SB bookings that have been migrated (already shown in selectedDayBookings)
+    const migratedSbIds = new Set(bookings.filter(b => (b as any).source === 'simplybook').map(b => (b as any).sbId).filter(Boolean));
+    const selectedDaySbBookings = getSbBookingsForDate(selectedDate).filter(sb => !migratedSbIds.has(sb.sbId));
 
     const getServiceName = (booking: Booking) => {
         if (booking.serviceName) return booking.serviceName;
@@ -168,12 +170,14 @@ export default function AdminAppointmentsPage() {
     };
 
     const getClinicName = (booking: Booking) => {
+        if (booking.clinicId === 'simplybook-import') return 'SimplyBook Import';
         const c = clinics.find(c => c.id === booking.clinicId);
         return c ? c.name : booking.clinicId;
     };
 
     const getDoctorName = (booking: Booking) => {
         if (booking.anyDoctor) return 'Any Available Doctor';
+        if (booking.doctorId === 'sb-unmatched') return (booking as any).sbProviderName || 'SimplyBook Provider (Unmatched)';
         for (const clinic of clinics) {
             for (const dept of clinic.departments) {
                 const doc = dept.doctors.find(d => d.id === booking.doctorId);
@@ -447,7 +451,9 @@ export default function AdminAppointmentsPage() {
                         }}
                     >
                         <option value="">All Branches</option>
+                        <option value="simplybook-import">📋 SimplyBook Import</option>
                         {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+
                     </select>
                 </div>
 
@@ -693,9 +699,18 @@ export default function AdminAppointmentsPage() {
                     <div className="flex-1 overflow-y-auto pr-2 space-y-3">
                         {/* ── Regular bookings ── */}
                         {selectedDayBookings.map((booking) => (
-                            <div key={booking.id} className={`p-3 rounded-lg border transition-colors ${booking.anyDoctor ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 hover:border-orange-400' : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-indigo-300'}`}>
+                            <div key={booking.id} className={`p-3 rounded-lg border transition-colors ${
+                                (booking as any).source === 'simplybook' ? 'bg-violet-50/60 dark:bg-violet-900/10 border-violet-200 dark:border-violet-700 hover:border-violet-400' :
+                                booking.anyDoctor ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 hover:border-orange-400' :
+                                'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-indigo-300'
+                            }`}>
                                 <div className="text-[10px] text-gray-400 font-mono mb-1.5 pb-1.5 border-b border-gray-100 dark:border-gray-700/50 flex justify-between">
                                     <span>#{booking.id.slice(0, 8).toUpperCase()}</span>
+                                    {(booking as any).source === 'simplybook' && (
+                                        <span className="flex items-center gap-1 text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full">
+                                            <ExternalLink className="w-2.5 h-2.5" /> SimplyBook
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
