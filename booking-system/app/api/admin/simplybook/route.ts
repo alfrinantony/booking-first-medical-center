@@ -26,6 +26,21 @@ import {
 } from '@/lib/simplybook-client';
 import { Clinic, Doctor } from '@/lib/data';
 
+// Extend the SimplyBook booking type with fields returned by getBookings
+// (SimplyBook returns client/event/unit as plain strings, not nested objects)
+type SBBooking = SimplyBookAdminBooking & {
+    client: string | { name?: string; fname?: string; lname?: string; email?: string; phone?: string };
+    event?: string;
+    unit?: string;
+    text?: string;         // same as client name
+    start_date?: string;   // alternative date field
+    end_date?: string;
+    code?: string;         // booking hash/code
+    location?: string;
+    event_category?: string;
+};
+
+
 // ── Normalise a name for fuzzy comparison ──
 function normName(s: string): string {
     return s
@@ -130,47 +145,47 @@ function toBookingStatus(sbStatus: string): 'booked' | 'confirmed' | 'cancelled'
 
 // ── Map a SimplyBook admin booking to our stored record ──
 function mapAdminBooking(
-    b: SimplyBookAdminBooking,
+    b: SBBooking,
     serviceMap: Map<string, string>,
     providerMap: Map<string, string>,
     clientMap: Map<string, { name: string; email: string; phone: string }>,
     matchResult: DoctorEntry | null
 ): SimplybookRecord {
-    const startDT: string = b.start_date_time || (b as any).start_date || '';
-    const endDT: string   = b.end_date_time   || (b as any).end_date   || '';
+    const startDT: string = b.start_date_time || b.start_date || '';
+    const endDT: string   = b.end_date_time   || b.end_date   || '';
     const [dateStr = '', timeStr = ''] = startDT.split(' ');
 
     // SimplyBook getBookings returns client/event/unit as plain STRINGS
     // (not nested objects like the admin detail endpoint)
     const clientNameDirect =
-        typeof b.client === 'string' ? b.client as string :           // plain string
-        (b.client as any)?.name ||
-        ((b.client as any)?.fname ? `${(b.client as any).fname} ${(b.client as any).lname || ''}`.trim() : '');
+        typeof b.client === 'string'
+            ? b.client
+            : b.client?.name ||
+              (b.client?.fname ? `${b.client.fname} ${b.client.lname || ''}`.trim() : '');
 
     const clientFromMap = clientMap.get(String(b.client_id || ''));
     const clientName =
         clientNameDirect ||
+        b.text ||                              // SimplyBook also sends name in "text" field
         clientFromMap?.name ||
         b.client_name ||
         (b.client_id ? `Client #${b.client_id}` : 'Unknown Client');
 
     const clientEmail =
-        (typeof b.client !== 'string' && (b.client as any)?.email) ||
+        (typeof b.client !== 'string' ? b.client?.email : undefined) ||
         clientFromMap?.email || b.client_email || '';
     const clientPhone =
-        (typeof b.client !== 'string' && (b.client as any)?.phone) ||
+        (typeof b.client !== 'string' ? b.client?.phone : undefined) ||
         clientFromMap?.phone || b.client_phone || '';
 
-    // event/unit also come as plain strings from getBookings
+    // getBookings returns event & unit as plain strings
     const serviceName =
-        (typeof b.event === 'string' ? b.event as string : null) ||
-        b.event_name ||
+        b.event || b.event_name ||
         serviceMap.get(String(b.event_id || '')) ||
         (b.event_id ? `Service #${b.event_id}` : 'Unknown Service');
 
     const providerName =
-        (typeof b.unit === 'string' ? b.unit as string : null) ||
-        b.unit_name ||
+        b.unit || b.unit_name ||
         providerMap.get(String(b.unit_id || '')) ||
         (b.unit_id ? `Provider #${b.unit_id}` : 'Unknown Provider');
 
@@ -182,7 +197,7 @@ function mapAdminBooking(
 
     return {
         sbId: String(b.id),
-        sbHash: String(b.booking_hash || (b as any).code || ''),
+        sbHash: String(b.booking_hash || b.code || ''),
         company: 'firstmedicalcenter',
         startDateTime: startDT,
         endDateTime: endDT,
@@ -263,9 +278,10 @@ export async function GET(request: NextRequest) {
 
             let synced = 0, matched = 0, unmatched = 0;
 
-            for (const booking of sbBookings) {
-                // Resolve provider name from map
+            for (const booking of sbBookings as SBBooking[]) {
+                // Resolve provider name — getBookings returns it in the "unit" field (plain string)
                 const rawProviderName =
+                    (booking as SBBooking).unit ||
                     booking.unit_name ||
                     providerMap.get(String(booking.unit_id || '')) ||
                     '';
@@ -274,7 +290,7 @@ export async function GET(request: NextRequest) {
                 const matchResult = rawProviderName ? matchDoctor(rawProviderName, doctorIndex) : null;
 
                 // Map to SimplybookRecord
-                const record = mapAdminBooking(booking, serviceMap, providerMap, clientMap, matchResult);
+                const record = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, clientMap, matchResult);
 
                 // 4a. If matched → upsert into BookingsStore
                 if (matchResult && record.status !== 'cancelled' && record.status !== 'noshow') {
