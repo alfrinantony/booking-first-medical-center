@@ -27,16 +27,20 @@ import {
 import { Clinic, Doctor } from '@/lib/data';
 
 // Extend the SimplyBook booking type with fields returned by getBookings
-// (SimplyBook returns client/event/unit as plain strings, not nested objects)
-type SBBooking = SimplyBookAdminBooking & {
-    client: string | { name?: string; fname?: string; lname?: string; email?: string; phone?: string };
-    event?: string;
-    unit?: string;
-    text?: string;         // same as client name
-    start_date?: string;   // alternative date field
-    end_date?: string;
-    code?: string;         // booking hash/code
-    location?: string;
+// (SimplyBook getBookings returns client/event/unit as plain strings, not nested objects)
+// Use Omit to remove conflicting fields from the parent type before redefining them.
+type SBBooking = Omit<SimplyBookAdminBooking, 'client' | 'client_name' | 'event_name' | 'unit_name'> & {
+    client:      string | { name?: string; fname?: string; lname?: string; email?: string; phone?: string };
+    client_name?: string;
+    event_name?:  string;
+    unit_name?:   string;
+    event?:       string;   // service name as plain string
+    unit?:        string;   // provider name as plain string
+    text?:        string;   // client name (duplicate field SimplyBook sends)
+    start_date?:  string;   // alternative date field
+    end_date?:    string;
+    code?:        string;   // booking hash / short code
+    location?:    string;
     event_category?: string;
 };
 
