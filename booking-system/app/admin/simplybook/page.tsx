@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -396,7 +396,7 @@ export default function SimplyBookPage() {
                             disabled={refreshingPayments}
                             className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow transition-colors disabled:opacity-50"
                         >
-                            <CreditCard className={w-4 h-4 \} />
+                            <CreditCard className={`w-4 h-4 ${refreshingPayments ? 'animate-pulse' : ''}`} />
                             {refreshingPayments ? 'Refreshing...' : 'Refresh Payments'}
                         </button>
                         <a
