@@ -98,35 +98,97 @@ export const BookingsStore = {
     },
 
     /**
-     * Lightweight insert for SimplyBook-sourced bookings.
-     * Skips medicine/consumable stock deduction (handled by SimplyBook).
-     * Tags the booking with source='simplybook' and sbId for traceability.
+     * Lightweight insert for a single SimplyBook-sourced booking.
+     * Skips medicine/consumable stock deduction.
      */
     addSimplyBook: async (booking: Omit<Booking, 'id' | 'createdAt'> & { source?: string; sbId?: string }) => {
         await ensureLoaded();
-        // Prevent duplicates: if a booking with this sbId already exists, return it
         const { source: _s, sbId, ...rest } = booking as any;
         if (sbId) {
-            const existing = bookings.find(b => (b as any).sbId === sbId);
+            const existing = bookings.find(b => b.sbId === sbId);
             if (existing) return existing;
         }
         const newBooking: Booking = {
             ...rest,
             id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
             createdAt: new Date().toISOString(),
+            source: 'simplybook',
+            sbId,
             statusHistory: [{
                 timestamp: new Date().toISOString(),
                 oldStatus: '',
                 newStatus: booking.status || 'confirmed',
                 changedBy: 'SimplyBook Sync',
             }],
-            // Store extra fields on the object (TypeScript ignores extra props at runtime)
-            ...(sbId ? { sbId } : {}),
-            ...(source ? { source: 'simplybook' } : {}),
-        } as Booking & { sbId?: string; source?: string };
+        } as Booking;
         bookings.push(newBooking);
         await saveToBlob('bookings', bookings);
         return newBooking;
+    },
+
+    /**
+     * Batch import of SimplyBook bookings — inserts all in memory, saves blob ONCE.
+     * Much faster than calling addSimplyBook() in a loop.
+     * Unmatched bookings use clinicId='simplybook-import', doctorId='sb-unmatched'.
+     */
+    addSimplyBookBatch: async (
+        incoming: Array<Omit<Booking, 'id' | 'createdAt'> & { sbId?: string }>
+    ): Promise<{ added: number; skipped: number }> => {
+        await ensureLoaded();
+        const now = new Date().toISOString();
+        let added = 0, skipped = 0;
+
+        // Build a set of existing sbIds for O(1) duplicate check
+        const existingSbIds = new Set(bookings.map(b => b.sbId).filter(Boolean));
+
+        for (const booking of incoming) {
+            const { sbId } = booking as any;
+            if (sbId && existingSbIds.has(sbId)) {
+                skipped++;
+                continue;
+            }
+            const newBooking: Booking = {
+                ...booking,
+                id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
+                createdAt: now,
+                source: 'simplybook',
+                sbId,
+                statusHistory: [{
+                    timestamp: now,
+                    oldStatus: '',
+                    newStatus: booking.status || 'confirmed',
+                    changedBy: 'SimplyBook Migration',
+                }],
+            } as Booking;
+            bookings.push(newBooking);
+            if (sbId) existingSbIds.add(sbId);
+            added++;
+        }
+
+        if (added > 0) {
+            await saveToBlob('bookings', bookings);
+        }
+        return { added, skipped };
+    },
+
+    /**
+     * Update a booking's status by sbId (used by webhook cascade).
+     */
+    updateBySbId: async (sbId: string, status: Booking['status']): Promise<boolean> => {
+        await ensureLoaded();
+        const booking = bookings.find(b => b.sbId === sbId);
+        if (!booking) return false;
+        const oldStatus = booking.status;
+        if (!booking.statusHistory) booking.statusHistory = [];
+        booking.statusHistory.push({
+            timestamp: new Date().toISOString(),
+            oldStatus,
+            newStatus: status,
+            changedBy: 'SimplyBook Webhook',
+        });
+        booking.status = status;
+        await saveToBlob('bookings', bookings);
+        return true;
     },
 
     update: async (id: string, updates: Partial<Booking> & { staffName?: string }) => {

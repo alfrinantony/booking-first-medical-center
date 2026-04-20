@@ -198,7 +198,10 @@ export default function SimplyBookPage() {
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [syncResult, setSyncResult] = useState<{synced:number; matched:number; unmatched:number} | null>(null);
+    const [migrating, setMigrating] = useState(false);
+    const [migrateResult, setMigrateResult] = useState<{migrated:number; skipped:number; matched:number; unmatched:number; total:number} | null>(null);
     const [lastSync, setLastSync] = useState<string | null>(null);
+    const [lastMigrate, setLastMigrate] = useState<string | null>(null);
     const [webhookOnline, setWebhookOnline] = useState<boolean | null>(null);
 
     // Filters
@@ -266,6 +269,34 @@ export default function SimplyBookPage() {
         } finally {
             setSyncing(false);
         }
+    };
+
+    const handleMigrate = async (from: string, to: string) => {
+        setMigrating(true);
+        setMigrateResult(null);
+        try {
+            const params = new URLSearchParams({ migrate: 'true', from, to });
+            const res = await fetch(`/api/admin/simplybook?${params}`);
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setMigrateResult({ migrated: data.migrated ?? 0, skipped: data.skipped ?? 0, matched: data.matched ?? 0, unmatched: data.unmatched ?? 0, total: data.total ?? 0 });
+                setLastMigrate(`${new Date().toLocaleTimeString('en-AE')} — ${data.migrated} migrated`);
+            } else {
+                alert(`Migration failed: ${data.error || 'Unknown error'}`);
+            }
+            await fetchBookings();
+            await fetchStats();
+        } catch (err) {
+            console.error('Migration failed:', err);
+        } finally {
+            setMigrating(false);
+        }
+    };
+
+    const migrateRange = (days: number) => {
+        const t = today();
+        const f = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        handleMigrate(f, t);
     };
 
     // Debounced search re-fetch
@@ -337,7 +368,53 @@ export default function SimplyBookPage() {
                 </div>
 
                 {/* â”€â”€ Post-Sync Result Banner â”€â”€ */}
-                {syncResult && (
+                
+                {/* Migration Panel */}
+                <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-lg font-bold flex items-center gap-2">
+                                <ExternalLink className="w-5 h-5" /> Migrate SimplyBook to New App
+                            </h2>
+                            <p className="text-violet-100 text-sm mt-1">
+                                Import bookings into the Appointments calendar. Unmatched providers are grouped for review.
+                            </p>
+                            {lastMigrate && <p className="text-violet-200 text-xs mt-1">Last: {lastMigrate}</p>}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {[{label:'This Week',days:7},{label:'30 Days',days:30},{label:'90 Days',days:90},{label:'6 Months',days:180},{label:'1 Year',days:365}].map(({label, days}) => (
+                                <button key={days} disabled={migrating}
+                                    onClick={() => migrateRange(days)}
+                                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
+                                    {label}
+                                </button>
+                            ))}
+                            <button disabled={migrating}
+                                onClick={() => handleMigrate(dateFrom, dateTo)}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-white text-violet-700 text-sm font-bold rounded-xl shadow hover:bg-violet-50 transition-colors disabled:opacity-50">
+                                {migrating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                {migrating ? 'Migrating...' : 'Migrate Selected Range'}
+                            </button>
+                        </div>
+                    </div>
+                    {migrateResult && (
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-4">
+                            {[
+                                {label:'Total SB', value: migrateResult.total, cls:'bg-white/10'},
+                                {label:'Migrated', value: migrateResult.migrated, cls:'bg-emerald-500/30'},
+                                {label:'Already Exists', value: migrateResult.skipped, cls:'bg-white/10'},
+                                {label:'Matched', value: migrateResult.matched, cls:'bg-emerald-500/30'},
+                                {label:'Unmatched', value: migrateResult.unmatched, cls:'bg-amber-500/30'},
+                            ].map(({label, value, cls}) => (
+                                <div key={label} className={`${cls} rounded-xl p-3 text-center`}>
+                                    <p className="text-xl font-bold">{value}</p>
+                                    <p className="text-xs text-white/80">{label}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+{syncResult && (
                     <div className="grid grid-cols-3 gap-3">
                         <div className="rounded-xl p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-center">
                             <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{syncResult.synced}</p>

@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBookingDetailsByHash, getAdminBooking, getServiceList, getProviderList } from '@/lib/simplybook-client';
 import { SimplybookStore, SimplybookRecord } from '@/lib/simplybook-store';
+import { BookingsStore } from '@/lib/bookings-store';
 
 const EXPECTED_COMPANY = process.env.SIMPLYBOOK_COMPANY_LOGIN || 'firstmedicalcenter';
 
@@ -78,6 +79,8 @@ export async function POST(request: NextRequest) {
         // ── Handle cancel immediately ──
         if (notifType === 'cancel') {
             await SimplybookStore.cancel(bookingId);
+            // Cascade to BookingsStore if this booking was migrated
+            await BookingsStore.updateBySbId(bookingId, 'cancelled').catch(() => null);
             console.log(`[SimplyBook webhook] Cancelled booking ${bookingId}`);
             return NextResponse.json({ ok: true, action: 'cancelled', bookingId });
         }
@@ -171,6 +174,13 @@ export async function POST(request: NextRequest) {
             // Don't fail — minimal record is already saved
             console.warn(`[SimplyBook webhook] Enrichment failed for ${bookingId}:`, enrichErr);
         }
+
+        // ── Cascade status to BookingsStore (if booking was migrated) ──
+        const finalStatus = deriveStatus(notifType, String((await SimplybookStore.getById(bookingId))?.status || ''));
+        const bookingStoreStatus = finalStatus === 'cancelled' ? 'cancelled'
+            : finalStatus === 'pending' ? 'booked'
+            : 'confirmed';
+        await BookingsStore.updateBySbId(bookingId, bookingStoreStatus as any).catch(() => null);
 
         return NextResponse.json({ ok: true, action: notifType, bookingId });
 

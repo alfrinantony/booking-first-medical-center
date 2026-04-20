@@ -24,7 +24,8 @@ import {
     SimplyBookAdminBooking,
 } from '@/lib/simplybook-client';
 
-import { Clinic } from '@/lib/data';
+import { Booking, Clinic } from '@/lib/data';
+
 
 
 // Extend the SimplyBook booking type with fields returned by getBookings
@@ -328,6 +329,114 @@ export async function GET(request: NextRequest) {
             });
         } catch (err) {
             console.error('[SimplyBook sync] failed:', err);
+            return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+        }
+    }
+
+    // ── Migrate mode — import ALL SB bookings into BookingsStore ──
+    // GET /api/admin/simplybook?migrate=true&from=&to=
+    // Option A: unmatched providers → clinicId='simplybook-import', doctorId='sb-unmatched'
+    if (sp.get('migrate') === 'true') {
+        const today = new Date().toISOString().split('T')[0];
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dateFrom = sp.get('from') || sevenDaysAgo;
+        const dateTo   = sp.get('to')   || today;
+        // Cap at 45-day window
+        const fromDate = new Date(dateFrom);
+        const toDate   = new Date(dateTo);
+        const diffDays = (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24);
+        const effectiveTo = diffDays > 45
+            ? new Date(fromDate.getTime() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            : dateTo;
+
+        try {
+            const [sbBookings, services, providers, clinics] = await Promise.all([
+                getAdminBookings(dateFrom, effectiveTo),
+                getServiceList(),
+                getProviderList(),
+                ServicesStore.getClinics() as Promise<Clinic[]>,
+            ]);
+
+            const serviceMap  = new Map<string, string>(services.map(s  => [String(s.id), s.name]));
+            const providerMap = new Map<string, string>(providers.map(p => [String(p.id), p.name]));
+            const doctorIndex = buildDoctorIndex(clinics);
+
+            const batchForBookings: Array<Omit<Booking, 'id' | 'createdAt'> & { sbId?: string }> = [];
+            const sbUpsertBatch: SimplybookRecord[] = [];
+            let matchedCount = 0, unmatchedCount = 0;
+
+            for (const booking of sbBookings as SBBooking[]) {
+                const rawProviderName =
+                    booking.unit || booking.unit_name ||
+                    providerMap.get(String(booking.unit_id || '')) || '';
+
+                const matchResult = rawProviderName ? matchDoctor(rawProviderName, doctorIndex) : null;
+
+                const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
+                const sbRecord = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
+                sbUpsertBatch.push(sbRecord);
+
+                // Extract billing info from raw SimplyBook booking object
+                const raw = booking as Record<string, unknown>;
+                const invoiceAmount   = typeof raw.invoice_amount  === 'number' ? raw.invoice_amount  as number  : undefined;
+                const invoiceCurrency = typeof raw.invoice_currency === 'string' ? raw.invoice_currency as string : 'AED';
+                const paymentStatus   = typeof raw.payment_status  === 'string' ? raw.payment_status  as string  : undefined;
+                const invoiceId       = raw.invoice_id ? String(raw.invoice_id) : undefined;
+
+                // Map SB status to Booking status
+                const bookingStatus = toBookingStatus(String(booking.status || ''));
+
+                // Resolve clinic/dept/doctor — use placeholder for unmatched
+                const clinicId  = matchResult?.clinicId  ?? 'simplybook-import';
+                const deptId    = matchResult?.deptId    ?? 'simplybook-import';
+                const doctorId  = matchResult?.doctorId  ?? 'sb-unmatched';
+
+                if (matchResult) matchedCount++; else unmatchedCount++;
+
+                batchForBookings.push({
+                    clinicId,
+                    deptId,
+                    doctorId,
+                    serviceId:    `sb-${sbRecord.eventId}`,
+                    serviceName:  sbRecord.serviceName,
+                    date:         sbRecord.date,
+                    slot:         toSlot(sbRecord.time),
+                    duration:     30,
+                    patientName:  sbRecord.clientName,
+                    email:        sbRecord.clientEmail,
+                    whatsappNumber: sbRecord.clientPhone,
+                    status:       bookingStatus,
+                    source:       'simplybook',
+                    sbId:         sbRecord.sbId,
+                    sbHash:       sbRecord.sbHash,
+                    sbProviderName:   rawProviderName || undefined,
+                    sbServiceName:    sbRecord.serviceName,
+                    sbInvoiceId:      invoiceId,
+                    sbInvoiceAmount:  invoiceAmount,
+                    sbInvoiceCurrency: invoiceCurrency,
+                    sbPaymentStatus:  paymentStatus,
+                } as any);
+            }
+
+            // Save SB tracking records (one blob write)
+            await SimplybookStore.upsertMany(sbUpsertBatch);
+
+            // Import into BookingsStore (one blob write)
+            const { added, skipped } = await BookingsStore.addSimplyBookBatch(batchForBookings as any);
+
+            return NextResponse.json({
+                ok: true,
+                total: sbBookings.length,
+                migrated: added,
+                skipped,
+                matched: matchedCount,
+                unmatched: unmatchedCount,
+                dateFrom,
+                dateTo: effectiveTo,
+                migratedAt: new Date().toISOString(),
+            });
+        } catch (err) {
+            console.error('[SimplyBook migrate] failed:', err);
             return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
         }
     }
