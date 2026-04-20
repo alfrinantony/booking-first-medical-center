@@ -136,26 +136,40 @@ function mapAdminBooking(
     clientMap: Map<string, { name: string; email: string; phone: string }>,
     matchResult: DoctorEntry | null
 ): SimplybookRecord {
-    const startDT: string = b.start_date_time || '';
-    const endDT: string = b.end_date_time || '';
+    const startDT: string = b.start_date_time || (b as any).start_date || '';
+    const endDT: string   = b.end_date_time   || (b as any).end_date   || '';
     const [dateStr = '', timeStr = ''] = startDT.split(' ');
 
+    // SimplyBook getBookings returns client/event/unit as plain STRINGS
+    // (not nested objects like the admin detail endpoint)
+    const clientNameDirect =
+        typeof b.client === 'string' ? b.client as string :           // plain string
+        (b.client as any)?.name ||
+        ((b.client as any)?.fname ? `${(b.client as any).fname} ${(b.client as any).lname || ''}`.trim() : '');
+
     const clientFromMap = clientMap.get(String(b.client_id || ''));
-    const clientObj = b.client || {};
     const clientName =
-        clientObj.name ||
-        (clientObj.fname ? `${clientObj.fname} ${clientObj.lname || ''}`.trim() : '') ||
+        clientNameDirect ||
         clientFromMap?.name ||
         b.client_name ||
         (b.client_id ? `Client #${b.client_id}` : 'Unknown Client');
-    const clientEmail = clientObj.email || clientFromMap?.email || b.client_email || '';
-    const clientPhone = clientObj.phone || clientFromMap?.phone || b.client_phone || '';
 
+    const clientEmail =
+        (typeof b.client !== 'string' && (b.client as any)?.email) ||
+        clientFromMap?.email || b.client_email || '';
+    const clientPhone =
+        (typeof b.client !== 'string' && (b.client as any)?.phone) ||
+        clientFromMap?.phone || b.client_phone || '';
+
+    // event/unit also come as plain strings from getBookings
     const serviceName =
+        (typeof b.event === 'string' ? b.event as string : null) ||
         b.event_name ||
         serviceMap.get(String(b.event_id || '')) ||
         (b.event_id ? `Service #${b.event_id}` : 'Unknown Service');
+
     const providerName =
+        (typeof b.unit === 'string' ? b.unit as string : null) ||
         b.unit_name ||
         providerMap.get(String(b.unit_id || '')) ||
         (b.unit_id ? `Provider #${b.unit_id}` : 'Unknown Provider');
@@ -168,14 +182,14 @@ function mapAdminBooking(
 
     return {
         sbId: String(b.id),
-        sbHash: String(b.booking_hash || ''),
+        sbHash: String(b.booking_hash || (b as any).code || ''),
         company: 'firstmedicalcenter',
         startDateTime: startDT,
         endDateTime: endDT,
         date: dateStr,
         time: timeStr.substring(0, 5),
-        eventId: String(b.event_id),
-        unitId: String(b.unit_id),
+        eventId: String(b.event_id || ''),
+        unitId: String(b.unit_id || ''),
         serviceName,
         providerName,
         clientId: String(b.client_id || ''),
@@ -208,18 +222,31 @@ export async function GET(request: NextRequest) {
     if (sp.get('sync') === 'true') {
         const today = new Date().toISOString().split('T')[0];
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        // Default to 7-day window to avoid Azure 504 timeouts
         const dateFrom = sp.get('from') || sevenDaysAgo;
-        const dateTo = sp.get('to') || today;
+        const dateTo   = sp.get('to')   || today;
+        // Cap at 45-day window per request to prevent timeouts
+        const fromDate = new Date(dateFrom);
+        const toDate   = new Date(dateTo);
+        const diffDays = (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24);
+        const effectiveTo = diffDays > 45
+            ? new Date(fromDate.getTime() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            : dateTo;
 
         try {
-            // 1. Fetch SimplyBook data + app clinics in parallel
             const [sbBookings, services, providers, clients, clinics] = await Promise.all([
-                getAdminBookings(dateFrom, dateTo),
+                getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
                 getAdminClientList(),
                 ServicesStore.getClinics() as Promise<Clinic[]>,
             ]);
+
+            console.log(`[SimplyBook sync] ${sbBookings.length} bookings from ${dateFrom} to ${effectiveTo}`);
+            if (sbBookings.length > 0) {
+                console.log('[SimplyBook sync] Sample booking fields:', Object.keys(sbBookings[0]).join(', '));
+                console.log('[SimplyBook sync] First booking client field:', JSON.stringify(sbBookings[0].client), '| event:', JSON.stringify(sbBookings[0].event_name || (sbBookings[0] as any).event));
+            }
 
             // 2. Build lookup maps
             const serviceMap = new Map<string, string>(services.map(s => [String(s.id), s.name]));
@@ -307,7 +334,7 @@ export async function GET(request: NextRequest) {
                 matched,
                 unmatched,
                 dateFrom,
-                dateTo,
+                dateTo: effectiveTo,
                 syncedAt: new Date().toISOString(),
                 lookups: {
                     services: services.length,
