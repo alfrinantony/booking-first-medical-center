@@ -21,9 +21,9 @@ import {
     getAdminBookings,
     getServiceList,
     getProviderList,
-    getAdminClientList,
     SimplyBookAdminBooking,
 } from '@/lib/simplybook-client';
+
 import { Clinic } from '@/lib/data';
 
 
@@ -254,100 +254,62 @@ export async function GET(request: NextRequest) {
             : dateTo;
 
         try {
-            const [sbBookings, services, providers, clients, clinics] = await Promise.all([
+            // Fetch SimplyBook data + app config in parallel — drop getAdminClientList
+            // (client name/phone/email already come in the booking object itself)
+            const [sbBookings, services, providers, clinics, existingRecords] = await Promise.all([
                 getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
-                getAdminClientList(),
                 ServicesStore.getClinics() as Promise<Clinic[]>,
+                SimplybookStore.getAll(),           // load ALL existing records in ONE read
             ]);
 
             console.log(`[SimplyBook sync] ${sbBookings.length} bookings from ${dateFrom} to ${effectiveTo}`);
-            if (sbBookings.length > 0) {
-                console.log('[SimplyBook sync] Sample booking fields:', Object.keys(sbBookings[0]).join(', '));
-                console.log('[SimplyBook sync] First booking client field:', JSON.stringify(sbBookings[0].client), '| event:', JSON.stringify(sbBookings[0].event_name || (sbBookings[0] as any).event));
-            }
 
-            // 2. Build lookup maps
-            const serviceMap = new Map<string, string>(services.map(s => [String(s.id), s.name]));
-            const providerMap = new Map<string, string>(providers.map(p => [String(p.id), p.name]));
-            const clientMap = new Map<string, { name: string; email: string; phone: string }>(
-                clients.map(c => {
-                    const name = c.name || (c.fname ? `${c.fname} ${c.lname || ''}`.trim() : '');
-                    return [String(c.id), { name, email: c.email || '', phone: c.phone || '' }];
-                })
+            // Build lookup maps
+            const serviceMap  = new Map<string, string>(services.map(s  => [String(s.id),  s.name]));
+            const providerMap = new Map<string, string>(providers.map(p => [String(p.id),  p.name]));
+
+            // Pre-index existing records by sbId (avoids N individual blob reads)
+            const existingMap = new Map<string, SimplybookRecord>(
+                existingRecords.map(r => [r.sbId, r])
             );
 
-            // 3. Build doctor index from all app clinics
+            // Build doctor index
             const doctorIndex = buildDoctorIndex(clinics);
 
             let synced = 0, matched = 0, unmatched = 0;
+            const upsertBatch: SimplybookRecord[] = [];
 
             for (const booking of sbBookings as SBBooking[]) {
-                // Resolve provider name — getBookings returns it in the "unit" field (plain string)
                 const rawProviderName =
-                    (booking as SBBooking).unit ||
-                    booking.unit_name ||
-                    providerMap.get(String(booking.unit_id || '')) ||
-                    '';
+                    booking.unit || booking.unit_name ||
+                    providerMap.get(String(booking.unit_id || '')) || '';
 
-                // Match doctor
                 const matchResult = rawProviderName ? matchDoctor(rawProviderName, doctorIndex) : null;
 
-                // Map to SimplybookRecord
-                const record = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, clientMap, matchResult);
+                // Build empty clientMap (we already have names directly from booking)
+                const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
+                const record = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
 
-                // 4a. If matched → upsert into BookingsStore
+                // Carry over syncedToBookingsId from existing record if present
+                const existing = existingMap.get(record.sbId);
+                if (existing?.syncedToBookingsId) {
+                    record.syncedToBookingsId = existing.syncedToBookingsId;
+                }
+
                 if (matchResult && record.status !== 'cancelled' && record.status !== 'noshow') {
-                    const slot = toSlot(record.time);
-                    const bookingStatus = toBookingStatus(String(booking.status || ''));
-
-                    // Find if this SB booking already has a linked booking record
-                    const existing = await SimplybookStore.getById(record.sbId);
-                    const existingBookingId = existing?.syncedToBookingsId;
-
-                    let linkedId = existingBookingId;
-                    if (existingBookingId) {
-                        // Update existing booking
-                        await BookingsStore.update(existingBookingId, {
-                            status: bookingStatus,
-                            date: record.date,
-                            slot,
-                            patientName: record.clientName,
-                            email: record.clientEmail,
-                            whatsappNumber: record.clientPhone,
-                            serviceName: record.serviceName,
-                        } as any);
-                    } else {
-                        // Create new booking
-                        const newBooking = await BookingsStore.addSimplyBook({
-                            clinicId: matchResult.clinicId,
-                            deptId: matchResult.deptId,
-                            doctorId: matchResult.doctorId,
-                            serviceId: `sb-${record.eventId}`,
-                            serviceName: record.serviceName,
-                            date: record.date,
-                            slot,
-                            duration: 30,
-                            patientName: record.clientName,
-                            email: record.clientEmail,
-                            whatsappNumber: record.clientPhone,
-                            status: bookingStatus,
-                            source: 'simplybook',
-                            sbId: record.sbId,
-                        });
-                        linkedId = newBooking.id;
-                    }
-
-                    record.syncedToBookingsId = linkedId;
                     matched++;
                 } else if (!matchResult) {
                     unmatched++;
                 }
 
-                await SimplybookStore.upsert(record);
+                upsertBatch.push(record);
                 synced++;
             }
+
+            // Batch upsert all records in parallel (one blob write per record, concurrent)
+            await Promise.all(upsertBatch.map(r => SimplybookStore.upsert(r)));
 
             return NextResponse.json({
                 ok: true,
