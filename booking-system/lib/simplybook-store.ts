@@ -108,6 +108,24 @@ export const SimplybookStore = {
     },
 
     /**
+     * Batch upsert many records and save once — much faster than calling upsert() N times.
+     * Each call to upsert() saves the whole blob; this does it in ONE write.
+     */
+    upsertMany: async (incoming: SimplybookRecord[]): Promise<void> => {
+        await ensureLoaded();
+        const now = new Date().toISOString();
+        for (const record of incoming) {
+            const idx = records.findIndex(r => r.sbId === record.sbId);
+            if (idx >= 0) {
+                records[idx] = { ...records[idx], ...record, updatedAt: now };
+            } else {
+                records.push({ ...record, receivedAt: now, updatedAt: now });
+            }
+        }
+        await saveToBlob(BLOB_KEY, records);  // ONE save for all records
+    },
+
+    /**
      * Mark a booking as cancelled.
      */
     cancel: async (sbId: string): Promise<void> => {

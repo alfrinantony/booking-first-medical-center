@@ -254,14 +254,14 @@ export async function GET(request: NextRequest) {
             : dateTo;
 
         try {
-            // Fetch SimplyBook data + app config in parallel — drop getAdminClientList
-            // (client name/phone/email already come in the booking object itself)
+            // Fetch SimplyBook data + app config in parallel
             const [sbBookings, services, providers, clinics, existingRecords] = await Promise.all([
                 getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
                 ServicesStore.getClinics() as Promise<Clinic[]>,
-                SimplybookStore.getAll(),           // load ALL existing records in ONE read
+                // Only load records for this date range (not ALL history)
+                SimplybookStore.getByDateRange(dateFrom, effectiveTo),
             ]);
 
             console.log(`[SimplyBook sync] ${sbBookings.length} bookings from ${dateFrom} to ${effectiveTo}`);
@@ -308,8 +308,8 @@ export async function GET(request: NextRequest) {
                 synced++;
             }
 
-            // Batch upsert all records in parallel (one blob write per record, concurrent)
-            await Promise.all(upsertBatch.map(r => SimplybookStore.upsert(r)));
+            // Save ALL records in ONE blob write (upsertMany)
+            await SimplybookStore.upsertMany(upsertBatch);
 
             return NextResponse.json({
                 ok: true,
