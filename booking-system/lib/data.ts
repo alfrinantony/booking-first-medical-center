@@ -417,7 +417,14 @@ export interface Booking {
     referralEmployeeId?: string;     // Employee ID number (if referred by employee)
     anyDoctor?: boolean;             // True when booked under "Any Available Doctor"
     billingStatus?: 'pending_bill' | 'billed'; // Set to 'pending_bill' when completed, 'billed' when invoice created
+    // ── Payment fields (set at booking creation) ──
+    paymentMethod?: 'online' | 'card' | 'package' | 'cash' | 'clinic' | 'wallet';
+    amount?: number;               // Amount charged at booking
+    packageId?: string;            // Package ID if paid via package
+    packageName?: string;          // Package name for display
+    restrictedDeducted?: number;   // Wallet/restricted balance amount deducted
     isFollowUp?: boolean; // New field to indicate if booking is a free follow-up
+
     statusHistory?: {
         timestamp: string;
         oldStatus: string;
