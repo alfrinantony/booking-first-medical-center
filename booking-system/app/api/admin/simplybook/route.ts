@@ -24,7 +24,8 @@ import {
     getAdminClientList,
     SimplyBookAdminBooking,
 } from '@/lib/simplybook-client';
-import { Clinic, Doctor } from '@/lib/data';
+import { Clinic } from '@/lib/data';
+
 
 // Extend the SimplyBook booking type with fields returned by getBookings
 // (SimplyBook getBookings returns client/event/unit as plain strings, not nested objects)
