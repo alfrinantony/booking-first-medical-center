@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
@@ -771,7 +771,7 @@ export default function AdminAppointmentsPage() {
                                                 Pay at Clinic
                                             </span>
                                         )}
-                                        {/* SB Invoice: #SI-2026000362 (د.إ. 183.75, Stripe) */}
+                                        {/* SB Invoice: #SI-2026000362 (AED 183.75, Stripe) */}
                                         {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId) && (\n                                            <a
                                                 href={`https://firstmedicalcenter.secure.simplybook.it/v2/management/#reports/invoice/${booking.sbInvoiceId}`}
                                                 target="_blank" rel="noopener noreferrer"
@@ -784,7 +784,7 @@ export default function AdminAppointmentsPage() {
                                                     {(booking.sbInvoiceAmount || booking.sbPaymentProcessor) && (
                                                         <span className="text-violet-500 dark:text-violet-400 ml-0.5">
                                                             {' ('}
-                                                            {booking.sbInvoiceAmount ? `د.إ.\u00a0${booking.sbInvoiceAmount.toFixed(2)}` : ''}
+                                                            {booking.sbInvoiceAmount ? `AED ${booking.sbInvoiceAmount.toFixed(2)}` : ''}
                                                             {booking.sbInvoiceAmount && booking.sbPaymentProcessor ? ', ' : ''}
                                                             {booking.sbPaymentProcessor || ''}
                                                             {')'}
