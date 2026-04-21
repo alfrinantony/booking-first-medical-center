@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Invoice, InvoiceLineItem } from '@/lib/billing-store';
 import { BookingsStore } from '@/lib/bookings-store';
 import { Booking, Clinic, Medicine, InventoryBatch } from '@/lib/data';
-import { Receipt, Search, Plus, FileText, Printer, Calendar, Clock, User, MapPin, Package, AlertTriangle } from 'lucide-react';
+import { Receipt, Search, Plus, FileText, Printer, Calendar, Clock, User, MapPin, Package, AlertTriangle, CreditCard } from 'lucide-react';
 
 export default function BillingPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
