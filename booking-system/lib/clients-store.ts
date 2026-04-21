@@ -59,7 +59,27 @@ export interface Client {
     noShowExempt?: boolean;        // Exempt from no-show peak restrictions
     voiceAgentBlocked?: boolean;   // Blocked from voice agent booking
     noShowDates?: string[];        // ISO dates of no-show occurrences
+    // Migration tracking
+    source?: 'app' | 'simplybook'; // origin of client record
+    sbClientId?: string;           // SimplyBook client ID
 }
+
+// ── Standalone (booking-less) clients — stored in their own blob ──
+const STANDALONE_BLOB = 'standalone-clients';
+let standaloneClients: Record<string, Partial<Client>> = {};
+let standaloneLoaded = false;
+
+async function ensureStandaloneLoaded() {
+    if (!standaloneLoaded) {
+        standaloneClients = await loadFromBlob<Record<string, Partial<Client>>>(STANDALONE_BLOB, {});
+        standaloneLoaded = true;
+    }
+}
+
+function invalidateStandaloneCache() {
+    standaloneLoaded = false;
+}
+
 
 // Persistent client metadata (fields not derived from bookings)
 let clientMetadata: Record<string, Partial<Client>> = {};
@@ -73,6 +93,7 @@ export const ClientsStore = {
     getAll: async (): Promise<Client[]> => {
         const bookings = await BookingsStore.getAll();
         await ensureMetadataLoaded();
+        await ensureStandaloneLoaded();
         const clientsMap = new Map<string, Client>();
 
         bookings.forEach(booking => {
@@ -111,6 +132,25 @@ export const ClientsStore = {
             const meta = clientMetadata[client.id];
             if (meta) {
                 Object.assign(client, meta);
+            }
+        }
+
+        // ── Merge standalone (booking-less) clients, e.g. SimplyBook imports ──
+        for (const [standaloneId, standaloneData] of Object.entries(standaloneClients)) {
+            if (!clientsMap.has(standaloneId)) {
+                // Build a full Client from standalone data
+                const sc: Client = {
+                    id: standaloneId,
+                    name: standaloneData.name || standaloneId,
+                    bookingIds: [],
+                    totalBookings: 0,
+                    lastBookingDate: '',
+                    ...standaloneData,
+                };
+                // Also overlay any clientMetadata
+                const meta = clientMetadata[standaloneId];
+                if (meta) Object.assign(sc, meta);
+                clients.push(sc);
             }
         }
 
@@ -158,14 +198,17 @@ export const ClientsStore = {
             return id === clientId;
         });
 
-        if (clientBookings.length === 0) return false;
+        // For standalone (booking-less) clients, only persist metadata
+        const isStandalone = clientBookings.length === 0;
 
-        for (const booking of clientBookings) {
-            await BookingsStore.update(booking.id, {
-                patientName: updates.name || booking.patientName,
-                whatsappNumber: updates.phone || booking.whatsappNumber,
-                email: updates.email || booking.email
-            });
+        if (!isStandalone) {
+            for (const booking of clientBookings) {
+                await BookingsStore.update(booking.id, {
+                    patientName: updates.name || booking.patientName,
+                    whatsappNumber: updates.phone || booking.whatsappNumber,
+                    email: updates.email || booking.email
+                });
+            }
         }
 
         // Persist extra metadata (fields beyond name/phone/email)
@@ -184,5 +227,35 @@ export const ClientsStore = {
         });
 
         return true;
-    }
+    },
+
+    /**
+     * Import a SimplyBook (or other external) client with no bookings.
+     * Stores the client in the standalone-clients blob so getAll() surfaces them.
+     * Returns 'imported' or 'skipped' (if identifier already exists in standalone or bookings).
+     */
+    importStandalone: async (client: Partial<Client> & { id: string; name: string }): Promise<'imported' | 'skipped'> => {
+        await ensureStandaloneLoaded();
+        await ensureMetadataLoaded();
+
+        // Check if already exists as a booking-derived client
+        const bookings = await BookingsStore.getAll();
+        const alreadyHasBooking = bookings.some(b =>
+            (b.whatsappNumber && b.whatsappNumber === client.phone) ||
+            (b.email && b.email === client.email)
+        );
+        if (alreadyHasBooking) return 'skipped';
+
+        // Check if already standalone by phone or email
+        const alreadyStandalone = Object.values(standaloneClients).some(sc =>
+            (client.phone && sc.phone === client.phone) ||
+            (client.email && sc.email === client.email)
+        );
+        if (alreadyStandalone) return 'skipped';
+
+        standaloneClients[client.id] = client;
+        await saveToBlob(STANDALONE_BLOB, standaloneClients);
+        invalidateStandaloneCache();
+        return 'imported';
+    },
 };

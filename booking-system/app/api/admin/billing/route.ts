@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || undefined;
     const refundStatus = searchParams.get('refundStatus') || undefined;
     const id = searchParams.get('id') || undefined;
+    const bookingId = searchParams.get('bookingId') || undefined;
+    const sbId = searchParams.get('sbId') || undefined;
 
     if (id) {
         const invoice = await BillingStore.getInvoiceById(id);
@@ -24,9 +26,11 @@ export async function GET(req: NextRequest) {
     const invoices = await BillingStore.getInvoices({
         clientPhone, clientEmail, clinicId, dateFrom, dateTo,
         invoiceNumber, paymentMethod, search, refundStatus,
+        bookingId, sbId,
     });
     return NextResponse.json(invoices);
 }
+
 
 export async function POST(req: NextRequest) {
     const data = await req.json();

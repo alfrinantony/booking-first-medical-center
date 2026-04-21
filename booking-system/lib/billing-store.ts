@@ -76,6 +76,9 @@ export interface Invoice {
     date: string;              // ISO date of transaction
     createdAt: string;         // ISO datetime
     notes?: string;
+    // Booking linkage
+    bookingId?: string;        // Links to BookingsStore booking ID
+    sbId?: string;             // Links to SimplyBook booking ID (for SB-sourced bookings)
 }
 
 // ── In-memory store ──
@@ -255,10 +258,18 @@ export const BillingStore = {
         paymentMethod?: string;
         search?: string;
         refundStatus?: string;
+        bookingId?: string;
+        sbId?: string;
     }): Promise<Invoice[]> => {
         await ensureBillingLoaded();
         let result = [...invoices];
 
+        if (filters?.bookingId) {
+            result = result.filter(i => i.bookingId === filters.bookingId || i.sbId === filters.bookingId);
+        }
+        if (filters?.sbId) {
+            result = result.filter(i => i.sbId === filters.sbId);
+        }
         if (filters?.clientPhone) {
             result = result.filter(i => i.clientPhone.includes(filters.clientPhone!));
         }

@@ -5,7 +5,7 @@ import { ClientsStore, Client } from '@/lib/clients-store';
 import { maskPhone, maskEmail } from '@/lib/emr-store';
 import type { EMRConfig, EMRPushRecord } from '@/lib/emr-store';
 import type { ClientRestriction } from '@/lib/restrictions-store';
-import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock, Download } from 'lucide-react';
 
 /* ── Form shape ── */
 interface EditForm {
@@ -114,6 +114,30 @@ export default function ClientsPage() {
 
     const refreshClients = () => ClientsStore.getAll().then(setClients);
     useEffect(() => { refreshClients(); }, []);
+
+    // SimplyBook import state
+    const [importingSB, setImportingSB] = useState(false);
+    const [importResult, setImportResult] = useState<{ imported: number; skipped: number; total: number } | null>(null);
+
+    const handleImportFromSB = async () => {
+        if (!confirm('This will import all SimplyBook clients into the client list. Existing clients (matched by phone/email) will be skipped. Continue?')) return;
+        setImportingSB(true);
+        setImportResult(null);
+        try {
+            const res = await fetch('/api/admin/simplybook/import-clients', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                setImportResult({ imported: data.imported, skipped: data.skipped, total: data.total });
+                refreshClients();
+            } else {
+                alert('Import failed: ' + (data.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Import failed. Please check the console for details.');
+        } finally {
+            setImportingSB(false);
+        }
+    };
 
     const toggleContactReveal = (clientId: string) => {
         setRevealedContacts(prev => {
@@ -420,6 +444,14 @@ export default function ClientsPage() {
                             <Merge className="w-4 h-4" /> Merge Selected ({selectedClientIds.size})
                         </button>
                     )}
+                    <button
+                        onClick={handleImportFromSB}
+                        disabled={importingSB}
+                        className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors shadow-sm disabled:opacity-60"
+                    >
+                        {importingSB ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        {importingSB ? 'Importing...' : 'Import from SimplyBook'}
+                    </button>
                     <button onClick={handleReadEmiratesId} disabled={readingEid} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-60">
                         {readingEid ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
                         {readingEid ? 'Reading...' : 'Read Emirates ID'}
@@ -429,6 +461,18 @@ export default function ClientsPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Import result banner */}
+            {importResult && (
+                <div className="mb-4 p-3 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg flex items-center justify-between">
+                    <span className="text-sm text-violet-700 dark:text-violet-300 font-medium">
+                        ✓ SimplyBook import complete — {importResult.imported} imported, {importResult.skipped} skipped (out of {importResult.total} total)
+                    </span>
+                    <button onClick={() => setImportResult(null)} className="text-violet-500 hover:text-violet-700">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
 
             {/* Search */}
             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
@@ -470,6 +514,11 @@ export default function ClientsPage() {
                                 <td className="p-4">
                                     <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
                                     {client.gender && <div className="text-xs text-gray-400">{client.gender}{client.civilStatus ? ` • ${client.civilStatus}` : ''}</div>}
+                                    {client.source === 'simplybook' && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full mt-0.5">
+                                            SimplyBook
+                                        </span>
+                                    )}
                                 </td>
                                 <td className="p-4 text-sm text-gray-600 dark:text-gray-300 font-mono">{client.emiratesIdNumber || '—'}</td>
                                 <td className="p-4">

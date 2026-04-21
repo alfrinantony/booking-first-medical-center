@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
@@ -19,6 +19,8 @@ export default function AdminAppointmentsPage() {
     const [medicineCatalog, setMedicineCatalog] = useState<Medicine[]>([]);
     const [clinics, setClinics] = useState<Clinic[]>([]);
     const [clinicsLoading, setClinicsLoading] = useState(true);
+    // App invoice lookup: bookingId / sbId → { id, invoiceNumber }
+    const [appInvoiceMap, setAppInvoiceMap] = useState<Record<string, { id: string; invoiceNumber: string }>>({});
 
     // Filters
     const [selectedClinicId, setSelectedClinicId] = useState<string>('');
@@ -114,6 +116,24 @@ export default function AdminAppointmentsPage() {
             } catch { /* ignore */ }
         };
         fetchSbBookings();
+    }, []);
+
+    // Build app invoice map: fetch billing invoices and index by bookingId + sbId
+    useEffect(() => {
+        const buildInvoiceMap = async () => {
+            try {
+                const res = await fetch('/api/admin/billing');
+                if (!res.ok) return;
+                const invoices: Array<{ id: string; invoiceNumber: string; bookingId?: string; sbId?: string }> = await res.json();
+                const map: Record<string, { id: string; invoiceNumber: string }> = {};
+                for (const inv of invoices) {
+                    if (inv.bookingId) map[inv.bookingId] = { id: inv.id, invoiceNumber: inv.invoiceNumber };
+                    if (inv.sbId) map[inv.sbId] = { id: inv.id, invoiceNumber: inv.invoiceNumber };
+                }
+                setAppInvoiceMap(map);
+            } catch { /* ignore */ }
+        };
+        buildInvoiceMap();
     }, []);
 
     useEffect(() => {
@@ -771,29 +791,52 @@ export default function AdminAppointmentsPage() {
                                                 Pay at Clinic
                                             </span>
                                         )}
-                                        {/* SB Invoice: #SI-2026000362 (AED 183.75, Stripe) */}
-                                        {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId) && (
-                                            <a
-                                                href={`https://firstmedicalcenter.secure.simplybook.it/v2/management/#reports/invoice/${booking.sbInvoiceId}`}
-                                                target="_blank" rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-200 underline decoration-dotted"
-                                                title="Open invoice in SimplyBook"
-                                            >
-                                                <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
-                                                <span>
-                                                    {booking.sbInvoiceNumber || `#${booking.sbInvoiceId}`}
-                                                    {(booking.sbInvoiceAmount || booking.sbPaymentProcessor) && (
-                                                        <span className="text-violet-500 dark:text-violet-400 ml-0.5">
-                                                            {' ('}
-                                                            {booking.sbInvoiceAmount ? `AED ${booking.sbInvoiceAmount.toFixed(2)}` : ''}
-                                                            {booking.sbInvoiceAmount && booking.sbPaymentProcessor ? ', ' : ''}
-                                                            {booking.sbPaymentProcessor || ''}
-                                                            {')'}
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </a>
-                                        )}
+                                        {/* SB Invoice: smart link — checks app billing first */}
+                                        {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId) && (() => {
+                                            // Look up matching app invoice by bookingId or sbId
+                                            const appInv = appInvoiceMap[booking.id] || appInvoiceMap[(booking as any).sbId || ''];
+                                            const invoiceLabel = booking.sbInvoiceNumber || `#${booking.sbInvoiceId}`;
+                                            const amountLabel = booking.sbInvoiceAmount
+                                                ? ` (AED ${booking.sbInvoiceAmount.toFixed(2)}${booking.sbPaymentProcessor ? `, ${booking.sbPaymentProcessor}` : ''})` : '';
+
+                                            if (appInv) {
+                                                // App invoice exists → navigate internally
+                                                return (
+                                                    <a
+                                                        href={`/admin/billing?id=${appInv.id}`}
+                                                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200 underline decoration-dotted"
+                                                        title="View invoice in billing module"
+                                                    >
+                                                        <FileText className="w-2.5 h-2.5 flex-shrink-0" />
+                                                        <span>{appInv.invoiceNumber}{amountLabel}</span>
+                                                    </a>
+                                                );
+                                            }
+
+                                            // No app invoice → deep-link to SimplyBook admin portal
+                                            return (
+                                                <a
+                                                    href={`https://firstmedicalcenter.secure.simplybook.it/v2/management/#reports/invoice/${booking.sbInvoiceId}`}
+                                                    target="_blank" rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-200 underline decoration-dotted"
+                                                    title="Open invoice in SimplyBook admin portal"
+                                                >
+                                                    <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
+                                                    <span>
+                                                        {invoiceLabel}
+                                                        {(booking.sbInvoiceAmount || booking.sbPaymentProcessor) && (
+                                                            <span className="text-violet-500 dark:text-violet-400 ml-0.5">
+                                                                {' ('}
+                                                                {booking.sbInvoiceAmount ? `AED ${booking.sbInvoiceAmount.toFixed(2)}` : ''}
+                                                                {booking.sbInvoiceAmount && booking.sbPaymentProcessor ? ', ' : ''}
+                                                                {booking.sbPaymentProcessor || ''}
+                                                                {')'}
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </a>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                                 <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">

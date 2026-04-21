@@ -19,6 +19,9 @@ export interface RegisteredCustomer {
     blocked: boolean;
     createdAt: string;
     connectedPatients?: { patientPhone: string; relationship: string }[];
+    // Migration tracking
+    source?: 'app' | 'simplybook'; // origin of the account
+    sbClientId?: string;           // SimplyBook client ID for traceability
 }
 
 // In-memory cache — loaded from blob on first access

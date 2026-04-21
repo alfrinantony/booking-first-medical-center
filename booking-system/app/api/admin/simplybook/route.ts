@@ -282,7 +282,9 @@ export async function GET(request: NextRequest) {
     // ── Debug invoices — tries invoice API + dumps raw booking fields ──
     // GET /api/admin/simplybook?debug_invoices=true&from=YYYY-MM-DD&to=YYYY-MM-DD
     if (sp.get('debug_invoices') === 'true') {
-        const today = new Date().toISOString().split('T')[0];\n        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];\n        const dateFrom = sp.get('from') || weekAgo;
+        const today = new Date().toISOString().split('T')[0];
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dateFrom = sp.get('from') || weekAgo;
         const dateTo   = sp.get('to')   || today;
         try {
             // 1) Try all invoice API methods

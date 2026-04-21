@@ -5,7 +5,7 @@ import { RegisteredCustomer as RegisteredUser } from '@/lib/customer-auth-server
 import {
     Users, Search, Shield, ShieldOff, KeyRound, Edit2, Trash2, X,
     Merge, Check, Mail, Phone, Calendar, Ban, CheckCircle2,
-    AlertTriangle, Eye, EyeOff, User
+    AlertTriangle, Eye, EyeOff, User, Download, Loader2
 } from 'lucide-react';
 import { maskPhone, maskEmail } from '@/lib/emr-store';
 
@@ -86,6 +86,35 @@ export default function RegisteredUsersPage() {
         setFeedback({ type, msg });
         setTimeout(() => setFeedback(null), 3000);
     }, []);
+
+    // SimplyBook import state
+    const [importingSB, setImportingSB] = useState(false);
+    const [importResult, setImportResult] = useState<{ imported: number; skipped: number; total: number; tempPassword: string } | null>(null);
+
+    const handleImportFromSB = async () => {
+        if (!confirm(
+            'This will create registered user accounts for all SimplyBook clients who have an email address.\n\n' +
+            'Temporary password: FMC@2026\n\n' +
+            'Accounts are created as pre-verified. Existing accounts are skipped. Continue?'
+        )) return;
+        setImportingSB(true);
+        setImportResult(null);
+        try {
+            const res = await fetch('/api/admin/simplybook/import-registered-users', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                setImportResult({ imported: data.imported, skipped: data.skipped, total: data.total, tempPassword: data.tempPassword });
+                await loadUsers();
+                showFeedback('success', `Imported ${data.imported} SimplyBook users.`);
+            } else {
+                showFeedback('error', 'Import failed: ' + (data.error || 'Unknown error'));
+            }
+        } catch {
+            showFeedback('error', 'Import failed. Check console for details.');
+        } finally {
+            setImportingSB(false);
+        }
+    };
 
     /* ── Filtering ── */
     const filtered = users.filter(u => {
@@ -201,7 +230,6 @@ export default function RegisteredUsersPage() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
             <div className="max-w-7xl mx-auto">
-                {/* Header */}
                 <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
@@ -212,16 +240,41 @@ export default function RegisteredUsersPage() {
                             Manage customer accounts — block, edit, reset passwords, merge duplicates.
                         </p>
                     </div>
-                    <button
-                        onClick={() => { setMergeMode(!mergeMode); setSelected([]); setMergeTarget(null); }}
-                        className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm ${mergeMode
-                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                    >
-                        <Merge className="w-4 h-4" />
-                        {mergeMode ? 'Cancel Merge' : 'Merge Duplicates'}
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleImportFromSB}
+                            disabled={importingSB}
+                            className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60"
+                        >
+                            {importingSB ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                            {importingSB ? 'Importing...' : 'Import from SimplyBook'}
+                        </button>
+                        <button
+                            onClick={() => { setMergeMode(!mergeMode); setSelected([]); setMergeTarget(null); }}
+                            className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm ${
+                                mergeMode
+                                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                    : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                        >
+                            <Merge className="w-4 h-4" />
+                            {mergeMode ? 'Cancel Merge' : 'Merge Duplicates'}
+                        </button>
+                    </div>
                 </header>
+
+                {/* Import result banner */}
+                {importResult && (
+                    <div className="mb-4 p-3 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg flex items-center justify-between">
+                        <span className="text-sm text-violet-700 dark:text-violet-300 font-medium">
+                            ✓ SimplyBook import complete — {importResult.imported} imported, {importResult.skipped} skipped (out of {importResult.total} total).
+                            {importResult.imported > 0 && (
+                                <> Temporary password: <code className="font-mono bg-violet-100 dark:bg-violet-800/50 px-1 rounded">{importResult.tempPassword}</code></>                            )}
+                        </span>
+                        <button onClick={() => setImportResult(null)} className="text-violet-500 hover:text-violet-700 ml-4">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
 
                 {/* Feedback */}
                 {feedback && (
@@ -325,6 +378,11 @@ export default function RegisteredUsersPage() {
                                         <td className="p-4">
                                             <div className="font-medium text-gray-900 dark:text-white">{u.name}</div>
                                             <div className="text-xs text-gray-500 font-mono">{u.id}</div>
+                                            {(u as any).source === 'simplybook' && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full mt-0.5">
+                                                    SimplyBook
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-4 text-sm">
                                             <div className="flex items-center gap-1.5">
