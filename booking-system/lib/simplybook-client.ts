@@ -303,14 +303,82 @@ export async function getInvoiceList(
     dateFrom: string,
     dateTo: string
 ): Promise<SimplyBookInvoice[]> {
-    try {
-        const filter = { date_from: dateFrom, date_to: dateTo, status: 'all' };
-        const result = await callAdmin('getInvoiceList', [filter, 1000, 0]);
-        if (Array.isArray(result)) return result as SimplyBookInvoice[];
-        if (result && typeof result === 'object') return Object.values(result) as SimplyBookInvoice[];
-        return [];
-    } catch (err) {
-        console.warn('[SimplyBook] getInvoiceList failed (invoice plugin may not be enabled):', String(err).substring(0, 150));
-        return [];
+    // SimplyBook uses different method names and filter formats depending on plan/plugin version.
+    // Try each combination until one returns data.
+    const attempts: Array<{ method: string; params: unknown[] }> = [
+        // Most common: Invoice plugin with status filter
+        { method: 'getInvoiceList',        params: [{ date_from: dateFrom, date_to: dateTo, status: 'all' }, 1000, 0] },
+        // Without status (some versions don't support 'all')
+        { method: 'getInvoiceList',        params: [{ date_from: dateFrom, date_to: dateTo }, 1000, 0] },
+        // Alternate method name seen in some SB accounts
+        { method: 'getBookingInvoices',    params: [{ date_from: dateFrom, date_to: dateTo }, 1000, 0] },
+        // Payment-based report
+        { method: 'getPaymentList',        params: [{ date_from: dateFrom, date_to: dateTo }, 1000, 0] },
+        // No filter — just count (diagnostic)
+        { method: 'getInvoiceList',        params: [{}, 100, 0] },
+    ];
+
+    for (const attempt of attempts) {
+        try {
+            console.log(`[SimplyBook] Trying ${attempt.method} with params:`, JSON.stringify(attempt.params));
+            const result = await callAdmin(attempt.method, attempt.params);
+            if (Array.isArray(result) && result.length > 0) {
+                console.log(`[SimplyBook] ✅ ${attempt.method} returned ${result.length} invoices`);
+                return result as SimplyBookInvoice[];
+            }
+            if (result && typeof result === 'object' && !Array.isArray(result)) {
+                const vals = Object.values(result);
+                if (vals.length > 0) {
+                    console.log(`[SimplyBook] ✅ ${attempt.method} returned ${vals.length} invoices (object form)`);
+                    return vals as SimplyBookInvoice[];
+                }
+            }
+            console.log(`[SimplyBook] ${attempt.method} returned empty`);
+        } catch (err) {
+            console.warn(`[SimplyBook] ${attempt.method} failed:`, String(err).substring(0, 200));
+        }
     }
+
+    console.warn('[SimplyBook] All invoice methods returned empty — invoice plugin may not be enabled or no invoices in range');
+    return [];
+}
+
+// ── Verbose invoice debug (used by debug_invoices endpoint) ──
+export async function getInvoiceListDebug(
+    dateFrom: string,
+    dateTo: string
+): Promise<{ method: string; params: unknown; status: 'ok' | 'empty' | 'error'; count: number; sample: unknown[]; error?: string }[]> {
+    const attempts: Array<{ method: string; params: unknown[] }> = [
+        { method: 'getInvoiceList',     params: [{ date_from: dateFrom, date_to: dateTo, status: 'all' }, 100, 0] },
+        { method: 'getInvoiceList',     params: [{ date_from: dateFrom, date_to: dateTo }, 100, 0] },
+        { method: 'getInvoiceList',     params: [{}, 10, 0] },
+        { method: 'getBookingInvoices', params: [{ date_from: dateFrom, date_to: dateTo }, 100, 0] },
+        { method: 'getPaymentList',     params: [{ date_from: dateFrom, date_to: dateTo }, 100, 0] },
+    ];
+
+    const results = [];
+    for (const attempt of attempts) {
+        try {
+            const result = await callAdmin(attempt.method, attempt.params);
+            const arr: unknown[] = Array.isArray(result) ? result
+                : (result && typeof result === 'object') ? Object.values(result) : [];
+            results.push({
+                method: attempt.method,
+                params: attempt.params,
+                status: arr.length > 0 ? 'ok' : 'empty',
+                count: arr.length,
+                sample: arr.slice(0, 2),
+            });
+        } catch (err) {
+            results.push({
+                method: attempt.method,
+                params: attempt.params,
+                status: 'error',
+                count: 0,
+                sample: [],
+                error: String(err).substring(0, 300),
+            });
+        }
+    }
+    return results as any;
 }

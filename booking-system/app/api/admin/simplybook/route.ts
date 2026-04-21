@@ -22,6 +22,7 @@ import {
     getServiceList,
     getProviderList,
     getInvoiceList,
+    getInvoiceListDebug,
     SimplyBookAdminBooking,
 } from '@/lib/simplybook-client';
 
@@ -278,7 +279,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(stats);
     }
 
-    // ── Debug invoices — returns raw invoice objects so we can confirm field names ──
+    // ── Debug invoices — tries all known method/param combinations ──
     // GET /api/admin/simplybook?debug_invoices=true&from=YYYY-MM-DD&to=YYYY-MM-DD
     if (sp.get('debug_invoices') === 'true') {
         const today = new Date().toISOString().split('T')[0];
@@ -286,32 +287,14 @@ export async function GET(request: NextRequest) {
         const dateFrom = sp.get('from') || weekAgo;
         const dateTo   = sp.get('to')   || today;
         try {
-            const invoices = await getInvoiceList(dateFrom, dateTo);
-            // Return first 5 raw invoices with ALL their fields for inspection
+            const attempts = await getInvoiceListDebug(dateFrom, dateTo);
             return NextResponse.json({
-                total: invoices.length,
                 dateFrom,
                 dateTo,
-                sample: invoices.slice(0, 5).map(inv => ({
-                    // Dump every key so we can see exact field names
-                    ...inv,
-                    // Highlight the fields we care about
-                    _extracted: {
-                        id:               inv.id,
-                        number_field:     inv.number,
-                        code_field:       (inv as any).code,
-                        invoice_number:   (inv as any).invoice_number,
-                        num_field:        (inv as any).num,
-                        payment_system:   (inv as any).payment_system,
-                        payment_processor:(inv as any).payment_processor,
-                        payment_method:   (inv as any).payment_method,
-                        processor:        (inv as any).processor,
-                        type:             inv.type,
-                        status:           inv.status,
-                        amount:           inv.amount,
-                        currency:         inv.currency,
-                    }
-                }))
+                // Each entry shows: method tried, status (ok/empty/error), count, raw sample fields
+                attempts,
+                // Summary: which method worked
+                winner: attempts.find(a => a.status === 'ok') ?? null,
             });
         } catch (err) {
             return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
