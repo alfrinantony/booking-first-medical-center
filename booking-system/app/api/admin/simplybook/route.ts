@@ -230,6 +230,44 @@ function mapAdminBooking(
     };
 }
 
+// ── Helper: extract invoice fields trying all SimplyBook field name variants ──
+function extractInvoiceFields(inv: Record<string, unknown>) {
+    // Invoice number: SimplyBook uses "number", "code", "invoice_number", or "num" depending on plan/version
+    const invoiceNumber =
+        typeof inv.number === 'string'         ? inv.number :
+        typeof inv.code === 'string'           ? inv.code :
+        typeof inv.invoice_number === 'string' ? inv.invoice_number as string :
+        typeof inv.num === 'string'            ? inv.num as string :
+        undefined;
+
+    // Payment processor: "payment_system" (most common), "payment_processor", "payment_method", or "processor"
+    const paymentProcessor =
+        typeof inv.payment_system === 'string'    ? inv.payment_system as string :
+        typeof inv.payment_processor === 'string' ? inv.payment_processor as string :
+        typeof inv.payment_method === 'string'    ? inv.payment_method as string :
+        typeof inv.processor === 'string'         ? inv.processor as string :
+        undefined;
+
+    const invoiceId       = String(inv.id || '');
+    const invoiceAmount   = typeof inv.amount === 'number' ? inv.amount : undefined;
+    const paidAmount      = typeof inv.paid_amount === 'number' ? inv.paid_amount : undefined;
+    const invoiceCurrency = typeof inv.currency === 'string' ? inv.currency : 'AED';
+    const paymentType     = inv.type === 'online' ? 'online' as const : inv.type === 'offline' ? 'offline' as const : undefined;
+    const paymentDate     = typeof inv.payment_datetime === 'string' ? inv.payment_datetime : undefined;
+
+    const rawStatus = String(inv.status || '').toLowerCase();
+    const paymentStatus =
+        rawStatus === 'paid'    ? 'paid'    as const :
+        rawStatus === 'partial' ? 'partial' as const :
+        rawStatus === 'new'     ? 'new'     as const :
+        rawStatus === 'pending' ? 'pending' as const :
+        rawStatus               ? 'unpaid'  as const :
+        undefined;
+
+    return { invoiceId, invoiceNumber, invoiceAmount, paidAmount, invoiceCurrency,
+             paymentStatus, paymentType, paymentProcessor, paymentDate };
+}
+
 export async function GET(request: NextRequest) {
     const sp = request.nextUrl.searchParams;
 
@@ -238,6 +276,46 @@ export async function GET(request: NextRequest) {
         const date = sp.get('date') || new Date().toISOString().split('T')[0];
         const stats = await SimplybookStore.getStats(date);
         return NextResponse.json(stats);
+    }
+
+    // ── Debug invoices — returns raw invoice objects so we can confirm field names ──
+    // GET /api/admin/simplybook?debug_invoices=true&from=YYYY-MM-DD&to=YYYY-MM-DD
+    if (sp.get('debug_invoices') === 'true') {
+        const today = new Date().toISOString().split('T')[0];
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dateFrom = sp.get('from') || weekAgo;
+        const dateTo   = sp.get('to')   || today;
+        try {
+            const invoices = await getInvoiceList(dateFrom, dateTo);
+            // Return first 5 raw invoices with ALL their fields for inspection
+            return NextResponse.json({
+                total: invoices.length,
+                dateFrom,
+                dateTo,
+                sample: invoices.slice(0, 5).map(inv => ({
+                    // Dump every key so we can see exact field names
+                    ...inv,
+                    // Highlight the fields we care about
+                    _extracted: {
+                        id:               inv.id,
+                        number_field:     inv.number,
+                        code_field:       (inv as any).code,
+                        invoice_number:   (inv as any).invoice_number,
+                        num_field:        (inv as any).num,
+                        payment_system:   (inv as any).payment_system,
+                        payment_processor:(inv as any).payment_processor,
+                        payment_method:   (inv as any).payment_method,
+                        processor:        (inv as any).processor,
+                        type:             inv.type,
+                        status:           inv.status,
+                        amount:           inv.amount,
+                        currency:         inv.currency,
+                    }
+                }))
+            });
+        } catch (err) {
+            return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+        }
     }
 
     // ── Sync mode ──
@@ -308,26 +386,21 @@ export async function GET(request: NextRequest) {
                     record.syncedToBookingsId = existing.syncedToBookingsId;
                 }
 
-                // Attach payment/invoice data
+                // Attach payment/invoice data using the multi-variant helper
                 const inv = invoiceMap.get(record.sbId);
                 if (inv) {
-                    record.invoiceId        = String(inv.id);
-                    record.invoiceNumber    = typeof inv.number === 'string' ? inv.number : undefined;
-                    record.invoiceAmount    = typeof inv.amount === 'number' ? inv.amount : undefined;
-                    record.paidAmount       = typeof inv.paid_amount === 'number' ? inv.paid_amount : undefined;
-                    record.invoiceCurrency  = typeof inv.currency === 'string' ? inv.currency : 'AED';
-                    record.paymentType      = (inv.type === 'online' || inv.type === 'offline') ? inv.type : undefined;
-                    record.paymentDate      = typeof inv.payment_datetime === 'string' ? inv.payment_datetime : undefined;
-                    record.paymentProcessor = typeof inv.payment_processor === 'string' ? inv.payment_processor
-                        : typeof inv.payment_method === 'string' ? inv.payment_method : undefined;
-                    const rawStatus = String(inv.status || '').toLowerCase();
-                    record.paymentStatus   = rawStatus === 'paid' ? 'paid'
-                        : rawStatus === 'partial' ? 'partial'
-                        : rawStatus === 'new' ? 'new'
-                        : rawStatus === 'pending' ? 'pending'
-                        : 'unpaid';
+                    const f = extractInvoiceFields(inv as Record<string, unknown>);
+                    record.invoiceId        = f.invoiceId;
+                    record.invoiceNumber    = f.invoiceNumber;
+                    record.invoiceAmount    = f.invoiceAmount;
+                    record.paidAmount       = f.paidAmount;
+                    record.invoiceCurrency  = f.invoiceCurrency;
+                    record.paymentStatus    = f.paymentStatus;
+                    record.paymentType      = f.paymentType;
+                    record.paymentProcessor = f.paymentProcessor;
+                    record.paymentDate      = f.paymentDate;
                 } else {
-                    // Try to extract from raw booking fields as fallback
+                    // Fallback: try raw booking fields
                     const raw = booking as Record<string, unknown>;
                     if (raw.invoice_amount) record.invoiceAmount = typeof raw.invoice_amount === 'number' ? raw.invoice_amount : undefined;
                     if (raw.payment_status) record.paymentStatus = String(raw.payment_status) as typeof record.paymentStatus;
@@ -419,24 +492,19 @@ export async function GET(request: NextRequest) {
                 const sbRecord = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
                 sbUpsertBatch.push(sbRecord);
 
-                // Extract billing info — prefer invoice map, fall back to raw booking fields
+                // Extract billing info using multi-variant helper
                 const raw = booking as Record<string, unknown>;
                 const inv = invoiceMap.get(String((booking as any).id || ''));
-                const invoiceId        = inv ? String(inv.id) : (raw.invoice_id ? String(raw.invoice_id) : undefined);
-                const invoiceNumber    = typeof inv?.number === 'string' ? inv.number : undefined;
-                const invoiceAmount    = inv?.amount ?? (typeof raw.invoice_amount === 'number' ? raw.invoice_amount : undefined);
-                const invoiceCurrency  = (typeof inv?.currency === 'string' ? inv.currency : null) ?? (typeof raw.invoice_currency === 'string' ? raw.invoice_currency : 'AED');
-                const paidAmount       = typeof inv?.paid_amount === 'number' ? inv.paid_amount : undefined;
-                const rawPmtStatus     = String(inv?.status || raw.payment_status || '').toLowerCase();
-                const paymentStatus    = rawPmtStatus === 'paid' ? 'paid'
-                    : rawPmtStatus === 'partial' ? 'partial'
-                    : rawPmtStatus === 'new' ? 'new'
-                    : rawPmtStatus === 'pending' ? 'pending'
-                    : rawPmtStatus ? 'unpaid' : undefined;
-                const paymentType      = (inv?.type === 'online' || inv?.type === 'offline') ? inv.type as 'online' | 'offline' : undefined;
-                const paymentDate      = typeof inv?.payment_datetime === 'string' ? inv.payment_datetime : undefined;
-                const paymentProcessor = typeof inv?.payment_processor === 'string' ? inv.payment_processor
-                    : typeof inv?.payment_method === 'string' ? inv.payment_method : undefined;
+                const f = inv ? extractInvoiceFields(inv as Record<string, unknown>) : null;
+                const invoiceId        = f?.invoiceId ?? (raw.invoice_id ? String(raw.invoice_id) : undefined);
+                const invoiceNumber    = f?.invoiceNumber;
+                const invoiceAmount    = f?.invoiceAmount ?? (typeof raw.invoice_amount === 'number' ? raw.invoice_amount : undefined);
+                const invoiceCurrency  = f?.invoiceCurrency ?? (typeof raw.invoice_currency === 'string' ? raw.invoice_currency : 'AED');
+                const paidAmount       = f?.paidAmount;
+                const paymentStatus    = f?.paymentStatus ?? (raw.payment_status ? String(raw.payment_status) as any : undefined);
+                const paymentType      = f?.paymentType;
+                const paymentProcessor = f?.paymentProcessor;
+                const paymentDate      = f?.paymentDate;
 
                 // Also enrich the SB record with payment info
                 sbRecord.invoiceId        = invoiceId;
@@ -524,25 +592,22 @@ export async function GET(request: NextRequest) {
             for (const inv of invoices) {
                 if (!inv.booking_id) continue;
                 const bookingId = String(inv.booking_id);
-                const rawStatus = String(inv.status || '').toLowerCase();
-                const paymentStatus = rawStatus === 'paid' ? 'paid'
-                    : rawStatus === 'partial' ? 'partial' : 'unpaid';
+                const f = extractInvoiceFields(inv as Record<string, unknown>);
 
                 // Update SB store
                 const sbRecord = await SimplybookStore.getById(bookingId);
                 if (sbRecord) {
                     await SimplybookStore.upsert({
                         ...sbRecord,
-                        invoiceId:        String(inv.id),
-                        invoiceNumber:    typeof inv.number === 'string' ? inv.number : sbRecord.invoiceNumber,
-                        invoiceAmount:    typeof inv.amount === 'number' ? inv.amount : sbRecord.invoiceAmount,
-                        paidAmount:       typeof inv.paid_amount === 'number' ? inv.paid_amount : sbRecord.paidAmount,
-                        invoiceCurrency:  typeof inv.currency === 'string' ? inv.currency : 'AED',
-                        paymentStatus,
-                        paymentType:      inv.type === 'online' ? 'online' : 'offline',
-                        paymentProcessor: typeof inv.payment_processor === 'string' ? inv.payment_processor
-                            : typeof inv.payment_method === 'string' ? inv.payment_method : sbRecord.paymentProcessor,
-                        paymentDate:      typeof inv.payment_datetime === 'string' ? inv.payment_datetime : undefined,
+                        invoiceId:        f.invoiceId,
+                        invoiceNumber:    f.invoiceNumber    ?? sbRecord.invoiceNumber,
+                        invoiceAmount:    f.invoiceAmount    ?? sbRecord.invoiceAmount,
+                        paidAmount:       f.paidAmount       ?? sbRecord.paidAmount,
+                        invoiceCurrency:  f.invoiceCurrency,
+                        paymentStatus:    f.paymentStatus,
+                        paymentType:      f.paymentType      ?? sbRecord.paymentType,
+                        paymentProcessor: f.paymentProcessor ?? sbRecord.paymentProcessor,
+                        paymentDate:      f.paymentDate      ?? sbRecord.paymentDate,
                     });
                 }
 
@@ -551,14 +616,13 @@ export async function GET(request: NextRequest) {
                 const appBooking = appBookings.find((b: any) => b.sbId === bookingId);
                 if (appBooking) {
                     await BookingsStore.update(appBooking.id, {
-                        sbPaymentStatus:    paymentStatus as any,
-                        sbInvoiceId:        String(inv.id),
-                        sbInvoiceNumber:    typeof inv.number === 'string' ? inv.number : undefined,
-                        sbInvoiceAmount:    typeof inv.amount === 'number' ? inv.amount : undefined,
-                        sbInvoiceCurrency:  typeof inv.currency === 'string' ? inv.currency : 'AED',
-                        sbPaymentProcessor: typeof inv.payment_processor === 'string' ? inv.payment_processor
-                            : typeof inv.payment_method === 'string' ? inv.payment_method : undefined,
-                        paymentMethod:      inv.type === 'online' ? 'online' : undefined,
+                        sbPaymentStatus:    f.paymentStatus,
+                        sbInvoiceId:        f.invoiceId,
+                        sbInvoiceNumber:    f.invoiceNumber,
+                        sbInvoiceAmount:    f.invoiceAmount,
+                        sbInvoiceCurrency:  f.invoiceCurrency,
+                        sbPaymentProcessor: f.paymentProcessor,
+                        paymentMethod:      f.paymentType === 'online' ? 'online' : undefined,
                     } as any);
                     updated++;
                 }
