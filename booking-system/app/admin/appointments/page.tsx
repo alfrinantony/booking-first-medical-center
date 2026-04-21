@@ -784,7 +784,7 @@ export default function AdminAppointmentsPage() {
                                             </span>
                                         ) : booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid' ? (
                                             <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 px-1.5 py-0.5 rounded-full">
-                                                ✓ SB Paid{booking.sbInvoiceAmount ? ` · ${booking.sbInvoiceAmount} ${booking.sbInvoiceCurrency || 'AED'}` : ''}{booking.sbInvoiceNumber ? ` · ${booking.sbInvoiceNumber}` : booking.sbInvoiceId ? ` · #${booking.sbInvoiceId}` : ''}
+                                                ✓ SB Paid{booking.sbPaymentProcessor ? ` via ${booking.sbPaymentProcessor}` : ''}{booking.sbInvoiceAmount ? ` · ${booking.sbInvoiceAmount} ${booking.sbInvoiceCurrency || 'AED'}` : ''}{booking.sbInvoiceNumber ? ` · ${booking.sbInvoiceNumber}` : booking.sbInvoiceId ? ` · #${booking.sbInvoiceId}` : ''}
                                             </span>
 
                                         ) : (
