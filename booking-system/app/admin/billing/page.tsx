@@ -43,6 +43,10 @@ export default function BillingPage() {
     // Booking linkage for appInvoiceMap
     const [linkedBookingId, setLinkedBookingId] = useState('');
     const [linkedSbId, setLinkedSbId] = useState('');
+    // Duplicate bill protection
+    const [submitting, setSubmitting] = useState(false);
+    const [alreadyBilledInvoice, setAlreadyBilledInvoice] = useState<{ invoiceNumber: string; id: string } | null>(null);
+    const [allowDuplicate, setAllowDuplicate] = useState(false);
 
     const loadInvoices = useCallback(async () => {
         try {
@@ -194,6 +198,24 @@ export default function BillingPage() {
         const sbIdVal = (booking as any).sbId || '';
         setLinkedSbId(sbIdVal);
 
+        // Duplicate bill detection — check if this booking is already billed
+        setAllowDuplicate(false);
+        if ((booking as any).billingStatus === 'billed') {
+            // Try to find the existing invoice for this booking
+            fetch(`/api/admin/billing?bookingId=${booking.id}`)
+                .then(r => r.json())
+                .then((existingInvoices: Array<{ id: string; invoiceNumber: string }>) => {
+                    if (Array.isArray(existingInvoices) && existingInvoices.length > 0) {
+                        setAlreadyBilledInvoice({ id: existingInvoices[0].id, invoiceNumber: existingInvoices[0].invoiceNumber });
+                    } else {
+                        setAlreadyBilledInvoice({ id: '', invoiceNumber: 'a previous invoice' });
+                    }
+                })
+                .catch(() => setAlreadyBilledInvoice({ id: '', invoiceNumber: 'a previous invoice' }));
+        } else {
+            setAlreadyBilledInvoice(null);
+        }
+
         // Auto-set payment method
         const bkPaymentMethod = (booking as any).paymentMethod;
         const sbPaymentStatus = (booking as any).sbPaymentStatus;
@@ -235,6 +257,7 @@ export default function BillingPage() {
         setPackageDetails(''); setNotes(''); setSelectedBooking(null); setBookingSearch('');
         setDoctorName(''); setBookingDate(''); setBookingTime('');
         setOnlineReference(''); setLinkedBookingId(''); setLinkedSbId('');
+        setAlreadyBilledInvoice(null); setAllowDuplicate(false);
     };
 
     // Validate batch selections before submission
@@ -268,6 +291,13 @@ export default function BillingPage() {
 
     const handleCreateInvoice = async () => {
         if (!clientName || !clientPhone || !generatedBy) return;
+        if (submitting) return; // prevent double-click
+
+        // Block duplicate if not explicitly allowed
+        if (alreadyBilledInvoice && !allowDuplicate) {
+            alert('This booking already has an invoice. Please tick the confirmation checkbox to create another one.');
+            return;
+        }
 
         const invoiceItems: InvoiceLineItem[] = items.filter(i => i.description).map(i => {
             return {
@@ -303,6 +333,7 @@ export default function BillingPage() {
         }
 
         try {
+            setSubmitting(true);
             const res = await fetch('/api/admin/billing', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -345,7 +376,9 @@ export default function BillingPage() {
                     } catch { /* silent */ }
                 }
             }
-        } catch { /* silent */ }
+        } catch { /* silent */ } finally {
+            setSubmitting(false);
+        }
 
         resetForm();
         setIsCreateModalOpen(false);
@@ -886,6 +919,34 @@ export default function BillingPage() {
                                     </div>
                                 </div>
 
+                                {/* ── Duplicate Bill Warning ── */}
+                                {alreadyBilledInvoice && (
+                                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg p-4">
+                                        <div className="flex items-start gap-3">
+                                            <span className="text-red-500 text-lg mt-0.5">⚠</span>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                                                    This booking already has an invoice: <span className="font-mono">{alreadyBilledInvoice.invoiceNumber}</span>
+                                                </p>
+                                                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                                    Generating another invoice may result in a duplicate charge. Only continue if the previous invoice was voided or incorrect.
+                                                </p>
+                                                <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={allowDuplicate}
+                                                        onChange={e => setAllowDuplicate(e.target.checked)}
+                                                        className="w-4 h-4 accent-red-600"
+                                                    />
+                                                    <span className="text-sm font-semibold text-red-700 dark:text-red-300">
+                                                        I understand — create a new invoice anyway
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Summary */}
                                 <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-1 text-sm">
                                     {totalDiscount > 0 && (
@@ -901,7 +962,19 @@ export default function BillingPage() {
 
                                 <div className="flex justify-end gap-3">
                                     <button onClick={() => setIsCreateModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
-                                    <button onClick={handleCreateInvoice} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Create Invoice</button>
+                                    <button
+                                        onClick={handleCreateInvoice}
+                                        disabled={submitting || (!!alreadyBilledInvoice && !allowDuplicate)}
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {submitting && (
+                                            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                            </svg>
+                                        )}
+                                        {submitting ? 'Saving...' : alreadyBilledInvoice && !allowDuplicate ? '⚠ Confirm Before Saving' : 'Create Invoice'}
+                                    </button>
                                 </div>
                             </div>
                         </div>
