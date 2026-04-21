@@ -772,7 +772,8 @@ export default function AdminAppointmentsPage() {
                                             </span>
                                         )}
                                         {/* SB Invoice: #SI-2026000362 (AED 183.75, Stripe) */}
-                                        {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId) && (\n                                            <a
+                                        {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId) && (
+                                            <a
                                                 href={`https://firstmedicalcenter.secure.simplybook.it/v2/management/#reports/invoice/${booking.sbInvoiceId}`}
                                                 target="_blank" rel="noopener noreferrer"
                                                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-200 underline decoration-dotted"
