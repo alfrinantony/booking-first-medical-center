@@ -437,10 +437,12 @@ export interface Booking {
     source?: 'app' | 'simplybook';   // origin of this booking
     sbId?: string;                   // SimplyBook booking_id
     sbHash?: string;                 // SimplyBook booking_hash
-    sbInvoiceId?: string;            // SimplyBook invoice ID
+    sbInvoiceId?: string;            // SimplyBook invoice numeric ID
+    sbInvoiceNumber?: string;        // Formatted invoice number e.g. "SI-2026000362"
     sbInvoiceAmount?: number;        // Invoice total in booking currency
     sbInvoiceCurrency?: string;      // e.g. "AED"
     sbPaymentStatus?: string;        // "paid" | "unpaid" | "partial"
+    sbPaymentProcessor?: string;     // e.g. "Stripe", "PayPal", "manual"
     sbProviderName?: string;         // Original SB provider name (for audit / reassignment)
     sbServiceName?: string;          // Original SB service name (for audit)
 }

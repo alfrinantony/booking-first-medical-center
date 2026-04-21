@@ -188,7 +188,8 @@ export interface SimplyBookUnit {
 }
 
 export interface SimplyBookInvoice {
-    id: string | number;          // invoice ID
+    id: string | number;          // invoice numeric ID
+    number?: string;              // formatted invoice number, e.g. "SI-2026000362"
     booking_id?: string | number; // linked booking ID
     amount?: number;              // total invoice amount
     paid_amount?: number;         // how much was paid
@@ -196,6 +197,8 @@ export interface SimplyBookInvoice {
     status?: string;              // "new", "pending", "paid", "unpaid", "partial"
     type?: string;                // "online", "offline"
     currency?: string;            // e.g. "AED"
+    payment_processor?: string;   // e.g. "Stripe", "PayPal", "manual"
+    payment_method?: string;      // alias field some SB versions return
     payment_datetime?: string;    // when payment was made
     [key: string]: unknown;
 }

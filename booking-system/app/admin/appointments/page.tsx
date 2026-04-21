@@ -771,16 +771,26 @@ export default function AdminAppointmentsPage() {
                                                 Pay at Clinic
                                             </span>
                                         )}
-                                        {/* SB Invoice number + link */}
-                                        {booking.source === 'simplybook' && booking.sbInvoiceId && (
-                                            <a
-                                                href={`https://firstmedicalcenter.secure.simplybook.it/v2/management/#bookings/booking/${booking.sbId}`}
+                                        {/* SB Invoice: #SI-2026000362 (د.إ. 183.75, Stripe) */}
+                                        {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId) && (\n                                            <a
+                                                href={`https://firstmedicalcenter.secure.simplybook.it/v2/management/#reports/invoice/${booking.sbInvoiceId}`}
                                                 target="_blank" rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1 text-[10px] font-mono text-violet-500 hover:text-violet-700 underline"
-                                                title="Open in SimplyBook"
+                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-200 underline decoration-dotted"
+                                                title="Open invoice in SimplyBook"
                                             >
-                                                <ExternalLink className="w-2.5 h-2.5" />
-                                                INV#{booking.sbInvoiceId}
+                                                <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
+                                                <span>
+                                                    {booking.sbInvoiceNumber || `#${booking.sbInvoiceId}`}
+                                                    {(booking.sbInvoiceAmount || booking.sbPaymentProcessor) && (
+                                                        <span className="text-violet-500 dark:text-violet-400 ml-0.5">
+                                                            {' ('}
+                                                            {booking.sbInvoiceAmount ? `د.إ.\u00a0${booking.sbInvoiceAmount.toFixed(2)}` : ''}
+                                                            {booking.sbInvoiceAmount && booking.sbPaymentProcessor ? ', ' : ''}
+                                                            {booking.sbPaymentProcessor || ''}
+                                                            {')'}
+                                                        </span>
+                                                    )}
+                                                </span>
                                             </a>
                                         )}
                                     </div>
