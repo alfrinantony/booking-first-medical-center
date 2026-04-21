@@ -372,6 +372,20 @@ export default function AdminAppointmentsPage() {
 
     const availableDocsForEdit = (() => {
         if (!editingBooking) return [];
+
+        // For unmatched SimplyBook bookings, show ALL doctors across ALL clinics
+        const isUnmatched = editingBooking.doctorId === 'sb-unmatched' ||
+            editingBooking.clinicId === 'simplybook-import';
+        if (isUnmatched) {
+            const docsMap = new Map<string, { id: string; name: string }>();
+            clinics.forEach(c =>
+                c.departments.forEach(d =>
+                    (d.doctors || []).forEach(doc => docsMap.set(doc.id, doc))
+                )
+            );
+            return Array.from(docsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+        }
+
         const clinic = clinics.find(c => c.id === editingBooking.clinicId);
         if (!clinic) return [];
 
@@ -982,15 +996,23 @@ export default function AdminAppointmentsPage() {
                                     className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                                     value={editForm.doctorId}
                                     onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
-                                    disabled={!canReassignDoctor}
+                                    disabled={editingBooking?.doctorId !== 'sb-unmatched' && editingBooking?.clinicId !== 'simplybook-import' && !canReassignDoctor}
                                 >
+                                    {/* Placeholder for unmatched bookings */}
+                                    {(editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && (
+                                        <option value="sb-unmatched">— Select a doctor to assign —</option>
+                                    )}
                                     {availableDocsForEdit.map(doc => (
                                         <option key={doc.id} value={doc.id}>{doc.name}</option>
                                     ))}
                                 </select>
-                                {!canReassignDoctor && (
+                                {(editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') ? (
+                                    <p className="text-xs text-violet-600 dark:text-violet-400 mt-1 flex items-center gap-1">
+                                        ⚠ SimplyBook provider unmatched — please assign a doctor from the list above.
+                                    </p>
+                                ) : !canReassignDoctor ? (
                                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">You do not have permission to change the assigned doctor.</p>
-                                )}
+                                ) : null}
                             </div>
 
                             <div>
