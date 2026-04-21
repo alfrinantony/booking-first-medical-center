@@ -79,6 +79,8 @@ export interface Invoice {
     // Booking linkage
     bookingId?: string;        // Links to BookingsStore booking ID
     sbId?: string;             // Links to SimplyBook booking ID (for SB-sourced bookings)
+    // Online payment traceability
+    onlineReference?: string;  // SB invoice number, Stripe charge ID, or other online ref
 }
 
 // ── In-memory store ──

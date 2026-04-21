@@ -38,6 +38,11 @@ export default function BillingPage() {
     const [bookingDate, setBookingDate] = useState('');
     const [bookingTime, setBookingTime] = useState('');
     const [doctorName, setDoctorName] = useState('');
+    // Online payment reference (SB invoice number, Stripe ref, etc.) — shown on receipt
+    const [onlineReference, setOnlineReference] = useState('');
+    // Booking linkage for appInvoiceMap
+    const [linkedBookingId, setLinkedBookingId] = useState('');
+    const [linkedSbId, setLinkedSbId] = useState('');
 
     const loadInvoices = useCallback(async () => {
         try {
@@ -184,6 +189,11 @@ export default function BillingPage() {
         setBookingDate(booking.date || '');
         setBookingTime(booking.slot || '');
 
+        // Booking linkage — persisted on the invoice for appInvoiceMap
+        setLinkedBookingId(booking.id || '');
+        const sbIdVal = (booking as any).sbId || '';
+        setLinkedSbId(sbIdVal);
+
         // Auto-set payment method
         const bkPaymentMethod = (booking as any).paymentMethod;
         const sbPaymentStatus = (booking as any).sbPaymentStatus;
@@ -193,10 +203,19 @@ export default function BillingPage() {
             setPaymentMethod('cash');
         }
 
-        // Build notes — include SB invoice ref if available
+        // Pre-fill online reference from SB invoice number (avoid duplicates)
+        const sbInvoiceNumber = (booking as any).sbInvoiceNumber;
         const sbInvoiceId = (booking as any).sbInvoiceId;
-        const sbId = (booking as any).sbId;
-        const sbNote = sbInvoiceId ? ` | SB Invoice: INV#${sbInvoiceId}` : (sbId ? ` | SimplyBook ID: #${sbId}` : '');
+        if (sbInvoiceNumber) {
+            setOnlineReference(sbInvoiceNumber);
+        } else if (sbInvoiceId) {
+            setOnlineReference(`SB-INV-${sbInvoiceId}`);
+        } else {
+            setOnlineReference('');
+        }
+
+        // Build notes — include SB invoice ref if available
+        const sbNote = sbInvoiceNumber ? ` | SB Invoice: ${sbInvoiceNumber}` : (sbInvoiceId ? ` | SimplyBook ID: #${sbInvoiceId}` : '');
         setNotes(`Booking ID: ${booking.id} | Doctor: ${docName} | Date: ${booking.date} | Time: ${booking.slot}${sbNote}`);
 
     };
@@ -215,6 +234,7 @@ export default function BillingPage() {
         setItems([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
         setPackageDetails(''); setNotes(''); setSelectedBooking(null); setBookingSearch('');
         setDoctorName(''); setBookingDate(''); setBookingTime('');
+        setOnlineReference(''); setLinkedBookingId(''); setLinkedSbId('');
     };
 
     // Validate batch selections before submission
@@ -302,7 +322,12 @@ export default function BillingPage() {
                     clinicName: clinicName || undefined,
                     generatedBy,
                     date: new Date().toISOString().split('T')[0],
-                    notes: notes || undefined
+                    notes: notes || undefined,
+                    // Booking linkage fields
+                    bookingId: linkedBookingId || undefined,
+                    sbId: linkedSbId || undefined,
+                    // Online reference (SB invoice number or Stripe ref)
+                    onlineReference: onlineReference || undefined,
                 }),
             });
             if (res.ok) {
@@ -505,6 +530,26 @@ export default function BillingPage() {
                                         <input type="text" placeholder="Doctor name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} />
                                     </div>
                                 </div>
+
+                                {/* Online Payment Reference */}
+                                {(paymentMethod === 'online' || paymentMethod === 'card' || onlineReference) && (
+                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 flex items-center gap-3">
+                                        <CreditCard className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
+                                                Online Payment Reference
+                                                {onlineReference && <span className="ml-1 text-[10px] font-normal text-emerald-600">(pre-filled from SimplyBook — printed on receipt)</span>}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. SI-2026000362 or Stripe charge ID"
+                                                className="w-full p-2 border border-emerald-300 dark:border-emerald-700 rounded-md bg-white dark:bg-gray-700 text-sm font-mono"
+                                                value={onlineReference}
+                                                onChange={(e) => setOnlineReference(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Line Items */}
                                 <div>
@@ -880,9 +925,16 @@ export default function BillingPage() {
                                 <div><span className="text-gray-500">Client:</span> {viewingInvoice.clientName} ({viewingInvoice.clientPhone}){viewingInvoice.clientEmail ? ` · ${viewingInvoice.clientEmail}` : ''}</div>
                                 {viewingInvoice.clinicName && <div><span className="text-gray-500">Clinic:</span> {viewingInvoice.clinicName}</div>}
                                 <div><span className="text-gray-500">Payment:</span> {viewingInvoice.paymentMethod}</div>
+                                {(viewingInvoice as any).onlineReference && (
+                                    <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-md px-3 py-2">
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs">Online Ref:</span>
+                                        <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 text-sm">{(viewingInvoice as any).onlineReference}</span>
+                                    </div>
+                                )}
                                 <div><span className="text-gray-500">Generated by:</span> {viewingInvoice.generatedBy}</div>
                                 {viewingInvoice.packageDetails && <div><span className="text-gray-500">Package:</span> {viewingInvoice.packageDetails}</div>}
                             </div>
+
                             <table className="w-full text-sm mb-4">
                                 <thead><tr className="border-b dark:border-gray-700"><th className="text-left py-1">Item</th><th className="text-right">Qty</th><th className="text-right">Reg. Price</th><th className="text-right">Disc.</th><th className="text-right">Final Price</th><th className="text-right">Total</th></tr></thead>
                                 <tbody>
