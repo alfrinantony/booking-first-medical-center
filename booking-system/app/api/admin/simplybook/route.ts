@@ -279,22 +279,37 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(stats);
     }
 
-    // ── Debug invoices — tries all known method/param combinations ──
+    // ── Debug invoices — tries invoice API + dumps raw booking fields ──
     // GET /api/admin/simplybook?debug_invoices=true&from=YYYY-MM-DD&to=YYYY-MM-DD
     if (sp.get('debug_invoices') === 'true') {
-        const today = new Date().toISOString().split('T')[0];
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const dateFrom = sp.get('from') || weekAgo;
+        const today = new Date().toISOString().split('T')[0];\n        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];\n        const dateFrom = sp.get('from') || weekAgo;
         const dateTo   = sp.get('to')   || today;
         try {
+            // 1) Try all invoice API methods
             const attempts = await getInvoiceListDebug(dateFrom, dateTo);
+
+            // 2) Also dump raw booking fields — payment info often embedded in bookings
+            const rawBookings = await getAdminBookings(dateFrom, dateTo, 5, 0);
+            const bookingSample = rawBookings.slice(0, 3).map((b: any) => {
+                // Extract every key that might relate to payment/invoice
+                const allKeys = Object.keys(b);
+                const paymentKeys = allKeys.filter(k =>
+                    /invoice|payment|paid|amount|price|total|transaction|stripe|card|finance/i.test(k)
+                );
+                return {
+                    id: b.id,
+                    all_keys: allKeys,
+                    payment_related_keys: paymentKeys,
+                    payment_values: Object.fromEntries(paymentKeys.map(k => [k, b[k]])),
+                };
+            });
+
             return NextResponse.json({
                 dateFrom,
                 dateTo,
-                // Each entry shows: method tried, status (ok/empty/error), count, raw sample fields
-                attempts,
-                // Summary: which method worked
-                winner: attempts.find(a => a.status === 'ok') ?? null,
+                invoice_api_attempts: attempts,
+                invoice_winner: attempts.find(a => a.status === 'ok') ?? null,
+                booking_payment_fields: bookingSample,
             });
         } catch (err) {
             return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
