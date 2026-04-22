@@ -27,6 +27,8 @@ export default function AdminAppointmentsPage() {
         paymentProcessor?: string; paymentStatus?: string; error?: string;
     }>>({});
     const [fetchingInvoices, setFetchingInvoices] = useState<Record<string, boolean>>({});
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
     // Filters
     const [selectedClinicId, setSelectedClinicId] = useState<string>('');
@@ -105,23 +107,64 @@ export default function AdminAppointmentsPage() {
         return () => clearTimeout(timeoutId);
     }, [selectedClinicId, selectedDeptId, selectedDoctorId, searchQuery]);
 
-    // Fetch SimplyBook bookings for current month ± 1 week
+    // Fetch SB bookings from local store (cached after sync)
+    const fetchSbBookings = async (from?: string, to?: string) => {
+        try {
+            const fmt = (d: Date) => d.toISOString().split('T')[0];
+            const defaultFrom = new Date(); defaultFrom.setMonth(defaultFrom.getMonth() - 1);
+            const defaultTo   = new Date(); defaultTo.setMonth(defaultTo.getMonth() + 3);
+            const url = `/api/admin/simplybook?from=${from ?? fmt(defaultFrom)}&to=${to ?? fmt(defaultTo)}`;
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) setSbBookings(data);
+            }
+        } catch { /* ignore */ }
+    };
+
+    // Sync upcoming appointments from SimplyBook's live API into local store, then refresh
+    const syncUpcoming = async () => {
+        if (isSyncing) return;
+        setIsSyncing(true);
+        setSyncMsg(null);
+        try {
+            const fmt = (d: Date) => d.toISOString().split('T')[0];
+            const from = new Date(); // today
+            const to   = new Date(); to.setMonth(to.getMonth() + 3); // 3 months ahead
+            const res = await fetch(
+                `/api/admin/simplybook?sync=true&from=${fmt(from)}&to=${fmt(to)}`
+            );
+            const data = await res.json();
+            if (data.ok) {
+                setSyncMsg({ ok: true, text: `✓ ${data.synced ?? 0} appointments synced from SimplyBook` });
+                // Refresh the SB bookings list from store
+                await fetchSbBookings();
+            } else {
+                setSyncMsg({ ok: false, text: `Sync failed: ${data.error || 'Unknown error'}` });
+            }
+        } catch (e) {
+            setSyncMsg({ ok: false, text: 'Sync failed — check SimplyBook API connection' });
+        } finally {
+            setIsSyncing(false);
+            // Auto-clear message after 6 seconds
+            setTimeout(() => setSyncMsg(null), 6000);
+        }
+    };
+
+    // Fetch SimplyBook bookings for current month ± 3 months, then auto-sync future appointments
     useEffect(() => {
-        const fetchSbBookings = async () => {
+        (async () => {
+            await fetchSbBookings();
+            // Silently auto-sync upcoming 3 months in background
             try {
-                const from = new Date();
-                from.setMonth(from.getMonth() - 1);
-                const to = new Date();
-                to.setMonth(to.getMonth() + 2);
                 const fmt = (d: Date) => d.toISOString().split('T')[0];
-                const res = await fetch(`/api/admin/simplybook?from=${fmt(from)}&to=${fmt(to)}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (Array.isArray(data)) setSbBookings(data);
-                }
-            } catch { /* ignore */ }
-        };
-        fetchSbBookings();
+                const from = new Date();
+                const to   = new Date(); to.setMonth(to.getMonth() + 3);
+                const res = await fetch(`/api/admin/simplybook?sync=true&from=${fmt(from)}&to=${fmt(to)}`);
+                const data = await res.json();
+                if (data.ok && (data.synced ?? 0) > 0) await fetchSbBookings();
+            } catch { /* silent - don't disrupt UI */ }
+        })();
     }, []);
 
     // Build app invoice map: fetch billing invoices and index by bookingId + sbId
@@ -621,11 +664,30 @@ export default function AdminAppointmentsPage() {
                     Today
                 </button>
                 {isLoading && (
-                    <span className="ml-auto text-xs text-gray-400 flex items-center gap-1.5 animate-pulse">
+                    <span className="text-xs text-gray-400 flex items-center gap-1.5 animate-pulse">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
                         Loading…
                     </span>
                 )}
+                {/* Sync message */}
+                {syncMsg && (
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        syncMsg.ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+                    }`}>{syncMsg.text}</span>
+                )}
+                {/* Sync button — right-aligned */}
+                <button
+                    onClick={syncUpcoming}
+                    disabled={isSyncing}
+                    className="ml-auto flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-violet-700 bg-violet-50 dark:bg-violet-900/30 dark:text-violet-300 border border-violet-200 dark:border-violet-700 rounded-full hover:bg-violet-100 disabled:opacity-60 transition-colors"
+                    title="Sync upcoming appointments from SimplyBook"
+                >
+                    {isSyncing ? (
+                        <><span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin inline-block" /> Syncing…</>
+                    ) : (
+                        <><ExternalLink className="w-3 h-3" /> Sync SB</>
+                    )}
+                </button>
             </div>
 
             {/* ── MAIN GRID ── */}
