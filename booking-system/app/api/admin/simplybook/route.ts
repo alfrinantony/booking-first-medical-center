@@ -507,7 +507,6 @@ export async function GET(request: NextRequest) {
                 lookups: {
                     services: services.length,
                     providers: providers.length,
-                    clients: clients.length,
                     doctors: doctorIndex.length,
                 },
             });
