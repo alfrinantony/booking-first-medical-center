@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
-import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, Pill, UserPlus, X, History, Sparkles, ExternalLink, Phone, CreditCard, Package } from 'lucide-react';
+import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, Pill, UserPlus, X, History, Sparkles, ExternalLink, Phone, CreditCard, Package, CheckCircle } from 'lucide-react';
 import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
 import type { SimplybookRecord } from '@/lib/simplybook-store';
@@ -485,74 +485,81 @@ export default function AdminAppointmentsPage() {
 
 
     return (
-        <div className="p-6 h-full flex flex-col relative">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Calendar className="h-6 w-6 text-indigo-600" />
-                    Appointments
-                </h1>
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => setIsQuickRegOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
-                    >
-                        <UserPlus className="w-4 h-4" />
-                        New Client
-                    </button>
-                    <Link
-                        href="/admin/appointments/book"
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Book Now
-                    </Link>
+        <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+
+            {/* ── HEADER ── */}
+            <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-violet-600 px-6 py-4 shrink-0">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <Calendar className="h-5 w-5 text-indigo-200" />
+                            <h1 className="text-white font-bold text-xl tracking-tight">Appointments</h1>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-[11px] text-indigo-300 font-medium">Today:</span>
+                            <span className="text-[11px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                                {getBookingsForDate(new Date()).length + getSbBookingsForDate(new Date()).length} Total
+                            </span>
+                            <span className="text-[11px] font-bold bg-green-400/30 text-green-100 px-2 py-0.5 rounded-full">
+                                {getBookingsForDate(new Date()).filter(b => ['confirmed','arrived','in_service'].includes(b.status)).length} Active
+                            </span>
+                            <span className="text-[11px] font-bold bg-amber-400/30 text-amber-100 px-2 py-0.5 rounded-full">
+                                {getBookingsForDate(new Date()).filter(b => b.status === 'booked').length} Pending
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsQuickRegOpen(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded-lg transition-all border border-white/20"
+                        >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            New Client
+                        </button>
+                        <Link
+                            href="/admin/appointments/book"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-50 transition-all shadow-sm"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            Book Now
+                        </Link>
+                    </div>
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex flex-wrap gap-4 items-end">
-                <div className="flex items-center gap-2 text-gray-500 mb-2 w-full sm:w-auto">
-                    <Filter className="h-4 w-4" />
-                    <span className="text-sm font-medium">Filters</span>
+            {/* ── FILTERS ── */}
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-2.5 flex flex-wrap items-center gap-3 shrink-0">
+                <div className="flex items-center gap-1.5 text-gray-400">
+                    <Filter className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-bold uppercase tracking-widest">Filter</span>
                 </div>
-
-                <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Clinic Branch</label>
+                <div className="relative">
+                    <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                     <select
-                        className="w-full p-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        className="pl-7 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 min-w-[130px]"
                         value={selectedClinicId}
-                        onChange={(e) => {
-                            setSelectedClinicId(e.target.value);
-                            setSelectedDeptId('');
-                            setSelectedDoctorId('');
-                        }}
+                        onChange={(e) => { setSelectedClinicId(e.target.value); setSelectedDeptId(''); setSelectedDoctorId(''); }}
                     >
                         <option value="">All Branches</option>
-                        <option value="simplybook-import">📋 SimplyBook Import</option>
+                        <option value="simplybook-import">📋 SimplyBook</option>
                         {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-
                     </select>
                 </div>
-
-                <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+                <div className="relative">
+                    <Stethoscope className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                     <select
-                        className="w-full p-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        className="pl-7 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 min-w-[130px]"
                         value={selectedDeptId}
-                        onChange={(e) => {
-                            setSelectedDeptId(e.target.value);
-                            setSelectedDoctorId('');
-                        }}
+                        onChange={(e) => { setSelectedDeptId(e.target.value); setSelectedDoctorId(''); }}
                     >
                         <option value="">All Categories</option>
                         {deptOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
-
-                <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Doctor</label>
+                <div className="relative">
+                    <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                     <select
-                        className="w-full p-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        className="pl-7 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 min-w-[130px]"
                         value={selectedDoctorId}
                         onChange={(e) => setSelectedDoctorId(e.target.value)}
                     >
@@ -560,150 +567,113 @@ export default function AdminAppointmentsPage() {
                         {allDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
-
-                <div className="w-full sm:w-auto">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Search Patient</label>
-                    <div className="relative">
-                        <input
-                            type="text"
-                            placeholder="Name, Phone or Email"
-                            className="w-full sm:w-64 p-2 pl-8 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        <User className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
-                    </div>
+                <div className="relative ml-auto">
+                    <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                    <input
+                        type="text"
+                        placeholder="Search patient…"
+                        className="pl-7 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 w-48"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                 </div>
             </div>
 
-            {/* Controls */}
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                {/* View Selector */}
-                <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                    {['month', 'week', 'day'].map((mode) => (
+            {/* ── CALENDAR TOOLBAR ── */}
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-2.5 flex items-center gap-4 shrink-0">
+                <div className="flex bg-gray-100 dark:bg-gray-700 p-0.5 rounded-lg">
+                    {(['month', 'week', 'day'] as const).map((mode) => (
                         <button
                             key={mode}
-                            onClick={() => setViewMode(mode as any)}
-                            className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-all ${viewMode === mode
-                                ? 'bg-white dark:bg-gray-800 text-indigo-600 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
+                            onClick={() => setViewMode(mode)}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold capitalize transition-all ${
+                                viewMode === mode
+                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                            }`}
                         >
                             {mode}
                         </button>
                     ))}
                 </div>
-
-                {/* Navigation */}
-                <div className="flex items-center gap-4 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                    <button onClick={handlePrevious} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                        &lt;
-                    </button>
-                    <span className="font-bold min-w-[150px] text-center">
-                        {viewMode === 'day' ? format(currentDate, 'MMMM d, yyyy') : format(currentDate, 'MMMM yyyy')}
-                        {viewMode === 'week' && ` (Week of ${format(startOfWeek(currentDate), 'd')})`}
+                <div className="flex items-center gap-1">
+                    <button onClick={handlePrevious} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 text-base font-bold transition-colors">‹</button>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white min-w-[180px] text-center">
+                        {viewMode === 'day' ? format(currentDate, 'EEE, MMM d, yyyy') : format(currentDate, 'MMMM yyyy')}
+                        {viewMode === 'week' && ` · ${format(startOfWeek(currentDate), 'd')}–${format(endOfWeek(currentDate), 'd MMM')}`}
                     </span>
-                    <button onClick={handleNext} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                        &gt;
-                    </button>
-                    <button onClick={handleToday} className="text-xs font-medium text-indigo-600 hover:underline ml-2">
-                        Today
-                    </button>
+                    <button onClick={handleNext} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 text-base font-bold transition-colors">›</button>
                 </div>
+                <button
+                    onClick={handleToday}
+                    className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-full hover:bg-indigo-100 transition-colors border border-indigo-200 dark:border-indigo-700"
+                >
+                    Today
+                </button>
+                {isLoading && (
+                    <span className="ml-auto text-xs text-gray-400 flex items-center gap-1.5 animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
+                        Loading…
+                    </span>
+                )}
             </div>
 
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
-                {/* Calendar Grid */}
-                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col overflow-auto">
+            {/* ── MAIN GRID ── */}
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
 
-                    {/* Weekday Headers for Month/Week */}
+                {/* ── CALENDAR ── */}
+                <div className="lg:col-span-2 bg-white dark:bg-gray-800 flex flex-col overflow-auto border-r border-gray-200 dark:border-gray-700">
                     {viewMode !== 'day' && (
-                        <div className="grid grid-cols-7 gap-2 mb-2 text-center text-sm font-medium text-gray-500">
-                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
+                        <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                                <div key={d} className="py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">{d}</div>
+                            ))}
                         </div>
                     )}
 
-                    <div className={`grid gap-2 flex-1 ${viewMode === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
-
+                    <div className={`flex-1 grid gap-px bg-gray-100 dark:bg-gray-700 ${
+                        viewMode === 'day' ? 'grid-cols-1 bg-transparent gap-0' : 'grid-cols-7'
+                    }`}>
                         {calendarDays.map((day) => {
                             const dayBookings = getBookingsForDate(day);
+                            const daySbBookings = getSbBookingsForDate(day);
                             const isSelected = isSameDay(day, selectedDate);
                             const isTodayDate = isToday(day);
                             const isCurrentMonth = isSameMonth(day, currentDate);
 
-                            // Day View Layout
                             if (viewMode === 'day') {
                                 return (
-                                    <div key={day.toISOString()} className="flex flex-col gap-4">
-                                        {/* Time Slots for Day View */}
+                                    <div key={day.toISOString()} className="flex flex-col">
                                         {timeSlots.map(slot => {
                                             const slotBookings = dayBookings.filter(b => b.slot === slot);
                                             const isAvailable = slotBookings.length === 0;
-
                                             return (
-                                                <div key={slot} className="flex gap-4 border-b border-gray-50 dark:border-gray-700 pb-2">
-                                                    <div className="w-24 text-sm text-gray-500 font-medium pt-2 shrink-0">{slot}</div>
-                                                    <div className={`flex-1 min-h-[50px] rounded-lg p-2 border border-dashed transition-all ${isAvailable
-                                                        ? 'bg-gray-50/50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer group'
-                                                        : 'bg-indigo-50/10 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800'
-                                                        }`}>
+                                                <div key={slot} className="flex border-b border-gray-50 dark:border-gray-700/50 group min-h-[44px]">
+                                                    <div className="w-20 text-[11px] text-gray-400 font-mono py-2.5 px-3 border-r border-gray-100 dark:border-gray-700 shrink-0 select-none bg-gray-50/60 dark:bg-gray-800/60">
+                                                        {slot}
+                                                    </div>
+                                                    <div className={`flex-1 px-3 py-1.5 ${
+                                                        isAvailable ? 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer' : ''
+                                                    }`}>
                                                         {isAvailable ? (
-                                                            <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-                                                                    <Plus className="w-3 h-3" /> Book Slot
+                                                            <div className="h-full flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <span className="text-[11px] text-indigo-400 flex items-center gap-1">
+                                                                    <Plus className="w-3 h-3" /> Book slot
                                                                 </span>
                                                             </div>
                                                         ) : (
                                                             slotBookings.map(b => (
-                                                                <div key={b.id} className={`bg-white dark:bg-gray-800 p-2 rounded shadow-sm text-sm border-l-4 mb-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${b.anyDoctor ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-900/10' : 'border-indigo-500'}`} onClick={() => handleEditClick(b)}>
-                                                                    <div className="text-[9px] text-gray-400 font-mono mb-1 pb-1 border-b border-gray-100 dark:border-gray-700/50 flex justify-between">
-                                                                        <span>#{b.id.slice(0, 8).toUpperCase()}</span>
-                                                                    </div>
-                                                                    <div className="flex justify-between items-start mb-1">
-                                                                        <span className="font-bold block text-gray-900 dark:text-white">{b.patientName}</span>
-                                                                        <div className="flex flex-col items-end gap-0.5">
-                                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                                                                }`}>{b.status}</span>
-                                                                            {b.statusHistory && b.statusHistory.length > 0 && (
-                                                                                <span className="text-[8px] text-gray-400">
-                                                                                    {format(new Date(b.statusHistory[b.statusHistory.length - 1].timestamp), 'h:mm a')}
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1 mt-1 mb-1 text-xs text-purple-700 dark:text-purple-300 font-medium">
-                                                                        <Sparkles className="w-3 h-3" />
-                                                                        {getServiceName(b)}
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                                                        <span className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {getDoctorName(b)}</span>
-                                                                        {b.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {b.duration}m</span>}
-                                                                    </div>
-                                                                    {b.selectedMedicineIds && b.selectedMedicineIds.length > 0 && (
-                                                                        <div className="flex flex-wrap gap-1 mt-1">
-                                                                            {b.selectedMedicineIds.map(id => {
-                                                                                const med = medicineCatalog.find(m => m.id === id);
-                                                                                return med ? (
-                                                                                    <span key={id} className="inline-flex items-center gap-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-[10px] px-1.5 py-0.5 rounded-full">
-                                                                                        <Pill className="w-2.5 h-2.5" />
-                                                                                        {med.name}
-                                                                                    </span>
-                                                                                ) : null;
-                                                                            })}
-                                                                        </div>
-                                                                    )}
-                                                                    {b.status === 'completed' && (
-                                                                        <div className="mt-2 text-left">
-                                                                            <button
-                                                                                onClick={(e) => { e.stopPropagation(); if (b.billingStatus !== 'billed') handleGenerateReceipt(b.id); }}
-                                                                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded border ${b.billingStatus === 'billed' ? 'text-gray-500 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed' : 'text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800'}`}
-                                                                                disabled={b.billingStatus === 'billed'}
-                                                                            >
-                                                                                <FileText className="w-3 h-3" />
-                                                                                {b.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
+                                                                <div
+                                                                    key={b.id}
+                                                                    onClick={() => handleEditClick(b)}
+                                                                    className={`mb-1 px-2.5 py-1 rounded-md cursor-pointer text-xs border-l-2 ${
+                                                                        b.anyDoctor
+                                                                            ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/10'
+                                                                            : 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-900/15'
+                                                                    } hover:opacity-90 transition-opacity`}
+                                                                >
+                                                                    <span className="font-semibold text-gray-900 dark:text-white">{b.patientName}</span>
+                                                                    <span className="text-gray-400 ml-1.5 text-[11px]">· {getServiceName(b)}</span>
                                                                 </div>
                                                             ))
                                                         )}
@@ -715,50 +685,35 @@ export default function AdminAppointmentsPage() {
                                 );
                             }
 
-                            // Month/Week View Layout
                             return (
                                 <button
                                     key={day.toISOString()}
-                                    onClick={() => {
-                                        setSelectedDate(day);
-                                        if (viewMode === 'month') {
-                                            // Optional: switch to day view? Or just select.
-                                            // Let's just select for now to show details on side.
-                                        }
-                                    }}
-                                    className={`
-                                        p-2 rounded-lg border transition-all flex flex-col items-center justify-start min-h-[80px]
-                                        ${!isCurrentMonth && viewMode === 'month' ? 'opacity-40 bg-gray-50 dark:bg-gray-900/50' : ''}
-                                        ${isSelected ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-500' : 'border-gray-100 dark:border-gray-700 hover:border-gray-300'}
-                                        ${isTodayDate ? 'bg-gray-50 dark:bg-gray-700/50' : ''}
+                                    onClick={() => setSelectedDate(day)}
+                                    className={`bg-white dark:bg-gray-800 p-2 flex flex-col items-start min-h-[82px] text-left transition-all
+                                        ${ !isCurrentMonth && viewMode === 'month' ? 'opacity-30' : '' }
+                                        ${ isSelected ? 'ring-2 ring-inset ring-indigo-500' : '' }
+                                        ${ isTodayDate ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50' }
                                     `}
                                 >
-                                    <span className={`text-sm font-medium mb-1 ${isTodayDate ? 'text-indigo-600' : ''}`}>
+                                    <span className={`text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1.5 ${
+                                        isTodayDate ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300'
+                                    }`}>
                                         {format(day, 'd')}
                                     </span>
-
-                                    {(dayBookings.length > 0 || getSbBookingsForDate(day).length > 0) && (
-                                        <div className="flex flex-col gap-1 w-full">
-                                            <div className="flex items-center gap-1 justify-center flex-wrap">
-                                                {dayBookings.length > 0 && (
-                                                    <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full">
-                                                        {dayBookings.length}
-                                                    </span>
-                                                )}
-                                                {getSbBookingsForDate(day).length > 0 && (
-                                                    <span className="text-xs font-bold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">
-                                                        +{getSbBookingsForDate(day).length}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex gap-0.5 justify-center flex-wrap px-1">
-                                                {dayBookings.slice(0, 3).map((b, i) => (
-                                                    <div key={i} className={`w-1 h-1 rounded-full ${b.anyDoctor ? 'bg-orange-500' : 'bg-indigo-500'}`} />
-                                                ))}
-                                                {getSbBookingsForDate(day).slice(0, 3).map((_, i) => (
-                                                    <div key={`sb-${i}`} className="w-1 h-1 rounded-full bg-violet-500" />
-                                                ))}
-                                            </div>
+                                    {(dayBookings.length > 0 || daySbBookings.length > 0) && (
+                                        <div className="flex flex-col gap-0.5 w-full">
+                                            {dayBookings.length > 0 && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40 px-1.5 py-0.5 rounded-full w-fit">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block" />
+                                                    {dayBookings.length}
+                                                </span>
+                                            )}
+                                            {daySbBookings.length > 0 && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 px-1.5 py-0.5 rounded-full w-fit">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-violet-500 inline-block" />
+                                                    +{daySbBookings.length} SB
+                                                </span>
+                                            )}
                                         </div>
                                     )}
                                 </button>
@@ -767,238 +722,243 @@ export default function AdminAppointmentsPage() {
                     </div>
                 </div>
 
-                {/* Day Details (Side Panel) */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col h-full overflow-hidden">
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 border-b pb-2 dark:border-gray-700">
-                        {format(selectedDate, 'EEEE, MMM d')}
-                    </h2>
+                {/* ── DAY DETAIL PANEL ── */}
+                <div className="bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+                    <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
+                        <h2 className="text-sm font-bold text-gray-900 dark:text-white">{format(selectedDate, 'EEEE, MMM d')}</h2>
+                        <span className="text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                            {selectedDayBookings.length + selectedDaySbBookings.length} appts
+                        </span>
+                    </div>
 
-                    <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-                        {/* ── Regular bookings ── */}
-                        {selectedDayBookings.map((booking) => (
-                            <div key={booking.id} className={`p-3 rounded-lg border transition-colors ${
-                                (booking as any).source === 'simplybook' ? 'bg-violet-50/60 dark:bg-violet-900/10 border-violet-200 dark:border-violet-700 hover:border-violet-400' :
-                                booking.anyDoctor ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 hover:border-orange-400' :
-                                'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-indigo-300'
-                            }`}>
-                                <div className="text-[10px] text-gray-400 font-mono mb-1.5 pb-1.5 border-b border-gray-100 dark:border-gray-700/50 flex justify-between">
-                                    <span>#{booking.id.slice(0, 8).toUpperCase()}</span>
-                                    {(booking as any).source === 'simplybook' && (
-                                        <span className="flex items-center gap-1 text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full">
-                                            <ExternalLink className="w-2.5 h-2.5" /> SimplyBook
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-indigo-500" />
-                                        {booking.slot}
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                            booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                                booking.status === 'no_show' ? 'bg-red-200 text-red-800 font-bold' : 'bg-gray-100 text-gray-700'
-                                            }`}>
-                                            {booking.status}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200 mb-1 font-medium">
-                                    <User className="w-3.5 h-3.5 text-gray-400" />
-                                    {booking.patientName}
-                                </div>
-                                {booking.whatsappNumber && (
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                                        <Phone className="w-3.5 h-3.5 text-emerald-500" />
-                                        <a href={`tel:${booking.whatsappNumber}`} className="hover:text-emerald-600 font-medium">{booking.whatsappNumber}</a>
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 font-medium mb-1">
-                                    <Sparkles className="w-3.5 h-3.5" />
-                                    {getServiceName(booking)}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex flex-col gap-1">
-                                    <div className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Branch: {getClinicName(booking)}</div>
-                                    <div className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {getDoctorName(booking)}</div>
-                                    {/* ── Payment Status ── */}
-                                    <div className="flex flex-wrap items-center gap-1 mt-1">
-                                        <CreditCard className="w-3 h-3 flex-shrink-0" />
-                                        {booking.isFollowUp ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 px-1.5 py-0.5 rounded-full">
-                                                ✓ Free Follow-Up
-                                            </span>
-                                        ) : booking.paymentMethod === 'package' ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
-                                                <Package className="w-2.5 h-2.5" /> Package Session
-                                            </span>
-                                        ) : (booking.paymentMethod === 'online' || booking.paymentMethod === 'card') ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
-                                                <CreditCard className="w-2.5 h-2.5" /> Paid Online{booking.amount ? ` · ${booking.amount} AED` : ''}
-                                            </span>
-                                        ) : booking.restrictedDeducted && booking.restrictedDeducted > 0 ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300 px-1.5 py-0.5 rounded-full">
-                                                💳 Wallet · {booking.restrictedDeducted} AED
-                                            </span>
-                                        ) : booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid' ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 px-1.5 py-0.5 rounded-full">
-                                                ✓ SB Paid{booking.sbPaymentProcessor ? ` via ${booking.sbPaymentProcessor}` : ''}{booking.sbInvoiceAmount ? ` · ${booking.sbInvoiceAmount} ${booking.sbInvoiceCurrency || 'AED'}` : ''}{booking.sbInvoiceNumber ? ` · ${booking.sbInvoiceNumber}` : ''}
-                                            </span>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+                        {selectedDayBookings.map((booking) => {
+                            const statusBorder = ({
+                                'booked': 'border-l-blue-400',
+                                'confirmed': 'border-l-green-500',
+                                'arrived': 'border-l-teal-500',
+                                'in_service': 'border-l-purple-500',
+                                'completed': 'border-l-emerald-600',
+                                'cancelled': 'border-l-red-400',
+                                'no_show': 'border-l-red-600',
+                                'rescheduled': 'border-l-amber-400',
+                            } as Record<string, string>)[booking.status] ?? 'border-l-gray-300';
 
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 px-1.5 py-0.5 rounded-full">
-                                                Pay at Clinic
-                                            </span>
+                            const statusBadge = ({
+                                'booked': 'bg-blue-100 text-blue-700',
+                                'confirmed': 'bg-green-100 text-green-700',
+                                'arrived': 'bg-teal-100 text-teal-700',
+                                'in_service': 'bg-purple-100 text-purple-700',
+                                'completed': 'bg-emerald-100 text-emerald-700',
+                                'cancelled': 'bg-red-100 text-red-600',
+                                'no_show': 'bg-red-200 text-red-800',
+                                'rescheduled': 'bg-amber-100 text-amber-700',
+                            } as Record<string, string>)[booking.status] ?? 'bg-gray-100 text-gray-600';
+
+                            const isSb = (booking as any).source === 'simplybook';
+
+                            return (
+                                <div key={booking.id} className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 border-l-4 ${
+                                    isSb ? 'border-l-violet-500' : statusBorder
+                                } shadow-sm overflow-hidden`}>
+                                    <div className="px-3 pt-3 pb-2">
+                                        {/* Time + status */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-1.5 text-sm font-bold text-gray-900 dark:text-white">
+                                                <Clock className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                                {booking.slot}
+                                                {booking.duration && <span className="text-[11px] font-normal text-gray-400 ml-0.5">{booking.duration}m</span>}
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                {isSb && (
+                                                    <span className="text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                                        <ExternalLink className="w-2.5 h-2.5" /> SB
+                                                    </span>
+                                                )}
+                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full capitalize ${statusBadge}`}>
+                                                    {booking.status.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {/* Patient */}
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            <User className="w-3 h-3 text-gray-400 shrink-0" />
+                                            <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{booking.patientName}</span>
+                                        </div>
+                                        {/* Phone */}
+                                        {booking.whatsappNumber && (
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <Phone className="w-3 h-3 text-emerald-500 shrink-0" />
+                                                <a href={`tel:${booking.whatsappNumber}`} className="text-xs text-emerald-600 hover:underline font-medium">{booking.whatsappNumber}</a>
+                                            </div>
                                         )}
-                                        {/* SB Invoice: smart link — checks app billing first */}
-                                        {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId || (booking as any).sbPaymentStatus === 'paid') && (() => {
-                                            // Look up matching app invoice by bookingId or sbId
-                                            const appInv = appInvoiceMap[booking.id] || appInvoiceMap[(booking as any).sbId || ''];
-                                            const invoiceLabel = booking.sbInvoiceNumber || 'View SB Invoice';
-                                            const amountLabel = booking.sbInvoiceAmount
-                                                ? ` · AED ${booking.sbInvoiceAmount.toFixed(2)}${booking.sbPaymentProcessor ? `, ${booking.sbPaymentProcessor}` : ''}` : '';
-
-                                            // Build the correct SimplyBook portal URL
-                                            // Priority: filter by invoice number > filter by booking ID
-                                            const sbPortalUrl = booking.sbInvoiceNumber
-                                                ? `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices?filter%5Bnumber%5D=${booking.sbInvoiceNumber}`
-                                                : `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices`;
-
-                                            if (appInv) {
-                                                // App invoice exists → navigate internally
+                                        {/* Service */}
+                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                            <Sparkles className="w-3 h-3 text-purple-500 shrink-0" />
+                                            <span className="text-xs text-purple-700 dark:text-purple-300 font-medium truncate">{getServiceName(booking)}</span>
+                                        </div>
+                                        {/* Branch + Doctor */}
+                                        <div className="grid grid-cols-2 gap-1 pt-1.5 border-t border-gray-50 dark:border-gray-700 mb-1.5">
+                                            <div className="flex items-center gap-1 text-[11px] text-gray-500 min-w-0">
+                                                <MapPin className="w-3 h-3 shrink-0" /><span className="truncate">{getClinicName(booking)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-[11px] text-gray-500 min-w-0">
+                                                <Stethoscope className="w-3 h-3 shrink-0" /><span className="truncate">{getDoctorName(booking)}</span>
+                                            </div>
+                                        </div>
+                                        {/* Payment badges */}
+                                        <div className="flex flex-wrap items-center gap-1">
+                                            {booking.isFollowUp ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">✓ Free Follow-Up</span>
+                                            ) : booking.paymentMethod === 'package' ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full"><Package className="w-2.5 h-2.5" /> Package</span>
+                                            ) : (booking.paymentMethod === 'online' || booking.paymentMethod === 'card') ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full"><CreditCard className="w-2.5 h-2.5" /> Paid Online{booking.amount ? ` · ${booking.amount} AED` : ''}</span>
+                                            ) : booking.restrictedDeducted && booking.restrictedDeducted > 0 ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full">💳 Wallet · {booking.restrictedDeducted} AED</span>
+                                            ) : isSb && (booking as any).sbPaymentStatus === 'paid' ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">
+                                                    ✓ SB Paid{(booking as any).sbPaymentProcessor ? ` via ${(booking as any).sbPaymentProcessor}` : ''}{(booking as any).sbInvoiceAmount ? ` · ${(booking as any).sbInvoiceAmount} AED` : ''}
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">Pay at Clinic</span>
+                                            )}
+                                            {/* SB Invoice smart link */}
+                                            {isSb && ((booking as any).sbInvoiceNumber || (booking as any).sbInvoiceId || (booking as any).sbPaymentStatus === 'paid') && (() => {
+                                                const appInv = appInvoiceMap[booking.id] || appInvoiceMap[(booking as any).sbId || ''];
+                                                const invoiceLabel = (booking as any).sbInvoiceNumber || 'View SB Invoice';
+                                                const amountLabel = (booking as any).sbInvoiceAmount ? ` · AED ${Number((booking as any).sbInvoiceAmount).toFixed(2)}${(booking as any).sbPaymentProcessor ? `, ${(booking as any).sbPaymentProcessor}` : ''}` : '';
+                                                const sbPortalUrl = (booking as any).sbInvoiceNumber
+                                                    ? `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices?filter%5Bnumber%5D=${(booking as any).sbInvoiceNumber}`
+                                                    : `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices`;
+                                                if (appInv) {
+                                                    return (
+                                                        <a href={`/admin/billing?id=${appInv.id}`} className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 underline decoration-dotted" title="View invoice in billing module">
+                                                            <FileText className="w-2.5 h-2.5 shrink-0" /><span>{appInv.invoiceNumber}{amountLabel}</span>
+                                                        </a>
+                                                    );
+                                                }
                                                 return (
-                                                    <a
-                                                        href={`/admin/billing?id=${appInv.id}`}
-                                                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200 underline decoration-dotted"
-                                                        title="View invoice in billing module"
-                                                    >
-                                                        <FileText className="w-2.5 h-2.5 flex-shrink-0" />
-                                                        <span>{appInv.invoiceNumber}{amountLabel}</span>
+                                                    <a href={sbPortalUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 dark:text-violet-400 underline decoration-dotted" title={`Open ${invoiceLabel} in SimplyBook`}>
+                                                        <ExternalLink className="w-2.5 h-2.5 shrink-0" /><span>{invoiceLabel}{amountLabel}</span>
                                                     </a>
                                                 );
-                                            }
-
-                                            // No app invoice → deep-link to SimplyBook portal
-                                            return (
-                                                <a
-                                                    href={sbPortalUrl}
-                                                    target="_blank" rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-200 underline decoration-dotted"
-                                                    title={`Open ${invoiceLabel} in SimplyBook`}
+                                            })()}
+                                            {/* Medicine pills */}
+                                            {booking.selectedMedicineIds && booking.selectedMedicineIds.map(id => {
+                                                const med = medicineCatalog.find(m => m.id === id);
+                                                return med ? (
+                                                    <span key={id} className="inline-flex items-center gap-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-[10px] px-1.5 py-0.5 rounded-full">
+                                                        <Pill className="w-2.5 h-2.5" />{med.name}
+                                                    </span>
+                                                ) : null;
+                                            })}
+                                        </div>
+                                    </div>
+                                    {/* Footer actions */}
+                                    <div className="flex border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
+                                        <button
+                                            onClick={() => handleEditClick(booking)}
+                                            disabled={booking.billingStatus === 'billed'}
+                                            className={`flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
+                                                booking.billingStatus === 'billed'
+                                                    ? 'text-gray-400 cursor-not-allowed'
+                                                    : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                                            }`}
+                                        >
+                                            {booking.billingStatus === 'billed' ? '🔒 Locked' : '✏️ Edit'}
+                                        </button>
+                                        {(booking.status === 'completed' || booking.paymentMethod === 'online' || booking.paymentMethod === 'card' || booking.paymentMethod === 'package' || (isSb && (booking as any).sbPaymentStatus === 'paid')) && (() => {
+                                            const sbInvNum = (booking as any).sbInvoiceNumber || invoiceFetchMap[(booking as any).sbId || '']?.invoiceNumber;
+                                            return (<>
+                                                <div className="w-px bg-gray-100 dark:bg-gray-700" />
+                                                <button
+                                                    onClick={() => { if (booking.billingStatus !== 'billed') handleGenerateReceipt(booking.id, sbInvNum, (booking as any).sbId); }}
+                                                    disabled={booking.billingStatus === 'billed'}
+                                                    className={`flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
+                                                        booking.billingStatus === 'billed'
+                                                            ? 'text-gray-400 cursor-not-allowed'
+                                                            : isSb && (booking as any).sbPaymentStatus === 'paid'
+                                                                ? 'text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20'
+                                                                : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                                    }`}
                                                 >
-                                                    <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
-                                                    <span>{invoiceLabel}{amountLabel}</span>
-                                                </a>
-                                            );
+                                                    <FileText className="w-3 h-3" />
+                                                    {booking.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
+                                                    {sbInvNum && booking.billingStatus !== 'billed' && <span className="text-[9px] font-mono opacity-60 ml-0.5">{sbInvNum}</span>}
+                                                </button>
+                                            </>);
                                         })()}
+                                        <div className="w-px bg-gray-100 dark:bg-gray-700" />
+                                        <button
+                                            onClick={() => { setHistoryBooking(booking); setIsHistoryOpen(true); }}
+                                            className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                                        >
+                                            <History className="w-3 h-3" /> History
+                                        </button>
                                     </div>
                                 </div>
+                            );
+                        })}
 
-                                <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
-                                    <button onClick={() => handleEditClick(booking)}
-                                        className={`flex-1 text-center text-xs font-medium ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'}`}
-                                        disabled={booking.billingStatus === 'billed'}>
-                                        {booking.billingStatus === 'billed' ? 'Locked (Billed)' : 'Edit Booking'}
-                                    </button>
-                                    {/* Show receipt button for: completed bookings, online-paid, or SB-paid */}
-                                    {(booking.status === 'completed' ||
-                                      booking.paymentMethod === 'online' ||
-                                      booking.paymentMethod === 'card' ||
-                                      booking.paymentMethod === 'package' ||
-                                      (booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid')
-                                    ) && (() => {
-                                        const sbInvNum = booking.sbInvoiceNumber || invoiceFetchMap[(booking as any).sbId || '']?.invoiceNumber;
-                                        const onClick = () => {
-                                            if (booking.billingStatus === 'billed') return;
-                                            handleGenerateReceipt(
-                                                booking.id,
-                                                sbInvNum || undefined,
-                                                (booking as any).sbId || undefined
-                                            );
-                                        };
-                                        return (
-                                            <button onClick={onClick}
-                                                className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold border-l border-gray-200 dark:border-gray-700 pl-2 ${
-                                                    booking.billingStatus === 'billed'
-                                                        ? 'text-gray-400 cursor-not-allowed'
-                                                        : booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid'
-                                                            ? 'text-violet-600 hover:text-violet-700'
-                                                            : 'text-emerald-600 hover:text-emerald-700'
-                                                }`}
-                                                disabled={booking.billingStatus === 'billed'}
-                                                title={booking.billingStatus === 'billed' ? 'Already billed' : sbInvNum ? `Generate receipt · ${sbInvNum}` : 'Generate receipt / invoice'}>
-                                                <FileText className="w-3.5 h-3.5" />
-                                                {booking.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
-                                                {sbInvNum && booking.billingStatus !== 'billed' && (
-                                                    <span className="text-[9px] font-mono opacity-70">{sbInvNum}</span>
-                                                )}
-                                            </button>
-                                        );
-                                    })()}
-
-                                    <button onClick={() => { setHistoryBooking(booking); setIsHistoryOpen(true); }}
-                                        className="flex items-center justify-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium border-l border-gray-200 dark:border-gray-700 pl-2">
-                                        <History className="w-3.5 h-3.5" /> History
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-
-                        {/* ── SimplyBook bookings ── */}
-                        {selectedDaySbBookings.map((sb) => (
-                            <div key={`sb-${sb.sbId}`} className="p-3 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-900/10 hover:border-violet-400 transition-colors">
-                                <div className="flex justify-between items-center mb-1.5 pb-1.5 border-b border-violet-100 dark:border-violet-800/50">
-                                    <span className="text-[10px] font-mono text-violet-400">SB#{sb.sbId}</span>
-                                    <span className="text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                                        <ExternalLink className="w-2.5 h-2.5" /> SimplyBook
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-violet-500" />
-                                        {sb.time || sb.startDateTime.split(' ')[1]?.substring(0,5) || '—'}
-                                    </div>
-                                    <span className={`text-xs px-2 py-1 rounded-full ${
-                                        sb.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                        sb.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                        sb.status === 'pending'   ? 'bg-amber-100 text-amber-700' :
-                                        'bg-gray-100 text-gray-700'}`}>
-                                        {sb.status}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200 mb-1 font-medium">
-                                    <User className="w-3.5 h-3.5 text-gray-400" />
-                                    {sb.clientName}
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-violet-700 dark:text-violet-300 font-medium mb-1">
-                                    <Sparkles className="w-3.5 h-3.5" />
-                                    {sb.serviceName}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/50 flex flex-col gap-1">
-                                    <div className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {sb.providerName}</div>
-                                    {sb.clientPhone && <div className="flex items-center gap-1"><User className="w-3 h-3" /> {sb.clientPhone}</div>}
-
-                                    {/* SB Invoice section for unmatched cards */}
-                                    {sb.paymentStatus === 'paid' && (() => {
-                                        const fetched = invoiceFetchMap[sb.sbId];
-                                        const invNum = sb.invoiceNumber || fetched?.invoiceNumber;
-                                        const proc = sb.paymentProcessor || fetched?.paymentProcessor;
-                                        const amt = sb.invoiceAmount || fetched?.invoiceAmount;
-                                        const cur = sb.invoiceCurrency || fetched?.invoiceCurrency || 'AED';
-                                        const isFetching = fetchingInvoices[sb.sbId];
-
-                                        return (
-                                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {/* SB-only bookings */}
+                        {selectedDaySbBookings.map((sb) => {
+                            const fetched = invoiceFetchMap[sb.sbId];
+                            const invNum = sb.invoiceNumber || fetched?.invoiceNumber;
+                            const proc = sb.paymentProcessor || fetched?.paymentProcessor;
+                            const amt = sb.invoiceAmount || fetched?.invoiceAmount;
+                            const cur = sb.invoiceCurrency || fetched?.invoiceCurrency || 'AED';
+                            const isFetching = fetchingInvoices[sb.sbId];
+                            return (
+                                <div key={`sb-${sb.sbId}`} className="bg-white dark:bg-gray-800 rounded-xl border border-violet-100 dark:border-violet-800 border-l-4 border-l-violet-500 shadow-sm overflow-hidden">
+                                    <div className="px-3 pt-3 pb-2">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-1.5 text-sm font-bold text-gray-900 dark:text-white">
+                                                <Clock className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                                                {sb.time || sb.startDateTime.split(' ')[1]?.substring(0,5) || '—'}
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                                    <ExternalLink className="w-2.5 h-2.5" /> SimplyBook
+                                                </span>
+                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                                    sb.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                                    sb.status === 'cancelled' ? 'bg-red-100 text-red-600' :
+                                                    sb.status === 'pending'   ? 'bg-amber-100 text-amber-700' :
+                                                    'bg-gray-100 text-gray-600'
+                                                }`}>{sb.status}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            <User className="w-3 h-3 text-gray-400 shrink-0" />
+                                            <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{sb.clientName}</span>
+                                        </div>
+                                        {sb.clientPhone && (
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <Phone className="w-3 h-3 text-emerald-500 shrink-0" />
+                                                <span className="text-xs text-gray-500">{sb.clientPhone}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                            <Sparkles className="w-3 h-3 text-violet-500 shrink-0" />
+                                            <span className="text-xs text-violet-700 dark:text-violet-300 font-medium truncate">{sb.serviceName}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-[11px] text-gray-500 pt-1.5 border-t border-violet-50 dark:border-violet-800/40">
+                                            <Stethoscope className="w-3 h-3 shrink-0" />
+                                            <span className="truncate flex-1">{sb.providerName}</span>
+                                            <span className="text-[10px] font-mono text-violet-400 shrink-0">SB#{sb.sbId}</span>
+                                        </div>
+                                        {sb.paymentStatus === 'paid' && (
+                                            <div className="mt-2 flex flex-wrap items-center gap-1">
                                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 px-1.5 py-0.5 rounded-full">
                                                     ✓ SB Paid{proc ? ` via ${proc}` : ''}{amt ? ` · ${amt} ${cur}` : ''}
                                                 </span>
                                                 {invNum ? (
-                                                    <a
-                                                        href={`/admin/billing?bookId=${sb.syncedToBookingsId || ''}&sbRef=${encodeURIComponent(invNum)}&sbId=${sb.sbId}`}
+                                                    <a href={`/admin/billing?bookId=${sb.syncedToBookingsId || ''}&sbRef=${encodeURIComponent(invNum)}&sbId=${sb.sbId}`}
                                                         className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-700 px-1.5 py-0.5 rounded hover:bg-emerald-100 transition-colors"
                                                         title="Click to generate receipt with this invoice number"
                                                     >
-                                                        <FileText className="w-2.5 h-2.5" />
-                                                        {invNum}
+                                                        <FileText className="w-2.5 h-2.5" />{invNum}
                                                     </a>
                                                 ) : (
                                                     <button
@@ -1009,63 +969,72 @@ export default function AdminAppointmentsPage() {
                                                         {isFetching ? '⏳ Fetching...' : '🔍 Get Invoice #'}
                                                     </button>
                                                 )}
-                                                {fetched?.error && (
-                                                    <span className="text-[10px] text-red-500">{fetched.error}</span>
-                                                )}
+                                                {fetched?.error && <span className="text-[10px] text-red-500">{fetched.error}</span>}
                                             </div>
-                                        );
-                                    })()}
+                                        )}
+                                    </div>
+                                    <div className="border-t border-violet-100 dark:border-violet-800/40 bg-violet-50/30 dark:bg-violet-900/10">
+                                        <Link href="/admin/simplybook"
+                                            className="flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 transition-colors">
+                                            <ExternalLink className="w-3 h-3" /> View in SimplyBook
+                                        </Link>
+                                    </div>
                                 </div>
-                                <div className="mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/50">
-                                    <Link href="/admin/simplybook"
-                                        className="flex items-center justify-center gap-1 text-xs text-violet-600 hover:text-violet-800 font-medium">
-                                        <ExternalLink className="w-3 h-3" /> View in SimplyBook
-                                    </Link>
-                                </div>
+                            );
+                        })}
 
-                            </div>
-                        ))}
-
+                        {/* Empty state */}
                         {selectedDayBookings.length === 0 && selectedDaySbBookings.length === 0 && (
-                            <div className="text-center py-12 text-gray-500">
-                                <p>No appointments for this day.</p>
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center mb-4">
+                                    <Calendar className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                                </div>
+                                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">No appointments</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-4">{format(selectedDate, 'MMMM d, yyyy')}</p>
+                                <Link href="/admin/appointments/book"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                                    <Plus className="w-3.5 h-3.5" /> Book Appointment
+                                </Link>
                             </div>
                         )}
                     </div>
                 </div>
             </div>
 
-            {/* Edit Modal */}
+            {/* ── EDIT MODAL ── */}
             {isEditModalOpen && editingBooking && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-                        <h2 className="text-xl font-bold mb-4">Edit Appointment</h2>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Edit Appointment</h2>
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="w-5 h-5" /></button>
+                        </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Patient</label>
-                                <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm">
+                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Patient</label>
+                                <div className="p-2.5 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-200">
                                     {editingBooking.patientName}
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Status</label>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Status</label>
                                 <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-1 rounded-md text-sm font-bold capitalize ${editForm.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                    <span className={`px-2.5 py-1 rounded-lg text-sm font-bold capitalize ${
+                                        editForm.status === 'completed' ? 'bg-green-100 text-green-800' :
                                         editForm.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                            'bg-gray-100 text-gray-800'
-                                        }`}>
+                                        'bg-gray-100 text-gray-800'
+                                    }`}>
                                         {editForm.status.replace('_', ' ')}
                                     </span>
-
                                     {getNextStatusOptions(editForm.status).length > 0 && (
                                         <select
-                                            className="p-1 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                            className="p-1.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                             onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
                                             value=""
                                         >
-                                            <option value="" disabled>Change to...</option>
+                                            <option value="" disabled>Change to…</option>
                                             {getNextStatusOptions(editForm.status).map(s => (
                                                 <option key={s} value={s}>{s.replace('_', ' ')}</option>
                                             ))}
@@ -1075,7 +1044,9 @@ export default function AdminAppointmentsPage() {
                                 {editForm.status === 'completed' && (
                                     <button
                                         onClick={() => editingBooking.billingStatus !== 'billed' && handleGenerateReceipt(editingBooking.id)}
-                                        className={`mt-2 text-xs flex items-center gap-1 ${editingBooking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'}`}
+                                        className={`mt-2 text-xs flex items-center gap-1 ${
+                                            editingBooking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'
+                                        }`}
                                         disabled={editingBooking.billingStatus === 'billed'}
                                     >
                                         <FileText className="w-3 h-3" />
@@ -1085,14 +1056,13 @@ export default function AdminAppointmentsPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Doctor</label>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Doctor</label>
                                 <select
-                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                                    className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
                                     value={editForm.doctorId}
                                     onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
                                     disabled={editingBooking?.doctorId !== 'sb-unmatched' && editingBooking?.clinicId !== 'simplybook-import' && !canReassignDoctor}
                                 >
-                                    {/* Placeholder for unmatched bookings */}
                                     {(editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && (
                                         <option value="sb-unmatched">— Select a doctor to assign —</option>
                                     )}
@@ -1110,12 +1080,10 @@ export default function AdminAppointmentsPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Duration (mins)</label>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Duration (mins)</label>
                                 <input
-                                    type="number"
-                                    min="15"
-                                    step="15"
-                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    type="number" min="15" step="15"
+                                    className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                     value={editForm.duration}
                                     onChange={(e) => setEditForm({ ...editForm, duration: Number(e.target.value) })}
                                 />
@@ -1123,104 +1091,98 @@ export default function AdminAppointmentsPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Date</label>
-                                    <input
-                                        type="date"
-                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Date</label>
+                                    <input type="date"
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                         value={editForm.date}
                                         onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Time Slot</label>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Time Slot</label>
                                     <select
-                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                         value={editForm.slot}
                                         onChange={(e) => setEditForm({ ...editForm, slot: e.target.value })}
                                         disabled={isLoadingRescheduleSlots}
                                     >
                                         <option value={editingBooking.slot}>{editingBooking.slot} (Current)</option>
                                         {availableToRescheduleSlots
-                                            .filter(s => s !== editingBooking.slot) // Don't duplicate current if available
-                                            .map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
+                                            .filter(s => s !== editingBooking.slot)
+                                            .map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-between items-center">
-                            <div className="flex justify-end gap-3 mt-6">
+                        <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <button
+                                onClick={() => { setHistoryBooking(editingBooking); setIsHistoryOpen(true); }}
+                                className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            >
+                                <History className="w-4 h-4" /> View History
+                            </button>
+                            <div className="flex gap-3">
                                 <button
                                     onClick={() => setIsEditModalOpen(false)}
-                                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleSaveChanges}
-                                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition-colors"
                                 >
                                     Save Changes
                                 </button>
                             </div>
-                            <button
-                                onClick={() => { setHistoryBooking(editingBooking); setIsHistoryOpen(true); }}
-                                className="mt-6 flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
-                            >
-                                <History className="w-4 h-4" />
-                                View History
-                            </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Quick Client Registration Modal */}
+            {/* ── QUICK CLIENT REGISTRATION MODAL ── */}
             {isQuickRegOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
                         <div className="flex justify-between items-center mb-5">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <UserPlus className="w-5 h-5 text-emerald-600" /> Quick Client Registration
                             </h2>
-                            <button onClick={() => setIsQuickRegOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                            <button onClick={() => setIsQuickRegOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="w-5 h-5" /></button>
                         </div>
-
-                        <p className="text-xs text-gray-500 mb-4 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">Collect essential info now. Remaining details can be filled at the clinic.</p>
-
+                        <p className="text-xs text-gray-500 mb-5 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">Collect essential info now. Remaining details can be filled at the clinic.</p>
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">First Name *</label>
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">First Name *</label>
                                     <input type="text" placeholder="e.g. Ahmed" required
-                                        className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                         value={quickForm.firstName} onChange={e => setQuickForm({ ...quickForm, firstName: e.target.value })} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Last Name *</label>
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Last Name *</label>
                                     <input type="text" placeholder="e.g. Al Rashid" required
-                                        className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                         value={quickForm.lastName} onChange={e => setQuickForm({ ...quickForm, lastName: e.target.value })} />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Email ID</label>
+                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Email ID</label>
                                 <input type="email" placeholder="email@example.com"
-                                    className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                     value={quickForm.email} onChange={e => setQuickForm({ ...quickForm, email: e.target.value })} />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Phone Number</label>
+                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Phone Number</label>
                                 <input type="tel" placeholder="+971 5X XXX XXXX"
-                                    className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                     value={quickForm.phone} onChange={e => setQuickForm({ ...quickForm, phone: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Gender</label>
-                                    <select className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Gender</label>
+                                    <select className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                         value={quickForm.gender} onChange={e => setQuickForm({ ...quickForm, gender: e.target.value })}>
                                         <option value="">Select</option>
                                         <option value="Male">Male</option>
@@ -1228,50 +1190,47 @@ export default function AdminAppointmentsPage() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Date of Birth</label>
-                                    <input type="date" className="w-full p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Date of Birth</label>
+                                    <input type="date" className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                                         value={quickForm.dateOfBirth} onChange={e => setQuickForm({ ...quickForm, dateOfBirth: e.target.value })} />
                                 </div>
                             </div>
                         </div>
-
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button onClick={() => setIsQuickRegOpen(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md">Cancel</button>
-                            <button onClick={saveQuickClient} className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700">Register Client</button>
+                        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <button onClick={() => setIsQuickRegOpen(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">Cancel</button>
+                            <button onClick={saveQuickClient} className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold transition-colors">Register Client</button>
                         </div>
                     </div>
                 </div>
             )}
-            {/* History Timeline Modal */}
+
+            {/* ── HISTORY TIMELINE MODAL ── */}
             {isHistoryOpen && historyBooking && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 max-h-[80vh] flex flex-col">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[80vh] flex flex-col">
                         <div className="flex justify-between items-center mb-5">
                             <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <History className="w-5 h-5 text-indigo-600" />
-                                Booking Journey
+                                <History className="w-5 h-5 text-indigo-600" /> Booking Journey
                             </h2>
-                            <button onClick={() => setIsHistoryOpen(false)} className="text-gray-400 hover:text-gray-600">
+                            <button onClick={() => setIsHistoryOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4 text-sm">
-                            <div className="font-bold text-gray-900 dark:text-white">{historyBooking.patientName}</div>
-                            <div className="text-gray-500 text-xs mt-1">{historyBooking.date} • {historyBooking.slot}</div>
+                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 mb-4">
+                            <div className="font-bold text-gray-900 dark:text-white text-sm">{historyBooking.patientName}</div>
+                            <div className="text-gray-500 text-xs mt-1">{historyBooking.date} · {historyBooking.slot}</div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto pr-1">
                             {(historyBooking.statusHistory && historyBooking.statusHistory.length > 0) ? (
                                 <div className="relative">
-                                    {/* Timeline line */}
-                                    <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-gray-200 dark:bg-gray-600"></div>
-
+                                    <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-gray-200 dark:bg-gray-600" />
                                     <div className="space-y-0">
                                         {historyBooking.statusHistory.map((entry, idx) => {
                                             const isFirst = idx === 0;
                                             const isLast = idx === historyBooking.statusHistory!.length - 1;
-                                            const statusColor = {
+                                            const dotColor = ({
                                                 'booked': 'bg-blue-500',
                                                 'confirmed': 'bg-green-500',
                                                 'arrived': 'bg-teal-500',
@@ -1280,9 +1239,9 @@ export default function AdminAppointmentsPage() {
                                                 'cancelled': 'bg-red-500',
                                                 'no_show': 'bg-red-700',
                                                 'rescheduled': 'bg-amber-500',
-                                            }[entry.newStatus] || 'bg-gray-500';
+                                            } as Record<string,string>)[entry.newStatus] || 'bg-gray-500';
 
-                                            const statusBadgeClass = {
+                                            const badgeColor = ({
                                                 'booked': 'bg-blue-100 text-blue-700',
                                                 'confirmed': 'bg-green-100 text-green-700',
                                                 'arrived': 'bg-teal-100 text-teal-700',
@@ -1291,42 +1250,27 @@ export default function AdminAppointmentsPage() {
                                                 'cancelled': 'bg-red-100 text-red-700',
                                                 'no_show': 'bg-red-200 text-red-800',
                                                 'rescheduled': 'bg-amber-100 text-amber-700',
-                                            }[entry.newStatus] || 'bg-gray-100 text-gray-700';
+                                            } as Record<string,string>)[entry.newStatus] || 'bg-gray-100 text-gray-700';
 
                                             return (
                                                 <div key={idx} className="relative flex items-start gap-4 pb-6">
-                                                    {/* Dot */}
-                                                    <div className={`relative z-10 w-[32px] h-[32px] flex items-center justify-center shrink-0 rounded-full border-4 border-white dark:border-gray-800 ${statusColor}`}>
-                                                        {isFirst ? (
-                                                            <Plus className="w-3.5 h-3.5 text-white" />
-                                                        ) : isLast ? (
-                                                            <CheckCircle className="w-3.5 h-3.5 text-white" />
-                                                        ) : (
-                                                            <Clock className="w-3 h-3 text-white" />
-                                                        )}
+                                                    <div className={`relative z-10 w-[32px] h-[32px] flex items-center justify-center shrink-0 rounded-full border-4 border-white dark:border-gray-800 ${dotColor}`}>
+                                                        {isFirst ? <Plus className="w-3.5 h-3.5 text-white" /> : isLast ? <CheckCircle className="w-3.5 h-3.5 text-white" /> : <Clock className="w-3 h-3 text-white" />}
                                                     </div>
-
-                                                    {/* Content */}
                                                     <div className="flex-1 min-w-0 pt-1">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             {isFirst ? (
-                                                                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${statusBadgeClass}`}>
-                                                                    Booking Created
-                                                                </span>
+                                                                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${badgeColor}`}>Booking Created</span>
                                                             ) : (
                                                                 <>
-                                                                    <span className="text-xs text-gray-400 line-through capitalize">
-                                                                        {entry.oldStatus.replace('_', ' ')}
-                                                                    </span>
+                                                                    <span className="text-xs text-gray-400 line-through capitalize">{entry.oldStatus.replace('_', ' ')}</span>
                                                                     <span className="text-gray-400">→</span>
-                                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold capitalize ${statusBadgeClass}`}>
-                                                                        {entry.newStatus.replace('_', ' ')}
-                                                                    </span>
+                                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold capitalize ${badgeColor}`}>{entry.newStatus.replace('_', ' ')}</span>
                                                                 </>
                                                             )}
                                                         </div>
-                                                        <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-2">
-                                                            <span>🕐 {new Date(entry.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                                        <div className="text-[11px] text-gray-500 mt-1">
+                                                            🕐 {new Date(entry.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                         </div>
                                                         <div className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
                                                             <User className="w-3 h-3" />
@@ -1350,7 +1294,7 @@ export default function AdminAppointmentsPage() {
                         <div className="flex justify-end mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
                             <button
                                 onClick={() => setIsHistoryOpen(false)}
-                                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 font-medium transition-colors"
                             >
                                 Close
                             </button>
@@ -1361,3 +1305,4 @@ export default function AdminAppointmentsPage() {
         </div>
     );
 }
+
