@@ -807,12 +807,18 @@ export default function AdminAppointmentsPage() {
                                             </span>
                                         )}
                                         {/* SB Invoice: smart link — checks app billing first */}
-                                        {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId) && (() => {
+                                        {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId || (booking as any).sbPaymentStatus === 'paid') && (() => {
                                             // Look up matching app invoice by bookingId or sbId
                                             const appInv = appInvoiceMap[booking.id] || appInvoiceMap[(booking as any).sbId || ''];
-                                            const invoiceLabel = booking.sbInvoiceNumber || `#${booking.sbInvoiceId}`;
+                                            const invoiceLabel = booking.sbInvoiceNumber || (booking.sbInvoiceId ? `INV #${booking.sbInvoiceId}` : 'SB Invoice');
                                             const amountLabel = booking.sbInvoiceAmount
-                                                ? ` (AED ${booking.sbInvoiceAmount.toFixed(2)}${booking.sbPaymentProcessor ? `, ${booking.sbPaymentProcessor}` : ''})` : '';
+                                                ? ` · AED ${booking.sbInvoiceAmount.toFixed(2)}${booking.sbPaymentProcessor ? `, ${booking.sbPaymentProcessor}` : ''}` : '';
+
+                                            // Build the correct SimplyBook portal URL
+                                            // Priority: filter by invoice number > filter by booking ID
+                                            const sbPortalUrl = booking.sbInvoiceNumber
+                                                ? `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices?filter%5Bnumber%5D=${booking.sbInvoiceNumber}`
+                                                : `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices`;
 
                                             if (appInv) {
                                                 // App invoice exists → navigate internally
@@ -828,32 +834,22 @@ export default function AdminAppointmentsPage() {
                                                 );
                                             }
 
-                                            // No app invoice → deep-link to SimplyBook admin portal
+                                            // No app invoice → deep-link to SimplyBook portal
                                             return (
                                                 <a
-                                                    href={`https://firstmedicalcenter.secure.simplybook.it/v2/management/#reports/invoice/${booking.sbInvoiceId}`}
+                                                    href={sbPortalUrl}
                                                     target="_blank" rel="noopener noreferrer"
                                                     className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-200 underline decoration-dotted"
-                                                    title="Open invoice in SimplyBook admin portal"
+                                                    title={`Open ${invoiceLabel} in SimplyBook`}
                                                 >
                                                     <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
-                                                    <span>
-                                                        {invoiceLabel}
-                                                        {(booking.sbInvoiceAmount || booking.sbPaymentProcessor) && (
-                                                            <span className="text-violet-500 dark:text-violet-400 ml-0.5">
-                                                                {' ('}
-                                                                {booking.sbInvoiceAmount ? `AED ${booking.sbInvoiceAmount.toFixed(2)}` : ''}
-                                                                {booking.sbInvoiceAmount && booking.sbPaymentProcessor ? ', ' : ''}
-                                                                {booking.sbPaymentProcessor || ''}
-                                                                {')'}
-                                                            </span>
-                                                        )}
-                                                    </span>
+                                                    <span>{invoiceLabel}{amountLabel}</span>
                                                 </a>
                                             );
                                         })()}
                                     </div>
                                 </div>
+
                                 <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
                                     <button onClick={() => handleEditClick(booking)}
                                         className={`flex-1 text-center text-xs font-medium ${booking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'}`}
