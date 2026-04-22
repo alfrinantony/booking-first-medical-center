@@ -629,10 +629,10 @@ export default function AdminAppointmentsPage() {
             </div>
 
             {/* ── MAIN GRID ── */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
 
                 {/* ── CALENDAR ── */}
-                <div className="lg:col-span-2 bg-white dark:bg-gray-800 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
+                <div className="lg:col-span-2 min-h-0 bg-white dark:bg-gray-800 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
                     {viewMode !== 'day' && (
                         <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700 shrink-0">
                             {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
@@ -736,7 +736,7 @@ export default function AdminAppointmentsPage() {
                 </div>
 
                 {/* ── DAY DETAIL PANEL ── */}
-                <div className="bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+                <div className="min-h-0 bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
                     <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
                         <h2 className="text-sm font-bold text-gray-900 dark:text-white">{format(selectedDate, 'EEEE, MMM d')}</h2>
                         <span className="text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
