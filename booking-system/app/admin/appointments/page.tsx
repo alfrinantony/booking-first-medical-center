@@ -643,7 +643,9 @@ export default function AdminAppointmentsPage() {
 
                     <div
                         className={`flex-1 grid gap-px bg-gray-100 dark:bg-gray-700 ${
-                            viewMode === 'day' ? 'grid-cols-1 bg-transparent gap-0' : 'grid-cols-7'
+                            viewMode === 'day'
+                                ? 'grid-cols-1 bg-transparent gap-0 overflow-y-auto'
+                                : 'grid-cols-7 overflow-hidden'
                         }`}
                         style={viewMode !== 'day' ? { gridAutoRows: '1fr' } : undefined}
                     >
