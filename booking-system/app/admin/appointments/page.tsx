@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
@@ -622,7 +622,7 @@ export default function AdminAppointmentsPage() {
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
 
                 {/* ── CALENDAR ── */}
-                <div className="lg:col-span-2 bg-white dark:bg-gray-800 flex flex-col overflow-auto border-r border-gray-200 dark:border-gray-700">
+                <div className="lg:col-span-2 bg-white dark:bg-gray-800 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
                     {viewMode !== 'day' && (
                         <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700 shrink-0">
                             {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
@@ -631,9 +631,12 @@ export default function AdminAppointmentsPage() {
                         </div>
                     )}
 
-                    <div className={`flex-1 grid gap-px bg-gray-100 dark:bg-gray-700 ${
-                        viewMode === 'day' ? 'grid-cols-1 bg-transparent gap-0' : 'grid-cols-7'
-                    }`}>
+                    <div
+                        className={`flex-1 grid gap-px bg-gray-100 dark:bg-gray-700 ${
+                            viewMode === 'day' ? 'grid-cols-1 bg-transparent gap-0' : 'grid-cols-7'
+                        }`}
+                        style={viewMode !== 'day' ? { gridAutoRows: '1fr' } : undefined}
+                    >
                         {calendarDays.map((day) => {
                             const dayBookings = getBookingsForDate(day);
                             const daySbBookings = getSbBookingsForDate(day);
@@ -689,7 +692,7 @@ export default function AdminAppointmentsPage() {
                                 <button
                                     key={day.toISOString()}
                                     onClick={() => setSelectedDate(day)}
-                                    className={`bg-white dark:bg-gray-800 p-2 flex flex-col items-start min-h-[82px] text-left transition-all
+                                    className={`bg-white dark:bg-gray-800 p-2 flex flex-col items-start h-full w-full text-left transition-all overflow-hidden
                                         ${ !isCurrentMonth && viewMode === 'month' ? 'opacity-30' : '' }
                                         ${ isSelected ? 'ring-2 ring-inset ring-indigo-500' : '' }
                                         ${ isTodayDate ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50' }
