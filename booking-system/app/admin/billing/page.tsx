@@ -70,17 +70,36 @@ export default function BillingPage() {
         }
     }, [loadInvoices]);
 
-    // Intercept ?bookId payload from Appointments Dashboard to support older bookings
+    // Immediately on mount — read ?sbRef and open the create modal with it pre-filled
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        const bookId = new URLSearchParams(window.location.search).get('bookId');
+        const p = new URLSearchParams(window.location.search);
+        const sbRef = p.get('sbRef');
+        const sbId  = p.get('sbId');
+        if (sbRef) {
+            setOnlineReference(sbRef);
+            setIsCreateModalOpen(true); // Open form right away
+        }
+        if (sbId) setLinkedSbId(sbId);
+    }, []); // runs once on mount
+
+    // Intercept ?bookId / ?sbRef / ?sbId from Appointments page
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const p = new URLSearchParams(window.location.search);
+        const bookId = p.get('bookId');
+        const sbRef  = p.get('sbRef');
+        const sbId   = p.get('sbId');
+
+        // Pre-fill SB invoice reference immediately (doesn't need bookings to load)
+        if (sbRef) setOnlineReference(sbRef);
+        if (sbId)  setLinkedSbId(sbId);
+
         if (bookId && bookings.length > 0 && clinics.length > 0 && !selectedBooking) {
             const match = bookings.find(b => b.id === bookId);
             if (match) {
-                // Pre-fill the model using exactly the same logic
                 handleSelectBooking(match);
                 setIsCreateModalOpen(true);
-                // Wipe the query parameter so it doesn't trigger unexpectedly on refresh
                 window.history.replaceState({}, '', '/admin/billing');
             }
         }

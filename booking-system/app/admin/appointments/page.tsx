@@ -21,6 +21,12 @@ export default function AdminAppointmentsPage() {
     const [clinicsLoading, setClinicsLoading] = useState(true);
     // App invoice lookup: bookingId / sbId → { id, invoiceNumber }
     const [appInvoiceMap, setAppInvoiceMap] = useState<Record<string, { id: string; invoiceNumber: string }>>({});
+    // On-demand fetched SB invoice data: sbId → { invoiceNumber, invoiceAmount, paymentProcessor, ... }
+    const [invoiceFetchMap, setInvoiceFetchMap] = useState<Record<string, {
+        invoiceNumber?: string; invoiceAmount?: number; invoiceCurrency?: string;
+        paymentProcessor?: string; paymentStatus?: string; error?: string;
+    }>>({});
+    const [fetchingInvoices, setFetchingInvoices] = useState<Record<string, boolean>>({});
 
     // Filters
     const [selectedClinicId, setSelectedClinicId] = useState<string>('');
@@ -135,6 +141,40 @@ export default function AdminAppointmentsPage() {
         };
         buildInvoiceMap();
     }, []);
+
+    // Fetch SB invoice number on-demand for a specific booking
+    const fetchInvoiceForBooking = async (sbId: string, date: string) => {
+        if (fetchingInvoices[sbId]) return;
+        setFetchingInvoices(prev => ({ ...prev, [sbId]: true }));
+        try {
+            const res = await fetch(`/api/admin/simplybook?fetch_invoice=true&sbId=${sbId}&date=${date}`);
+            const data = await res.json();
+            if (data.ok) {
+                setInvoiceFetchMap(prev => ({ ...prev, [sbId]: {
+                    invoiceNumber:    data.invoiceNumber,
+                    invoiceAmount:    data.invoiceAmount,
+                    invoiceCurrency:  data.invoiceCurrency,
+                    paymentProcessor: data.paymentProcessor,
+                    paymentStatus:    data.paymentStatus,
+                }}));
+                // Also update the sbBookings state so badge shows correctly
+                setSbBookings(prev => prev.map(b =>
+                    b.sbId === sbId ? { ...b,
+                        invoiceNumber:    data.invoiceNumber,
+                        invoiceAmount:    data.invoiceAmount ?? b.invoiceAmount,
+                        paymentProcessor: data.paymentProcessor ?? b.paymentProcessor,
+                        paymentStatus:    data.paymentStatus ?? b.paymentStatus,
+                    } as any : b
+                ));
+            } else {
+                setInvoiceFetchMap(prev => ({ ...prev, [sbId]: { error: data.error || 'Not found' } }));
+            }
+        } catch {
+            setInvoiceFetchMap(prev => ({ ...prev, [sbId]: { error: 'Fetch failed' } }));
+        } finally {
+            setFetchingInvoices(prev => ({ ...prev, [sbId]: false }));
+        }
+    };
 
     useEffect(() => {
         fetch('/api/admin/medicines').then(r => r.json()).then(data => {
@@ -292,8 +332,11 @@ export default function AdminAppointmentsPage() {
         return flow[currentStatus] || [];
     };
 
-    const handleGenerateReceipt = (bookingId: string) => {
-        window.location.href = `/admin/billing?bookId=${bookingId}`;
+    const handleGenerateReceipt = (bookingId: string, sbRef?: string, sbId?: string) => {
+        const params = new URLSearchParams({ bookId: bookingId });
+        if (sbRef) params.set('sbRef', sbRef);
+        if (sbId)  params.set('sbId',  sbId);
+        window.location.href = `/admin/billing?${params.toString()}`;
     };
 
     const handleEditClick = (booking: Booking) => {
@@ -862,21 +905,36 @@ export default function AdminAppointmentsPage() {
                                       booking.paymentMethod === 'card' ||
                                       booking.paymentMethod === 'package' ||
                                       (booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid')
-                                    ) && (
-                                        <button onClick={() => booking.billingStatus !== 'billed' && handleGenerateReceipt(booking.id)}
-                                            className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold border-l border-gray-200 dark:border-gray-700 pl-2 ${
-                                                booking.billingStatus === 'billed'
-                                                    ? 'text-gray-400 cursor-not-allowed'
-                                                    : booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid'
-                                                        ? 'text-violet-600 hover:text-violet-700'
-                                                        : 'text-emerald-600 hover:text-emerald-700'
-                                            }`}
-                                            disabled={booking.billingStatus === 'billed'}
-                                            title={booking.billingStatus === 'billed' ? 'Already billed' : 'Generate receipt / invoice'}>
-                                            <FileText className="w-3.5 h-3.5" />
-                                            {booking.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
-                                        </button>
-                                    )}
+                                    ) && (() => {
+                                        const sbInvNum = booking.sbInvoiceNumber || invoiceFetchMap[(booking as any).sbId || '']?.invoiceNumber;
+                                        const onClick = () => {
+                                            if (booking.billingStatus === 'billed') return;
+                                            handleGenerateReceipt(
+                                                booking.id,
+                                                sbInvNum || undefined,
+                                                (booking as any).sbId || undefined
+                                            );
+                                        };
+                                        return (
+                                            <button onClick={onClick}
+                                                className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold border-l border-gray-200 dark:border-gray-700 pl-2 ${
+                                                    booking.billingStatus === 'billed'
+                                                        ? 'text-gray-400 cursor-not-allowed'
+                                                        : booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid'
+                                                            ? 'text-violet-600 hover:text-violet-700'
+                                                            : 'text-emerald-600 hover:text-emerald-700'
+                                                }`}
+                                                disabled={booking.billingStatus === 'billed'}
+                                                title={booking.billingStatus === 'billed' ? 'Already billed' : sbInvNum ? `Generate receipt · ${sbInvNum}` : 'Generate receipt / invoice'}>
+                                                <FileText className="w-3.5 h-3.5" />
+                                                {booking.billingStatus === 'billed' ? 'Billed' : 'Receipt'}
+                                                {sbInvNum && booking.billingStatus !== 'billed' && (
+                                                    <span className="text-[9px] font-mono opacity-70">{sbInvNum}</span>
+                                                )}
+                                            </button>
+                                        );
+                                    })()}
+
                                     <button onClick={() => { setHistoryBooking(booking); setIsHistoryOpen(true); }}
                                         className="flex items-center justify-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium border-l border-gray-200 dark:border-gray-700 pl-2">
                                         <History className="w-3.5 h-3.5" /> History
@@ -918,6 +976,45 @@ export default function AdminAppointmentsPage() {
                                 <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/50 flex flex-col gap-1">
                                     <div className="flex items-center gap-1"><Stethoscope className="w-3 h-3" /> {sb.providerName}</div>
                                     {sb.clientPhone && <div className="flex items-center gap-1"><User className="w-3 h-3" /> {sb.clientPhone}</div>}
+
+                                    {/* SB Invoice section for unmatched cards */}
+                                    {sb.paymentStatus === 'paid' && (() => {
+                                        const fetched = invoiceFetchMap[sb.sbId];
+                                        const invNum = sb.invoiceNumber || fetched?.invoiceNumber;
+                                        const proc = sb.paymentProcessor || fetched?.paymentProcessor;
+                                        const amt = sb.invoiceAmount || fetched?.invoiceAmount;
+                                        const cur = sb.invoiceCurrency || fetched?.invoiceCurrency || 'AED';
+                                        const isFetching = fetchingInvoices[sb.sbId];
+
+                                        return (
+                                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 px-1.5 py-0.5 rounded-full">
+                                                    ✓ SB Paid{proc ? ` via ${proc}` : ''}{amt ? ` · ${amt} ${cur}` : ''}
+                                                </span>
+                                                {invNum ? (
+                                                    <a
+                                                        href={`/admin/billing?bookId=${sb.syncedToBookingsId || ''}&sbRef=${encodeURIComponent(invNum)}&sbId=${sb.sbId}`}
+                                                        className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-700 px-1.5 py-0.5 rounded hover:bg-emerald-100 transition-colors"
+                                                        title="Click to generate receipt with this invoice number"
+                                                    >
+                                                        <FileText className="w-2.5 h-2.5" />
+                                                        {invNum}
+                                                    </a>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => fetchInvoiceForBooking(sb.sbId, sb.date)}
+                                                        disabled={isFetching}
+                                                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 border border-violet-300 dark:border-violet-700 px-1.5 py-0.5 rounded hover:bg-violet-100 disabled:opacity-50"
+                                                    >
+                                                        {isFetching ? '⏳ Fetching...' : '🔍 Get Invoice #'}
+                                                    </button>
+                                                )}
+                                                {fetched?.error && (
+                                                    <span className="text-[10px] text-red-500">{fetched.error}</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/50">
                                     <Link href="/admin/simplybook"
@@ -925,6 +1022,7 @@ export default function AdminAppointmentsPage() {
                                         <ExternalLink className="w-3 h-3" /> View in SimplyBook
                                     </Link>
                                 </div>
+
                             </div>
                         ))}
 

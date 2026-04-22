@@ -290,6 +290,64 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(stats);
     }
 
+    // ── Fetch invoice for a single booking on-demand ──
+    // GET /api/admin/simplybook?fetch_invoice=true&sbId=23621&date=2026-04-22
+    if (sp.get('fetch_invoice') === 'true') {
+        const sbId = sp.get('sbId');
+        const date = sp.get('date') || new Date().toISOString().split('T')[0];
+        if (!sbId) return NextResponse.json({ ok: false, error: 'sbId required' }, { status: 400 });
+
+        try {
+            // Search ±3 days around the booking date
+            const d = new Date(date);
+            const from = new Date(d.getTime() - 3 * 86400000).toISOString().split('T')[0];
+            const to   = new Date(d.getTime() + 3 * 86400000).toISOString().split('T')[0];
+
+            const invoices = await getInvoiceList(from, to);
+            // Match by booking_id
+            const inv = invoices.find(i => String(i.booking_id) === String(sbId));
+
+            if (!inv) {
+                return NextResponse.json({ ok: false, error: 'No invoice found for this booking', sbId, from, to });
+            }
+
+            const f = extractInvoiceFields(inv as Record<string, unknown>);
+
+            // Persist back to the stored record
+            try {
+                const existing = await SimplybookStore.getById(sbId);
+                if (existing) {
+                    await SimplybookStore.upsert({
+                        ...existing,
+                        invoiceId:        f.invoiceId,
+                        invoiceNumber:    f.invoiceNumber,
+                        invoiceAmount:    f.invoiceAmount,
+                        paidAmount:       f.paidAmount,
+                        invoiceCurrency:  f.invoiceCurrency,
+                        paymentStatus:    f.paymentStatus,
+                        paymentType:      f.paymentType,
+                        paymentProcessor: f.paymentProcessor,
+                        paymentDate:      f.paymentDate,
+                        updatedAt:        new Date().toISOString(),
+                    });
+                }
+            } catch { /* non-fatal — still return the data */ }
+
+            return NextResponse.json({
+                ok: true,
+                sbId,
+                invoiceNumber:    f.invoiceNumber,
+                invoiceAmount:    f.invoiceAmount,
+                invoiceCurrency:  f.invoiceCurrency,
+                paymentStatus:    f.paymentStatus,
+                paymentProcessor: f.paymentProcessor,
+                paymentDate:      f.paymentDate,
+            });
+        } catch (err) {
+            return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+        }
+    }
+
     // ── Debug invoices — tries invoice API + dumps raw booking fields ──
     // GET /api/admin/simplybook?debug_invoices=true&from=YYYY-MM-DD&to=YYYY-MM-DD
     if (sp.get('debug_invoices') === 'true') {
