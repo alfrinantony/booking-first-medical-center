@@ -809,53 +809,114 @@ export default function AdminAppointmentsPage() {
                                                 <Stethoscope className="w-3 h-3 shrink-0" /><span className="truncate">{getDoctorName(booking)}</span>
                                             </div>
                                         </div>
-                                        {/* Payment badges */}
-                                        <div className="flex flex-wrap items-center gap-1">
-                                            {booking.isFollowUp ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">✓ Free Follow-Up</span>
-                                            ) : booking.paymentMethod === 'package' ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full"><Package className="w-2.5 h-2.5" /> Package</span>
-                                            ) : (booking.paymentMethod === 'online' || booking.paymentMethod === 'card') ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full"><CreditCard className="w-2.5 h-2.5" /> Paid Online{booking.amount ? ` · ${booking.amount} AED` : ''}</span>
-                                            ) : booking.restrictedDeducted && booking.restrictedDeducted > 0 ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full">💳 Wallet · {booking.restrictedDeducted} AED</span>
-                                            ) : isSb && (booking as any).sbPaymentStatus === 'paid' ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">
-                                                    ✓ SB Paid{(booking as any).sbPaymentProcessor ? ` via ${(booking as any).sbPaymentProcessor}` : ''}{(booking as any).sbInvoiceAmount ? ` · ${(booking as any).sbInvoiceAmount} AED` : ''}
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">Pay at Clinic</span>
-                                            )}
-                                            {/* SB Invoice smart link */}
-                                            {isSb && ((booking as any).sbInvoiceNumber || (booking as any).sbInvoiceId || (booking as any).sbPaymentStatus === 'paid') && (() => {
-                                                const appInv = appInvoiceMap[booking.id] || appInvoiceMap[(booking as any).sbId || ''];
-                                                const invoiceLabel = (booking as any).sbInvoiceNumber || 'View SB Invoice';
-                                                const amountLabel = (booking as any).sbInvoiceAmount ? ` · AED ${Number((booking as any).sbInvoiceAmount).toFixed(2)}${(booking as any).sbPaymentProcessor ? `, ${(booking as any).sbPaymentProcessor}` : ''}` : '';
-                                                const sbPortalUrl = (booking as any).sbInvoiceNumber
-                                                    ? `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices?filter%5Bnumber%5D=${(booking as any).sbInvoiceNumber}`
-                                                    : `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices`;
-                                                if (appInv) {
+                                        {/* ── Payment Info Block ── */}
+                                        <div className="mt-1.5 pt-1.5 border-t border-gray-50 dark:border-gray-700/60 space-y-1">
+                                            {(() => {
+                                                const sbProc = (booking as any).sbPaymentProcessor as string | undefined;
+                                                const sbAmt  = (booking as any).sbInvoiceAmount  as number | undefined;
+                                                const sbCur  = ((booking as any).sbInvoiceCurrency as string | undefined) || 'AED';
+                                                const sbInvNo= (booking as any).sbInvoiceNumber  as string | undefined;
+                                                const sbStatus=(booking as any).sbPaymentStatus  as string | undefined;
+                                                const isStripe = sbProc?.toLowerCase().includes('stripe');
+
+                                                /* ── Free Follow-Up ── */
+                                                if (booking.isFollowUp) return (
+                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">✓ Free Follow-Up</span>
+                                                );
+
+                                                /* ── Package ── */
+                                                if (booking.paymentMethod === 'package') return (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full"><Package className="w-3 h-3" /> Package</span>
+                                                        {booking.packageName && <span className="text-[11px] text-gray-500 truncate">{booking.packageName}</span>}
+                                                    </div>
+                                                );
+
+                                                /* ── Wallet ── */
+                                                if (booking.restrictedDeducted && booking.restrictedDeducted > 0) return (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full"><CreditCard className="w-3 h-3" /> Wallet</span>
+                                                        <span className="text-sm font-bold text-cyan-700">AED {booking.restrictedDeducted.toFixed(2)}</span>
+                                                    </div>
+                                                );
+
+                                                /* ── SB Stripe / online paid ── */
+                                                if (isSb && sbStatus === 'paid') {
+                                                    const appInv = appInvoiceMap[booking.id] || appInvoiceMap[(booking as any).sbId || ''];
+                                                    const sbPortalUrl = sbInvNo
+                                                        ? `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices?filter%5Bnumber%5D=${sbInvNo}`
+                                                        : `https://firstmedicalcenter.secure.simplybook.it/v2/r#/reports/invoices`;
                                                     return (
-                                                        <a href={`/admin/billing?id=${appInv.id}`} className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 underline decoration-dotted" title="View invoice in billing module">
-                                                            <FileText className="w-2.5 h-2.5 shrink-0" /><span>{appInv.invoiceNumber}{amountLabel}</span>
-                                                        </a>
+                                                        <div className="space-y-1">
+                                                            {/* Amount + processor row */}
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                {isStripe ? (
+                                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-2 py-0.5 rounded-full">
+                                                                        <CreditCard className="w-3 h-3" /> Stripe
+                                                                    </span>
+                                                                ) : sbProc ? (
+                                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">
+                                                                        <CreditCard className="w-3 h-3" /> {sbProc}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">✓ SB Paid</span>
+                                                                )}
+                                                                {sbAmt != null && (
+                                                                    <span className="text-sm font-bold text-gray-900 dark:text-white">AED {Number(sbAmt).toFixed(2)}</span>
+                                                                )}
+                                                            </div>
+                                                            {/* Invoice number row */}
+                                                            {sbInvNo && (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <FileText className="w-3 h-3 text-gray-400 shrink-0" />
+                                                                    {appInv ? (
+                                                                        <a href={`/admin/billing?id=${appInv.id}`}
+                                                                            className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-700 px-1.5 py-0.5 rounded hover:bg-emerald-100 transition-colors"
+                                                                            title="View in billing module">
+                                                                            {appInv.invoiceNumber}
+                                                                        </a>
+                                                                    ) : (
+                                                                        <a href={sbPortalUrl} target="_blank" rel="noopener noreferrer"
+                                                                            className="text-[11px] font-mono font-bold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 border border-violet-300 dark:border-violet-700 px-1.5 py-0.5 rounded hover:bg-violet-100 transition-colors flex items-center gap-1"
+                                                                            title="Open invoice in SimplyBook">
+                                                                            {sbInvNo} <ExternalLink className="w-2.5 h-2.5" />
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     );
                                                 }
+
+                                                /* ── App online / card payment ── */
+                                                if (booking.paymentMethod === 'online' || booking.paymentMethod === 'card') return (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full"><CreditCard className="w-3 h-3" /> Online Payment</span>
+                                                        {booking.amount != null && (
+                                                            <span className="text-sm font-bold text-emerald-700">AED {Number(booking.amount).toFixed(2)}</span>
+                                                        )}
+                                                    </div>
+                                                );
+
+                                                /* ── Pay at clinic (default) ── */
                                                 return (
-                                                    <a href={sbPortalUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 dark:text-violet-400 underline decoration-dotted" title={`Open ${invoiceLabel} in SimplyBook`}>
-                                                        <ExternalLink className="w-2.5 h-2.5 shrink-0" /><span>{invoiceLabel}{amountLabel}</span>
-                                                    </a>
+                                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Pay at Clinic</span>
                                                 );
                                             })()}
+
                                             {/* Medicine pills */}
-                                            {booking.selectedMedicineIds && booking.selectedMedicineIds.map(id => {
+                                            {booking.selectedMedicineIds && booking.selectedMedicineIds.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                                {booking.selectedMedicineIds.map(id => {
                                                 const med = medicineCatalog.find(m => m.id === id);
                                                 return med ? (
                                                     <span key={id} className="inline-flex items-center gap-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-[10px] px-1.5 py-0.5 rounded-full">
                                                         <Pill className="w-2.5 h-2.5" />{med.name}
                                                     </span>
-                                                ) : null;
-                                            })}
+                                                 ) : null;
+                                                 })}
+                                                </div>
+                                             )}
                                         </div>
                                     </div>
                                     {/* Footer actions */}
