@@ -798,7 +798,7 @@ export default function AdminAppointmentsPage() {
                                             </span>
                                         ) : booking.source === 'simplybook' && booking.sbPaymentStatus === 'paid' ? (
                                             <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 px-1.5 py-0.5 rounded-full">
-                                                ✓ SB Paid{booking.sbPaymentProcessor ? ` via ${booking.sbPaymentProcessor}` : ''}{booking.sbInvoiceAmount ? ` · ${booking.sbInvoiceAmount} ${booking.sbInvoiceCurrency || 'AED'}` : ''}{booking.sbInvoiceNumber ? ` · ${booking.sbInvoiceNumber}` : booking.sbInvoiceId ? ` · #${booking.sbInvoiceId}` : ''}
+                                                ✓ SB Paid{booking.sbPaymentProcessor ? ` via ${booking.sbPaymentProcessor}` : ''}{booking.sbInvoiceAmount ? ` · ${booking.sbInvoiceAmount} ${booking.sbInvoiceCurrency || 'AED'}` : ''}{booking.sbInvoiceNumber ? ` · ${booking.sbInvoiceNumber}` : ''}
                                             </span>
 
                                         ) : (
@@ -810,7 +810,7 @@ export default function AdminAppointmentsPage() {
                                         {booking.source === 'simplybook' && (booking.sbInvoiceNumber || booking.sbInvoiceId || (booking as any).sbPaymentStatus === 'paid') && (() => {
                                             // Look up matching app invoice by bookingId or sbId
                                             const appInv = appInvoiceMap[booking.id] || appInvoiceMap[(booking as any).sbId || ''];
-                                            const invoiceLabel = booking.sbInvoiceNumber || (booking.sbInvoiceId ? `INV #${booking.sbInvoiceId}` : 'SB Invoice');
+                                            const invoiceLabel = booking.sbInvoiceNumber || 'View SB Invoice';
                                             const amountLabel = booking.sbInvoiceAmount
                                                 ? ` · AED ${booking.sbInvoiceAmount.toFixed(2)}${booking.sbPaymentProcessor ? `, ${booking.sbPaymentProcessor}` : ''}` : '';
 

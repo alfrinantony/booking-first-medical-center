@@ -234,12 +234,23 @@ function mapAdminBooking(
 // ── Helper: extract invoice fields trying all SimplyBook field name variants ──
 function extractInvoiceFields(inv: Record<string, unknown>) {
     // Invoice number: SimplyBook uses "number", "code", "invoice_number", or "num" depending on plan/version
-    const invoiceNumber =
+    let invoiceNumber: string | undefined =
         typeof inv.number === 'string'         ? inv.number :
         typeof inv.code === 'string'           ? inv.code :
         typeof inv.invoice_number === 'string' ? inv.invoice_number as string :
         typeof inv.num === 'string'            ? inv.num as string :
+        typeof inv.invoice_no === 'string'     ? inv.invoice_no as string :
         undefined;
+
+    // Last-resort: scan ALL string values for the SI-YYYY... pattern (e.g. "SI-2026000366")
+    if (!invoiceNumber) {
+        for (const val of Object.values(inv)) {
+            if (typeof val === 'string' && /^SI-\d{4}\d+$/.test(val)) {
+                invoiceNumber = val;
+                break;
+            }
+        }
+    }
 
     // Payment processor: "payment_system" (most common), "payment_processor", "payment_method", or "processor"
     const paymentProcessor =
@@ -348,9 +359,16 @@ export async function GET(request: NextRequest) {
 
             // Fetch invoices in parallel (one extra call, not N calls)
             const invoices = await getInvoiceList(dateFrom, effectiveTo);
+            // Index invoices by booking_id — handle both string and number types
             const invoiceMap = new Map<string, typeof invoices[0]>();
             for (const inv of invoices) {
-                if (inv.booking_id) invoiceMap.set(String(inv.booking_id), inv);
+                if (inv.booking_id != null) {
+                    invoiceMap.set(String(inv.booking_id), inv);
+                }
+                // Also index by invoice id itself as a secondary lookup
+                if (inv.id != null) {
+                    invoiceMap.set(`inv:${String(inv.id)}`, inv);
+                }
             }
             console.log(`[SimplyBook sync] ${invoices.length} invoices fetched`);
 
