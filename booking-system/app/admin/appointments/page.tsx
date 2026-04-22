@@ -157,13 +157,23 @@ export default function AdminAppointmentsPage() {
                     paymentProcessor: data.paymentProcessor,
                     paymentStatus:    data.paymentStatus,
                 }}));
-                // Also update the sbBookings state so badge shows correctly
+                // Update sbBookings state so SB-only cards refresh
                 setSbBookings(prev => prev.map(b =>
                     b.sbId === sbId ? { ...b,
                         invoiceNumber:    data.invoiceNumber,
                         invoiceAmount:    data.invoiceAmount ?? b.invoiceAmount,
                         paymentProcessor: data.paymentProcessor ?? b.paymentProcessor,
                         paymentStatus:    data.paymentStatus ?? b.paymentStatus,
+                    } as any : b
+                ));
+                // Also patch bookings state so merged SB cards refresh live
+                setBookings(prev => prev.map(b =>
+                    (b as any).sbId === sbId ? { ...b,
+                        sbPaymentStatus:    data.paymentStatus    ?? (b as any).sbPaymentStatus,
+                        sbInvoiceNumber:    data.invoiceNumber    ?? (b as any).sbInvoiceNumber,
+                        sbInvoiceAmount:    data.invoiceAmount    ?? (b as any).sbInvoiceAmount,
+                        sbInvoiceCurrency:  data.invoiceCurrency  ?? (b as any).sbInvoiceCurrency,
+                        sbPaymentProcessor: data.paymentProcessor ?? (b as any).sbPaymentProcessor,
                     } as any : b
                 ));
             } else {
@@ -812,12 +822,17 @@ export default function AdminAppointmentsPage() {
                                         {/* ── Payment Info Block ── */}
                                         <div className="mt-1.5 pt-1.5 border-t border-gray-50 dark:border-gray-700/60 space-y-1">
                                             {(() => {
-                                                const sbProc = (booking as any).sbPaymentProcessor as string | undefined;
-                                                const sbAmt  = (booking as any).sbInvoiceAmount  as number | undefined;
-                                                const sbCur  = ((booking as any).sbInvoiceCurrency as string | undefined) || 'AED';
-                                                const sbInvNo= (booking as any).sbInvoiceNumber  as string | undefined;
-                                                const sbStatus=(booking as any).sbPaymentStatus  as string | undefined;
+                                                const sbId     = (booking as any).sbId as string | undefined;
+                                                // Merge stored fields with any on-demand fetched data
+                                                const fetched  = sbId ? invoiceFetchMap[sbId] : undefined;
+                                                const sbProc   = ((booking as any).sbPaymentProcessor  || fetched?.paymentProcessor)  as string | undefined;
+                                                const sbAmt    = ((booking as any).sbInvoiceAmount     ?? fetched?.invoiceAmount)      as number | undefined;
+                                                const sbCur    = (((booking as any).sbInvoiceCurrency  || fetched?.invoiceCurrency) as string | undefined) || 'AED';
+                                                const sbInvNo  = ((booking as any).sbInvoiceNumber     || fetched?.invoiceNumber)      as string | undefined;
+                                                const sbStatus = ((booking as any).sbPaymentStatus     || fetched?.paymentStatus)      as string | undefined;
                                                 const isStripe = sbProc?.toLowerCase().includes('stripe');
+                                                const isFetchingThis = sbId ? !!fetchingInvoices[sbId] : false;
+                                                const fetchError = fetched?.error;
 
                                                 /* ── Free Follow-Up ── */
                                                 if (booking.isFollowUp) return (
@@ -899,6 +914,33 @@ export default function AdminAppointmentsPage() {
                                                 );
 
                                                 /* ── Pay at clinic (default) ── */
+                                                /* For SB bookings with no payment data yet, show Get Invoice # button */
+                                                if (isSb && sbId && !booking.isFollowUp && booking.paymentMethod !== 'package') {
+                                                    if (isFetchingThis) return (
+                                                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-600 animate-pulse">
+                                                            <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin inline-block" />
+                                                            Fetching invoice...
+                                                        </span>
+                                                    );
+                                                    if (fetchError) return (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[11px] text-red-500">{fetchError}</span>
+                                                            <button onClick={() => fetchInvoiceForBooking(sbId, booking.date)}
+                                                                className="text-[10px] text-violet-600 underline">Retry</button>
+                                                        </div>
+                                                    );
+                                                    return (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Pay at Clinic</span>
+                                                            <button
+                                                                onClick={() => fetchInvoiceForBooking(sbId, booking.date)}
+                                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 border border-violet-300 px-2 py-0.5 rounded-full hover:bg-violet-100 transition-colors"
+                                                            >
+                                                                🔍 Get Invoice #
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
                                                 return (
                                                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Pay at Clinic</span>
                                                 );
