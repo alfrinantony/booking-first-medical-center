@@ -495,7 +495,7 @@ export default function AdminAppointmentsPage() {
 
 
     return (
-        <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+        <div className="h-dvh flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
 
             {/* ── HEADER ── */}
             <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-violet-600 px-6 py-4 shrink-0">
