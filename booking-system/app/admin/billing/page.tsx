@@ -4,7 +4,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Invoice, InvoiceLineItem } from '@/lib/billing-store';
 import { BookingsStore } from '@/lib/bookings-store';
 import { Booking, Clinic, Medicine, InventoryBatch } from '@/lib/data';
-import { Receipt, Search, Plus, FileText, Printer, Calendar, Clock, User, MapPin, Package, AlertTriangle, CreditCard } from 'lucide-react';
+import { Receipt, Search, Plus, FileText, Printer, Calendar, Clock, User, MapPin, Package, AlertTriangle, CreditCard, Scissors, Zap } from 'lucide-react';
+
+// ── Laser Hair Removal Add-on Catalogue ──
+const LASER_ADDONS = [
+    { key: 'shaving_full',   label: 'Shaving – Full Body',               price: 150, group: 'Shaving' },
+    { key: 'shaving_large',  label: 'Shaving – Large Area',              price: 80,  group: 'Shaving' },
+    { key: 'shaving_medium', label: 'Shaving – Medium Area',             price: 60,  group: 'Shaving' },
+    { key: 'shaving_small',  label: 'Shaving – Small Area',              price: 30,  group: 'Shaving' },
+    { key: 'numbing_small',  label: 'Numbing Application – Small Area',  price: 50,  group: 'Numbing' },
+    { key: 'numbing_medium', label: 'Numbing Application – Medium Area', price: 80,  group: 'Numbing' },
+    { key: 'numbing_large',  label: 'Numbing Application – Large Area',  price: 120, group: 'Numbing' },
+] as const;
+type AddonKey = typeof LASER_ADDONS[number]['key'];
 
 export default function BillingPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -47,6 +59,33 @@ export default function BillingPage() {
     const [submitting, setSubmitting] = useState(false);
     const [alreadyBilledInvoice, setAlreadyBilledInvoice] = useState<{ invoiceNumber: string; id: string } | null>(null);
     const [allowDuplicate, setAllowDuplicate] = useState(false);
+
+    // ── Laser Hair Removal Add-ons ──
+    const [selectedAddons, setSelectedAddons] = useState<Set<AddonKey>>(new Set());
+    const [addonPrices, setAddonPrices] = useState<Record<AddonKey, number>>(
+        Object.fromEntries(LASER_ADDONS.map(a => [a.key, a.price])) as Record<AddonKey, number>
+    );
+
+    const toggleAddon = (addon: typeof LASER_ADDONS[number]) => {
+        const desc = `[LHR Add-on] ${addon.label}`;
+        const isOn = selectedAddons.has(addon.key);
+        if (isOn) {
+            setItems(prev => prev.filter(i => i.description !== desc));
+            setSelectedAddons(prev => { const n = new Set(prev); n.delete(addon.key); return n; });
+        } else {
+            const price = addonPrices[addon.key] ?? addon.price;
+            setItems(prev => [...prev, {
+                description: desc,
+                quantity: 1,
+                unitPrice: price,
+                regularPrice: price,
+                discountAmount: 0,
+                maxDiscountPercentage: 0,
+                consumptions: [],
+            }]);
+            setSelectedAddons(prev => { const n = new Set(prev); n.add(addon.key); return n; });
+        }
+    };
 
     const loadInvoices = useCallback(async () => {
         try {
@@ -277,6 +316,7 @@ export default function BillingPage() {
         setDoctorName(''); setBookingDate(''); setBookingTime('');
         setOnlineReference(''); setLinkedBookingId(''); setLinkedSbId('');
         setAlreadyBilledInvoice(null); setAllowDuplicate(false);
+        setSelectedAddons(new Set());
     };
 
     // Validate batch selections before submission
@@ -722,6 +762,166 @@ export default function BillingPage() {
                                         </div>
                                     ))}
                                     <button type="button" onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }])} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">+ Add Item</button>
+                                </div>
+
+                                {/* ── Laser Hair Removal Add-ons ── */}
+                                <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-900/20 dark:to-fuchsia-900/10 border border-violet-200 dark:border-violet-700 rounded-xl p-4 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center">
+                                                <Zap className="w-4 h-4 text-white" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-violet-800 dark:text-violet-200">Laser Hair Removal Add-ons</p>
+                                                <p className="text-[11px] text-violet-500 dark:text-violet-400">Toggle to add to invoice · prices editable below</p>
+                                            </div>
+                                        </div>
+                                        {selectedAddons.size > 0 && (
+                                            <span className="text-xs font-bold bg-violet-600 text-white px-2.5 py-0.5 rounded-full">
+                                                {selectedAddons.size} selected
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Shaving Group */}
+                                    <div>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                            <Scissors className="w-3.5 h-3.5 text-violet-500" />
+                                            <span className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wider">Shaving Services</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {LASER_ADDONS.filter(a => a.group === 'Shaving').map(addon => {
+                                                const isOn = selectedAddons.has(addon.key);
+                                                return (
+                                                    <div key={addon.key} className="flex items-stretch rounded-xl overflow-hidden border-2 transition-all duration-150 shadow-sm" style={{ borderColor: isOn ? '#7c3aed' : '#e5e7eb' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleAddon(addon)}
+                                                            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all ${
+                                                                isOn
+                                                                    ? 'bg-violet-600 text-white'
+                                                                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-violet-50 dark:hover:bg-violet-900/20'
+                                                            }`}
+                                                        >
+                                                            <span className="text-[13px]">{isOn ? '✓' : '+'}</span>
+                                                            {addon.label.replace('Shaving – ', '')}
+                                                        </button>
+                                                        <div className={`flex items-center px-2 border-l text-xs font-mono font-bold transition-all ${
+                                                            isOn
+                                                                ? 'border-violet-500 bg-violet-700 text-violet-100'
+                                                                : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500'
+                                                        }`}>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                className={`w-14 bg-transparent text-right outline-none ${
+                                                                    isOn ? 'text-violet-100' : 'text-gray-600 dark:text-gray-300'
+                                                                }`}
+                                                                value={addonPrices[addon.key]}
+                                                                onChange={e => {
+                                                                    const newPrice = Number(e.target.value);
+                                                                    setAddonPrices(prev => ({ ...prev, [addon.key]: newPrice }));
+                                                                    // Update in items if already selected
+                                                                    if (isOn) {
+                                                                        const desc = `[LHR Add-on] ${addon.label}`;
+                                                                        setItems(prev => prev.map(i => i.description === desc
+                                                                            ? { ...i, unitPrice: newPrice, regularPrice: newPrice }
+                                                                            : i
+                                                                        ));
+                                                                    }
+                                                                }}
+                                                                onClick={e => e.stopPropagation()}
+                                                            />
+                                                            <span className="ml-0.5">AED</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Numbing Group */}
+                                    <div>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                            <span className="text-sm">💊</span>
+                                            <span className="text-xs font-semibold text-fuchsia-700 dark:text-fuchsia-300 uppercase tracking-wider">Numbing Application</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {LASER_ADDONS.filter(a => a.group === 'Numbing').map(addon => {
+                                                const isOn = selectedAddons.has(addon.key);
+                                                return (
+                                                    <div key={addon.key} className="flex items-stretch rounded-xl overflow-hidden border-2 transition-all duration-150 shadow-sm" style={{ borderColor: isOn ? '#a21caf' : '#e5e7eb' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleAddon(addon)}
+                                                            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all ${
+                                                                isOn
+                                                                    ? 'bg-fuchsia-600 text-white'
+                                                                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-900/20'
+                                                            }`}
+                                                        >
+                                                            <span className="text-[13px]">{isOn ? '✓' : '+'}</span>
+                                                            {addon.label.replace('Numbing Application – ', '')}
+                                                        </button>
+                                                        <div className={`flex items-center px-2 border-l text-xs font-mono font-bold transition-all ${
+                                                            isOn
+                                                                ? 'border-fuchsia-500 bg-fuchsia-700 text-fuchsia-100'
+                                                                : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500'
+                                                        }`}>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                className={`w-14 bg-transparent text-right outline-none ${
+                                                                    isOn ? 'text-fuchsia-100' : 'text-gray-600 dark:text-gray-300'
+                                                                }`}
+                                                                value={addonPrices[addon.key]}
+                                                                onChange={e => {
+                                                                    const newPrice = Number(e.target.value);
+                                                                    setAddonPrices(prev => ({ ...prev, [addon.key]: newPrice }));
+                                                                    if (isOn) {
+                                                                        const desc = `[LHR Add-on] ${addon.label}`;
+                                                                        setItems(prev => prev.map(i => i.description === desc
+                                                                            ? { ...i, unitPrice: newPrice, regularPrice: newPrice }
+                                                                            : i
+                                                                        ));
+                                                                    }
+                                                                }}
+                                                                onClick={e => e.stopPropagation()}
+                                                            />
+                                                            <span className="ml-0.5">AED</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {selectedAddons.size > 0 && (
+                                        <div className="flex items-center justify-between pt-1 border-t border-violet-200 dark:border-violet-700">
+                                            <span className="text-xs text-violet-600 dark:text-violet-400">
+                                                Add-ons subtotal:
+                                                <strong className="ml-1">
+                                                    {LASER_ADDONS.filter(a => selectedAddons.has(a.key)).reduce((s, a) => s + addonPrices[a.key], 0).toFixed(2)} AED
+                                                </strong>
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    selectedAddons.forEach(key => {
+                                                        const a = LASER_ADDONS.find(x => x.key === key);
+                                                        if (a) {
+                                                            const desc = `[LHR Add-on] ${a.label}`;
+                                                            setItems(prev => prev.filter(i => i.description !== desc));
+                                                        }
+                                                    });
+                                                    setSelectedAddons(new Set());
+                                                }}
+                                                className="text-xs text-red-500 hover:text-red-700 font-medium"
+                                            >
+                                                Clear All
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Inventory Consumption Multi-Matrix */}
