@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText, Clock, FileSpreadsheet, Cpu, TrendingUp, BarChart3, Wrench, ExternalLink } from 'lucide-react';
+import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText, Clock, FileSpreadsheet, Cpu, TrendingUp, BarChart3, Wrench, ExternalLink, Zap } from 'lucide-react';
 import { User } from '@/lib/users-types';
 
 export default function AdminSidebar() {
@@ -181,6 +181,10 @@ export default function AdminSidebar() {
                     <Link href="/admin/billing" className={mainLinkClass('/admin/billing')}>
                         <Receipt className="w-4 h-4 shrink-0" />
                         Billing
+                    </Link>
+                    <Link href="/admin/addon-services" className={subLinkClass('/admin/addon-services')}>
+                        <Zap className="w-3.5 h-3.5 shrink-0" />
+                        Add-on Services
                     </Link>
                     <Link href="/admin/transactions" className={subLinkClass('/admin/transactions')}>
                         <Wallet className="w-3.5 h-3.5 shrink-0" />
