@@ -281,6 +281,34 @@ export default function SimplyBookPage() {
         checkWebhook();
     }, [fetchBookings, fetchStats, checkWebhook]);
 
+    // ── Super Admin role guard ──
+    const [currentUser, setCurrentUser] = useState<{ role?: string } | null>(null);
+    const [roleChecked, setRoleChecked] = useState(false);
+    useEffect(() => {
+        try {
+            const stored = sessionStorage.getItem('adminUser');
+            setCurrentUser(stored ? JSON.parse(stored) : null);
+        } catch { setCurrentUser(null); }
+        setRoleChecked(true);
+    }, []);
+
+    if (roleChecked && currentUser?.role !== 'SUPER_ADMIN') return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-8">
+            <div className="text-center max-w-sm">
+                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-8 h-8 text-red-500" />
+                </div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Access Restricted</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    The SimplyBook Sync page is only accessible to Super Admins.
+                </p>
+                <Link href="/admin" className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors">
+                    ← Back to Dashboard
+                </Link>
+            </div>
+        </div>
+    );
+
     const handleManualSync = async () => {
         setSyncing(true);
         try {
