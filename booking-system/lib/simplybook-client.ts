@@ -207,19 +207,33 @@ export interface SimplyBookInvoice {
 export async function getAdminBookings(
     dateFrom: string,
     dateTo: string,
-    limit = 300,
+    limit = 500,
     skip = 0
 ): Promise<SimplyBookAdminBooking[]> {
-    try {
-        const filter = { date_from: dateFrom, date_to: dateTo };
-        const result = await callAdmin('getBookings', [filter, limit, skip]);
-        if (Array.isArray(result)) return result as SimplyBookAdminBooking[];
-        if (result && typeof result === 'object') return Object.values(result) as SimplyBookAdminBooking[];
-        return [];
-    } catch (err) {
-        console.error('[SimplyBook] getAdminBookings failed:', err);
-        return [];
+    // SimplyBook API may behave differently for future vs past bookings.
+    // Try multiple filter formats to maximise coverage.
+    const filtersToTry = [
+        { date_from: dateFrom, date_to: dateTo },               // basic
+        { date_from: dateFrom, date_to: dateTo, status: 'all' }, // explicit all statuses
+        { date_from: dateFrom, date_to: dateTo, upcoming: true },// upcoming flag
+    ];
+
+    for (const filter of filtersToTry) {
+        try {
+            const result = await callAdmin('getBookings', [filter, limit, skip]);
+            let arr: SimplyBookAdminBooking[] = [];
+            if (Array.isArray(result)) arr = result as SimplyBookAdminBooking[];
+            else if (result && typeof result === 'object') arr = Object.values(result) as SimplyBookAdminBooking[];
+            if (arr.length > 0) {
+                console.log(`[SimplyBook] getAdminBookings (${JSON.stringify(filter)}) → ${arr.length} records`);
+                return arr;
+            }
+        } catch (err) {
+            console.warn(`[SimplyBook] getBookings filter ${JSON.stringify(filter)} failed:`, String(err).substring(0, 120));
+        }
     }
+    console.warn('[SimplyBook] getAdminBookings: all filter attempts returned 0 results');
+    return [];
 }
 
 // ── Admin: single booking ──

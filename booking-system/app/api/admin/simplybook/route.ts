@@ -348,6 +348,45 @@ export async function GET(request: NextRequest) {
         }
     }
 
+    // ── Debug raw bookings — returns raw SimplyBook getBookings response ──
+    // GET /api/admin/simplybook?debug_bookings=true&from=YYYY-MM-DD&to=YYYY-MM-DD
+    if (sp.get('debug_bookings') === 'true') {
+        const today = new Date().toISOString().split('T')[0];
+        const dateFrom = sp.get('from') || today;
+        const dateTo   = sp.get('to')   || today;
+        try {
+            const { callAdmin } = await import('@/lib/simplybook-client');
+            // Try multiple filter formats to find which one returns future data
+            const results: Record<string, unknown> = {};
+            const filters = [
+                { label: 'basic',          filter: { date_from: dateFrom, date_to: dateTo } },
+                { label: 'with_status_all',filter: { date_from: dateFrom, date_to: dateTo, status: 'all' } },
+                { label: 'upcoming',       filter: { date_from: dateFrom, date_to: dateTo, upcoming: true } },
+                { label: 'no_filter',      filter: {} },
+            ];
+            for (const { label, filter } of filters) {
+                try {
+                    const raw = await callAdmin('getBookings', [filter, 10, 0]);
+                    const arr = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? Object.values(raw) : []);
+                    results[label] = { count: (arr as unknown[]).length, sample: (arr as unknown[]).slice(0, 2) };
+                } catch (e) {
+                    results[label] = { error: String(e).substring(0, 200) };
+                }
+            }
+            // Also try getUpcomingBookings if it exists
+            try {
+                const raw = await callAdmin('getUpcomingBookings', [{ date_from: dateFrom, date_to: dateTo }, 10, 0]);
+                const arr = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? Object.values(raw) : []);
+                results['getUpcomingBookings'] = { count: (arr as unknown[]).length, sample: (arr as unknown[]).slice(0, 2) };
+            } catch (e) {
+                results['getUpcomingBookings'] = { error: String(e).substring(0, 200) };
+            }
+            return NextResponse.json({ dateFrom, dateTo, results });
+        } catch (err) {
+            return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+        }
+    }
+
     // ── Debug invoices — tries invoice API + dumps raw booking fields ──
     // GET /api/admin/simplybook?debug_invoices=true&from=YYYY-MM-DD&to=YYYY-MM-DD
     if (sp.get('debug_invoices') === 'true') {
