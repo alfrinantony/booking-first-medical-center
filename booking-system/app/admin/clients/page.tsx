@@ -5,7 +5,7 @@ import { ClientsStore, Client } from '@/lib/clients-store';
 import { maskPhone, maskEmail } from '@/lib/emr-store';
 import type { EMRConfig, EMRPushRecord } from '@/lib/emr-store';
 import type { ClientRestriction } from '@/lib/restrictions-store';
-import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock, Download } from 'lucide-react';
+import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock, Download, Calendar } from 'lucide-react';
 
 /* ── Form shape ── */
 interface EditForm {
@@ -117,22 +117,25 @@ export default function ClientsPage() {
 
     // SimplyBook import state
     const [importingSB, setImportingSB] = useState(false);
-    const [importResult, setImportResult] = useState<{ imported: number; skipped: number; total: number } | null>(null);
+    const [importResult, setImportResult] = useState<{ imported: number; updated: number; skipped: number; total: number; bookingsFetched: number } | null>(null);
+
+    // Visit dates modal
+    const [visitDatesClient, setVisitDatesClient] = useState<Client | null>(null);
 
     const handleImportFromSB = async () => {
-        if (!confirm('This will import all SimplyBook clients into the client list. Existing clients (matched by phone/email) will be skipped. Continue?')) return;
+        if (!confirm('This will import all SimplyBook clients with their full booking history. Existing clients will have their visit data refreshed. Continue?')) return;
         setImportingSB(true);
         setImportResult(null);
         try {
             const res = await fetch('/api/admin/simplybook/import-clients', { method: 'POST' });
             const data = await res.json();
             if (data.ok) {
-                setImportResult({ imported: data.imported, skipped: data.skipped, total: data.total });
+                setImportResult({ imported: data.imported, updated: data.updated ?? 0, skipped: data.skipped, total: data.total, bookingsFetched: data.bookingsFetched ?? 0 });
                 refreshClients();
             } else {
                 alert('Import failed: ' + (data.error || 'Unknown error'));
             }
-        } catch (err) {
+        } catch {
             alert('Import failed. Please check the console for details.');
         } finally {
             setImportingSB(false);
@@ -464,13 +467,34 @@ export default function ClientsPage() {
 
             {/* Import result banner */}
             {importResult && (
-                <div className="mb-4 p-3 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg flex items-center justify-between">
-                    <span className="text-sm text-violet-700 dark:text-violet-300 font-medium">
-                        ✓ SimplyBook import complete — {importResult.imported} imported, {importResult.skipped} skipped (out of {importResult.total} total)
-                    </span>
-                    <button onClick={() => setImportResult(null)} className="text-violet-500 hover:text-violet-700">
-                        <X className="w-4 h-4" />
-                    </button>
+                <div className="mb-4 p-4 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-xl">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-semibold text-violet-800 dark:text-violet-200 mb-1">
+                                ✓ SimplyBook import complete
+                            </p>
+                            <div className="flex flex-wrap gap-3 text-xs text-violet-700 dark:text-violet-300">
+                                <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+                                    {importResult.imported} new clients
+                                </span>
+                                {importResult.updated > 0 && (
+                                    <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+                                        {importResult.updated} refreshed
+                                    </span>
+                                )}
+                                <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full font-medium">
+                                    {importResult.skipped} skipped
+                                </span>
+                                <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
+                                    {importResult.bookingsFetched} visits synced
+                                </span>
+                                <span className="text-violet-500">out of {importResult.total} total SB clients</span>
+                            </div>
+                        </div>
+                        <button onClick={() => setImportResult(null)} className="text-violet-400 hover:text-violet-600 shrink-0">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -534,7 +558,20 @@ export default function ClientsPage() {
                                 </td>
                                 <td className="p-4 text-sm text-gray-600 dark:text-gray-300">{client.nationality || '—'}</td>
                                 <td className="p-4">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">{client.totalBookings}</span>
+                                    {client.visitDates && client.visitDates.length > 0 ? (
+                                        <button
+                                            onClick={e => { e.stopPropagation(); setVisitDatesClient(client); }}
+                                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                                            title="Click to view visit dates"
+                                        >
+                                            <Calendar className="w-3 h-3" />
+                                            {client.totalBookings > 0 ? client.totalBookings : client.visitDates.length}
+                                        </button>
+                                    ) : (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                                            {client.totalBookings}
+                                        </span>
+                                    )}
                                 </td>
                                 <td className="p-4 text-sm text-gray-500">{client.lastBookingDate || '-'}</td>
                                 <td className="p-4">
@@ -565,6 +602,80 @@ export default function ClientsPage() {
                     </tbody>
                 </table>
             </div>
+
+            {/* ── Visit Dates Modal ── */}
+            {visitDatesClient && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setVisitDatesClient(null)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-5 text-white">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-xs text-indigo-200 font-medium mb-1">SimplyBook Visit History</p>
+                                    <h2 className="text-lg font-bold">{visitDatesClient.name}</h2>
+                                    <p className="text-indigo-100 text-sm mt-0.5">
+                                        {visitDatesClient.mobile || visitDatesClient.phone || visitDatesClient.email || '—'}
+                                    </p>
+                                </div>
+                                <button onClick={() => setVisitDatesClient(null)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-3 mt-3">
+                                <span className="text-xs bg-white/20 px-2.5 py-1 rounded-full font-semibold">
+                                    {visitDatesClient.visitDates?.length ?? visitDatesClient.totalBookings} total visits
+                                </span>
+                                {visitDatesClient.lastBookingDate && (
+                                    <span className="text-xs text-indigo-200">Last: {visitDatesClient.lastBookingDate}</span>
+                                )}
+                            </div>
+                        </div>
+                        {/* Body */}
+                        <div className="p-5 max-h-96 overflow-y-auto">
+                            {visitDatesClient.visitDates && visitDatesClient.visitDates.length > 0 ? (
+                                <div className="space-y-2">
+                                    {visitDatesClient.visitDates.map((date, i) => {
+                                        const d = new Date(date + 'T00:00:00');
+                                        const isToday = date === new Date().toISOString().split('T')[0];
+                                        const isPast = d < new Date();
+                                        return (
+                                            <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border ${
+                                                isToday ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700' :
+                                                isPast  ? 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700' :
+                                                          'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
+                                            }`}>
+                                                <div className={`w-2 h-2 rounded-full ${
+                                                    isToday ? 'bg-amber-500' : isPast ? 'bg-gray-400' : 'bg-emerald-500'
+                                                }`} />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                        {d.toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    </p>
+                                                </div>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                    isToday ? 'bg-amber-100 text-amber-700' :
+                                                    isPast  ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' :
+                                                              'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                                }`}>
+                                                    {isToday ? 'Today' : isPast ? 'Past' : 'Upcoming'}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-gray-400">
+                                    <Calendar className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                                    <p className="text-sm">No visit dates recorded</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-center">
+                            <p className="text-xs text-gray-400">Data sourced from SimplyBook.me · Re-import to refresh</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── Merge Modal ── */}
             {isMergeModalOpen && (

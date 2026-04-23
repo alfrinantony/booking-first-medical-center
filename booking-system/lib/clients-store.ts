@@ -62,6 +62,7 @@ export interface Client {
     // Migration tracking
     source?: 'app' | 'simplybook'; // origin of client record
     sbClientId?: string;           // SimplyBook client ID
+    visitDates?: string[];        // ISO dates of all known visits from SimplyBook
 }
 
 // ── Standalone (booking-less) clients — stored in their own blob ──
@@ -232,7 +233,7 @@ export const ClientsStore = {
     /**
      * Import a SimplyBook (or other external) client with no bookings.
      * Stores the client in the standalone-clients blob so getAll() surfaces them.
-     * Returns 'imported' or 'skipped' (if identifier already exists in standalone or bookings).
+     * Returns 'imported' or 'updated' or 'skipped'.
      */
     importStandalone: async (client: Partial<Client> & { id: string; name: string }): Promise<'imported' | 'skipped'> => {
         await ensureStandaloneLoaded();
@@ -252,6 +253,40 @@ export const ClientsStore = {
             (client.email && sc.email === client.email)
         );
         if (alreadyStandalone) return 'skipped';
+
+        standaloneClients[client.id] = client;
+        await saveToBlob(STANDALONE_BLOB, standaloneClients);
+        invalidateStandaloneCache();
+        return 'imported';
+    },
+
+    /**
+     * Import or update a SimplyBook client (upsert by SB client ID).
+     * If the client already exists as standalone, bookmark data (totalBookings,
+     * lastBookingDate, visitDates) is refreshed.
+     * Returns 'imported', 'updated', or 'skipped'.
+     */
+    upsertStandalone: async (
+        client: Partial<Client> & { id: string; name: string }
+    ): Promise<'imported' | 'updated' | 'skipped'> => {
+        await ensureStandaloneLoaded();
+        await ensureMetadataLoaded();
+
+        // If matched by id (same SB client), update in place
+        if (standaloneClients[client.id]) {
+            standaloneClients[client.id] = { ...standaloneClients[client.id], ...client };
+            await saveToBlob(STANDALONE_BLOB, standaloneClients);
+            invalidateStandaloneCache();
+            return 'updated';
+        }
+
+        // Check if already exists as a booking-derived client (by phone/email) — skip to avoid duplicate
+        const bookings = await BookingsStore.getAll();
+        const alreadyHasBooking = bookings.some(b =>
+            (b.whatsappNumber && b.whatsappNumber === client.phone) ||
+            (b.email && b.email === client.email)
+        );
+        if (alreadyHasBooking) return 'skipped';
 
         standaloneClients[client.id] = client;
         await saveToBlob(STANDALONE_BLOB, standaloneClients);
