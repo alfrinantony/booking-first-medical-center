@@ -426,6 +426,18 @@ export async function GET(request: NextRequest) {
         }
     }
 
+    // ── Raw Export mode (Bypasses Azure Blob save to prevent 504 on large migrations) ──
+    if (sp.get('raw_export') === 'true') {
+        const dateFrom = sp.get('from') || new Date().toISOString().split('T')[0];
+        const dateTo   = sp.get('to')   || new Date().toISOString().split('T')[0];
+        try {
+            const rawBookings = await getAdminBookings(dateFrom, dateTo, 1000, 0);
+            return NextResponse.json({ ok: true, count: rawBookings.length, bookings: rawBookings });
+        } catch (err) {
+            return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+        }
+    }
+
     // ── Sync mode ──
     if (sp.get('sync') === 'true') {
         const today = new Date().toISOString().split('T')[0];
