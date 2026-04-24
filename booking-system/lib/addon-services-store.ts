@@ -111,4 +111,9 @@ export const AddonServicesStore = {
         invalidate();
         return true;
     },
+
+    /** Persist addons in an externally-supplied order (used by the reorder endpoint). */
+    saveOrder: async (ordered: AddonService[]): Promise<void> => {
+        await save(ordered);
+    },
 };

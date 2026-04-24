@@ -815,8 +815,9 @@ export default function BillingPage() {
                                     <button type="button" onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }])} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">+ Add Item</button>
                                 </div>
 
-                                {/* ── Add-on Services (API-driven) ── */}
-                                <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-900/20 dark:to-fuchsia-900/10 border border-violet-200 dark:border-violet-700 rounded-xl p-4 space-y-4">
+                                {/* ── Add-on Services — Dropdown List ── */}
+                                <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-900/20 dark:to-fuchsia-900/10 border border-violet-200 dark:border-violet-700 rounded-xl p-4 space-y-3">
+                                    {/* Header */}
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center">
@@ -824,110 +825,126 @@ export default function BillingPage() {
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-violet-800 dark:text-violet-200">Add-on Services</p>
-                                                <p className="text-[11px] text-violet-500 dark:text-violet-400">Toggle to add · stock auto-deducted · prices editable</p>
+                                                <p className="text-[11px] text-violet-500 dark:text-violet-400">Select from list · stock auto-deducted on billing</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {selectedAddons.size > 0 && (
                                                 <span className="text-xs font-bold bg-violet-600 text-white px-2.5 py-0.5 rounded-full">
-                                                    {selectedAddons.size} selected
+                                                    {selectedAddons.size} added
                                                 </span>
                                             )}
                                             <a href="/admin/addon-services" target="_blank" className="text-[10px] text-violet-500 hover:text-violet-700 underline">Configure →</a>
                                         </div>
                                     </div>
 
+                                    {/* Dropdown selector */}
                                     {addonServices.length === 0 ? (
-                                        <div className="text-center py-4 border-2 border-dashed border-violet-200 dark:border-violet-700 rounded-xl">
-                                            <Zap className="w-6 h-6 text-violet-300 mx-auto mb-1" />
+                                        <div className="text-center py-3 border-2 border-dashed border-violet-200 dark:border-violet-700 rounded-xl">
+                                            <Zap className="w-5 h-5 text-violet-300 mx-auto mb-1" />
                                             <p className="text-xs text-violet-400">No active add-ons configured.</p>
                                             <a href="/admin/addon-services" target="_blank" className="text-xs text-violet-600 hover:underline">Set up add-on services →</a>
                                         </div>
-                                    ) : (() => {
-                                        const grouped = addonServices.reduce<Record<string, AddonService[]>>((acc, a) => {
-                                            if (!acc[a.group]) acc[a.group] = [];
-                                            acc[a.group].push(a);
-                                            return acc;
-                                        }, {});
-                                        const GROUP_META: Record<string, { icon: string; color: string; colorOn: string; border: string }> = {
-                                            'Shaving':             { icon: '✂️', color: 'bg-white dark:bg-gray-800 text-gray-700 hover:bg-violet-50',  colorOn: 'bg-violet-600 text-white',  border: '#7c3aed' },
-                                            'Numbing Application': { icon: '💊', color: 'bg-white dark:bg-gray-800 text-gray-700 hover:bg-fuchsia-50', colorOn: 'bg-fuchsia-600 text-white', border: '#a21caf' },
-                                        };
-                                        const DEFAULT_META = { icon: '⚡', color: 'bg-white dark:bg-gray-800 text-gray-700 hover:bg-indigo-50', colorOn: 'bg-indigo-600 text-white', border: '#4f46e5' };
-                                        return (
-                                            <>
-                                                {Object.entries(grouped).map(([group, grpAddons]) => {
-                                                    const meta = GROUP_META[group] ?? DEFAULT_META;
-                                                    return (
-                                                        <div key={group}>
-                                                            <div className="flex items-center gap-1.5 mb-2">
-                                                                <span className="text-sm">{meta.icon}</span>
-                                                                <span className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wider">{group}</span>
-                                                            </div>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {grpAddons.map(addon => {
-                                                                    const isOn = selectedAddons.has(addon.id);
-                                                                    return (
-                                                                        <div key={addon.id} className="flex flex-col rounded-xl overflow-hidden border-2 transition-all duration-150 shadow-sm" style={{ borderColor: isOn ? meta.border : '#e5e7eb' }}>
-                                                                            <div className="flex items-stretch">
-                                                                                <button type="button" onClick={() => toggleAddon(addon)}
-                                                                                    className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all ${isOn ? meta.colorOn : meta.color}`}>
-                                                                                    <span className="text-[13px]">{isOn ? '✓' : '+'}</span>
-                                                                                    {addon.name}
-                                                                                </button>
-                                                                                <div className={`flex items-center px-2 border-l text-xs font-mono font-bold transition-all ${isOn ? 'border-violet-400 bg-violet-700 text-violet-100' : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500'}`}>
-                                                                                    <input type="number" min="0"
-                                                                                        className={`w-14 bg-transparent text-right outline-none ${isOn ? 'text-violet-100' : 'text-gray-600 dark:text-gray-300'}`}
-                                                                                        value={addonPrices[addon.id] ?? addon.defaultPrice}
-                                                                                        onChange={e => {
-                                                                                            const np = Number(e.target.value);
-                                                                                            setAddonPrices(prev => ({ ...prev, [addon.id]: np }));
-                                                                                            if (isOn) { const d = `[Add-on] ${addon.name}`; setItems(prev => prev.map(i => i.description === d ? { ...i, unitPrice: np, regularPrice: np } : i)); }
-                                                                                        }}
-                                                                                        onClick={e => e.stopPropagation()} />
-                                                                                    <span className="ml-0.5">AED</span>
-                                                                                </div>
-                                                                            </div>
-                                                                            {/* Stock indicators for linked consumables */}
-                                                                            <div className={`px-2 py-0.5 flex flex-wrap gap-1 border-t ${isOn ? 'bg-violet-700/10 border-violet-200' : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700'}`}>
-                                                                                {addon.linkedConsumables.length > 0 ? addon.linkedConsumables.map((c, ci) => {
-                                                                                    const notFetched = !batchesMap[c.medicineId];
-                                                                                    const hasBatch = !!pickBestBatch(c.medicineId);
-                                                                                    return (
-                                                                                        <span key={ci} className={`text-[9px] flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${notFetched ? 'bg-gray-100 dark:bg-gray-700 text-gray-400' : hasBatch ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'bg-red-100 dark:bg-red-900/30 text-red-600'}`}>
-                                                                                            {notFetched ? '○' : hasBatch ? '●' : '⚠'} {c.medicineName} ×{c.quantityPerService}
-                                                                                        </span>
-                                                                                    );
-                                                                                }) : <span className="text-[9px] text-amber-500">No stock link</span>}
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                id="addon-select"
+                                                className="flex-1 p-2.5 border border-violet-300 dark:border-violet-600 rounded-xl bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none text-gray-700 dark:text-gray-200"
+                                                value=""
+                                                onChange={e => {
+                                                    const addon = addonServices.find(a => a.id === e.target.value);
+                                                    if (addon && !selectedAddons.has(addon.id)) toggleAddon(addon);
+                                                    // Reset dropdown
+                                                    (e.target as HTMLSelectElement).value = '';
+                                                }}
+                                            >
+                                                <option value="" disabled>➕ Select an add-on to add…</option>
+                                                {(() => {
+                                                    const grouped = addonServices.reduce<Record<string, AddonService[]>>((acc, a) => {
+                                                        if (!acc[a.group]) acc[a.group] = [];
+                                                        acc[a.group].push(a);
+                                                        return acc;
+                                                    }, {});
+                                                    return Object.entries(grouped).map(([group, grpAddons]) => (
+                                                        <optgroup key={group} label={`── ${group} ──`}>
+                                                            {grpAddons.map(a => (
+                                                                <option key={a.id} value={a.id} disabled={selectedAddons.has(a.id)}>
+                                                                    {selectedAddons.has(a.id) ? '✓ ' : ''}{a.name} — {addonPrices[a.id] ?? a.defaultPrice} AED
+                                                                </option>
+                                                            ))}
+                                                        </optgroup>
+                                                    ));
+                                                })()}
+                                            </select>
+                                        </div>
+                                    )}
 
-                                                {selectedAddons.size > 0 && (
-                                                    <div className="flex items-center justify-between pt-1 border-t border-violet-200 dark:border-violet-700">
-                                                        <span className="text-xs text-violet-600 dark:text-violet-400">
-                                                            Add-ons subtotal: <strong className="ml-1">
-                                                                {addonServices.filter(a => selectedAddons.has(a.id)).reduce((s, a) => s + (addonPrices[a.id] ?? a.defaultPrice), 0).toFixed(2)} AED
-                                                            </strong>
+                                    {/* Selected add-ons list */}
+                                    {selectedAddons.size > 0 && (
+                                        <div className="space-y-1.5 pt-1 border-t border-violet-100 dark:border-violet-800">
+                                            {addonServices.filter(a => selectedAddons.has(a.id)).map(addon => {
+                                                const desc = `[Add-on] ${addon.name}`;
+                                                const notFetched = addon.linkedConsumables.some(c => !batchesMap[c.medicineId]);
+                                                const allHaveBatch = addon.linkedConsumables.every(c => !!pickBestBatch(c.medicineId));
+                                                const noLink = addon.linkedConsumables.length === 0;
+                                                return (
+                                                    <div key={addon.id} className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-violet-200 dark:border-violet-700 rounded-lg px-3 py-2">
+                                                        <span className="flex-1 text-xs font-semibold text-gray-800 dark:text-white truncate">{addon.name}</span>
+                                                        {/* Stock indicator */}
+                                                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
+                                                            noLink ? 'bg-amber-100 text-amber-600' :
+                                                            notFetched ? 'bg-gray-100 text-gray-400' :
+                                                            allHaveBatch ? 'bg-emerald-100 text-emerald-700' :
+                                                            'bg-red-100 text-red-600'
+                                                        }`}>
+                                                            {noLink ? '⚠ no stock link' : notFetched ? '○ stock?' : allHaveBatch ? '● in stock' : '⚠ low stock'}
                                                         </span>
-                                                        <button type="button" onClick={() => {
-                                                            selectedAddons.forEach(id => { const a = addonServices.find(x => x.id === id); if (a) setItems(prev => prev.filter(i => i.description !== `[Add-on] ${a.name}`)); });
-                                                            setSelectedAddons(new Set());
-                                                        }} className="text-xs text-red-500 hover:text-red-700 font-medium">Clear All</button>
+                                                        {/* Editable price */}
+                                                        <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden shrink-0">
+                                                            <input
+                                                                type="number" min="0"
+                                                                className="w-16 p-1 text-xs text-right bg-white dark:bg-gray-700 focus:outline-none border-none"
+                                                                value={addonPrices[addon.id] ?? addon.defaultPrice}
+                                                                onChange={e => {
+                                                                    const np = Number(e.target.value);
+                                                                    setAddonPrices(prev => ({ ...prev, [addon.id]: np }));
+                                                                    setItems(prev => prev.map(i => i.description === desc ? { ...i, unitPrice: np, regularPrice: np } : i));
+                                                                }}
+                                                            />
+                                                            <span className="text-[10px] pr-1.5 text-gray-400 bg-white dark:bg-gray-700">AED</span>
+                                                        </div>
+                                                        {/* Remove */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleAddon(addon)}
+                                                            className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors shrink-0"
+                                                            title="Remove add-on"
+                                                        >
+                                                            <X className="w-3.5 h-3.5" />
+                                                        </button>
                                                     </div>
-                                                )}
-                                            </>
-                                        );
-                                    })()}
+                                                );
+                                            })}
+
+                                            <div className="flex items-center justify-between pt-1">
+                                                <span className="text-xs text-violet-600 dark:text-violet-400">
+                                                    Subtotal: <strong>{addonServices.filter(a => selectedAddons.has(a.id)).reduce((s, a) => s + (addonPrices[a.id] ?? a.defaultPrice), 0).toFixed(2)} AED</strong>
+                                                </span>
+                                                <button type="button" onClick={() => {
+                                                    selectedAddons.forEach(id => { const a = addonServices.find(x => x.id === id); if (a) setItems(prev => prev.filter(i => i.description !== `[Add-on] ${a.name}`)); });
+                                                    setSelectedAddons(new Set());
+                                                }} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                                                    Remove all
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
 
+
                                 {/* Inventory Consumption Multi-Matrix */}
+
                                 <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 space-y-3">
                                     <label className="block text-sm font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
                                         <Package className="w-4 h-4" /> Multi-Item Resource Tracker

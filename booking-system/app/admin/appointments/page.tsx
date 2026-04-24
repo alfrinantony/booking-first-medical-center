@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
-import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, Pill, UserPlus, X, History, Sparkles, ExternalLink, Phone, CreditCard, Package, CheckCircle } from 'lucide-react';
+import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, Pill, UserPlus, X, History, Sparkles, ExternalLink, Phone, CreditCard, Package, CheckCircle, Pencil, Mail } from 'lucide-react';
 import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
 import type { SimplybookRecord } from '@/lib/simplybook-store';
@@ -29,6 +29,29 @@ export default function AdminAppointmentsPage() {
     const [fetchingInvoices, setFetchingInvoices] = useState<Record<string, boolean>>({});
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+    // ── Edit SB Client Info ──
+    const [editClientModal, setEditClientModal] = useState<false | { sbId: string; name: string; phone: string; email: string }>(false);
+    const [editClientSaving, setEditClientSaving] = useState(false);
+
+    const handleSaveClientEdit = async () => {
+        if (!editClientModal) return;
+        setEditClientSaving(true);
+        try {
+            const res = await fetch(`/api/admin/simplybook/${editClientModal.sbId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clientName: editClientModal.name, clientPhone: editClientModal.phone, clientEmail: editClientModal.email }),
+            });
+            if (res.ok) {
+                // Refresh SB bookings so the updated name/phone shows immediately
+                await fetchSbBookings();
+                setEditClientModal(false);
+            } else {
+                alert('Failed to save. Please try again.');
+            }
+        } catch { alert('Save failed.'); } finally { setEditClientSaving(false); }
+    };
 
     // Filters
     const [selectedClinicId, setSelectedClinicId] = useState<string>('');
@@ -1038,6 +1061,18 @@ export default function AdminAppointmentsPage() {
                                         >
                                             {booking.billingStatus === 'billed' ? '🔒 Locked' : '✏️ Edit'}
                                         </button>
+                                        {isSb && (booking as any).sbId && (
+                                            <>
+                                                <div className="w-px bg-gray-100 dark:bg-gray-700" />
+                                                <button
+                                                    onClick={() => setEditClientModal({ sbId: (booking as any).sbId, name: booking.patientName || '', phone: booking.whatsappNumber || '', email: booking.email || '' })}
+                                                    className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                                                    title="Edit patient name, phone, email"
+                                                >
+                                                    <Pencil className="w-3 h-3" /> Edit Info
+                                                </button>
+                                            </>
+                                        )}
                                         {(booking.status === 'completed' || booking.paymentMethod === 'online' || booking.paymentMethod === 'card' || booking.paymentMethod === 'package' || (isSb && (booking as any).sbPaymentStatus === 'paid')) && (() => {
                                             const sbInvNum = (booking as any).sbInvoiceNumber || invoiceFetchMap[(booking as any).sbId || '']?.invoiceNumber;
                                             return (<>
@@ -1143,10 +1178,17 @@ export default function AdminAppointmentsPage() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="border-t border-violet-100 dark:border-violet-800/40 bg-violet-50/30 dark:bg-violet-900/10">
+                                    <div className="border-t border-violet-100 dark:border-violet-800/40 bg-violet-50/30 dark:bg-violet-900/10 flex">
+                                        <button
+                                            onClick={() => setEditClientModal({ sbId: sb.sbId, name: sb.clientName || '', phone: sb.clientPhone || '', email: sb.clientEmail || '' })}
+                                            className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-violet-600 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors border-r border-violet-100 dark:border-violet-800/40"
+                                            title="Edit patient name, phone, email"
+                                        >
+                                            <Pencil className="w-3 h-3" /> Edit Patient Info
+                                        </button>
                                         <Link href="/admin/simplybook"
-                                            className="flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 transition-colors">
-                                            <ExternalLink className="w-3 h-3" /> View in SimplyBook
+                                            className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-violet-600 hover:text-violet-800 dark:text-violet-400 transition-colors">
+                                            <ExternalLink className="w-3 h-3" /> View in SB
                                         </Link>
                                     </div>
                                 </div>
@@ -1467,6 +1509,61 @@ export default function AdminAppointmentsPage() {
                                 className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 font-medium transition-colors"
                             >
                                 Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Edit Patient Info Modal (SB records) ── */}
+            {editClientModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={() => setEditClientModal(false)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-4 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-white">
+                                <Pencil className="w-4 h-4" />
+                                <h3 className="font-bold text-base">Edit Patient Info</h3>
+                            </div>
+                            <button onClick={() => setEditClientModal(false)} className="p-1 hover:bg-white/20 rounded-lg transition-colors text-white"><X className="w-4 h-4" /></button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                SB#{editClientModal.sbId} — changes save locally and do not modify SimplyBook.
+                            </p>
+                            <div>
+                                <label className="flex items-center gap-1 text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1"><User className="w-3.5 h-3.5" /> Patient Name</label>
+                                <input type="text"
+                                    className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    value={editClientModal.name}
+                                    onChange={e => setEditClientModal(prev => prev ? { ...prev, name: e.target.value } : prev)}
+                                    placeholder="Full name" />
+                            </div>
+                            <div>
+                                <label className="flex items-center gap-1 text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1"><Phone className="w-3.5 h-3.5" /> Phone / WhatsApp</label>
+                                <input type="tel"
+                                    className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    value={editClientModal.phone}
+                                    onChange={e => setEditClientModal(prev => prev ? { ...prev, phone: e.target.value } : prev)}
+                                    placeholder="+971 50 000 0000" />
+                            </div>
+                            <div>
+                                <label className="flex items-center gap-1 text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1"><Mail className="w-3.5 h-3.5" /> Email</label>
+                                <input type="email"
+                                    className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    value={editClientModal.email}
+                                    onChange={e => setEditClientModal(prev => prev ? { ...prev, email: e.target.value } : prev)}
+                                    placeholder="patient@email.com" />
+                            </div>
+                        </div>
+                        <div className="px-5 pb-5 flex justify-end gap-3">
+                            <button onClick={() => setEditClientModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">Cancel</button>
+                            <button
+                                onClick={handleSaveClientEdit}
+                                disabled={editClientSaving || !editClientModal.name.trim()}
+                                className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center gap-2 transition-colors"
+                            >
+                                {editClientSaving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" /> : <CheckCircle className="w-4 h-4" />}
+                                Save Changes
                             </button>
                         </div>
                     </div>
