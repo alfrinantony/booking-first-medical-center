@@ -160,8 +160,28 @@ export default function AddonServicesPage() {
 
     const handleDelete = async (id: string) => {
         if (!canDelete) return;
-        try { await fetch(`/api/admin/addon-services/${id}`, { method: 'DELETE' }); await load(); } catch { }
+        // ── Optimistic UI: remove immediately so the user sees instant feedback ──
+        const snapshot = addons; // keep a copy in case we need to roll back
+        setAddons(prev => prev.filter(a => a.id !== id));
         setDeleteConfirm(null);
+        try {
+            const res = await fetch(`/api/admin/addon-services/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                // Roll back — restore the item
+                setAddons(snapshot);
+                const body = await res.json().catch(() => ({}));
+                alert(`Delete failed: ${body?.error || res.status}. The item has been restored.`);
+            }
+            // Re-sync groups based on remaining addons (no full reload needed)
+            setAddons(prev => {
+                setExpandedGroups(new Set(prev.map(a => a.group)));
+                return prev;
+            });
+        } catch {
+            // Network error — roll back
+            setAddons(snapshot);
+            alert('Network error — delete may not have saved. Please try again.');
+        }
     };
 
     const handleToggleActive = async (addon: AddonService) => {
