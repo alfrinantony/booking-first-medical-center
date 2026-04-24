@@ -687,6 +687,10 @@ export async function GET(request: NextRequest) {
             await SimplybookStore.upsertMany(sbUpsertBatch);
 
             // Import into BookingsStore (one blob write)
+            if (sp.get('skip_save') === 'true') {
+                return NextResponse.json({ ok: true, migrated: batchForBookings.length, records: batchForBookings });
+            }
+
             const { added, skipped } = await BookingsStore.addSimplyBookBatch(batchForBookings as any);
 
             return NextResponse.json({
