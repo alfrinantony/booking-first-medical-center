@@ -4,13 +4,18 @@
  * Stores configurable add-on services (e.g. Shaving, Numbing) linked to
  * medicines/consumables. When billed, each linked consumable is automatically
  * deducted from stock via the existing InventoryBatchStore flow.
+ *
+ * NOTE: No in-memory cache is used here. In Azure SWA each API route runs as
+ * an independent Azure Function instance, so a module-level cache variable is
+ * NOT shared between PUT and GET routes — leading to stale reads. Every
+ * operation reads fresh from Blob Storage instead.
  */
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 
 export interface AddonConsumable {
     medicineId: string;
     medicineName: string;       // Display name (denormalised for speed)
-    quantityPerService: number; // How many units consumed each time this add-on is rendered
+    quantityPerService: number; // How many units consumed each time
 }
 
 export interface AddonService {
@@ -24,60 +29,49 @@ export interface AddonService {
     updatedAt: string;
 }
 
-// ── Default seed data (pre-configured LHR add-ons with no consumables linked yet) ──
+// ── Default seed data ──────────────────────────────────────────
 const DEFAULT_ADDONS: Omit<AddonService, 'id' | 'createdAt' | 'updatedAt'>[] = [
-    { name: 'Shaving – Full Body',               group: 'Shaving', defaultPrice: 150, linkedConsumables: [], isActive: true },
-    { name: 'Shaving – Large Area',              group: 'Shaving', defaultPrice: 80,  linkedConsumables: [], isActive: true },
-    { name: 'Shaving – Medium Area',             group: 'Shaving', defaultPrice: 60,  linkedConsumables: [], isActive: true },
-    { name: 'Shaving – Small Area',              group: 'Shaving', defaultPrice: 30,  linkedConsumables: [], isActive: true },
-    { name: 'Numbing Application – Small Area',  group: 'Numbing Application', defaultPrice: 50,  linkedConsumables: [], isActive: true },
-    { name: 'Numbing Application – Medium Area', group: 'Numbing Application', defaultPrice: 80,  linkedConsumables: [], isActive: true },
-    { name: 'Numbing Application – Large Area',  group: 'Numbing Application', defaultPrice: 120, linkedConsumables: [], isActive: true },
+    { name: 'Shaving – Full Body',               group: 'Shaving',              defaultPrice: 150, linkedConsumables: [], isActive: true },
+    { name: 'Shaving – Large Area',              group: 'Shaving',              defaultPrice: 80,  linkedConsumables: [], isActive: true },
+    { name: 'Shaving – Medium Area',             group: 'Shaving',              defaultPrice: 60,  linkedConsumables: [], isActive: true },
+    { name: 'Shaving – Small Area',              group: 'Shaving',              defaultPrice: 30,  linkedConsumables: [], isActive: true },
+    { name: 'Numbing Application – Small Area',  group: 'Numbing Application',  defaultPrice: 50,  linkedConsumables: [], isActive: true },
+    { name: 'Numbing Application – Medium Area', group: 'Numbing Application',  defaultPrice: 80,  linkedConsumables: [], isActive: true },
+    { name: 'Numbing Application – Large Area',  group: 'Numbing Application',  defaultPrice: 120, linkedConsumables: [], isActive: true },
 ];
 
 const BLOB_KEY = 'addon-services';
-let cache: AddonService[] | null = null;
 
-async function load(): Promise<AddonService[]> {
-    if (!cache) {
-        const data = await loadFromBlob<AddonService[]>(BLOB_KEY, []);
-        // Seed defaults if empty
-        if (!data || data.length === 0) {
-            const now = new Date().toISOString();
-            const seeded = DEFAULT_ADDONS.map((d, i) => ({
-                ...d,
-                id: `addon-seed-${i + 1}`,
-                createdAt: now,
-                updatedAt: now,
-            }));
-            await saveToBlob(BLOB_KEY, seeded);
-            cache = seeded;
-        } else {
-            cache = data;
-        }
+/** Always reads fresh from blob — no cross-request caching. */
+async function loadFresh(): Promise<AddonService[]> {
+    const data = await loadFromBlob<AddonService[]>(BLOB_KEY, []);
+    if (!data || data.length === 0) {
+        // First-time seed
+        const now = new Date().toISOString();
+        const seeded = DEFAULT_ADDONS.map((d, i) => ({
+            ...d,
+            id: `addon-seed-${i + 1}`,
+            createdAt: now,
+            updatedAt: now,
+        }));
+        await saveToBlob(BLOB_KEY, seeded);
+        return seeded;
     }
-    return cache;
-}
-
-function invalidate() { cache = null; }
-
-async function save(data: AddonService[]) {
-    cache = data;
-    await saveToBlob(BLOB_KEY, data);
+    return data;
 }
 
 export const AddonServicesStore = {
-    getAll: async (): Promise<AddonService[]> => load(),
+    getAll: async (): Promise<AddonService[]> => loadFresh(),
 
     getById: async (id: string): Promise<AddonService | null> => {
-        const all = await load();
+        const all = await loadFresh();
         return all.find(a => a.id === id) ?? null;
     },
 
     create: async (
         data: Omit<AddonService, 'id' | 'createdAt' | 'updatedAt'>
     ): Promise<AddonService> => {
-        const all = await load();
+        const all = await loadFresh();
         const now = new Date().toISOString();
         const addon: AddonService = {
             ...data,
@@ -86,7 +80,7 @@ export const AddonServicesStore = {
             updatedAt: now,
         };
         all.push(addon);
-        await save(all);
+        await saveToBlob(BLOB_KEY, all);
         return addon;
     },
 
@@ -94,26 +88,24 @@ export const AddonServicesStore = {
         id: string,
         updates: Partial<Omit<AddonService, 'id' | 'createdAt'>>
     ): Promise<AddonService | null> => {
-        const all = await load();
+        const all = await loadFresh();
         const idx = all.findIndex(a => a.id === id);
         if (idx === -1) return null;
         all[idx] = { ...all[idx], ...updates, updatedAt: new Date().toISOString() };
-        await save(all);
+        await saveToBlob(BLOB_KEY, all);
         return all[idx];
     },
 
     delete: async (id: string): Promise<boolean> => {
-        const all = await load();
-        const idx = all.findIndex(a => a.id === id);
-        if (idx === -1) return false;
-        all.splice(idx, 1);
-        await save(all);
-        invalidate();
+        const all = await loadFresh();
+        const filtered = all.filter(a => a.id !== id);
+        if (filtered.length === all.length) return false;
+        await saveToBlob(BLOB_KEY, filtered);
         return true;
     },
 
-    /** Persist addons in an externally-supplied order (used by the reorder endpoint). */
+    /** Persist addons in an externally-supplied order (used by drag-to-reorder). */
     saveOrder: async (ordered: AddonService[]): Promise<void> => {
-        await save(ordered);
+        await saveToBlob(BLOB_KEY, ordered);
     },
 };
