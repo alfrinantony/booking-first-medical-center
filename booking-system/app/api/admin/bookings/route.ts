@@ -8,6 +8,7 @@ import { BillingStore } from '@/lib/billing-store';
 import { HRStore } from '@/lib/hr-store';
 import { isEmployeeOnApprovedLeave } from '@/lib/hr-leave-store';
 import { WalletStore } from '@/lib/wallet-store';
+import { sendBookingConfirmation } from '@/lib/email-service';
 
 // ── Helper: parse "10:30 AM" → minutes from midnight ──
 function parseSlotToMinutes(slot: string): number {
@@ -225,6 +226,32 @@ export async function POST(request: NextRequest) {
                 }
             } catch (error) {
                 console.error("Failed to process package deduction or invoice:", error);
+            }
+        }
+
+        // ── Send booking confirmation email (non-fatal) ──
+        if (newBooking.email) {
+            try {
+                const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://ai.dubaifmc.com'}/appointments/${newBooking.id}/cancel`;
+                // Resolve clinic name
+                let clinicName: string | undefined;
+                try {
+                    const allClinics = await ServicesStore.getClinics() as any[];
+                    clinicName = allClinics.find((c: any) => c.id === newBooking.clinicId)?.name;
+                } catch { /* ignore */ }
+
+                await sendBookingConfirmation({
+                    patientName: newBooking.patientName,
+                    email: newBooking.email,
+                    whatsappNumber: newBooking.whatsappNumber,
+                    date: newBooking.date,
+                    slot: newBooking.slot,
+                    serviceName: newBooking.serviceName || '',
+                    clinicName,
+                    bookingId: newBooking.id,
+                }, cancelUrl);
+            } catch (emailErr) {
+                console.warn('[BookingCreate] Confirmation email failed (non-fatal):', emailErr);
             }
         }
 
