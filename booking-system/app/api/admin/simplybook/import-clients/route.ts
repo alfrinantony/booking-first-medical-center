@@ -18,7 +18,7 @@ import { ClientsStore } from '@/lib/clients-store';
 export async function POST() {
     try {
         // ── 1. Fetch client list ──
-        const sbClients = await getAdminClientList();
+        let sbClients = await getAdminClientList();
         console.log(`[SB import-clients] Fetched ${sbClients.length} clients`);
 
         // ── 2. Fetch booking history (wide window for full visit history) ──
@@ -31,6 +31,28 @@ export async function POST() {
             console.log(`[SB import-clients] Fetched ${allBookings.length} bookings for enrichment`);
         } catch (bookingErr) {
             console.warn('[SB import-clients] Could not fetch bookings for enrichment:', String(bookingErr).substring(0, 200));
+        }
+
+        // ── Fallback: Synthesize clients from bookings if getAdminClientList is empty ──
+        if (sbClients.length === 0 && allBookings.length > 0) {
+            console.log('[SB import-clients] Synthesis mode: getAdminClientList was empty, building clients from bookings...');
+            const uniqueMap = new Map<string, typeof sbClients[0]>();
+            for (const b of allBookings) {
+                const id = String(b.client_id || b.client?.id || b.client_phone || b.client_email || b.client_name || '').trim();
+                if (!id) continue;
+                if (!uniqueMap.has(id)) {
+                    uniqueMap.set(id, {
+                        id,
+                        name: b.client_name || b.client?.name || b.client?.fname || '',
+                        fname: b.client?.fname,
+                        lname: b.client?.lname,
+                        email: b.client_email || b.client?.email,
+                        phone: b.client_phone || b.client?.phone,
+                    });
+                }
+            }
+            sbClients = Array.from(uniqueMap.values());
+            console.log(`[SB import-clients] Synthesized ${sbClients.length} unique clients from bookings.`);
         }
 
         // ── 3. Build booking map keyed by SB client_id ──
