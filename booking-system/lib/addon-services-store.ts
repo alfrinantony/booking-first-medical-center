@@ -44,9 +44,12 @@ const BLOB_KEY = 'addon-services';
 
 /** Always reads fresh from blob — no cross-request caching. */
 async function loadFresh(): Promise<AddonService[]> {
-    const data = await loadFromBlob<AddonService[]>(BLOB_KEY, []);
-    if (!data || data.length === 0) {
-        // First-time seed
+    // loadFromBlob returns the default value (null here) when the blob doesn't exist yet.
+    // We use null (not []) as the default so we can distinguish "never written" from
+    // "intentionally empty after deletions". Only seed on null — never on [].
+    const data = await loadFromBlob<AddonService[] | null>(BLOB_KEY, null);
+    if (data === null) {
+        // First-time initialisation — seed with defaults
         const now = new Date().toISOString();
         const seeded = DEFAULT_ADDONS.map((d, i) => ({
             ...d,
