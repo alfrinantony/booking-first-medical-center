@@ -27,13 +27,18 @@ export default function AddonServicesPage() {
 
     // RBAC
     const [user, setUser] = useState<any>(null);
+    const [userReady, setUserReady] = useState(false);
     useEffect(() => {
         try { setUser(JSON.parse(sessionStorage.getItem('adminUser') || '{}')); } catch { }
+        setUserReady(true);
     }, []);
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-    const canCreate = isSuperAdmin || user?.permissions?.billing?.includes('create');
-    const canEdit   = isSuperAdmin || user?.permissions?.billing?.includes('edit');
-    const canDelete = isSuperAdmin || user?.permissions?.billing?.includes('delete');
+    const isAdmin      = user?.role === 'ADMIN';
+    // Grant full access to SUPER_ADMIN and ADMIN; other roles need explicit billing permissions
+    const canCreate = !userReady || isSuperAdmin || isAdmin || !!user?.permissions?.billing?.includes('create');
+    const canEdit   = !userReady || isSuperAdmin || isAdmin || !!user?.permissions?.billing?.includes('edit');
+    const canDelete = !userReady || isSuperAdmin || isAdmin || !!user?.permissions?.billing?.includes('delete');
+
 
     // Drag-to-reorder state
     const dragId = useRef<string | null>(null);
