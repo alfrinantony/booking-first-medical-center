@@ -27,6 +27,8 @@ export default function AddonServicesPage() {
     // Inline price editing
     const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
     const [editingPrice, setEditingPrice] = useState<number>(0);
+    // Modal medicines
+    const [loadingMedicines, setLoadingMedicines] = useState(false);
 
     // RBAC
     const [user, setUser] = useState<any>(null);
@@ -77,6 +79,15 @@ export default function AddonServicesPage() {
 
     useEffect(() => { load(); }, []);
 
+    const fetchMedicines = async () => {
+        setLoadingMedicines(true);
+        try {
+            const res = await fetch('/api/admin/medicines');
+            const data = await res.json();
+            setMedicines(Array.isArray(data) ? data : []);
+        } catch { } finally { setLoadingMedicines(false); }
+    };
+
     const fetchBatches = async (medicineId: string) => {
         if (batchesMap[medicineId]) return;
         try {
@@ -92,6 +103,7 @@ export default function AddonServicesPage() {
         setFormName(''); setFormGroup('Shaving'); setFormGroupCustom('');
         setFormPrice(0); setFormActive(true); setFormConsumables([]);
         setIsModalOpen(true);
+        fetchMedicines();
     };
 
     const openEdit = (addon: AddonService) => {
@@ -104,8 +116,8 @@ export default function AddonServicesPage() {
         setFormPrice(addon.defaultPrice);
         setFormActive(addon.isActive);
         setFormConsumables([...addon.linkedConsumables]);
-        addon.linkedConsumables.forEach(c => fetchBatches(c.medicineId));
         setIsModalOpen(true);
+        fetchMedicines();
     };
 
     const handleSave = async () => {
@@ -500,9 +512,17 @@ export default function AddonServicesPage() {
                                         Linked Consumables
                                         <span className="text-[11px] font-normal text-gray-400">(auto-deducted from stock on billing)</span>
                                     </label>
-                                    <button type="button" onClick={addConsumable} className="text-xs text-emerald-600 hover:text-emerald-800 font-semibold flex items-center gap-1">
-                                        <Plus className="w-3.5 h-3.5" /> Add
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button type="button" onClick={fetchMedicines} disabled={loadingMedicines}
+                                            className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 disabled:opacity-50"
+                                            title="Refresh medicines list">
+                                            <RefreshCw className={`w-3 h-3 ${loadingMedicines ? 'animate-spin' : ''}`} />
+                                            {loadingMedicines ? 'Loading…' : `${medicines.length} medicines`}
+                                        </button>
+                                        <button type="button" onClick={addConsumable} className="text-xs text-emerald-600 hover:text-emerald-800 font-semibold flex items-center gap-1">
+                                            <Plus className="w-3.5 h-3.5" /> Add
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {formConsumables.length === 0 ? (
@@ -527,8 +547,20 @@ export default function AddonServicesPage() {
                                                                 if (e.target.value) fetchBatches(e.target.value);
                                                             }}
                                                         >
-                                                            <option value="">— Select medicine —</option>
-                                                            {medicines.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {m.centralStock})</option>)}
+                                                            {loadingMedicines ? (
+                                                                <option value="" disabled>⏳ Loading medicines…</option>
+                                                            ) : medicines.length === 0 ? (
+                                                                <option value="" disabled>⚠ No medicines found — click refresh ↑</option>
+                                                            ) : (
+                                                                <>
+                                                                    <option value="">— Select medicine / consumable —</option>
+                                                                    {medicines.map(m => (
+                                                                        <option key={m.id} value={m.id}>
+                                                                            {m.name}{m.centralStock !== undefined ? ` (Stock: ${m.centralStock})` : ''}
+                                                                        </option>
+                                                                    ))}
+                                                                </>
+                                                            )}
                                                         </select>
                                                     </div>
                                                     <div>
