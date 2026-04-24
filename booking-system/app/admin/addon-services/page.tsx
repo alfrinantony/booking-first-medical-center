@@ -23,6 +23,7 @@ export default function AddonServicesPage() {
     const [editingAddon, setEditingAddon] = useState<AddonService | null>(null);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     // Inline price editing
     const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
@@ -62,16 +63,17 @@ export default function AddonServicesPage() {
     const load = async () => {
         setLoading(true);
         try {
-            const [addonsRes, medsRes] = await Promise.all([
-                fetch('/api/admin/addon-services'),
-                fetch('/api/admin/medicines'),
-            ]);
+            const addonsRes = await fetch('/api/admin/addon-services');
             const addonsData = await addonsRes.json();
-            const medsData = await medsRes.json();
             setAddons(Array.isArray(addonsData) ? addonsData : []);
-            setMedicines(Array.isArray(medsData) ? medsData : []);
             const groups = new Set<string>((Array.isArray(addonsData) ? addonsData : []).map((a: AddonService) => a.group));
             setExpandedGroups(groups);
+            // Medicines load is best-effort — failure shouldn't block addon list
+            try {
+                const medsRes = await fetch('/api/admin/medicines');
+                const medsData = await medsRes.json();
+                setMedicines(Array.isArray(medsData) ? medsData : []);
+            } catch { /* medicines failure is non-fatal */ }
         } catch { } finally {
             setLoading(false);
         }
@@ -130,12 +132,30 @@ export default function AddonServicesPage() {
         };
         if (!payload.name || !payload.group) return;
         setSaving(true);
+        setSaveError(null);
         try {
             const url = editingAddon ? `/api/admin/addon-services/${editingAddon.id}` : '/api/admin/addon-services';
             const method = editingAddon ? 'PUT' : 'POST';
             const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (res.ok) { await load(); setIsModalOpen(false); }
-        } catch { } finally { setSaving(false); }
+            if (res.ok) {
+                // Close modal first, then silently refresh the list in the background
+                setIsModalOpen(false);
+                // Refresh addon list (medicines failure won't block)
+                try {
+                    const updated = await fetch('/api/admin/addon-services');
+                    const data = await updated.json();
+                    if (Array.isArray(data)) {
+                        setAddons(data);
+                        setExpandedGroups(new Set(data.map((a: AddonService) => a.group)));
+                    }
+                } catch { /* list refresh is best-effort — change was already saved */ }
+            } else {
+                const body = await res.json().catch(() => ({}));
+                setSaveError(body?.error || `Save failed (${res.status}). Please try again.`);
+            }
+        } catch (err: any) {
+            setSaveError('Network error — please check your connection and try again.');
+        } finally { setSaving(false); }
     };
 
     const handleDelete = async (id: string) => {
@@ -581,16 +601,26 @@ export default function AddonServicesPage() {
                             </div>
                         </div>
 
-                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3 bg-gray-50 dark:bg-gray-800/80">
-                            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-sm transition-colors">
-                                Cancel
-                            </button>
-                            <button onClick={handleSave} disabled={saving || !formName.trim()}
-                                className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center gap-2 transition-colors">
-                                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                {editingAddon ? 'Save Changes' : 'Create Add-on'}
-                            </button>
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 space-y-2">
+                            {saveError && (
+                                <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs text-red-700 dark:text-red-400">
+                                    <span className="shrink-0">⚠</span>
+                                    <span className="flex-1">{saveError}</span>
+                                    <button onClick={() => setSaveError(null)} className="shrink-0 text-red-400 hover:text-red-600">✕</button>
+                                </div>
+                            )}
+                            <div className="flex justify-end gap-3">
+                                <button onClick={() => { setIsModalOpen(false); setSaveError(null); }} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-sm transition-colors">
+                                    Cancel
+                                </button>
+                                <button onClick={handleSave} disabled={saving || !formName.trim()}
+                                    className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center gap-2 transition-colors">
+                                    {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                    {saving ? 'Saving…' : editingAddon ? 'Save Changes' : 'Create Add-on'}
+                                </button>
+                            </div>
                         </div>
+
                     </div>
                 </div>
             )}
