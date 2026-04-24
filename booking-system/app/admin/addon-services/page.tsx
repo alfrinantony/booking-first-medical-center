@@ -24,6 +24,9 @@ export default function AddonServicesPage() {
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [saving, setSaving] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    // Inline price editing
+    const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+    const [editingPrice, setEditingPrice] = useState<number>(0);
 
     // RBAC
     const [user, setUser] = useState<any>(null);
@@ -138,6 +141,18 @@ export default function AddonServicesPage() {
             });
             await load();
         } catch { }
+    };
+
+    const handleSaveInlinePrice = async (addon: AddonService) => {
+        if (!canEdit || editingPrice === addon.defaultPrice) { setEditingPriceId(null); return; }
+        try {
+            await fetch(`/api/admin/addon-services/${addon.id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ defaultPrice: editingPrice }),
+            });
+            // Optimistic update
+            setAddons(prev => prev.map(a => a.id === addon.id ? { ...a, defaultPrice: editingPrice } : a));
+        } catch { } finally { setEditingPriceId(null); }
     };
 
     // ── Drag-and-drop reorder ──
@@ -316,7 +331,45 @@ export default function AddonServicesPage() {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <span className="font-medium text-gray-900 dark:text-white text-sm">{addon.name}</span>
-                                                            <span className="text-xs font-bold text-violet-600 dark:text-violet-400">{addon.defaultPrice} AED</span>
+                                                            {/* ── Inline price editor ── */}
+                                                            {canEdit && editingPriceId === addon.id ? (
+                                                                <span className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                                    <input
+                                                                        type="number" min="0" autoFocus
+                                                                        className="w-20 px-2 py-0.5 text-xs font-bold border border-violet-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-gray-700 text-violet-700 dark:text-violet-300"
+                                                                        value={editingPrice}
+                                                                        onChange={e => setEditingPrice(Number(e.target.value))}
+                                                                        onKeyDown={e => {
+                                                                            if (e.key === 'Enter') handleSaveInlinePrice(addon);
+                                                                            if (e.key === 'Escape') setEditingPriceId(null);
+                                                                        }}
+                                                                    />
+                                                                    <span className="text-xs text-gray-400">AED</span>
+                                                                    <button
+                                                                        onClick={() => handleSaveInlinePrice(addon)}
+                                                                        className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded text-xs font-bold"
+                                                                        title="Save price"
+                                                                    >✓</button>
+                                                                    <button
+                                                                        onClick={() => setEditingPriceId(null)}
+                                                                        className="p-0.5 text-gray-400 hover:bg-gray-100 rounded text-xs"
+                                                                        title="Cancel"
+                                                                    >✕</button>
+                                                                </span>
+                                                            ) : (
+                                                                <span
+                                                                    className={`text-xs font-bold text-violet-600 dark:text-violet-400 ${canEdit ? 'cursor-pointer hover:bg-violet-100 dark:hover:bg-violet-900/30 px-1.5 py-0.5 rounded-lg transition-colors' : ''}`}
+                                                                    title={canEdit ? 'Click to edit price' : ''}
+                                                                    onClick={e => {
+                                                                        if (!canEdit) return;
+                                                                        e.stopPropagation();
+                                                                        setEditingPriceId(addon.id);
+                                                                        setEditingPrice(addon.defaultPrice);
+                                                                    }}
+                                                                >
+                                                                    {addon.defaultPrice} AED{canEdit && <span className="ml-0.5 text-[9px] text-violet-400">✎</span>}
+                                                                </span>
+                                                            )}
                                                             {!addon.isActive && (
                                                                 <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">Inactive</span>
                                                             )}
