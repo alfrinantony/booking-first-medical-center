@@ -390,10 +390,15 @@ export default function AddonServicesPage() {
                                                         )}
                                                     </div>
 
-                                                    <div className="flex items-center gap-1 shrink-0">
+                                                    <div
+                                                        className="flex items-center gap-1 shrink-0"
+                                                        draggable={false}
+                                                        onMouseDown={e => e.stopPropagation()}
+                                                        onDragStart={e => e.stopPropagation()}
+                                                    >
                                                         {canEdit && (
                                                             <button
-                                                                onClick={() => handleToggleActive(addon)}
+                                                                onClick={e => { e.stopPropagation(); handleToggleActive(addon); }}
                                                                 title={addon.isActive ? 'Deactivate' : 'Activate'}
                                                                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                                             >
@@ -403,23 +408,24 @@ export default function AddonServicesPage() {
                                                             </button>
                                                         )}
                                                         {canEdit && (
-                                                            <button onClick={() => openEdit(addon)} className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600 transition-colors">
+                                                            <button onClick={e => { e.stopPropagation(); openEdit(addon); }} className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600 transition-colors">
                                                                 <Pencil className="w-4 h-4" />
                                                             </button>
                                                         )}
                                                         {canDelete && (
                                                             deleteConfirm === addon.id ? (
                                                                 <div className="flex items-center gap-1">
-                                                                    <button onClick={() => handleDelete(addon.id)} className="p-1 rounded text-red-600 hover:bg-red-50 text-xs font-bold">Yes</button>
-                                                                    <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded text-gray-500 hover:bg-gray-100 text-xs">No</button>
+                                                                    <button onClick={e => { e.stopPropagation(); handleDelete(addon.id); }} className="p-1 rounded text-red-600 hover:bg-red-50 text-xs font-bold">Yes</button>
+                                                                    <button onClick={e => { e.stopPropagation(); setDeleteConfirm(null); }} className="p-1 rounded text-gray-500 hover:bg-gray-100 text-xs">No</button>
                                                                 </div>
                                                             ) : (
-                                                                <button onClick={() => setDeleteConfirm(addon.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors">
+                                                                <button onClick={e => { e.stopPropagation(); setDeleteConfirm(addon.id); }} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors">
                                                                     <Trash2 className="w-4 h-4" />
                                                                 </button>
                                                             )
                                                         )}
                                                     </div>
+
                                                 </div>
                                             ))}
                                         </div>
