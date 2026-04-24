@@ -572,12 +572,14 @@ export async function GET(request: NextRequest) {
             : dateTo;
 
         try {
+            const skipInvoices = sp.get('skip_invoices') === 'true';
+
             const [sbBookings, services, providers, clinics, invoices] = await Promise.all([
                 getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
                 ServicesStore.getClinics() as Promise<Clinic[]>,
-                getInvoiceList(dateFrom, effectiveTo),
+                skipInvoices ? Promise.resolve([]) : getInvoiceList(dateFrom, effectiveTo),
             ]);
 
             // Build invoice map: booking_id → invoice
