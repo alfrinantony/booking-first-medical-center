@@ -9,27 +9,42 @@
 
 const DATA_CONTAINER = 'fmc-data';
 
-function getConnectionString(): string {
-    return process.env.AZURE_STORAGE_CONNECTION_STRING || '';
+let cachedBlobServiceClient: any = null;
+
+async function getBlobServiceClient() {
+    if (cachedBlobServiceClient) return cachedBlobServiceClient;
+    
+    const { BlobServiceClient } = await import('@azure/storage-blob');
+    const { DefaultAzureCredential } = await import('@azure/identity');
+    
+    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME || 'stfmcbooking';
+    const accountUrl = `https://${accountName}.blob.core.windows.net`;
+    
+    // Prefer Managed Identity / DefaultAzureCredential
+    try {
+        const credential = new DefaultAzureCredential();
+        cachedBlobServiceClient = new BlobServiceClient(accountUrl, credential);
+        return cachedBlobServiceClient;
+    } catch (e) {
+        // Fallback to connection string if available (e.g. for local dev without az login)
+        const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING;
+        if (connStr) {
+            cachedBlobServiceClient = BlobServiceClient.fromConnectionString(connStr);
+            return cachedBlobServiceClient;
+        }
+        throw new Error("No valid Azure credentials found.");
+    }
 }
 
 /**
  * Load a JSON blob from Azure Storage.
  * Returns `fallback` when:
- *  - No connection string (local dev)
  *  - Blob doesn't exist yet
  *  - Any error occurs
  */
 export async function loadFromBlob<T>(key: string, fallback: T): Promise<T> {
-    const connStr = getConnectionString();
-    if (!connStr) {
-        console.log(`[BlobPersist] No connection string — using fallback for "${key}"`);
-        return fallback;
-    }
-
     try {
-        const { BlobServiceClient } = await import('@azure/storage-blob');
-        const blobServiceClient = BlobServiceClient.fromConnectionString(connStr);
+        const blobServiceClient = await getBlobServiceClient();
         const containerClient = blobServiceClient.getContainerClient(DATA_CONTAINER);
 
         // Container may not exist yet on first run
@@ -59,15 +74,8 @@ export async function loadFromBlob<T>(key: string, fallback: T): Promise<T> {
  * so the API response is never blocked by persistence failures.
  */
 export async function saveToBlob<T>(key: string, data: T): Promise<void> {
-    const connStr = getConnectionString();
-    if (!connStr) {
-        // Local dev — skip writes
-        return;
-    }
-
     try {
-        const { BlobServiceClient } = await import('@azure/storage-blob');
-        const blobServiceClient = BlobServiceClient.fromConnectionString(connStr);
+        const blobServiceClient = await getBlobServiceClient();
         const containerClient = blobServiceClient.getContainerClient(DATA_CONTAINER);
         await containerClient.createIfNotExists();
 

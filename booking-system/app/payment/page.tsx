@@ -21,6 +21,7 @@ function PaymentContent() {
     const slot = searchParams.get('slot') || '';
     const doctorName = searchParams.get('doctorName') || '';
     const clinicName = searchParams.get('clinicName') || '';
+    const bookingId = searchParams.get('bookingId') || '';
 
     const [clientSecret, setClientSecret] = useState("");
     const [stripeError, setStripeError] = useState("");
@@ -40,7 +41,7 @@ function PaymentContent() {
             fetch("/api/payment/intent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ amount }),
+                body: JSON.stringify({ amount, bookingId }),
             })
                 .then((res) => {
                     if (!res.ok) throw new Error("Could not initialize Stripe payment");

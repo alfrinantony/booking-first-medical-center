@@ -15,7 +15,7 @@ export async function POST(request: Request) {
         const azureVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-06-01';
         const openaiKey = process.env.OPENAI_API_KEY;
 
-        const useAzure = !!(azureEndpoint && azureKey);
+        const useAzure = !!azureEndpoint;
 
         if (!useAzure && !openaiKey) {
             return NextResponse.json(
@@ -52,7 +52,17 @@ export async function POST(request: Request) {
         if (useAzure) {
             const base = azureEndpoint!.replace(/\/$/, '');
             apiUrl = `${base}/openai/deployments/whisper/audio/transcriptions?api-version=${azureVersion}`;
-            headers['api-key'] = azureKey!;
+            
+            if (azureKey) {
+                headers['api-key'] = azureKey;
+            } else {
+                const { DefaultAzureCredential } = await import('@azure/identity');
+                const credential = new DefaultAzureCredential();
+                const token = await credential.getToken('https://cognitiveservices.azure.com/.default');
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token.token}`;
+                }
+            }
             console.log('[Sofia/STT] Using Azure OpenAI Whisper');
         } else {
             apiUrl = 'https://api.openai.com/v1/audio/transcriptions';

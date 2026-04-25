@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.1",
     "@azure/storage-blob": "^12.31.0",
     "@hookform/resolvers": "^5.2.2",
     "@livekit/components-react": "^2.9.20",

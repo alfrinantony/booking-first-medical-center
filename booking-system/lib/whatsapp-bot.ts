@@ -74,10 +74,19 @@ RULES:
         let apiUrl = '';
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
-        if (azureEndpoint && azureKey) {
+        if (azureEndpoint) {
             const base = azureEndpoint.replace(/\/$/, '');
             apiUrl = `${base}/openai/deployments/${azureDeploy}/chat/completions?api-version=2024-06-01`;
-            headers['api-key'] = azureKey;
+            if (azureKey) {
+                headers['api-key'] = azureKey;
+            } else {
+                const { DefaultAzureCredential } = await import('@azure/identity');
+                const credential = new DefaultAzureCredential();
+                const token = await credential.getToken('https://cognitiveservices.azure.com/.default');
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token.token}`;
+                }
+            }
         } else if (openaiKey) {
             apiUrl = 'https://api.openai.com/v1/chat/completions';
             headers['Authorization'] = `Bearer ${openaiKey}`;

@@ -13,7 +13,7 @@ function getStripe() {
 
 export async function POST(req: Request) {
     try {
-        const { amount, currency = 'usd' } = await req.json();
+        const { amount, currency = 'usd', bookingId } = await req.json();
 
         if (!amount) {
             return NextResponse.json(
@@ -29,6 +29,9 @@ export async function POST(req: Request) {
             automatic_payment_methods: {
                 enabled: true,
             },
+            metadata: {
+                bookingId: bookingId || '',
+            }
         });
 
         return NextResponse.json({

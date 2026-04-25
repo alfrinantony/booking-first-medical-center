@@ -1194,6 +1194,7 @@ export default function BookingWizard() {
             anyDoctor: isAnyDoctor || undefined
         };
 
+        let createdBookingId = 'mock-booking-id-' + Date.now();
         try {
             // Persist booking
             const res = await fetch('/api/admin/bookings', {
@@ -1208,6 +1209,10 @@ export default function BookingWizard() {
                     return;
                 }
                 throw new Error(err.error || 'Booking failed');
+            }
+            const createdBooking = await res.json();
+            if (createdBooking && createdBooking.id) {
+                createdBookingId = createdBooking.id;
             }
             // Clear the draft once successfully booked
             await clearDraft();
@@ -1226,7 +1231,7 @@ export default function BookingWizard() {
         const query = new URLSearchParams({
             amount: String(finalPrice.toFixed(2)),
             serviceName: selectedService?.name || '',
-            bookingId: 'mock-booking-id-' + Date.now(),
+            bookingId: createdBookingId,
             bookingDate: selectedDate?.toISOString().split('T')[0] || '',
             slot: selectedSlot || '',
             doctorName: isAnyDoctor ? '' : (selectedDoctor?.name || ''),

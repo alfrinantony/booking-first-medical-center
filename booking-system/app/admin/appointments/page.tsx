@@ -378,7 +378,10 @@ export default function AdminAppointmentsPage() {
         slot: string;
         doctorId: string;
         duration: number;
-    }>({ status: 'booked', date: '', slot: '', doctorId: '', duration: 30 });
+        patientName: string;
+        whatsappNumber: string;
+        email: string;
+    }>({ status: 'booked', date: '', slot: '', doctorId: '', duration: 30, patientName: '', whatsappNumber: '', email: '' });
     const [availableToRescheduleSlots, setAvailableToRescheduleSlots] = useState<string[]>([]);
     const [isLoadingRescheduleSlots, setIsLoadingRescheduleSlots] = useState(false);
 
@@ -426,7 +429,10 @@ export default function AdminAppointmentsPage() {
             date: booking.date,
             slot: booking.slot,
             doctorId: booking.doctorId,
-            duration: booking.duration || 30 // Default if missing
+            duration: booking.duration || 30,
+            patientName: booking.patientName || '',
+            whatsappNumber: booking.whatsappNumber || '',
+            email: booking.email || ''
         });
         setIsEditModalOpen(true);
         // Initial fetch for slots if dates are different or just to populate
@@ -467,6 +473,9 @@ export default function AdminAppointmentsPage() {
                     slot: editForm.slot,
                     doctorId: editForm.doctorId,
                     duration: editForm.duration,
+                    patientName: editForm.patientName,
+                    whatsappNumber: editForm.whatsappNumber,
+                    email: editForm.email,
                     staffName: getStaffName(),
                     ...(editForm.status === 'completed' && editingBooking.status !== 'completed' ? { billingStatus: 'pending_bill' } : {})
                 })
@@ -1073,7 +1082,7 @@ export default function AdminAppointmentsPage() {
                                                 </button>
                                             </>
                                         )}
-                                        {(booking.status === 'completed' || booking.paymentMethod === 'online' || booking.paymentMethod === 'card' || booking.paymentMethod === 'package' || (isSb && (booking as any).sbPaymentStatus === 'paid')) && (() => {
+                                        {(booking.status === 'completed' || booking.status === 'arrived' || booking.status === 'in_service' || booking.paymentMethod === 'online' || booking.paymentMethod === 'card' || booking.paymentMethod === 'package' || (isSb && (booking as any).sbPaymentStatus === 'paid')) && (() => {
                                             const sbInvNum = (booking as any).sbInvoiceNumber || invoiceFetchMap[(booking as any).sbId || '']?.invoiceNumber;
                                             return (<>
                                                 <div className="w-px bg-gray-100 dark:bg-gray-700" />
@@ -1223,10 +1232,35 @@ export default function AdminAppointmentsPage() {
                         </div>
 
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Patient</label>
-                                <div className="p-2.5 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-200">
-                                    {editingBooking.patientName}
+                            <div className="grid grid-cols-1 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Patient Name</label>
+                                    <input type="text"
+                                        className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                        value={editForm.patientName}
+                                        onChange={(e) => setEditForm({ ...editForm, patientName: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Phone (WhatsApp)</label>
+                                        <input type="text"
+                                            className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                            value={editForm.whatsappNumber}
+                                            onChange={(e) => setEditForm({ ...editForm, whatsappNumber: e.target.value })}
+                                            placeholder="+971501234567"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Email</label>
+                                        <input type="email"
+                                            className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                            value={editForm.email}
+                                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                            placeholder="patient@email.com"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
