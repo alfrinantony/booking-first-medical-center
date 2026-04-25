@@ -460,7 +460,7 @@ export default function AdminAppointmentsPage() {
         }
     }, [editForm.date, editForm.doctorId, editForm.duration, isEditModalOpen]);
 
-    const handleSaveChanges = async () => {
+    const handleSaveChanges = async (navigateToBilling = false) => {
         if (!editingBooking) return;
 
         try {
@@ -487,8 +487,28 @@ export default function AdminAppointmentsPage() {
                     const clientId = editingBooking.whatsappNumber || editingBooking.email || editingBooking.patientName;
                     fetch('/api/admin/restrictions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'recordNoShow', clientId }) });
                 }
+                
+                // Also check if this was a SimplyBook booking and update the SB cache
+                const updatedBooking = await res.json();
+                if (updatedBooking.sbId && (updatedBooking.patientName || updatedBooking.whatsappNumber || updatedBooking.email)) {
+                    await fetch(`/api/admin/simplybook/${updatedBooking.sbId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            clientName: updatedBooking.patientName,
+                            clientPhone: updatedBooking.whatsappNumber,
+                            clientEmail: updatedBooking.email
+                        })
+                    }).catch(err => console.warn('Failed to sync to SB:', err));
+                }
+
                 setIsEditModalOpen(false);
                 fetchBookings(); // Refresh list
+                
+                if (navigateToBilling === true) {
+                    const sbInvNum = (editingBooking as any).sbInvoiceNumber || invoiceFetchMap[(editingBooking as any).sbId || '']?.invoiceNumber;
+                    handleGenerateReceipt(editingBooking.id, sbInvNum, (editingBooking as any).sbId);
+                }
             } else {
                 alert('Failed to update booking');
             }
@@ -1274,22 +1294,20 @@ export default function AdminAppointmentsPage() {
                                     }`}>
                                         {editForm.status.replace('_', ' ')}
                                     </span>
-                                    {getNextStatusOptions(editForm.status).length > 0 && (
-                                        <select
-                                            className="p-1.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
-                                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
-                                            value=""
-                                        >
-                                            <option value="" disabled>Change to…</option>
-                                            {getNextStatusOptions(editForm.status).map(s => (
-                                                <option key={s} value={s}>{s.replace('_', ' ')}</option>
-                                            ))}
-                                        </select>
-                                    )}
+                                    <select
+                                        className="p-1.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                                        value=""
+                                    >
+                                        <option value="" disabled>Change to…</option>
+                                        {['booked', 'confirmed', 'arrived', 'in_service', 'completed', 'no_show', 'cancelled', 'rescheduled'].filter(s => s !== editForm.status).map(s => (
+                                            <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 {editForm.status === 'completed' && (
                                     <button
-                                        onClick={() => editingBooking.billingStatus !== 'billed' && handleGenerateReceipt(editingBooking.id)}
+                                        onClick={() => editingBooking.billingStatus !== 'billed' && handleSaveChanges(true)}
                                         className={`mt-2 text-xs flex items-center gap-1 ${
                                             editingBooking.billingStatus === 'billed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:underline'
                                         }`}
