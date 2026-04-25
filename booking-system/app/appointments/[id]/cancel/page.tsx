@@ -16,7 +16,7 @@ interface Booking {
     whatsappNumber?: string;
 }
 
-const CANCEL_HOURS = 6; // Must match policy
+const CANCEL_HOURS = 12; // Must match policy
 
 function formatDate(dateStr: string): string {
     try {
@@ -136,7 +136,7 @@ export default function CancelBookingPage() {
                                 <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                 <div>
                                     <p className="text-sm font-bold text-amber-800">Cancellation Window Closed</p>
-                                    <p className="text-xs text-amber-700 mt-0.5">Appointments can only be cancelled up to <strong>6 hours before</strong> the scheduled time.</p>
+                                    <p className="text-xs text-amber-700 mt-0.5">Appointments can only be cancelled up to <strong>12 hours before</strong> the scheduled time.</p>
                                 </div>
                             </div>
                             <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm mb-5">

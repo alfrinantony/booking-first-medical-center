@@ -128,7 +128,7 @@ export async function sendBookingConfirmation(
     <h2 style="margin:0 0 4px;font-size:20px;color:#1e293b;">Appointment Confirmed ✅</h2>
     <p style="margin:0 0 16px;color:#64748b;font-size:14px;">Hi ${booking.patientName}, your appointment has been booked successfully.</p>
     ${bookingCard(booking)}
-    <p style="font-size:13px;color:#64748b;margin:16px 0 8px;">Need to cancel? You can cancel up to <strong>6 hours before</strong> your appointment:</p>
+    <p style="font-size:13px;color:#64748b;margin:16px 0 8px;">Need to cancel? You can cancel up to <strong>12 hours before</strong> your appointment:</p>
     <a href="${cancelUrl}" style="display:inline-block;padding:12px 24px;background:#ef4444;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">Cancel Appointment</a>
     <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;">Please arrive 10 minutes early. Bring a valid ID for your records.</p>`;
 
