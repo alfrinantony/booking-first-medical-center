@@ -1294,16 +1294,18 @@ export default function AdminAppointmentsPage() {
                                     }`}>
                                         {editForm.status.replace('_', ' ')}
                                     </span>
-                                    <select
-                                        className="p-1.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
-                                        onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
-                                        value=""
-                                    >
-                                        <option value="" disabled>Change to…</option>
-                                        {['booked', 'confirmed', 'arrived', 'in_service', 'completed', 'no_show', 'cancelled', 'rescheduled'].filter(s => s !== editForm.status).map(s => (
-                                            <option key={s} value={s}>{s.replace('_', ' ')}</option>
-                                        ))}
-                                    </select>
+                                    {getNextStatusOptions(editForm.status).length > 0 && (
+                                        <select
+                                            className="p-1.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                                            value=""
+                                        >
+                                            <option value="" disabled>Change to…</option>
+                                            {getNextStatusOptions(editForm.status).map(s => (
+                                                <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
                                 {editForm.status === 'completed' && (
                                     <button
