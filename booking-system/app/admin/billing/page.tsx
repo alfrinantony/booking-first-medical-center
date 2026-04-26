@@ -884,9 +884,9 @@ export default function BillingPage() {
                                         <div className="space-y-1.5 pt-1 border-t border-violet-100 dark:border-violet-800">
                                             {addonServices.filter(a => selectedAddons.has(a.id)).map(addon => {
                                                 const desc = `[Add-on] ${addon.name}`;
-                                                const notFetched = addon.linkedConsumables.some(c => !batchesMap[c.medicineId]);
-                                                const allHaveBatch = addon.linkedConsumables.every(c => !!pickBestBatch(c.medicineId));
-                                                const noLink = addon.linkedConsumables.length === 0;
+                                                const notFetched = (addon.linkedConsumables || []).some(c => !batchesMap[c.medicineId]);
+                                                const allHaveBatch = (addon.linkedConsumables || []).every(c => !!pickBestBatch(c.medicineId));
+                                                const noLink = (addon.linkedConsumables || []).length === 0;
                                                 return (
                                                     <div key={addon.id} className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-violet-200 dark:border-violet-700 rounded-lg px-3 py-2">
                                                         <span className="flex-1 text-xs font-semibold text-gray-800 dark:text-white truncate">{addon.name}</span>
