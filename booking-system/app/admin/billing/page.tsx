@@ -74,7 +74,7 @@ export default function BillingPage() {
             setSelectedAddons(prev => { const n = new Set(prev); n.delete(addon.id); return n; });
         } else {
             // Pre-fetch batches for all linked consumables
-            const missing = addon.linkedConsumables.filter(c => !batchesMap[c.medicineId]);
+            const missing = (addon.linkedConsumables || []).filter(c => !batchesMap[c.medicineId]);
             if (missing.length > 0) {
                 const fetched = await Promise.all(
                     missing.map(async c => {
@@ -95,7 +95,7 @@ export default function BillingPage() {
                 fetched.forEach(f => { localMap[f.medicineId] = Array.isArray(f.batches) ? f.batches : []; });
 
                 // Build consumptions using the fresh localMap
-                const consumptions = addon.linkedConsumables
+                const consumptions = (addon.linkedConsumables || [])
                     .filter(c => c.medicineId)
                     .map(c => {
                         const available = (localMap[c.medicineId] || []).filter(b => {
@@ -113,7 +113,7 @@ export default function BillingPage() {
                 }]);
             } else {
                 // All batches already cached
-                const consumptions = addon.linkedConsumables
+                const consumptions = (addon.linkedConsumables || [])
                     .filter(c => c.medicineId)
                     .map(c => ({ medicineId: c.medicineId, batchId: pickBestBatch(c.medicineId), quantity: c.quantityPerService }));
                 const price = addonPrices[addon.id] ?? addon.defaultPrice;
@@ -497,12 +497,12 @@ export default function BillingPage() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
             <datalist id="services-list">
-                {Array.from(new Map(clinics.filter(c => clinicName ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).map(s => [s.name, s])).values()).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                {Array.from(new Map(clinics.filter(c => (clinicName && clinics.some(cl => cl.name === clinicName)) ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).map(s => [s.name, s])).values()).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
                     <option key={s.id} value={s.name}>{s.price} AED</option>
                 ))}
             </datalist>
             <datalist id="packages-list">
-                {Array.from(new Set(clinics.filter(c => clinicName ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).flatMap(s => { const pkgs = []; if (s.threeSessionPackage) pkgs.push(`3 Sessions - ${s.name}`); if (s.sixSessionPackage) pkgs.push(`6 Sessions - ${s.name}`); return pkgs; }))).sort().map((pkg, i) => (
+                {Array.from(new Set(clinics.filter(c => (clinicName && clinics.some(cl => cl.name === clinicName)) ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).flatMap(s => { const pkgs = []; if (s.threeSessionPackage) pkgs.push(`3 Sessions - ${s.name}`); if (s.sixSessionPackage) pkgs.push(`6 Sessions - ${s.name}`); return pkgs; }))).sort().map((pkg, i) => (
                     <option key={i} value={pkg} />
                 ))}
             </datalist>
@@ -698,7 +698,7 @@ export default function BillingPage() {
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Services / Items</label>
                                     {items.map((item, idx) => (
-                                        <div key={idx} className="flex gap-2 mb-2">
+                                        <div key={idx} className="flex flex-col md:flex-row gap-2 mb-4 md:mb-2 bg-gray-50 dark:bg-gray-800/50 md:bg-transparent md:dark:bg-transparent p-3 md:p-0 rounded-lg border border-gray-200 dark:border-gray-700 md:border-0">
                                             <input 
                                                 list="services-list" 
                                                 type="text" 
@@ -769,8 +769,8 @@ export default function BillingPage() {
                                                     setItems(u); 
                                                 }} 
                                             />
-                                            <input type="number" min="1" placeholder="Qty" className="w-16 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
-                                            <input type="number" min="0" placeholder="Reg.Price" className="w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0"
+                                            <input type="number" min="1" placeholder="Qty" className="w-full md:w-16 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
+                                            <input type="number" min="0" placeholder="Reg.Price" className="w-full md:w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0"
                                                 value={item.regularPrice !== undefined ? item.regularPrice : item.unitPrice || ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -778,7 +778,7 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = u[idx].regularPrice! - (u[idx].discountAmount || 0); 
                                                     setItems(u); 
                                                 }} />
-                                            <input type="number" min="0" max={item.maxDiscountPercentage || ''} placeholder="Disc. %" className="w-20 p-2 border border-blue-300 dark:border-blue-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
+                                            <input type="number" min="0" max={item.maxDiscountPercentage || ''} placeholder="Disc. %" className="w-full md:w-20 p-2 border border-blue-300 dark:border-blue-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
                                                 value={item.regularPrice && item.discountAmount ? Number(((item.discountAmount / item.regularPrice) * 100).toFixed(2)) : ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -791,7 +791,7 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = Number(((u[idx].regularPrice || 0) - u[idx].discountAmount).toFixed(2)); 
                                                     setItems(u); 
                                                 }} />
-                                            <input type="number" min="0" placeholder="Disc. AED" className="w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
+                                            <input type="number" min="0" placeholder="Disc. AED" className="w-full md:w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
                                                 value={item.discountAmount !== undefined && item.discountAmount !== 0 ? item.discountAmount : ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -804,7 +804,7 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = Number(((u[idx].regularPrice || 0) - u[idx].discountAmount).toFixed(2)); 
                                                     setItems(u); 
                                                 }} />
-                                            <div className="w-24 px-2 py-2 text-sm text-right bg-gray-50 dark:bg-gray-800 border rounded-md dark:border-gray-600 self-center flex-shrink-0" title="Discounted Price">
+                                            <div className="w-full md:w-24 px-2 py-2 text-sm text-right font-bold md:font-normal bg-white md:bg-gray-50 dark:bg-gray-700 md:dark:bg-gray-800 border rounded-md dark:border-gray-600 self-center flex-shrink-0" title="Discounted Price">
                                                 {item.unitPrice.toFixed(2)}
                                             </div>
                                             {items.length > 1 && (
