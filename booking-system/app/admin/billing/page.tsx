@@ -74,7 +74,7 @@ export default function BillingPage() {
             setSelectedAddons(prev => { const n = new Set(prev); n.delete(addon.id); return n; });
         } else {
             // Pre-fetch batches for all linked consumables
-            const missing = (addon.linkedConsumables || []).filter(c => !batchesMap[c.medicineId]);
+            const missing = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).filter(c => !batchesMap[c.medicineId]);
             if (missing.length > 0) {
                 const fetched = await Promise.all(
                     missing.map(async c => {
@@ -95,7 +95,7 @@ export default function BillingPage() {
                 fetched.forEach(f => { localMap[f.medicineId] = Array.isArray(f.batches) ? f.batches : []; });
 
                 // Build consumptions using the fresh localMap
-                const consumptions = (addon.linkedConsumables || [])
+                const consumptions = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : [])
                     .filter(c => c.medicineId)
                     .map(c => {
                         const available = (localMap[c.medicineId] || []).filter(b => {
@@ -113,7 +113,7 @@ export default function BillingPage() {
                 }]);
             } else {
                 // All batches already cached
-                const consumptions = (addon.linkedConsumables || [])
+                const consumptions = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : [])
                     .filter(c => c.medicineId)
                     .map(c => ({ medicineId: c.medicineId, batchId: pickBestBatch(c.medicineId), quantity: c.quantityPerService }));
                 const price = addonPrices[addon.id] ?? addon.defaultPrice;
@@ -884,9 +884,9 @@ export default function BillingPage() {
                                         <div className="space-y-1.5 pt-1 border-t border-violet-100 dark:border-violet-800">
                                             {addonServices.filter(a => selectedAddons.has(a.id)).map(addon => {
                                                 const desc = `[Add-on] ${addon.name}`;
-                                                const notFetched = (addon.linkedConsumables || []).some(c => !batchesMap[c.medicineId]);
-                                                const allHaveBatch = (addon.linkedConsumables || []).every(c => !!pickBestBatch(c.medicineId));
-                                                const noLink = (addon.linkedConsumables || []).length === 0;
+                                                const notFetched = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).some(c => !batchesMap[c.medicineId]);
+                                                const allHaveBatch = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).every(c => !!pickBestBatch(c.medicineId));
+                                                const noLink = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).length === 0;
                                                 return (
                                                     <div key={addon.id} className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-violet-200 dark:border-violet-700 rounded-lg px-3 py-2">
                                                         <span className="flex-1 text-xs font-semibold text-gray-800 dark:text-white truncate">{addon.name}</span>
