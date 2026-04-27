@@ -105,7 +105,7 @@ export default function BillingPage() {
                         return { medicineId: c.medicineId, batchId: available[0]?.id, quantity: c.quantityPerService };
                     });
 
-                const price = addonPrices[addon.id] ?? addon.defaultPrice;
+                const price = Number(addonPrices[addon.id] ?? addon.defaultPrice ?? 0);
                 setItems(prev => [...prev, {
                     description: desc, quantity: 1,
                     unitPrice: price, regularPrice: price, discountAmount: 0,
@@ -116,7 +116,7 @@ export default function BillingPage() {
                 const consumptions = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : [])
                     .filter(c => c.medicineId)
                     .map(c => ({ medicineId: c.medicineId, batchId: pickBestBatch(c.medicineId), quantity: c.quantityPerService }));
-                const price = addonPrices[addon.id] ?? addon.defaultPrice;
+                const price = Number(addonPrices[addon.id] ?? addon.defaultPrice ?? 0);
                 setItems(prev => [...prev, {
                     description: desc, quantity: 1,
                     unitPrice: price, regularPrice: price, discountAmount: 0,
@@ -349,12 +349,12 @@ export default function BillingPage() {
 
     };
 
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const subtotal = items.reduce((sum, item) => sum + ((item.quantity || 1) * Number(item.unitPrice || 0)), 0);
     const taxAmount = subtotal * (taxPercentage / 100);
     const totalAmount = subtotal + taxAmount;
     
-    const grossTotal = items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
-    const totalDiscount = items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
+    const grossTotal = items.reduce((sum, item) => sum + (Number(item.regularPrice !== undefined ? item.regularPrice : item.unitPrice || 0) * (item.quantity || 1)), 0);
+    const totalDiscount = items.reduce((sum, item) => sum + (Number(item.discountAmount || 0) * (item.quantity || 1)), 0);
 
     const filtered = searchPhone ? invoices.filter(i => i.clientPhone.includes(searchPhone)) : invoices;
 
@@ -805,7 +805,7 @@ export default function BillingPage() {
                                                     setItems(u); 
                                                 }} />
                                             <div className="w-full md:w-24 px-2 py-2 text-sm text-right font-bold md:font-normal bg-white md:bg-gray-50 dark:bg-gray-700 md:dark:bg-gray-800 border rounded-md dark:border-gray-600 self-center flex-shrink-0" title="Discounted Price">
-                                                {item.unitPrice.toFixed(2)}
+                                                {Number(item.unitPrice || 0).toFixed(2)}
                                             </div>
                                             {items.length > 1 && (
                                                 <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-500 px-2">✕</button>
@@ -928,7 +928,7 @@ export default function BillingPage() {
 
                                             <div className="flex items-center justify-between pt-1">
                                                 <span className="text-xs text-violet-600 dark:text-violet-400">
-                                                    Subtotal: <strong>{addonServices.filter(a => selectedAddons.has(a.id)).reduce((s, a) => s + (addonPrices[a.id] ?? a.defaultPrice), 0).toFixed(2)} AED</strong>
+                                                    Subtotal: <strong>{Number(addonServices.filter(a => selectedAddons.has(a.id)).reduce((s, a) => s + (addonPrices[a.id] ?? a.defaultPrice ?? 0), 0)).toFixed(2)} AED</strong>
                                                 </span>
                                                 <button type="button" onClick={() => {
                                                     selectedAddons.forEach(id => { const a = addonServices.find(x => x.id === id); if (a) setItems(prev => prev.filter(i => i.description !== `[Add-on] ${a.name}`)); });
@@ -1254,10 +1254,10 @@ export default function BillingPage() {
                                         <tr key={idx} className="border-b dark:border-gray-700">
                                             <td className="py-1 break-words">{item.description}</td>
                                             <td className="text-right tabular-nums">{item.quantity}</td>
-                                            <td className="text-right tabular-nums">{(item.regularPrice ?? item.unitPrice).toFixed(2)}</td>
-                                            <td className="text-right tabular-nums">{(item.discountAmount ?? 0).toFixed(2)}</td>
-                                            <td className="text-right tabular-nums">{item.unitPrice.toFixed(2)}</td>
-                                            <td className="text-right tabular-nums">{item.total.toFixed(2)}</td>
+                                            <td className="text-right tabular-nums">{Number(item.regularPrice ?? item.unitPrice ?? 0).toFixed(2)}</td>
+                                            <td className="text-right tabular-nums">{Number(item.discountAmount ?? 0).toFixed(2)}</td>
+                                            <td className="text-right tabular-nums">{Number(item.unitPrice || 0).toFixed(2)}</td>
+                                            <td className="text-right tabular-nums">{Number(item.total || 0).toFixed(2)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
