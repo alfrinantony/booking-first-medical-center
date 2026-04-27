@@ -29,7 +29,7 @@ export default function BillingPage() {
     const [clientPhone, setClientPhone] = useState('');
     const [clientEmail, setClientEmail] = useState('');
     const [invoiceCategory, setInvoiceCategory] = useState('clinic_single');
-    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; regularPrice?: number; discountAmount?: number; maxDiscountPercentage?: number; medicineId?: string; batchId?: string; consumptions?: { medicineId: string; batchId?: string; quantity: number }[]; packagePayload?: any }[]>([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
+    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; regularPrice?: number; discountAmount?: number; maxDiscountPercentage?: number; medicineId?: string; batchId?: string; consumptions?: { medicineId: string; batchId?: string; quantity: number }[]; packagePayload?: any; isCustom?: boolean }[]>([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
     const [packageDetails, setPackageDetails] = useState('');
     const [taxPercentage, setTaxPercentage] = useState(5);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'online'>('card');
@@ -699,76 +699,107 @@ export default function BillingPage() {
                                     <label className="block text-sm font-medium mb-2">Services / Items</label>
                                     {items.map((item, idx) => (
                                         <div key={idx} className="flex flex-col md:flex-row gap-2 mb-4 md:mb-2 bg-gray-50 dark:bg-gray-800/50 md:bg-transparent md:dark:bg-transparent p-3 md:p-0 rounded-lg border border-gray-200 dark:border-gray-700 md:border-0">
-                                            <input 
-                                                list="services-list" 
-                                                type="text" 
-                                                placeholder="Service name (type to search)" 
-                                                className="flex-1 p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" 
-                                                value={item.description} 
-                                                onChange={(e) => { 
-                                                    const val = e.target.value;
-                                                    const u = [...items]; 
-                                                    u[idx] = { ...u[idx], description: val };
-                                                    if (val) {
-                                                        let matchedService = null;
-                                                        let matchedClinic = null;
-                                                        let isPackageMode = false;
-                                                        let sessionCount = 1;
-                                                        let pkgMatchData: any = null;
-
-                                                        for(const c of clinics) {
-                                                            if (clinicName && c.name !== clinicName) continue;
-                                                            for(const d of c.departments) {
-                                                                // Exact match (Base Service)
-                                                                let hit = d.services.find(s => s.name === val);
-                                                                if(hit) { matchedService = hit; matchedClinic = c; break; }
-
-                                                                // Package match (3 Sessions)
-                                                                hit = d.services.find(s => s.threeSessionPackage && `3 Sessions - ${s.name} (Valid for ${s.threeSessionPackage.validity || 90} days)` === val);
-                                                                if (hit) {
-                                                                    matchedService = hit; matchedClinic = c; isPackageMode = true;
-                                                                    sessionCount = 3; pkgMatchData = hit.threeSessionPackage;
-                                                                    break;
-                                                                }
-
-                                                                // Package match (6 Sessions)
-                                                                hit = d.services.find(s => s.sixSessionPackage && `6 Sessions - ${s.name} (Valid for ${s.sixSessionPackage.validity || 180} days)` === val);
-                                                                if (hit) {
-                                                                    matchedService = hit; matchedClinic = c; isPackageMode = true;
-                                                                    sessionCount = 6; pkgMatchData = hit.sixSessionPackage;
-                                                                    break;
-                                                                }
-                                                            }
-                                                            if (matchedService) break;
+                                            {item.description.startsWith('[Add-on]') ? (
+                                                <input type="text" readOnly className="flex-1 p-2 border border-gray-200 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm" value={item.description} />
+                                            ) : item.isCustom ? (
+                                                <div className="flex-1 flex items-center gap-1 border border-indigo-300 dark:border-indigo-600 rounded-md bg-white dark:bg-gray-800 focus-within:ring-2 focus-within:ring-indigo-500 overflow-hidden">
+                                                    <input 
+                                                        type="text" 
+                                                        autoFocus 
+                                                        placeholder="Enter custom service description..." 
+                                                        className="flex-1 p-2 bg-transparent text-sm focus:outline-none dark:text-white" 
+                                                        value={item.description} 
+                                                        onChange={e => { const u = [...items]; u[idx].description = e.target.value; setItems(u); }} 
+                                                    />
+                                                    <button type="button" onClick={() => { const u = [...items]; u[idx].isCustom = false; u[idx].description = ''; setItems(u); }} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-red-500 px-3 bg-gray-100 dark:bg-gray-700 hover:bg-red-50 py-2 transition-colors border-l dark:border-gray-600" title="Cancel Custom Entry">Cancel</button>
+                                                </div>
+                                            ) : (
+                                                <select 
+                                                    className="flex-1 p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" 
+                                                    value={
+                                                        clinics.flatMap(c => c.departments.flatMap(d => d.services)).some(s => s.name === item.description || (s.threeSessionPackage && `3 Sessions - ${s.name} (Valid for ${s.threeSessionPackage.validity || 90} days)` === item.description) || (s.sixSessionPackage && `6 Sessions - ${s.name} (Valid for ${s.sixSessionPackage.validity || 180} days)` === item.description)) 
+                                                        ? item.description 
+                                                        : (item.description ? item.description : "")
+                                                    }
+                                                    onChange={(e) => { 
+                                                        const val = e.target.value;
+                                                        if (val === '___custom___') {
+                                                            const u = [...items];
+                                                            u[idx].isCustom = true;
+                                                            u[idx].description = '';
+                                                            u[idx].unitPrice = 0;
+                                                            u[idx].regularPrice = 0;
+                                                            u[idx].discountAmount = 0;
+                                                            setItems(u);
+                                                            return;
                                                         }
-                                                        
-                                                        if (matchedService && (u[idx].unitPrice === 0 || u[idx].regularPrice === 0)) {
-                                                            const svcReg = isPackageMode && pkgMatchData ? pkgMatchData.totalCost : (matchedService.regularPrice || matchedService.price || 0);
-                                                            const svcFinalInc = isPackageMode && pkgMatchData ? pkgMatchData.discountedPrice : (matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg);
 
-                                                            u[idx].regularPrice = svcReg;
-                                                            u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
-                                                            u[idx].unitPrice = svcFinalInc;
-                                                            u[idx].discountAmount = svcReg - svcFinalInc;
+                                                        const u = [...items]; 
+                                                        u[idx] = { ...u[idx], description: val };
+                                                        if (val) {
+                                                            let matchedService = null;
+                                                            let matchedClinic = null;
+                                                            let isPackageMode = false;
+                                                            let sessionCount = 1;
+                                                            let pkgMatchData: any = null;
 
-                                                            if (isPackageMode && pkgMatchData) {
-                                                                u[idx].packagePayload = {
-                                                                    serviceId: matchedService.id,
-                                                                    serviceName: matchedService.name,
-                                                                    sessionCount: sessionCount,
-                                                                    validity: pkgMatchData.validity || (sessionCount === 3 ? 90 : 180),
-                                                                    price: svcFinalInc
-                                                                };
+                                                            for(const c of clinics) {
+                                                                if (clinicName && c.name !== clinicName) continue;
+                                                                for(const d of c.departments) {
+                                                                    let hit = d.services.find(s => s.name === val);
+                                                                    if(hit) { matchedService = hit; matchedClinic = c; break; }
+
+                                                                    hit = d.services.find(s => s.threeSessionPackage && `3 Sessions - ${s.name} (Valid for ${s.threeSessionPackage.validity || 90} days)` === val);
+                                                                    if (hit) { matchedService = hit; matchedClinic = c; isPackageMode = true; sessionCount = 3; pkgMatchData = hit.threeSessionPackage; break; }
+
+                                                                    hit = d.services.find(s => s.sixSessionPackage && `6 Sessions - ${s.name} (Valid for ${s.sixSessionPackage.validity || 180} days)` === val);
+                                                                    if (hit) { matchedService = hit; matchedClinic = c; isPackageMode = true; sessionCount = 6; pkgMatchData = hit.sixSessionPackage; break; }
+                                                                }
+                                                                if (matchedService) break;
                                                             }
                                                             
-                                                            if (!clinicName && matchedClinic) {
-                                                                setClinicName(matchedClinic.name);
+                                                            if (matchedService) {
+                                                                const svcReg = isPackageMode && pkgMatchData ? pkgMatchData.totalCost : (matchedService.regularPrice || matchedService.price || 0);
+                                                                const svcFinalInc = isPackageMode && pkgMatchData ? pkgMatchData.discountedPrice : (matchedService.discountedPrice !== undefined ? matchedService.discountedPrice : svcReg);
+
+                                                                u[idx].regularPrice = svcReg;
+                                                                u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
+                                                                u[idx].unitPrice = svcFinalInc;
+                                                                u[idx].discountAmount = svcReg - svcFinalInc;
+
+                                                                if (isPackageMode && pkgMatchData) {
+                                                                    u[idx].packagePayload = {
+                                                                        serviceId: matchedService.id,
+                                                                        serviceName: matchedService.name,
+                                                                        sessionCount: sessionCount,
+                                                                        validity: pkgMatchData.validity || (sessionCount === 3 ? 90 : 180),
+                                                                        price: svcFinalInc
+                                                                    };
+                                                                } else {
+                                                                    u[idx].packagePayload = undefined;
+                                                                }
+                                                                
+                                                                if (!clinicName && matchedClinic) {
+                                                                    setClinicName(matchedClinic.name);
+                                                                }
                                                             }
                                                         }
-                                                    }
-                                                    setItems(u); 
-                                                }} 
-                                            />
+                                                        setItems(u); 
+                                                    }} 
+                                                >
+                                                    <option value="">— Select a Service or Package —</option>
+                                                    {Array.from(new Map(clinics.filter(c => (clinicName && clinics.some(cl => cl.name === clinicName)) ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).map(s => [s.name, s])).values()).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                                                        <option key={s.id} value={s.name}>{s.name} ({s.price} AED)</option>
+                                                    ))}
+                                                    {Array.from(new Set(clinics.filter(c => (clinicName && clinics.some(cl => cl.name === clinicName)) ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).flatMap(s => { const pkgs = []; if (s.threeSessionPackage) pkgs.push(`3 Sessions - ${s.name} (Valid for ${s.threeSessionPackage.validity || 90} days)`); if (s.sixSessionPackage) pkgs.push(`6 Sessions - ${s.name} (Valid for ${s.sixSessionPackage.validity || 180} days)`); return pkgs; }))).sort().map((pkg, i) => (
+                                                        <option key={`pkg-${i}`} value={pkg}>{pkg}</option>
+                                                    ))}
+                                                    {item.description && !item.description.startsWith('[Add-on]') && !clinics.flatMap(c => c.departments.flatMap(d => d.services)).some(s => s.name === item.description || (s.threeSessionPackage && `3 Sessions - ${s.name} (Valid for ${s.threeSessionPackage.validity || 90} days)` === item.description) || (s.sixSessionPackage && `6 Sessions - ${s.name} (Valid for ${s.sixSessionPackage.validity || 180} days)` === item.description)) && (
+                                                        <option value={item.description}>{item.description} (Archived/Custom)</option>
+                                                    )}
+                                                    <option value="___custom___">➕ Custom / Free Text Entry</option>
+                                                </select>
+                                            )}
                                             <input type="number" min="1" placeholder="Qty" className="w-full md:w-16 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
                                             <input type="number" min="0" placeholder="Reg.Price" className="w-full md:w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0"
                                                 value={item.regularPrice !== undefined ? item.regularPrice : item.unitPrice || ''} 
