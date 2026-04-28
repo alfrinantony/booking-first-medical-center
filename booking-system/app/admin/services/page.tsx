@@ -41,6 +41,7 @@ interface ServiceFormState {
     image: string;
     productConsumptions: { registeredProductId: string; quantityPerService: number }[];
     maxDiscountPercentage: string | number;
+    requiredEquipmentIds: string[];
 }
 
 export default function ServicesPage() {
@@ -90,10 +91,12 @@ export default function ServicesPage() {
         image: '',
         productConsumptions: [],
         maxDiscountPercentage: '',
+        requiredEquipmentIds: [],
     };
     const [newService, setNewService] = useState<ServiceFormState>(emptyServiceForm);
 
     const [resources, setResources] = useState<Resource[]>([]);
+    const [equipments, setEquipments] = useState<any[]>([]);
     const [medicines, setMedicines] = useState<Medicine[]>([]);
 
     // Edit Modal State
@@ -203,9 +206,20 @@ export default function ServicesPage() {
         }
     };
 
+    const fetchEquipments = async (clinicId: string) => {
+        try {
+            const res = await fetch(`/api/admin/equipment?branchId=${clinicId}`);
+            const data = await res.json();
+            setEquipments(data);
+        } catch (error) {
+            console.error('Failed to fetch equipments', error);
+        }
+    };
+
     useEffect(() => {
         if (selectedClinicId) {
             fetchResources(selectedClinicId);
+            fetchEquipments(selectedClinicId);
         }
     }, [selectedClinicId]);
 
@@ -275,6 +289,7 @@ export default function ServicesPage() {
                         end: newService.timeWindowEnd
                     } : undefined,
                     requiredResourceIds: newService.requiredResourceIds,
+                    requiredEquipmentIds: newService.requiredEquipmentIds,
                     maxMedicines: newService.maxMedicines ? Number(newService.maxMedicines) : undefined,
                     medicineIds: newService.medicineIds,
                     medicineSelectionMode: newService.medicineIds.length > 0 ? newService.medicineSelectionMode : undefined,
@@ -344,6 +359,7 @@ export default function ServicesPage() {
                         end: editingService.timeWindowEnd
                     } : null,
                     requiredResourceIds: editingService.requiredResourceIds,
+                    requiredEquipmentIds: editingService.requiredEquipmentIds || [],
                     maxMedicines: editingService.maxMedicines || null,
                     medicineIds: editingService.medicineIds || [],
                     medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : null,
@@ -1218,6 +1234,7 @@ export default function ServicesPage() {
                         doctors={getDepartmentDoctors('')}
                         groupedDoctors={getGroupedDoctors()}
                         resources={resources}
+                        equipments={equipments}
                         medicines={medicines}
                         registeredProducts={registeredProducts}
                         dayNames={dayNames}
@@ -1292,7 +1309,9 @@ export default function ServicesPage() {
                             setFormState={setEditingService}
                             currentClinic={currentClinic}
                             doctors={getDepartmentDoctors('')}
+                            groupedDoctors={getGroupedDoctors()}
                             resources={resources}
+                            equipments={equipments}
                             medicines={medicines}
                             registeredProducts={registeredProducts}
                             dayNames={dayNames}

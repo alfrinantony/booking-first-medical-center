@@ -153,7 +153,7 @@ export default function AdminAppointmentsPage() {
         try {
             const fmt = (d: Date) => d.toISOString().split('T')[0];
             const from = new Date(); // today
-            const to   = new Date(); to.setMonth(to.getMonth() + 3); // 3 months ahead
+            const to   = new Date(); to.setDate(to.getDate() + 30); // 30 days ahead
             const res = await fetch(
                 `/api/admin/simplybook?sync=true&from=${fmt(from)}&to=${fmt(to)}`
             );
@@ -182,7 +182,7 @@ export default function AdminAppointmentsPage() {
             try {
                 const fmt = (d: Date) => d.toISOString().split('T')[0];
                 const from = new Date();
-                const to   = new Date(); to.setMonth(to.getMonth() + 3);
+                const to   = new Date(); to.setDate(to.getDate() + 30);
                 const res = await fetch(`/api/admin/simplybook?sync=true&from=${fmt(from)}&to=${fmt(to)}`);
                 const data = await res.json();
                 if (data.ok && (data.synced ?? 0) > 0) await fetchSbBookings();
@@ -286,7 +286,18 @@ export default function AdminAppointmentsPage() {
 
     const getSbBookingsForDate = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        return sbBookings.filter(b => b.date === dateStr && b.status !== 'cancelled');
+        return sbBookings.filter(b => {
+            if (b.date !== dateStr || b.status === 'cancelled') return false;
+            if (selectedDoctorId && b.matchedDoctorId !== selectedDoctorId) return false;
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                const matchName = b.clientName?.toLowerCase().includes(q);
+                const matchPhone = b.clientPhone?.includes(q);
+                const matchEmail = b.clientEmail?.toLowerCase().includes(q);
+                if (!matchName && !matchPhone && !matchEmail) return false;
+            }
+            return true;
+        });
     };
 
     const selectedDayBookings = getBookingsForDate(selectedDate);
@@ -419,7 +430,8 @@ export default function AdminAppointmentsPage() {
     };
 
     const handleEditClick = (booking: Booking) => {
-        if (booking.billingStatus === 'billed') {
+        const canEditBilled = currentUser?.role === 'SUPER_ADMIN';
+        if (booking.billingStatus === 'billed' && !canEditBilled) {
             alert("This appointment has already been billed and cannot be edited.");
             return;
         }
@@ -1081,14 +1093,14 @@ export default function AdminAppointmentsPage() {
                                     <div className="flex border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
                                         <button
                                             onClick={() => handleEditClick(booking)}
-                                            disabled={booking.billingStatus === 'billed'}
+                                            disabled={booking.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN'}
                                             className={`flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
-                                                booking.billingStatus === 'billed'
+                                                booking.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN'
                                                     ? 'text-gray-400 cursor-not-allowed'
                                                     : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
                                             }`}
                                         >
-                                            {booking.billingStatus === 'billed' ? '🔒 Locked' : '✏️ Edit'}
+                                            {booking.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN' ? '🔒 Locked' : '✏️ Edit'}
                                         </button>
                                         {isSb && (booking as any).sbId && (
                                             <>

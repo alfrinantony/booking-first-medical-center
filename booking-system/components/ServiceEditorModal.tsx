@@ -25,6 +25,7 @@ interface ServiceEditorModalProps {
     currentClinic: Clinic | undefined;
     doctors: Doctor[];
     resources: Resource[];
+    equipments?: any[];
     medicines: Medicine[];
     dayNames: string[];
     // Handlers
@@ -51,7 +52,7 @@ function SectionHeader({ id, label, icon: Icon, color }: { id: string; label: st
 
 export default function ServiceEditorModal({
     mode, title, formState, setFormState,
-    currentClinic, doctors, groupedDoctors, resources, medicines, dayNames,
+    currentClinic, doctors, groupedDoctors, resources, equipments, medicines, dayNames,
     onSubmit, onClose, onToggleDay, onToggleDoctor,
     onImageUpload, submitting, uploadingImage, registeredProducts,
     branchSelector,
@@ -411,6 +412,22 @@ export default function ServiceEditorModal({
                                         </label>
                                     ))}
                                     {resources.length === 0 && <p className="text-xs text-gray-500">No resources for this clinic.</p>}
+                                </div>
+                            </div>
+                            {/* Equipment */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-2">Required Medical Equipments</label>
+                                <div className="border rounded-lg p-3 max-h-36 overflow-y-auto space-y-1.5">
+                                    {(equipments || []).map(eq => (
+                                        <label key={eq.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                                            <input type="checkbox" checked={(formState.requiredEquipmentIds || []).includes(eq.id)} onChange={e => {
+                                                const c = formState.requiredEquipmentIds || [];
+                                                update({ requiredEquipmentIds: e.target.checked ? [...c, eq.id] : c.filter((id: string) => id !== eq.id) });
+                                            }} className="rounded text-indigo-600" />
+                                            {eq.name} <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">Qty: {eq.quantity}</span>
+                                        </label>
+                                    ))}
+                                    {(equipments || []).length === 0 && <p className="text-xs text-gray-500">No equipments for this clinic.</p>}
                                 </div>
                             </div>
                             {/* Medicines */}

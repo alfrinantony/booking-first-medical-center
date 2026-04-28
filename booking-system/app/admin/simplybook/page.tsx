@@ -5,7 +5,7 @@ import {
     Calendar, Search, RefreshCw, ExternalLink, User, Clock,
     Stethoscope, CheckCircle, XCircle, AlertCircle, Loader2,
     Phone, Mail, Hash, ChevronRight, X, Wifi, WifiOff, Filter,
-    AlertTriangle, Link2, CreditCard
+    AlertTriangle, Link2, Link2Off, CreditCard
 } from 'lucide-react';
 import type { SimplybookRecord } from '@/lib/simplybook-store';
 import Link from 'next/link';

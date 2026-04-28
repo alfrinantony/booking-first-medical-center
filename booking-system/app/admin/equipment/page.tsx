@@ -124,7 +124,7 @@ export default function EquipmentPage() {
         if (searchTerm && !i.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
             !i.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())) return false;
         return true;
-    });
+    }).sort((a, b) => a.name.localeCompare(b.name));
 
     // ── RBAC Safe Stats ──
     const safeItems = items.filter(i => {
