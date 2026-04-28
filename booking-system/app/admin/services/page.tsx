@@ -1235,7 +1235,7 @@ export default function ServicesPage() {
                         groupedDoctors={getGroupedDoctors()}
                         resources={resources}
                         equipments={equipments}
-                        services={services}
+                        services={currentClinic?.departments?.flatMap(d => d.services) || []}
                         medicines={medicines}
                         registeredProducts={registeredProducts}
                         dayNames={dayNames}
@@ -1313,7 +1313,7 @@ export default function ServicesPage() {
                             groupedDoctors={getGroupedDoctors()}
                             resources={resources}
                             equipments={equipments}
-                            services={services}
+                            services={currentClinic?.departments?.flatMap(d => d.services) || []}
                             medicines={medicines}
                             registeredProducts={registeredProducts}
                             dayNames={dayNames}
