@@ -34,7 +34,8 @@ export interface Service {
     minimumIntervalDays?: number; // Minimum days required between regular sessions
     screeningQuestions?: string[]; // Array of questions. If YES to any, booking is blocked.
     requiredResourceIds?: string[]; // IDs of resources (machines, rooms) required for this service
-    requiredEquipmentIds?: string[]; // IDs of medical equipment required for this service
+    requiredEquipmentIds?: string[]; // IDs of medical equipment required for this service (Legacy)
+    requiredEquipmentBrands?: string[]; // Array of Brand/Model names required for this service
     maxMedicines?: number; // Max number of medicines a customer can select for this service (0 = none)
     medicineIds?: string[]; // Specific medicine IDs linked to this service
     medicineSelectionMode?: 'choose' | 'either' | 'all'; // choose=pick up to N, either=pick exactly 1, all=auto-include all

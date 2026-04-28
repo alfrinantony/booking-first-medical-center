@@ -42,6 +42,7 @@ interface ServiceFormState {
     productConsumptions: { registeredProductId: string; quantityPerService: number }[];
     maxDiscountPercentage: string | number;
     requiredEquipmentIds: string[];
+    requiredEquipmentBrands: string[];
 }
 
 export default function ServicesPage() {
@@ -92,6 +93,7 @@ export default function ServicesPage() {
         productConsumptions: [],
         maxDiscountPercentage: '',
         requiredEquipmentIds: [],
+        requiredEquipmentBrands: [],
     };
     const [newService, setNewService] = useState<ServiceFormState>(emptyServiceForm);
 
@@ -290,6 +292,7 @@ export default function ServicesPage() {
                     } : undefined,
                     requiredResourceIds: newService.requiredResourceIds,
                     requiredEquipmentIds: newService.requiredEquipmentIds,
+                    requiredEquipmentBrands: newService.requiredEquipmentBrands,
                     maxMedicines: newService.maxMedicines ? Number(newService.maxMedicines) : undefined,
                     medicineIds: newService.medicineIds,
                     medicineSelectionMode: newService.medicineIds.length > 0 ? newService.medicineSelectionMode : undefined,

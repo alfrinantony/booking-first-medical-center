@@ -417,15 +417,15 @@ export default function ServiceEditorModal({
                             </div>
                             {/* Equipment */}
                             <div className="mb-4">
-                                <label className="block text-sm font-medium mb-2">Required Medical Equipments</label>
+                                <label className="block text-sm font-medium mb-2">Required Medical Equipments (Brand/Model)</label>
                                 <div className="border rounded-lg p-3 max-h-36 overflow-y-auto space-y-1.5">
-                                    {(equipments || []).map(eq => (
-                                        <label key={eq.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                                            <input type="checkbox" checked={(formState.requiredEquipmentIds || []).includes(eq.id)} onChange={e => {
-                                                const c = formState.requiredEquipmentIds || [];
-                                                update({ requiredEquipmentIds: e.target.checked ? [...c, eq.id] : c.filter((id: string) => id !== eq.id) });
+                                    {Array.from(new Set((equipments || []).map((eq: any) => eq.brand || eq.name).filter(Boolean))).map(brand => (
+                                        <label key={String(brand)} className="flex items-center gap-2 cursor-pointer text-sm">
+                                            <input type="checkbox" checked={(formState.requiredEquipmentBrands || []).includes(String(brand))} onChange={e => {
+                                                const c = formState.requiredEquipmentBrands || [];
+                                                update({ requiredEquipmentBrands: e.target.checked ? [...c, String(brand)] : c.filter((b: string) => b !== String(brand)) });
                                             }} className="rounded text-indigo-600" />
-                                            {eq.name} <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">Qty: {eq.quantity}</span>
+                                            {String(brand)}
                                         </label>
                                     ))}
                                     {(equipments || []).length === 0 && <p className="text-xs text-gray-500">No equipments for this clinic.</p>}
