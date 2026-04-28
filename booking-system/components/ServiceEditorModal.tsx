@@ -26,6 +26,7 @@ interface ServiceEditorModalProps {
     doctors: Doctor[];
     resources: Resource[];
     equipments?: any[];
+    services?: any[];
     medicines: Medicine[];
     dayNames: string[];
     // Handlers
@@ -52,7 +53,7 @@ function SectionHeader({ id, label, icon: Icon, color }: { id: string; label: st
 
 export default function ServiceEditorModal({
     mode, title, formState, setFormState,
-    currentClinic, doctors, groupedDoctors, resources, equipments, medicines, dayNames,
+    currentClinic, doctors, groupedDoctors, resources, equipments, services, medicines, dayNames,
     onSubmit, onClose, onToggleDay, onToggleDoctor,
     onImageUpload, submitting, uploadingImage, registeredProducts,
     branchSelector,
@@ -429,6 +430,17 @@ export default function ServiceEditorModal({
                                     ))}
                                     {(equipments || []).length === 0 && <p className="text-xs text-gray-500">No equipments for this clinic.</p>}
                                 </div>
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-1">Alternative Service (If Capacity Full)</label>
+                                <select className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    value={formState.alternativeServiceId || ''} onChange={e => update({ alternativeServiceId: e.target.value })}>
+                                    <option value="">-- None --</option>
+                                    {(services || []).filter(s => s.id !== formState.id).map(s => (
+                                        <option key={s.id} value={s.id}>{s.name} ({s.category || 'Uncategorized'})</option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">If required equipments are fully booked, recommend this service instead.</p>
                             </div>
                             {/* Medicines */}
                             <div className="mb-4">

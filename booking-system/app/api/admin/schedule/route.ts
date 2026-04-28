@@ -188,7 +188,7 @@ export async function GET(request: Request) {
     const bookings = await BookingsStore.getByFilters({ doctorId, date });
     const activeBookings = bookings.filter(b => b.status !== 'cancelled');
 
-    const occupiedRanges: { start: number; end: number; serviceId: string; resourceIds: string[]; doctorId: string }[] = [];
+    const occupiedRanges: { start: number; end: number; serviceId: string; resourceIds: string[]; equipmentIds: string[]; doctorId: string }[] = [];
     for (const b of activeBookings) {
         const bStart = parseSlotToMinutes(b.slot);
         let bDuration = b.duration || 30;
@@ -199,10 +199,12 @@ export async function GET(request: Request) {
         const bEnd = bStart + bDuration;
         
         let resourceIds: string[] = [];
+        let equipmentIds: string[] = [];
         const bService = await ServicesStore.getServiceById(b.serviceId);
         if (bService?.requiredResourceIds) resourceIds = bService.requiredResourceIds;
+        if (bService?.requiredEquipmentIds) equipmentIds = bService.requiredEquipmentIds;
         
-        occupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, doctorId: b.doctorId });
+        occupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, equipmentIds, doctorId: b.doctorId });
     }
 
     // ── 6b. Shared Resource Check (Cross-Doctor Bookings) ──
@@ -220,10 +222,12 @@ export async function GET(request: Request) {
             const bEnd = bStart + bDuration;
             
             let resourceIds: string[] = [];
+            let equipmentIds: string[] = [];
             const bService = await ServicesStore.getServiceById(b.serviceId);
             if (bService?.requiredResourceIds) resourceIds = bService.requiredResourceIds;
+            if (bService?.requiredEquipmentIds) equipmentIds = bService.requiredEquipmentIds;
             
-            branchOccupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, doctorId: b.doctorId });
+            branchOccupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, equipmentIds, doctorId: b.doctorId });
         }
     }
 
@@ -236,12 +240,24 @@ export async function GET(request: Request) {
             if (resource) resourceMap.set(resId, resource);
         }
     }
+    
+    // Pre-load equipments if needed
+    const { EquipmentStore } = require('@/lib/equipment-store');
+    const allEquipments = await EquipmentStore.getAll();
+    let requestedEquipmentCapacity = 0;
+    if (requestedService?.requiredEquipmentIds && requestedService.requiredEquipmentIds.length > 0) {
+        for (const eqId of requestedService.requiredEquipmentIds) {
+            const eq = allEquipments.find((e: any) => e.id === eqId);
+            if (eq) requestedEquipmentCapacity += eq.quantity || 1;
+        }
+    }
     const allResourceRanges = [...occupiedRanges, ...branchOccupiedRanges];
 
     // ── 7. Generate Slots with Duration-Aware Increments ──
     const CLINIC_OPENING_MINUTES = 10 * 60;
     let availableSlots: string[] = [];
     let currentMin = CLINIC_OPENING_MINUTES;
+    let anySlotRejectedDueToEquipment = false;
 
     while (currentMin + requestedDuration <= Math.min(scheduleEnd, closingMinutes)) {
         let isAvailable = true;
@@ -282,6 +298,22 @@ export async function GET(request: Request) {
             if (!hasResources) isAvailable = false;
         }
 
+        // C2. Check Equipment availability (Cross-Doctor)
+        if (isAvailable && requestedService?.requiredEquipmentIds && requestedService.requiredEquipmentIds.length > 0) {
+            let usedEquipmentCount = 0;
+            // Any booking that uses ANY of the same equipment IDs consumes 1 unit of capacity from this pool
+            for (const range of allResourceRanges) {
+                const usesSharedEquipment = range.equipmentIds && range.equipmentIds.some((id: string) => requestedService.requiredEquipmentIds.includes(id));
+                if (usesSharedEquipment && rangesOverlap(currentMin, currentMin + requestedDuration, range.start, range.end)) {
+                    usedEquipmentCount++;
+                }
+            }
+            if (usedEquipmentCount >= requestedEquipmentCapacity) {
+                isAvailable = false;
+                anySlotRejectedDueToEquipment = true;
+            }
+        }
+
         // D. Check No-Show peak restrictions
         if (isAvailable && clientId) {
             const { RestrictionsStore } = require('@/lib/restrictions-store');
@@ -304,6 +336,8 @@ export async function GET(request: Request) {
         slots: availableSlots,
         serviceDuration: requestedDuration,
         closingTime: closingMinutes,
+        equipmentCapacityReached: anySlotRejectedDueToEquipment,
+        alternativeServiceId: requestedService?.alternativeServiceId || null,
     };
     if (otherBranches && clinicId) {
         response.otherBranchSlots = await Scheduler.getOtherBranchSlots(doctorId, date, clinicId);

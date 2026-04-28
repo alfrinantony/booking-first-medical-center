@@ -25,6 +25,8 @@ export default function AdminBookingForm() {
 
     // Dynamic slots state
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+    const [equipmentCapacityReached, setEquipmentCapacityReached] = useState(false);
+    const [alternativeServiceId, setAlternativeServiceId] = useState<string | null>(null);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
     const [slotError, setSlotError] = useState<string | null>(null);
 
@@ -93,15 +95,21 @@ export default function AdminBookingForm() {
                 if (res.ok) {
                     const data = await res.json();
                     setAvailableSlots(data.slots || []);
+                    setEquipmentCapacityReached(data.equipmentCapacityReached || false);
+                    setAlternativeServiceId(data.alternativeServiceId || null);
                     if (data.slots?.length === 0) {
                         setSlotError('No available slots for this date. The doctor may be fully booked or on leave.');
                     }
                 } else {
                     setAvailableSlots(timeSlots); // Fallback
+                    setEquipmentCapacityReached(false);
+                    setAlternativeServiceId(null);
                     setSlotError('Could not fetch smart slots. Showing all slots.');
                 }
             } catch {
                 setAvailableSlots(timeSlots); // Fallback
+                setEquipmentCapacityReached(false);
+                setAlternativeServiceId(null);
                 setSlotError('Could not fetch smart slots. Showing all slots.');
             } finally {
                 setIsLoadingSlots(false);
@@ -380,6 +388,21 @@ export default function AdminBookingForm() {
                                 </div>
                             ) : (
                                 <>
+                                    {equipmentCapacityReached && alternativeServiceId && (
+                                        <div className="mb-2 bg-orange-50 border border-orange-200 rounded-lg p-2 dark:bg-orange-900/20 dark:border-orange-800">
+                                            <div className="flex gap-2 text-xs">
+                                                <div className="text-orange-600">
+                                                    <AlertCircle className="w-4 h-4" />
+                                                </div>
+                                                <div className="text-orange-800 dark:text-orange-300">
+                                                    <strong>Equipment Full:</strong> Some slots hidden.
+                                                    <button type="button" className="ml-1 underline text-indigo-600 font-semibold" onClick={() => setBooking({ ...booking, serviceId: alternativeServiceId, slot: '' })}>
+                                                        Switch to Alternative
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     <select
                                         required
                                         disabled={filteredSlots.length === 0}

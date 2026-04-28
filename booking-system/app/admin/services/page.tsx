@@ -1235,6 +1235,7 @@ export default function ServicesPage() {
                         groupedDoctors={getGroupedDoctors()}
                         resources={resources}
                         equipments={equipments}
+                        services={services}
                         medicines={medicines}
                         registeredProducts={registeredProducts}
                         dayNames={dayNames}
@@ -1312,6 +1313,7 @@ export default function ServicesPage() {
                             groupedDoctors={getGroupedDoctors()}
                             resources={resources}
                             equipments={equipments}
+                            services={services}
                             medicines={medicines}
                             registeredProducts={registeredProducts}
                             dayNames={dayNames}

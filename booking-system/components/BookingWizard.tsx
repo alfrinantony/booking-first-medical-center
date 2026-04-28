@@ -123,6 +123,8 @@ export default function BookingWizard() {
 
     // Dynamic slots state
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+    const [equipmentCapacityReached, setEquipmentCapacityReached] = useState(false);
+    const [alternativeServiceId, setAlternativeServiceId] = useState<string | null>(null);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
     // Derive selectedDept from catalog availability (backward compat for rendering)
@@ -559,8 +561,12 @@ export default function BookingWizard() {
                         const data = await res.json();
                         // Trust the server's duration-aware response
                         slots = data.slots || [];
+                        setEquipmentCapacityReached(data.equipmentCapacityReached || false);
+                        setAlternativeServiceId(data.alternativeServiceId || null);
                     } else {
                         slots = timeSlots; // Fallback only on API failure
+                        setEquipmentCapacityReached(false);
+                        setAlternativeServiceId(null);
                     }
 
                     // 1. Service Time Window Filtering
@@ -2132,6 +2138,35 @@ export default function BookingWizard() {
 
                         {/* Time Slots */}
                         <div>
+                            {equipmentCapacityReached && alternativeServiceId && (
+                                <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-4 dark:bg-orange-900/20 dark:border-orange-800 animate-in fade-in slide-in-from-top-2">
+                                    <div className="flex gap-3">
+                                        <div className="flex-shrink-0 text-orange-600 mt-0.5">
+                                            <Package className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-orange-800 dark:text-orange-400">Equipment Fully Booked</h4>
+                                            <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                                                Some or all time slots on this date are unavailable because the required medical equipment is fully booked.
+                                            </p>
+                                            <button 
+                                                onClick={() => {
+                                                    const altService = catalogData.services.find((s: any) => s.id === alternativeServiceId);
+                                                    if (altService) {
+                                                        triggerHaptic();
+                                                        // Auto-select the alternative service and stay on time slot selection or go to doctor selection
+                                                        setSelectedService(altService);
+                                                        // Let the useEffect refetch the slots for this new service
+                                                    }
+                                                }}
+                                                className="mt-3 text-sm font-semibold text-indigo-700 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shadow-sm"
+                                            >
+                                                Book Recommended Alternative Instead
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Available times for {format(selectedDate, 'EEEE, MMM d')}</h3>
                             {/* Duration info badge */}
                             {selectedService?.duration && (
