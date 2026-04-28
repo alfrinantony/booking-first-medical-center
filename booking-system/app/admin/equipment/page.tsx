@@ -108,7 +108,7 @@ export default function EquipmentPage() {
             try { setCurrentUser(JSON.parse(userStr)); } catch (e) {}
         }
         fetchItems();
-        fetch('/api/admin/clinics').then(r => r.json()).then(d => setClinicsData(d || [])).catch(() => {});
+        fetch('/api/admin/clinics').then(r => r.json()).then(d => setClinicsData(Array.isArray(d) ? d : [])).catch(() => {});
     }, []);
 
     // ── Filtered list ──
@@ -129,7 +129,7 @@ export default function EquipmentPage() {
     // ── RBAC Safe Stats ──
     const safeItems = items.filter(i => {
         if (currentUser && currentUser.role !== 'SUPER_ADMIN') {
-            return currentUser.clinicIds?.includes(i.branchId);
+            return (currentUser.clinicIds || []).includes(i.branchId);
         }
         return true;
     });
@@ -137,7 +137,7 @@ export default function EquipmentPage() {
     const totalCount = safeItems.length;
     const totalQty = safeItems.reduce((s, i) => s + i.quantity, 0);
     const branchCounts = BRANCHES
-        .filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id))
+        .filter(b => currentUser?.role === 'SUPER_ADMIN' || (currentUser?.clinicIds || []).includes(b.id))
         .map(b => ({ ...b, count: safeItems.filter(i => i.branchId === b.id).length }));
     const maintenanceCount = safeItems.filter(i => i.status === 'maintenance').length;
     const damagedCount = safeItems.filter(i => i.status === 'damaged').length;
@@ -160,7 +160,7 @@ export default function EquipmentPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: branchId, rooms: updatedRooms })
         });
-        fetch('/api/admin/clinics').then(r => r.json()).then(d => setClinicsData(d || [])).catch(() => {});
+        fetch('/api/admin/clinics').then(r => r.json()).then(d => setClinicsData(Array.isArray(d) ? d : [])).catch(() => {});
     };
 
     const handleAdd = async (e: React.FormEvent) => {
@@ -213,9 +213,9 @@ export default function EquipmentPage() {
             name: item.name, code: item.code || '', category: item.category, brand: item.brand,
             serialNumber: item.serialNumber, quantity: item.quantity,
             branchId: item.branchId, purchaseDate: item.purchaseDate,
-            warrantyExpiry: item.warrantyExpiry, status: item.status,
-            assignedDepartment: item.assignedDepartment, notes: item.notes,
-            lowStockThreshold: item.lowStockThreshold,
+            warrantyExpiry: item.warrantyExpiry || '', status: item.status || 'active',
+            assignedDepartment: item.assignedDepartment || '', notes: item.notes || '',
+            lowStockThreshold: item.lowStockThreshold || 0,
             nextMaintenanceDate: item.nextMaintenanceDate || '',
         });
         setShowEditModal(true);
@@ -508,8 +508,9 @@ ${warrantyExpired ? `<div class="alert-box amber">⏰ Warranty Expired — expir
             <div>
                 <label className="block text-sm font-medium mb-1">Branch *</label>
                 <select required className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
-                    value={formData.branchId} onChange={e => setFormData({ ...formData, branchId: e.target.value })}>
-                    {BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id)).map(b => (
+                    value={formData.branchId || ''} onChange={e => setFormData({ ...formData, branchId: e.target.value })}>
+                    <option value="">Select Branch</option>
+                    {BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || (currentUser?.clinicIds || []).includes(b.id)).map(b => (
                         <option key={b.id} value={b.id}>{b.name}</option>
                     ))}
                 </select>
@@ -539,10 +540,10 @@ ${warrantyExpired ? `<div class="alert-box amber">⏰ Warranty Expired — expir
             <div>
                 <label className="block text-sm font-medium mb-1">Assigned Department / Room</label>
                 <select className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
-                    value={formData.assignedDepartment} 
+                    value={formData.assignedDepartment || ''} 
                     onChange={e => setFormData({ ...formData, assignedDepartment: e.target.value })}>
                     <option value="">-- Unassigned --</option>
-                    {clinicsData.find(c => c.id === formData.branchId)?.rooms?.map((r: any) => (
+                    {Array.isArray(clinicsData) && clinicsData.find(c => c.id === formData.branchId)?.rooms?.map((r: any) => (
                         <option key={r.id} value={r.id}>{r.name} ({r.type})</option>
                     ))}
                 </select>
@@ -573,7 +574,7 @@ ${warrantyExpired ? `<div class="alert-box amber">⏰ Warranty Expired — expir
                             <Printer className="w-4 h-4" /> Print
                         </button>
                         <button onClick={() => { 
-                            const allowedBranches = BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id));
+                            const allowedBranches = BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || (currentUser?.clinicIds || []).includes(b.id));
                             setFormData({
                                 ...emptyForm,
                                 branchId: allowedBranches.length > 0 ? allowedBranches[0].id : ''
@@ -651,7 +652,7 @@ ${warrantyExpired ? `<div class="alert-box amber">⏰ Warranty Expired — expir
                         <select className="w-full p-2 text-sm border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                             value={filterBranch} onChange={e => setFilterBranch(e.target.value)}>
                             <option value="">All Branches</option>
-                            {BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || currentUser?.clinicIds?.includes(b.id)).map(b => (
+                            {BRANCHES.filter(b => currentUser?.role === 'SUPER_ADMIN' || (currentUser?.clinicIds || []).includes(b.id)).map(b => (
                                 <option key={b.id} value={b.id}>{b.name}</option>
                             ))}
                         </select>
