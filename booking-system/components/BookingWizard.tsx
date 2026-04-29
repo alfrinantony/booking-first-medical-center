@@ -554,7 +554,8 @@ export default function BookingWizard() {
                     const clinicParam = selectedClinic ? `&clinicId=${encodeURIComponent(selectedClinic.id)}` : '';
                     const serviceParam = selectedService ? `&serviceId=${encodeURIComponent(selectedService.id)}` : '';
                     const clientIdParam = user ? `&clientId=${encodeURIComponent(user.phone || user.email || user.name || '')}` : '';
-                    const res = await fetch(`/api/admin/schedule?doctorId=${encodeURIComponent(selectedDoctor.id)}&date=${dateStr}${serviceParam}${clinicParam}${clientIdParam}&t=${Date.now()}`, { cache: 'no-store' });
+                    const deptParam = selectedDept ? `&deptId=${encodeURIComponent(selectedDept.id)}` : '';
+                    const res = await fetch(`/api/admin/schedule?doctorId=${encodeURIComponent(selectedDoctor.id)}&date=${dateStr}${serviceParam}${clinicParam}${deptParam}${clientIdParam}&t=${Date.now()}`, { cache: 'no-store' });
                     let slots: string[] = []; // Explicit type
 
                     if (res.ok) {
@@ -2060,8 +2061,7 @@ export default function BookingWizard() {
                                 disabled={!anyDoctorAvailable}
                                 onClick={() => {
                                     if (anyDoctorAvailable) {
-                                        triggerHaptic('medium');
-                                        handleDoctorSelect(filteredDoctors.find((d: Doctor) => isDoctorAvailableOnDate(d, selectedDate!, selectedClinic?.id)) || filteredDoctors[0], true);
+                                        handleDoctorSelect({ id: 'any-doctor', name: 'Any Available Doctor', specialty: '' } as any, true);
                                     }
                                 }}
                                 className={`flex items-center justify-between p-5 border-2 border-dashed ${!anyDoctorAvailable ? 'border-gray-300 dark:border-gray-600 opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800/50' : 'border-orange-400 dark:border-orange-500 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]'} rounded-xl transition-all duration-300 text-left sm:col-span-2 group`}

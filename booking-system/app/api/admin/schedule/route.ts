@@ -34,6 +34,7 @@ export async function GET(request: Request) {
     const doctorId = searchParams.get('doctorId');
     const date = searchParams.get('date');
     const clinicId = searchParams.get('clinicId') || undefined;
+    const deptId = searchParams.get('deptId') || undefined;
     const otherBranches = searchParams.get('otherBranches') === 'true';
     const serviceId = searchParams.get('serviceId');
     const clientId = searchParams.get('clientId');
@@ -43,18 +44,21 @@ export async function GET(request: Request) {
     }
 
     // ── 1. Clinician Availability Check (shift integration) ──
-    const availability = await HRShiftStore.isClinicianAvailable(doctorId, date);
-    if (!availability.available) {
-        return NextResponse.json({
-            slots: [],
-            unavailable: true,
-            reason: availability.reason || 'Clinician not on duty',
-        });
+    let availability = { available: true, reason: '' };
+    if (doctorId !== 'any-doctor') {
+        availability = await HRShiftStore.isClinicianAvailable(doctorId, date);
+        if (!availability.available) {
+            return NextResponse.json({
+                slots: [],
+                unavailable: true,
+                reason: availability.reason || 'Clinician not on duty',
+            });
+        }
     }
 
     // ── 1b. HR Leave Validation ──
     const hrEmployees = await HRStore.getAll();
-    let employee = hrEmployees.find(e => e.id === doctorId);
+    let employee = doctorId !== 'any-doctor' ? hrEmployees.find(e => e.id === doctorId) : undefined;
     let doctorObjResult = null;
     
     // Resolve doctor object for fallback name matching
@@ -79,7 +83,7 @@ export async function GET(request: Request) {
         );
     }
 
-    if (employee) {
+    if (employee && doctorId !== 'any-doctor') {
         const onLeave = await isEmployeeOnApprovedLeave(employee.id, date);
         if (onLeave) {
             return NextResponse.json({
@@ -94,9 +98,40 @@ export async function GET(request: Request) {
     const { ResourcesStore } = require('@/lib/resources-store');
 
     // ── 2. Get Base Schedule Slots (15-min checkpoints representing doctor availability) ──
-    let baseScheduleSlots: string[] = await Scheduler.getSchedule(doctorId, date, clinicId);
-    if (baseScheduleSlots.length === 0) {
-        baseScheduleSlots = timeSlots;
+    let baseScheduleSlots: string[] = [];
+    if (doctorId === 'any-doctor') {
+        const allClinics = await ServicesStore.getClinics();
+        const c = allClinics.find((c: any) => c.id === clinicId);
+        const d = c?.departments.find((d: any) => d.id === deptId);
+        if (d && d.doctors) {
+            const allSlots = new Set<string>();
+            for (const doc of d.doctors) {
+                const shiftAvail = await HRShiftStore.isClinicianAvailable(doc.id, date);
+                if (!shiftAvail.available) continue;
+                let emp = hrEmployees.find(e => e.id === doc.id);
+                if (!emp) {
+                    const docName = doc.name.replace(/^Dr\.\s+/i, '').toLowerCase().trim();
+                    emp = hrEmployees.find(e => 
+                        `${e.firstName} ${e.lastName}`.toLowerCase().includes(docName) || 
+                        docName.includes(`${e.firstName} ${e.lastName}`.toLowerCase())
+                    );
+                }
+                if (emp) {
+                    const onLeave = await isEmployeeOnApprovedLeave(emp.id, date);
+                    if (onLeave) continue;
+                }
+                const docSlots = await Scheduler.getSchedule(doc.id, date, clinicId);
+                const effective = docSlots.length > 0 ? docSlots : timeSlots;
+                effective.forEach((s: string) => allSlots.add(s));
+            }
+            baseScheduleSlots = Array.from(allSlots).sort((a: string, b: string) => parseSlotToMinutes(a) - parseSlotToMinutes(b));
+        }
+        if (baseScheduleSlots.length === 0) baseScheduleSlots = timeSlots;
+    } else {
+        baseScheduleSlots = await Scheduler.getSchedule(doctorId, date, clinicId);
+        if (baseScheduleSlots.length === 0) {
+            baseScheduleSlots = timeSlots;
+        }
     }
 
     // ── 3. Resolve Requested Service Duration ──
@@ -167,51 +202,102 @@ export async function GET(request: Request) {
         if (parsed !== null) closingMinutes = parsed;
     }
 
-    // ── 5. Get Doctor Capacity (dynamic store first, fallback to static) ──
+    // ── 5. Get Doctor Capacity and Department Capacity ──
     let maxConcurrent = 1;
+    let deptCapacityMap = new Map<number, number>();
+    let deptDoctors: any[] = [];
     const allClinicsCapacity = await ServicesStore.getClinics();
     const clinicSources = allClinicsCapacity.length > 0 ? allClinicsCapacity : clinics;
-    for (const c of clinicSources) {
-        let found = false;
-        for (const dept of c.departments) {
-            const doc = dept.doctors.find((d: any) => d.id === doctorId);
-            if (doc) {
-                maxConcurrent = doc.maxConcurrentBookings || 1;
-                found = true;
-                break;
+    
+    if (clinicId && deptId) {
+        const c = clinicSources.find((c: any) => c.id === clinicId);
+        const d = c?.departments.find((d: any) => d.id === deptId);
+        if (d && d.doctors) deptDoctors = d.doctors;
+    }
+
+    if (doctorId !== 'any-doctor') {
+        for (const c of clinicSources) {
+            let found = false;
+            for (const dept of c.departments) {
+                const doc = dept.doctors.find((d: any) => d.id === doctorId);
+                if (doc) {
+                    maxConcurrent = doc.maxConcurrentBookings || 1;
+                    found = true;
+                    break;
+                }
             }
+            if (found) break;
         }
-        if (found) break;
+    }
+
+    // Build deptCapacityMap based on doctors on duty
+    for (const doc of deptDoctors) {
+        const shiftAvail = await HRShiftStore.isClinicianAvailable(doc.id, date);
+        if (!shiftAvail.available) continue;
+        let emp = hrEmployees.find(e => e.id === doc.id);
+        if (!emp) {
+            const docName = doc.name.replace(/^Dr\.\s+/i, '').toLowerCase().trim();
+            emp = hrEmployees.find(e => 
+                `${e.firstName} ${e.lastName}`.toLowerCase().includes(docName) || 
+                docName.includes(`${e.firstName} ${e.lastName}`.toLowerCase())
+            );
+        }
+        if (emp) {
+            const onLeave = await isEmployeeOnApprovedLeave(emp.id, date);
+            if (onLeave) continue;
+        }
+
+        const docMaxConcurrent = doc.maxConcurrentBookings || 1;
+        const docSlots = await Scheduler.getSchedule(doc.id, date, clinicId);
+        const effectiveSlots = docSlots.length > 0 ? docSlots : timeSlots;
+        for (const slot of effectiveSlots) {
+            const min = parseSlotToMinutes(slot);
+            deptCapacityMap.set(min, (deptCapacityMap.get(min) || 0) + docMaxConcurrent);
+        }
     }
 
     // ── 6. Get Existing Bookings & Build Occupied Time Ranges ──
-    const bookings = await BookingsStore.getByFilters({ doctorId, date });
-    const activeBookings = bookings.filter(b => b.status !== 'cancelled');
+    const bookings = await BookingsStore.getByFilters({ date });
+    const activeBookings = bookings.filter(b => b.doctorId === doctorId && b.status !== 'cancelled');
+    const allActiveBranchBookings = bookings.filter(b => b.clinicId === clinicId && b.status !== 'cancelled');
 
     const occupiedRanges: { start: number; end: number; serviceId: string; resourceIds: string[]; equipmentBrands: string[]; doctorId: string }[] = [];
-    for (const b of activeBookings) {
-        const bStart = parseSlotToMinutes(b.slot);
-        let bDuration = b.duration || 30;
-        if (!b.duration) {
+    if (doctorId !== 'any-doctor') {
+        for (const b of activeBookings) {
+            const bStart = parseSlotToMinutes(b.slot);
+            let bDuration = b.duration || 30;
+            if (!b.duration) {
+                const bService = await ServicesStore.getServiceById(b.serviceId);
+                if (bService?.duration) bDuration = bService.duration;
+            }
+            const bEnd = bStart + bDuration;
+            let resourceIds: string[] = [];
+            let equipmentBrands: string[] = [];
             const bService = await ServicesStore.getServiceById(b.serviceId);
-            if (bService?.duration) bDuration = bService.duration;
+            if (bService?.requiredResourceIds) resourceIds = bService.requiredResourceIds;
+            if (bService?.requiredEquipmentBrands) equipmentBrands = bService.requiredEquipmentBrands;
+            occupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, equipmentBrands, doctorId: b.doctorId });
         }
-        const bEnd = bStart + bDuration;
-        
-        let resourceIds: string[] = [];
-        let equipmentBrands: string[] = [];
-        const bService = await ServicesStore.getServiceById(b.serviceId);
-        if (bService?.requiredResourceIds) resourceIds = bService.requiredResourceIds;
-        if (bService?.requiredEquipmentBrands) equipmentBrands = bService.requiredEquipmentBrands;
-        
-        occupiedRanges.push({ start: bStart, end: bEnd, serviceId: b.serviceId, resourceIds, equipmentBrands, doctorId: b.doctorId });
+    }
+
+    const deptOccupiedRanges: { start: number; end: number }[] = [];
+    if (clinicId && deptId) {
+        const activeDeptBookings = allActiveBranchBookings.filter(b => b.deptId === deptId);
+        for (const b of activeDeptBookings) {
+            const bStart = parseSlotToMinutes(b.slot);
+            let bDuration = b.duration || 30;
+            if (!b.duration) {
+                const bService = await ServicesStore.getServiceById(b.serviceId);
+                if (bService?.duration) bDuration = bService.duration;
+            }
+            deptOccupiedRanges.push({ start: bStart, end: bStart + bDuration });
+        }
     }
 
     // ── 6b. Shared Resource Check (Cross-Doctor Bookings) ──
     let branchOccupiedRanges: typeof occupiedRanges = [];
     if (clinicId && requestedService?.requiredResourceIds?.length > 0) {
-        const allBranchBookings = await BookingsStore.getByFilters({ clinicId, date });
-        const activeBranch = allBranchBookings.filter(b => b.status !== 'cancelled' && b.doctorId !== doctorId);
+        const activeBranch = allActiveBranchBookings.filter(b => b.doctorId !== doctorId);
         for (const b of activeBranch) {
             const bStart = parseSlotToMinutes(b.slot);
             let bDuration = b.duration || 30;
@@ -273,7 +359,7 @@ export async function GET(request: Request) {
         }
 
         // B. Check for existing booking overlaps (Doctor Capacity)
-        if (isAvailable) {
+        if (isAvailable && doctorId !== 'any-doctor') {
             let overlapCount = 0;
             for (const range of occupiedRanges) {
                 if (rangesOverlap(currentMin, currentMin + requestedDuration, range.start, range.end)) {
@@ -281,6 +367,23 @@ export async function GET(request: Request) {
                 }
             }
             if (overlapCount >= maxConcurrent) isAvailable = false;
+        }
+
+        // B2. Check Department Capacity
+        if (isAvailable && clinicId && deptId) {
+            for (let checkpoint = currentMin; checkpoint < currentMin + requestedDuration; checkpoint += 15) {
+                const capacity = deptCapacityMap.get(checkpoint) || 0;
+                let overlapCount = 0;
+                for (const range of deptOccupiedRanges) {
+                    if (rangesOverlap(checkpoint, checkpoint + 15, range.start, range.end)) {
+                        overlapCount++;
+                    }
+                }
+                if (overlapCount >= capacity) {
+                    isAvailable = false;
+                    break;
+                }
+            }
         }
 
         // C. Check Resource availability (Cross-Doctor)
