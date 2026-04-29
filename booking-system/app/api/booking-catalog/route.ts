@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { ServicesStore } from '@/lib/services-store';
+import { ServicesStore, CategoryOrderStore } from '@/lib/services-store';
 import { BOOKING_CATEGORIES } from '@/lib/data';
 import { Scheduler } from '@/lib/scheduler';
 
@@ -59,6 +59,7 @@ export async function GET() {
                             peakDays: svc.peakDays,
                             peakSlots: svc.peakSlots,
                             allowedDoctorIds: svc.allowedDoctorIds,
+                            order: svc.order,
                         },
                         availability: [],
                     });
@@ -94,16 +95,19 @@ export async function GET() {
         }
     }
 
-    // Build flattened services array
+    // Build flattened services array and sort by order
     const services = Array.from(serviceMap.values()).map(entry => ({
         ...entry.service,
         availability: entry.availability,
-    }));
+    })).sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    // Build category list (ordered by BOOKING_CATEGORIES, then any extras)
+    // Build category list (ordered by CategoryOrderStore, fallback to BOOKING_CATEGORIES)
+    const storedCategoryOrder = await CategoryOrderStore.get();
+    const orderList = storedCategoryOrder.length > 0 ? storedCategoryOrder : BOOKING_CATEGORIES;
+
     const foundCategories = new Set(services.map(s => s.category));
     const orderedCategories: string[] = [];
-    for (const cat of BOOKING_CATEGORIES) {
+    for (const cat of orderList) {
         if (foundCategories.has(cat)) {
             orderedCategories.push(cat);
             foundCategories.delete(cat);
