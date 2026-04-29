@@ -159,6 +159,10 @@ export default function AdminSidebar() {
                         <ClipboardList className="w-3.5 h-3.5 shrink-0" />
                         Contracts
                     </Link>
+                    <Link href="/admin/resources" className={subLinkClass('/admin/resources')}>
+                        <Wrench className="w-3.5 h-3.5 shrink-0" />
+                        Rooms & Resources
+                    </Link>
                 </>
             )}
 
