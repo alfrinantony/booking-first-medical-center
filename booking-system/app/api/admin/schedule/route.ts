@@ -333,6 +333,9 @@ export async function GET(request: Request) {
     let requestedEquipmentCapacity = 0;
     if (requestedService?.requiredEquipmentBrands && requestedService.requiredEquipmentBrands.length > 0) {
         for (const eq of allEquipments) {
+            // Only count equipment available in the current clinic branch
+            if (clinicId && eq.branchId !== clinicId) continue;
+            
             const brandOrName = eq.brand || eq.name;
             if (requestedService.requiredEquipmentBrands.includes(brandOrName)) {
                 requestedEquipmentCapacity += eq.quantity || 1;

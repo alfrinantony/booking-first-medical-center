@@ -419,7 +419,9 @@ export default function ServiceEditorModal({
                             <div className="mb-4">
                                 <label className="block text-sm font-medium mb-2">Required Medical Equipments (Brand/Model)</label>
                                 <div className="border rounded-lg p-3 max-h-36 overflow-y-auto space-y-1.5">
-                                    {Array.from(new Set((equipments || []).map((eq: any) => eq.brand || eq.name).filter(Boolean))).map(brand => (
+                                    {Array.from(new Set((equipments || []).map((eq: any) => eq.brand || eq.name).filter(Boolean)))
+                                        .sort((a, b) => String(a).localeCompare(String(b)))
+                                        .map(brand => (
                                         <label key={String(brand)} className="flex items-center gap-2 cursor-pointer text-sm">
                                             <input type="checkbox" checked={(formState.requiredEquipmentBrands || []).includes(String(brand))} onChange={e => {
                                                 const c = formState.requiredEquipmentBrands || [];
