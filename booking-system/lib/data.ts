@@ -47,6 +47,7 @@ export interface Service {
     isVisible?: boolean; // Whether the service is visible on the booking portal (default: true)
     maxDiscountPercentage?: number; // Maximum allowed discount percentage
     alternativeServiceId?: string; // Alternative service to recommend when capacity is reached
+    order?: number; // Sorting order within category
 }
 
 export interface ProductConsumption {

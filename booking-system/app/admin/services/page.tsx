@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill, ImagePlus, FolderOpen, X, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Search, Clock, Edit2, UserCheck, Users, Users2, Calendar, Clock4, Archive, Pill, ImagePlus, FolderOpen, X, Eye, EyeOff, ArrowUp, ArrowDown } from 'lucide-react';
 import { Clinic, Department, Service, ServiceAddOn, ServicePackageTier, Doctor, Resource, Medicine, RegisteredProduct, ProductConsumption } from '@/lib/data';
 import ServiceEditorModal from '@/components/ServiceEditorModal';
 import { useFormDraft } from '@/hooks/useFormDraft';
@@ -145,9 +145,20 @@ export default function ServicesPage() {
         }
     });
 
+    const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+
+    const fetchCategoryOrder = async () => {
+        try {
+            const res = await fetch('/api/admin/category-order');
+            const data = await res.json();
+            if (Array.isArray(data)) setCategoryOrder(data);
+        } catch { }
+    };
+
     useEffect(() => {
         fetchServices();
         fetchCategoryImages();
+        fetchCategoryOrder();
     }, []);
 
     // Category images state
@@ -529,6 +540,83 @@ export default function ServicesPage() {
         }
     };
 
+    const handleMoveCategory = async (cat: string, direction: 'up' | 'down') => {
+        const currentOrder = [...categoryOrder];
+        // If not in order list, add all missing categories first
+        const allCats = new Set<string>();
+        currentClinic?.departments.forEach(dept => {
+            dept.services.forEach(svc => {
+                if (svc.category) allCats.add(svc.category);
+            });
+        });
+        const missing = Array.from(allCats).filter(c => !currentOrder.includes(c));
+        const fullOrder = [...currentOrder, ...missing];
+
+        const index = fullOrder.indexOf(cat);
+        if (index === -1) return;
+        if (direction === 'up' && index > 0) {
+            [fullOrder[index - 1], fullOrder[index]] = [fullOrder[index], fullOrder[index - 1]];
+        } else if (direction === 'down' && index < fullOrder.length - 1) {
+            [fullOrder[index + 1], fullOrder[index]] = [fullOrder[index], fullOrder[index + 1]];
+        } else {
+            return;
+        }
+
+        setCategoryOrder(fullOrder);
+        try {
+            await fetch('/api/admin/categories/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: fullOrder })
+            });
+        } catch (error) {
+            console.error('Failed to reorder categories', error);
+        }
+    };
+
+    const handleMoveService = async (serviceId: string, currentCategory: string, direction: 'up' | 'down') => {
+        // Find all services in this category across all departments
+        const svcsInCategory = allServices.filter(s => (s.category || 'General') === currentCategory)
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        const index = svcsInCategory.findIndex(s => s.id === serviceId);
+        if (index === -1) return;
+        
+        if (direction === 'up' && index > 0) {
+            [svcsInCategory[index - 1], svcsInCategory[index]] = [svcsInCategory[index], svcsInCategory[index - 1]];
+        } else if (direction === 'down' && index < svcsInCategory.length - 1) {
+            [svcsInCategory[index + 1], svcsInCategory[index]] = [svcsInCategory[index], svcsInCategory[index + 1]];
+        } else {
+            return;
+        }
+
+        // Generate new orders
+        const updates = svcsInCategory.map((s, i) => ({ serviceId: s.id, order: i }));
+        
+        // Optimistic update
+        setClinics(prevClinics => prevClinics.map(clinic => ({
+            ...clinic,
+            departments: clinic.departments.map(dept => ({
+                ...dept,
+                services: dept.services.map(s => {
+                    const update = updates.find(u => u.serviceId === s.id);
+                    return update ? { ...s, order: update.order } : s;
+                })
+            }))
+        })));
+
+        try {
+            await fetch('/api/admin/services/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ updates })
+            });
+        } catch (error) {
+            console.error('Failed to reorder services', error);
+            fetchServices(); // Revert on failure
+        }
+    };
+
     const openEditModal = (departmentId: string, service: Service & { _deptIds?: string[] }) => {
         // Collect exact departments from the aggregated UI token, or fallback to the single ID if raw
         const deptIdsWithService = service._deptIds && service._deptIds.length > 0 
@@ -842,30 +930,45 @@ export default function ServicesPage() {
                         if (!grouped[cat]) grouped[cat] = [];
                         grouped[cat].push(s);
                     });
-                    const categories = Object.keys(grouped).sort((a, b) => a === 'General' ? 1 : b === 'General' ? -1 : a.localeCompare(b));
+                    const categories = Object.keys(grouped).sort((a, b) => {
+                        if (a === 'General') return 1;
+                        if (b === 'General') return -1;
+                        const indexA = categoryOrder.indexOf(a);
+                        const indexB = categoryOrder.indexOf(b);
+                        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                        if (indexA !== -1) return -1;
+                        if (indexB !== -1) return 1;
+                        return a.localeCompare(b);
+                    });
 
                     return categories.map(cat => (
                         <div key={cat} className="mb-4">
                             {/* Category Header */}
-                            <button
-                                onClick={() => setExpandedCategories(prev => ({...prev, [cat]: prev[cat] === false}))}
-                                className="w-full flex items-center justify-between px-2 py-3 mb-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <FolderOpen className="w-5 h-5 text-indigo-500" />
-                                    <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 tracking-tight">{cat}</h2>
-                                    <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold ml-2">
-                                        {grouped[cat].length}
+                            <div className="w-full flex items-center justify-between mb-2 gap-2">
+                                <button
+                                    onClick={() => setExpandedCategories(prev => ({...prev, [cat]: prev[cat] === false}))}
+                                    className="flex-1 flex items-center justify-between px-2 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <FolderOpen className="w-5 h-5 text-indigo-500" />
+                                        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 tracking-tight">{cat}</h2>
+                                        <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold ml-2">
+                                            {grouped[cat].length}
+                                        </span>
+                                    </div>
+                                    <span className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-transform ${expandedCategories[cat] === false ? 'rotate-180' : ''}`}>
+                                        ▼
                                     </span>
+                                </button>
+                                <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-800 p-1 rounded-lg">
+                                    <button onClick={() => handleMoveCategory(cat, 'up')} className="p-1.5 rounded text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40" title="Move Category Up"><ArrowUp className="w-4 h-4" /></button>
+                                    <button onClick={() => handleMoveCategory(cat, 'down')} className="p-1.5 rounded text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40" title="Move Category Down"><ArrowDown className="w-4 h-4" /></button>
                                 </div>
-                                <span className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-transform ${expandedCategories[cat] === false ? 'rotate-180' : ''}`}>
-                                    ▼
-                                </span>
-                            </button>
+                            </div>
                             
                             {expandedCategories[cat] !== false && (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
-                                    {grouped[cat].map(service => {
+                                    {grouped[cat].sort((a, b) => (a.order || 0) - (b.order || 0)).map(service => {
                                         const isHidden = service.isVisible === false;
                                         return (
                                         <div key={service.id} className={`bg-white dark:bg-gray-800 rounded-xl p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700/60 hover:-translate-y-1 hover:shadow-lg hover:border-indigo-100 dark:hover:border-indigo-900/50 transition-all flex flex-col ${isHidden ? 'opacity-60 bg-gray-50/50 dark:bg-gray-800/50' : ''}`}>
@@ -901,6 +1004,8 @@ export default function ServicesPage() {
                                                 
                                                 {/* Actions */}
                                                 <div className="flex items-center gap-1 shrink-0 bg-gray-50 dark:bg-gray-900/50 p-1 rounded-lg border border-gray-100 dark:border-gray-800">
+                                                    <button onClick={() => handleMoveService(service.id, cat, 'up')} className="p-1.5 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors" title="Move Up"><ArrowUp className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleMoveService(service.id, cat, 'down')} className="p-1.5 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors" title="Move Down"><ArrowDown className="w-4 h-4" /></button>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleToggleVisibility(service._deptIds, service.id, service.isVisible !== false)}

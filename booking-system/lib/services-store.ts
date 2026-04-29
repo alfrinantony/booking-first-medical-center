@@ -568,6 +568,25 @@ export const CategoryImageStore = {
     }
 };
 
+// ── Category Order Store ──────────────────────────────────────
+let categoryOrderStore: string[] = [];
+async function ensureCategoryOrderLoaded() {
+    categoryOrderStore = await loadFromBlob<string[]>('category-order', []);
+}
+
+export const CategoryOrderStore = {
+    get: async (): Promise<string[]> => {
+        await ensureCategoryOrderLoaded();
+        return [...categoryOrderStore];
+    },
+
+    set: async (order: string[]): Promise<void> => {
+        await ensureCategoryOrderLoaded();
+        categoryOrderStore = order;
+        await saveToBlob('category-order', categoryOrderStore);
+    }
+};
+
 // ── Registered Products ───────────────────────────────────────
 let registeredProductStore: RegisteredProduct[] = JSON.parse(JSON.stringify(initialRegisteredProducts));
 async function ensureRegisteredProductsLoaded() {
