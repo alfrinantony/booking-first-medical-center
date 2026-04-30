@@ -169,7 +169,7 @@ export default function AdminPromosPage() {
                             <div>
                                 <label className="block text-sm font-medium mb-1">Applicable Departments (Optional)</label>
                                 <div className="max-h-32 overflow-y-auto border rounded-md p-2 dark:border-gray-600">
-                                    {['Cardiology', 'Dermatology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Gynecology', 'Ophthalmology', 'General Medicine'].map((dept) => (
+                                    {['Aesthetic Dermatology', 'Nursing-Hair Removal', 'Nursing-Beauty Therapy', 'Physiotherapy'].map((dept) => (
                                         <label key={dept} className="flex items-center gap-2 py-1 cursor-pointer">
                                             <input
                                                 type="checkbox"

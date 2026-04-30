@@ -109,7 +109,7 @@ const MOCK_CAMPAIGNS: CampaignData[] = [
         metrics: { impressions: 42800, clicks: 1850, ctr: 4.32, cost: 2780, cpc: 1.50, conversions: 124, cpa: 22.42, roas: 15.61 },
     },
     {
-        id: 'gc-2', name: 'Dental Implants Promo', platform: 'google_ads', status: 'active', budget: 2000,
+        id: 'gc-2', name: 'Full Body Laser Hair Removal', platform: 'google_ads', status: 'active', budget: 2000,
         metrics: { impressions: 28400, clicks: 980, ctr: 3.45, cost: 1640, cpc: 1.67, conversions: 68, cpa: 24.12, roas: 14.51 },
     },
     {
