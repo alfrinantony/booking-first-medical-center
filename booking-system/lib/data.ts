@@ -40,6 +40,7 @@ export interface Service {
     medicineIds?: string[]; // Specific medicine IDs linked to this service
     medicineSelectionMode?: 'choose' | 'either' | 'all'; // choose=pick up to N, either=pick exactly 1, all=auto-include all
     consumableIds?: string[]; // IDs of consumables/medicines used per procedure
+    consumableQuantities?: Record<string, number>; // Quantities for each consumable
     addOns?: ServiceAddOn[]; // Optional add-on procedures with area and price
     peakDays?: number[];    // Procedure-specific peak days (0=Sun–6=Sat), overrides clinic-wide
     peakSlots?: string[];   // Procedure-specific peak time slots, overrides clinic-wide

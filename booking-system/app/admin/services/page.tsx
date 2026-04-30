@@ -37,6 +37,7 @@ interface ServiceFormState {
     medicineIds: string[];
     medicineSelectionMode: 'choose' | 'either' | 'all';
     consumableIds: string[];
+    consumableQuantities: Record<string, number>;
     addOns: ServiceAddOn[];
     image: string;
     productConsumptions: { registeredProductId: string; quantityPerService: number }[];
@@ -88,6 +89,7 @@ export default function ServicesPage() {
         medicineIds: [],
         medicineSelectionMode: 'choose',
         consumableIds: [],
+        consumableQuantities: {},
         addOns: [],
         image: '',
         productConsumptions: [],
@@ -308,6 +310,7 @@ export default function ServicesPage() {
                     medicineIds: newService.medicineIds,
                     medicineSelectionMode: newService.medicineIds.length > 0 ? newService.medicineSelectionMode : undefined,
                     consumableIds: newService.consumableIds,
+                    consumableQuantities: newService.consumableQuantities,
                     productConsumptions: newService.productConsumptions.length > 0 ? newService.productConsumptions : undefined,
                     addOns: newService.addOns,
                     image: newService.image || undefined
@@ -379,6 +382,7 @@ export default function ServicesPage() {
                     medicineIds: editingService.medicineIds || [],
                     medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : null,
                     consumableIds: editingService.consumableIds || [],
+                    consumableQuantities: editingService.consumableQuantities || {},
                     productConsumptions: editingService.productConsumptions || [],
                     addOns: editingService.addOns || [],
                     image: editingService.image || null
@@ -632,6 +636,7 @@ export default function ServicesPage() {
             followUpDurationInput: service.followUpDuration ? String(service.followUpDuration) : '',
             minimumIntervalDaysInput: service.minimumIntervalDays ? String(service.minimumIntervalDays) : '',
             maxDiscountPercentage: service.maxDiscountPercentage ?? '',
+            consumableQuantities: service.consumableQuantities || {},
             originalName: service.name // Track original name for cross-branch matching during rename
         } as any);
         // Preload selectedBranchIds with branches that already have this service (by name match)

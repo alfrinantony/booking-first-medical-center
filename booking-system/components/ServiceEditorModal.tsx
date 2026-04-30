@@ -464,15 +464,37 @@ export default function ServiceEditorModal({
                             <div>
                                 <label className="block text-sm font-medium mb-2">Linked Consumables (auto-deducted)</label>
                                 <div className="border rounded-lg p-3 max-h-36 overflow-y-auto space-y-1.5">
-                                    {medicines.filter(m => m.category === 'consumable').map(med => (
-                                        <label key={med.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                                            <input type="checkbox" checked={(formState.consumableIds || []).includes(med.id)} onChange={e => {
-                                                const c = formState.consumableIds || [];
-                                                update({ consumableIds: e.target.checked ? [...c, med.id] : c.filter((id: string) => id !== med.id) });
-                                            }} className="rounded text-orange-600" />
-                                            {med.name}
-                                        </label>
-                                    ))}
+                                    {medicines.filter(m => m.category === 'consumable').map(med => {
+                                        const isChecked = (formState.consumableIds || []).includes(med.id);
+                                        return (
+                                        <div key={med.id} className="flex items-center justify-between gap-2 text-sm p-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded">
+                                            <label className="flex items-center gap-2 cursor-pointer flex-1">
+                                                <input type="checkbox" checked={isChecked} onChange={e => {
+                                                    const c = formState.consumableIds || [];
+                                                    const newQ = { ...(formState.consumableQuantities || {}) };
+                                                    if (e.target.checked) {
+                                                        newQ[med.id] = newQ[med.id] || 1;
+                                                        update({ consumableIds: [...c, med.id], consumableQuantities: newQ });
+                                                    } else {
+                                                        delete newQ[med.id];
+                                                        update({ consumableIds: c.filter((id: string) => id !== med.id), consumableQuantities: newQ });
+                                                    }
+                                                }} className="rounded text-orange-600" />
+                                                {med.name}
+                                            </label>
+                                            {isChecked && (
+                                                <input type="number" min="0.1" step="0.1" className="w-20 p-1 text-xs border rounded dark:bg-gray-700 dark:border-gray-600"
+                                                    value={(formState.consumableQuantities || {})[med.id] || ''}
+                                                    onChange={e => {
+                                                        const newQ = { ...(formState.consumableQuantities || {}) };
+                                                        newQ[med.id] = Number(e.target.value);
+                                                        update({ consumableQuantities: newQ });
+                                                    }}
+                                                    placeholder="Qty"
+                                                />
+                                            )}
+                                        </div>
+                                    )})}
                                     {medicines.filter(m => m.category === 'consumable').length === 0 && <p className="text-xs text-gray-500">No consumables found.</p>}
                                 </div>
                             </div>
