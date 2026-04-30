@@ -649,9 +649,34 @@ export async function GET(request: NextRequest) {
                 const bookingStatus = toBookingStatus(String(booking.status || ''));
 
                 // Resolve clinic/dept/doctor — use placeholder for unmatched
-                const clinicId  = matchResult?.clinicId  ?? 'simplybook-import';
-                const deptId    = matchResult?.deptId    ?? 'simplybook-import';
-                const doctorId  = matchResult?.doctorId  ?? 'sb-unmatched';
+                let clinicId  = matchResult?.clinicId  ?? 'simplybook-import';
+                let deptId    = matchResult?.deptId    ?? 'simplybook-import';
+                let doctorId  = matchResult?.doctorId  ?? 'sb-unmatched';
+
+                // Handle 'Any Available Doctor' assignments
+                if (!matchResult && rawProviderName && rawProviderName.toLowerCase().includes('any available')) {
+                    doctorId = 'any-doctor';
+                    
+                    // Try to match the respective clinic branch by service name
+                    let foundClinic = false;
+                    for (const c of clinics) {
+                        for (const d of c.departments || []) {
+                            if ((d.services || []).some(s => s.name.toLowerCase() === sbRecord.serviceName.toLowerCase())) {
+                                clinicId = c.id;
+                                deptId = d.id;
+                                foundClinic = true;
+                                break;
+                            }
+                        }
+                        if (foundClinic) break;
+                    }
+                    
+                    // Fallback to first available clinic if service match fails, so it still appears on calendar
+                    if (!foundClinic && clinics.length > 0) {
+                        clinicId = clinics[0].id;
+                        deptId = clinics[0].departments?.[0]?.id ?? 'simplybook-import';
+                    }
+                }
 
                 if (matchResult) matchedCount++; else unmatchedCount++;
 
