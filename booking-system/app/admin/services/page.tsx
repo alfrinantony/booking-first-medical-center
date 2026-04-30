@@ -374,6 +374,7 @@ export default function ServicesPage() {
                     } : null,
                     requiredResourceIds: editingService.requiredResourceIds,
                     requiredEquipmentIds: editingService.requiredEquipmentIds || [],
+                    requiredEquipmentBrands: editingService.requiredEquipmentBrands || [],
                     maxMedicines: editingService.maxMedicines || null,
                     medicineIds: editingService.medicineIds || [],
                     medicineSelectionMode: (editingService.medicineIds || []).length > 0 ? editingService.medicineSelectionMode : null,
