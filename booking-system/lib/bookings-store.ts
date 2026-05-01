@@ -124,17 +124,23 @@ export const BookingsStore = {
     addSimplyBookBatch: async (
         incoming: Array<Omit<Booking, 'id' | 'createdAt'> & { sbId?: string }>
     ): Promise<{ added: number; skipped: number }> => {
-        let added = 0, skipped = 0;
-        for (const booking of incoming) {
-            const { sbId } = booking as any;
-            if (sbId) {
-                const existing = await prisma.booking.findFirst({ where: { sbId } });
-                if (existing) { skipped++; continue; }
-            }
+        const incomingSbIds = incoming.map(b => b.sbId).filter(Boolean) as string[];
+        const existing = await prisma.booking.findMany({
+            where: { sbId: { in: incomingSbIds } },
+            select: { sbId: true }
+        });
+        const existingSet = new Set(existing.map(e => e.sbId));
+        
+        const toCreate = incoming.filter(b => !b.sbId || !existingSet.has(b.sbId));
+        const skipped = incoming.length - toCreate.length;
+        let added = 0;
+        
+        if (toCreate.length > 0) {
             const now = new Date().toISOString();
-            await prisma.booking.create({
-                data: {
-                    ...booking,
+            const dataToInsert = toCreate.map(booking => {
+                const { sbId, ...rest } = booking as any;
+                return {
+                    ...rest,
                     id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
                     createdAt: now,
                     source: 'simplybook',
@@ -144,11 +150,17 @@ export const BookingsStore = {
                         oldStatus: '',
                         newStatus: booking.status || 'confirmed',
                         changedBy: 'SimplyBook Migration',
-                    }] as any
-                } as any
+                    }]
+                };
             });
-            added++;
+            
+            const result = await prisma.booking.createMany({
+                data: dataToInsert,
+                skipDuplicates: true
+            });
+            added = result.count;
         }
+        
         return { added, skipped };
     },
 
