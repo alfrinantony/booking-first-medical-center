@@ -223,28 +223,22 @@ export const ClientsStore = {
     upsertStandalone: async (
         client: Partial<Client> & { id: string; name: string }
     ): Promise<'imported' | 'updated' | 'skipped'> => {
-        await ensureStandaloneLoaded();
-        await ensureMetadataLoaded();
+        const existing = await prisma.client.findFirst({
+            where: { OR: [{ id: client.id }, { phone: client.phone }, { email: client.email }] }
+        });
 
-        // If matched by id (same SB client), update in place
-        if (standaloneClients[client.id]) {
-            standaloneClients[client.id] = { ...standaloneClients[client.id], ...client };
-            await saveToBlob(STANDALONE_BLOB, standaloneClients);
-            invalidateStandaloneCache();
-            return 'updated';
+        if (existing) {
+            if (existing.id === client.id) {
+                await prisma.client.update({
+                    where: { id: client.id },
+                    data: client as any
+                });
+                return 'updated';
+            }
+            return 'skipped';
         }
 
-        // Check if already exists as a booking-derived client (by phone/email) — skip to avoid duplicate
-        const bookings = await BookingsStore.getAll();
-        const alreadyHasBooking = bookings.some(b =>
-            (b.whatsappNumber && b.whatsappNumber === client.phone) ||
-            (b.email && b.email === client.email)
-        );
-        if (alreadyHasBooking) return 'skipped';
-
-        standaloneClients[client.id] = client;
-        await saveToBlob(STANDALONE_BLOB, standaloneClients);
-        invalidateStandaloneCache();
+        await prisma.client.create({ data: client as any });
         return 'imported';
     },
 };
