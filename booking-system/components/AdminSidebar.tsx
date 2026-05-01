@@ -260,10 +260,28 @@ export default function AdminSidebar() {
             )}
 
             {hasRead('reports') && (
-                <Link href="/admin/reports" className={mainLinkClass('/admin/reports')}>
-                    <BarChart2 className="w-4 h-4 shrink-0" />
-                    Clinical Reports
-                </Link>
+                <>
+                    <Link href="/admin/reports" className={mainLinkClass('/admin/reports', true)}>
+                        <BarChart2 className="w-4 h-4 shrink-0" />
+                        Clinical Reports
+                    </Link>
+                    <Link href="/admin/reports/bookings" className={subLinkClass('/admin/reports/bookings')}>
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        Booking Report
+                    </Link>
+                    <Link href="/admin/reports/clients" className={subLinkClass('/admin/reports/clients')}>
+                        <Users className="w-3.5 h-3.5 shrink-0" />
+                        Client Report
+                    </Link>
+                    <Link href="/admin/reports/packages" className={subLinkClass('/admin/reports/packages')}>
+                        <PackageIcon className="w-3.5 h-3.5 shrink-0" />
+                        Package Report
+                    </Link>
+                    <Link href="/admin/reports/transactions" className={subLinkClass('/admin/reports/transactions')}>
+                        <Wallet className="w-3.5 h-3.5 shrink-0" />
+                        Transactions Report
+                    </Link>
+                </>
             )}
 
             {hasRead('hr') && (
