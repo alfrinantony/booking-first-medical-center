@@ -193,6 +193,26 @@ export const PackagesStore = {
         return [...customerPackages];
     },
 
+    importSimplyBookPackages: async (incoming: CustomerPackage[]): Promise<{ added: number; skipped: number }> => {
+        await ensurePackagesLoaded();
+        let added = 0;
+        let skipped = 0;
+        
+        for (const pkg of incoming) {
+            if (customerPackages.find(p => p.id === pkg.id)) {
+                skipped++;
+            } else {
+                customerPackages.push(pkg);
+                added++;
+            }
+        }
+        
+        if (added > 0) {
+            await savePackages();
+        }
+        return { added, skipped };
+    },
+
     // ── Client/Usage Actions ──
     purchasePackage: async (packageId: string, customerName: string, customerPhone: string, paymentMethod: 'pay_at_clinic' | 'credit_card' = 'credit_card'): Promise<CustomerPackage | null> => {
         await ensurePackagesLoaded();

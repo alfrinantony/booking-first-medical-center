@@ -230,11 +230,6 @@ export const ClientsStore = {
         return true;
     },
 
-    /**
-     * Import a SimplyBook (or other external) client with no bookings.
-     * Stores the client in the standalone-clients blob so getAll() surfaces them.
-     * Returns 'imported' or 'updated' or 'skipped'.
-     */
     importStandalone: async (client: Partial<Client> & { id: string; name: string }): Promise<'imported' | 'skipped'> => {
         await ensureStandaloneLoaded();
         await ensureMetadataLoaded();
@@ -258,6 +253,46 @@ export const ClientsStore = {
         await saveToBlob(STANDALONE_BLOB, standaloneClients);
         invalidateStandaloneCache();
         return 'imported';
+    },
+
+    importStandaloneBatch: async (clients: Array<Partial<Client> & { id: string; name: string }>): Promise<{ added: number; skipped: number }> => {
+        await ensureStandaloneLoaded();
+        await ensureMetadataLoaded();
+        const bookings = await BookingsStore.getAll();
+        
+        let added = 0;
+        let skipped = 0;
+
+        for (const client of clients) {
+            const alreadyHasBooking = bookings.some(b =>
+                (b.whatsappNumber && b.whatsappNumber === client.phone) ||
+                (b.email && b.email === client.email)
+            );
+            if (alreadyHasBooking) {
+                skipped++;
+                continue;
+            }
+
+            const alreadyStandalone = Object.values(standaloneClients).some(sc =>
+                (client.phone && sc.phone === client.phone) ||
+                (client.email && sc.email === client.email)
+            );
+            
+            if (alreadyStandalone || standaloneClients[client.id]) {
+                skipped++;
+                continue;
+            }
+
+            standaloneClients[client.id] = client;
+            added++;
+        }
+
+        if (added > 0) {
+            await saveToBlob(STANDALONE_BLOB, standaloneClients);
+            invalidateStandaloneCache();
+        }
+        
+        return { added, skipped };
     },
 
     /**

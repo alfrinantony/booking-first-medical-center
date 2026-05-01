@@ -1,0 +1,1 @@
+require('dotenv').config({ path: '.env.local' }); const { getAdminClientList, getAdminBookings } = require('./.next/server/app/api/admin/simplybook/import-clients/route'); console.log('This will not work easily due to webpack.');
