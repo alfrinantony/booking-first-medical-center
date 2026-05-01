@@ -2,6 +2,9 @@ import { Booking } from './data';
 import { BookingsStore } from './bookings-store';
 import { LogsStore } from './logs-store';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export interface Client {
     id: string;
@@ -65,97 +68,56 @@ export interface Client {
     visitDates?: string[];        // ISO dates of all known visits from SimplyBook
 }
 
-// ── Standalone (booking-less) clients — stored in their own blob ──
-const STANDALONE_BLOB = 'standalone-clients';
-let standaloneClients: Record<string, Partial<Client>> = {};
-let standaloneLoaded = false;
-
-async function ensureStandaloneLoaded() {
-    if (!standaloneLoaded) {
-        standaloneClients = await loadFromBlob<Record<string, Partial<Client>>>(STANDALONE_BLOB, {});
-        standaloneLoaded = true;
-    }
-}
-
-function invalidateStandaloneCache() {
-    standaloneLoaded = false;
-}
-
-
-// Persistent client metadata (fields not derived from bookings)
-let clientMetadata: Record<string, Partial<Client>> = {};
-async function ensureMetadataLoaded() {
-    
-        clientMetadata = await loadFromBlob<Record<string, Partial<Client>>>('client-metadata', {});
-        
-}
-
 export const ClientsStore = {
     getAll: async (): Promise<Client[]> => {
-        const bookings = await BookingsStore.getAll();
-        await ensureMetadataLoaded();
-        await ensureStandaloneLoaded();
         const clientsMap = new Map<string, Client>();
 
-        bookings.forEach(booking => {
-            // Identifier priority: Phone -> Email -> Name
-            const id = booking.whatsappNumber || booking.email || booking.patientName;
+        // 1. Get standalone clients directly from Postgres
+        const standalone = await prisma.client.findMany();
+        for (const c of standalone) {
+            clientsMap.set(c.id, {
+                ...c,
+                bookingIds: [],
+                totalBookings: c.totalBookings || 0,
+                lastBookingDate: c.lastBookingDate || '',
+                visitDates: (c.visitDates as string[]) || [],
+            } as any);
+        }
 
+        // 2. Fetch derived clients via GroupBy to avoid pulling 200MB!
+        const groupedBookings = await prisma.booking.groupBy({
+            by: ['patientName', 'whatsappNumber', 'email'],
+            _count: { id: true },
+            _max: { date: true }
+        });
+
+        for (const g of groupedBookings) {
+            const id = g.whatsappNumber || g.email || g.patientName;
+            if (!id) continue;
+            
             if (!clientsMap.has(id)) {
                 clientsMap.set(id, {
                     id,
-                    name: booking.patientName,
-                    phone: booking.whatsappNumber,
-                    email: booking.email,
+                    name: g.patientName,
+                    phone: g.whatsappNumber || undefined,
+                    email: g.email || undefined,
                     bookingIds: [],
-                    totalBookings: 0,
-                    lastBookingDate: ''
-                });
-            }
-
-            const client = clientsMap.get(id)!;
-            client.bookingIds.push(booking.id);
-            client.totalBookings++;
-
-            // Update last booking date
-            if (!client.lastBookingDate || booking.date > client.lastBookingDate) {
-                client.lastBookingDate = booking.date;
-            }
-
-            // Enrich missing data if available in newer booking
-            if (!client.email && booking.email) client.email = booking.email;
-            if (!client.phone && booking.whatsappNumber) client.phone = booking.whatsappNumber;
-        });
-
-        // Merge persistent metadata onto booking-derived clients
-        const clients = Array.from(clientsMap.values());
-        for (const client of clients) {
-            const meta = clientMetadata[client.id];
-            if (meta) {
-                Object.assign(client, meta);
+                    totalBookings: g._count.id,
+                    lastBookingDate: g._max.date || ''
+                } as any);
+            } else {
+                const existing = clientsMap.get(id)!;
+                // Merge counts
+                if (!existing.source) { // if not explicitly a standalone client logic
+                    existing.totalBookings = Math.max(existing.totalBookings, g._count.id);
+                    if (g._max.date && (!existing.lastBookingDate || g._max.date > existing.lastBookingDate)) {
+                        existing.lastBookingDate = g._max.date;
+                    }
+                }
             }
         }
 
-        // ── Merge standalone (booking-less) clients, e.g. SimplyBook imports ──
-        for (const [standaloneId, standaloneData] of Object.entries(standaloneClients)) {
-            if (!clientsMap.has(standaloneId)) {
-                // Build a full Client from standalone data
-                const sc: Client = {
-                    id: standaloneId,
-                    name: standaloneData.name || standaloneId,
-                    bookingIds: [],
-                    totalBookings: 0,
-                    lastBookingDate: '',
-                    ...standaloneData,
-                };
-                // Also overlay any clientMetadata
-                const meta = clientMetadata[standaloneId];
-                if (meta) Object.assign(sc, meta);
-                clients.push(sc);
-            }
-        }
-
-        return clients;
+        return Array.from(clientsMap.values());
     },
 
     merge: async (targetClientId: string, sourceClientId: string) => {
@@ -193,29 +155,21 @@ export const ClientsStore = {
     },
 
     update: async (clientId: string, updates: Partial<Client>) => {
-        const bookings = await BookingsStore.getAll();
-        const clientBookings = bookings.filter(b => {
-            const id = b.whatsappNumber || b.email || b.patientName;
-            return id === clientId;
-        });
-
-        // For standalone (booking-less) clients, only persist metadata
-        const isStandalone = clientBookings.length === 0;
-
-        if (!isStandalone) {
-            for (const booking of clientBookings) {
-                await BookingsStore.update(booking.id, {
-                    patientName: updates.name || booking.patientName,
-                    whatsappNumber: updates.phone || booking.whatsappNumber,
-                    email: updates.email || booking.email
-                });
-            }
+        const existing = await prisma.client.findUnique({ where: { id: clientId } });
+        if (existing) {
+            await prisma.client.update({
+                where: { id: clientId },
+                data: updates as any
+            });
+        } else {
+            await prisma.client.create({
+                data: {
+                    id: clientId,
+                    name: updates.name || clientId,
+                    ...updates
+                } as any
+            });
         }
-
-        // Persist extra metadata (fields beyond name/phone/email)
-        await ensureMetadataLoaded();
-        clientMetadata[clientId] = { ...clientMetadata[clientId], ...updates };
-        await saveToBlob('client-metadata', clientMetadata);
 
         const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};
         await LogsStore.add({
@@ -231,67 +185,32 @@ export const ClientsStore = {
     },
 
     importStandalone: async (client: Partial<Client> & { id: string; name: string }): Promise<'imported' | 'skipped'> => {
-        await ensureStandaloneLoaded();
-        await ensureMetadataLoaded();
+        const existing = await prisma.client.findFirst({
+            where: { OR: [{ id: client.id }, { phone: client.phone }, { email: client.email }] }
+        });
+        if (existing) return 'skipped';
 
-        // Check if already exists as a booking-derived client
-        const bookings = await BookingsStore.getAll();
-        const alreadyHasBooking = bookings.some(b =>
-            (b.whatsappNumber && b.whatsappNumber === client.phone) ||
-            (b.email && b.email === client.email)
-        );
-        if (alreadyHasBooking) return 'skipped';
-
-        // Check if already standalone by phone or email
-        const alreadyStandalone = Object.values(standaloneClients).some(sc =>
-            (client.phone && sc.phone === client.phone) ||
-            (client.email && sc.email === client.email)
-        );
-        if (alreadyStandalone) return 'skipped';
-
-        standaloneClients[client.id] = client;
-        await saveToBlob(STANDALONE_BLOB, standaloneClients);
-        invalidateStandaloneCache();
+        await prisma.client.create({ data: client as any });
         return 'imported';
     },
 
     importStandaloneBatch: async (clients: Array<Partial<Client> & { id: string; name: string }>): Promise<{ added: number; skipped: number }> => {
-        await ensureStandaloneLoaded();
-        await ensureMetadataLoaded();
-        const bookings = await BookingsStore.getAll();
-        
         let added = 0;
         let skipped = 0;
 
         for (const client of clients) {
-            const alreadyHasBooking = bookings.some(b =>
-                (b.whatsappNumber && b.whatsappNumber === client.phone) ||
-                (b.email && b.email === client.email)
-            );
-            if (alreadyHasBooking) {
+            const existing = await prisma.client.findFirst({
+                where: { OR: [{ id: client.id }, { phone: client.phone }, { email: client.email }] }
+            });
+            if (existing) {
                 skipped++;
                 continue;
             }
 
-            const alreadyStandalone = Object.values(standaloneClients).some(sc =>
-                (client.phone && sc.phone === client.phone) ||
-                (client.email && sc.email === client.email)
-            );
-            
-            if (alreadyStandalone || standaloneClients[client.id]) {
-                skipped++;
-                continue;
-            }
-
-            standaloneClients[client.id] = client;
+            await prisma.client.create({ data: client as any });
             added++;
         }
 
-        if (added > 0) {
-            await saveToBlob(STANDALONE_BLOB, standaloneClients);
-            invalidateStandaloneCache();
-        }
-        
         return { added, skipped };
     },
 

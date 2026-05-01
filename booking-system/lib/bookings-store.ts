@@ -2,60 +2,56 @@ import { Booking } from './data';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 import { LogsStore } from './logs-store';
 import { MedicineStore, ServicesStore } from './services-store';
+import { PrismaClient } from '@prisma/client';
 
-const INITIAL_BOOKINGS: Booking[] = [];
-
-let bookings: Booking[] = [...INITIAL_BOOKINGS];
-let loaded = false;
-
-async function ensureLoaded() {
-    if (!loaded) {
-        bookings = await loadFromBlob<Booking[]>('bookings', INITIAL_BOOKINGS);
-        loaded = true;
-    }
-}
+const prisma = new PrismaClient();
 
 export const BookingsStore = {
     getAll: async () => {
-        await ensureLoaded();
-        return bookings;
+        const bookings = await prisma.booking.findMany({
+            orderBy: { date: 'desc' }
+        });
+        return bookings as any as Booking[];
     },
 
     getByFilters: async (filters: { clinicId?: string; deptId?: string; doctorId?: string; date?: string; search?: string }) => {
-        await ensureLoaded();
-        return bookings.filter(b => {
-            if (filters.clinicId && b.clinicId !== filters.clinicId) return false;
-            if (filters.deptId && b.deptId !== filters.deptId) return false;
-            if (filters.doctorId && b.doctorId !== filters.doctorId) return false;
-            if (filters.date && b.date !== filters.date) return false;
+        const where: any = {};
+        if (filters.clinicId) where.clinicId = filters.clinicId;
+        if (filters.deptId) where.deptId = filters.deptId;
+        if (filters.doctorId) where.doctorId = filters.doctorId;
+        if (filters.date) where.date = filters.date;
 
-            if (filters.search) {
-                const query = filters.search.toLowerCase();
-                const matchName = b.patientName.toLowerCase().includes(query);
-                const matchPhone = b.whatsappNumber?.includes(query);
-                const matchEmail = b.email?.toLowerCase().includes(query);
-                if (!matchName && !matchPhone && !matchEmail) return false;
-            }
+        if (filters.search) {
+            const search = filters.search.toLowerCase();
+            where.OR = [
+                { patientName: { contains: search, mode: 'insensitive' } },
+                { whatsappNumber: { contains: search } },
+                { email: { contains: search, mode: 'insensitive' } }
+            ];
+        }
 
-            return true;
-        });
+        const bookings = await prisma.booking.findMany({ where, orderBy: { date: 'desc' } });
+        return bookings as any as Booking[];
     },
 
+
     add: async (booking: Omit<Booking, 'id' | 'createdAt'>) => {
-        await ensureLoaded();
-        const newBooking: Booking = {
-            ...booking,
-            id: Math.random().toString(36).substr(2, 9),
-            createdAt: new Date().toISOString(),
-            statusHistory: [{
-                timestamp: new Date().toISOString(),
-                oldStatus: '',
-                newStatus: booking.status || 'booked',
-                changedBy: (booking as any).staffName || 'System',
-            }],
-        };
-        bookings.push(newBooking);
-        await saveToBlob('bookings', bookings);
+        const id = Math.random().toString(36).substr(2, 9);
+        const newBooking = await prisma.booking.create({
+            data: {
+                ...booking,
+                duration: booking.duration || 30,
+                amount: booking.amount || 0,
+                id,
+                createdAt: new Date().toISOString(),
+                statusHistory: [{
+                    timestamp: new Date().toISOString(),
+                    oldStatus: '',
+                    newStatus: booking.status || 'booked',
+                    changedBy: (booking as any).staffName || 'System',
+                }] as any
+            }
+        });
 
         // Deduct medicine stock from the branch where the booking occurs
         if (newBooking.selectedMedicineIds && newBooking.selectedMedicineIds.length > 0) {
@@ -89,12 +85,12 @@ export const BookingsStore = {
             entityType: 'Booking'
         });
 
-        return newBooking;
+        return newBooking as any as Booking;
     },
 
     getById: async (id: string) => {
-        await ensureLoaded();
-        return bookings.find(b => b.id === id);
+        const b = await prisma.booking.findUnique({ where: { id } });
+        return b as any as Booking | undefined;
     },
 
     /**
@@ -102,71 +98,56 @@ export const BookingsStore = {
      * Skips medicine/consumable stock deduction.
      */
     addSimplyBook: async (booking: Omit<Booking, 'id' | 'createdAt'> & { source?: string; sbId?: string }) => {
-        await ensureLoaded();
         const { source: _s, sbId, ...rest } = booking as any;
         if (sbId) {
-            const existing = bookings.find(b => b.sbId === sbId);
-            if (existing) return existing;
+            const existing = await prisma.booking.findFirst({ where: { sbId } });
+            if (existing) return existing as any as Booking;
         }
-        const newBooking: Booking = {
-            ...rest,
-            id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
-            createdAt: new Date().toISOString(),
-            source: 'simplybook',
-            sbId,
-            statusHistory: [{
-                timestamp: new Date().toISOString(),
-                oldStatus: '',
-                newStatus: booking.status || 'confirmed',
-                changedBy: 'SimplyBook Sync',
-            }],
-        } as Booking;
-        bookings.push(newBooking);
-        await saveToBlob('bookings', bookings);
-        return newBooking;
-    },
-
-    /**
-     * Batch import of SimplyBook bookings — inserts all in memory, saves blob ONCE.
-     * Much faster than calling addSimplyBook() in a loop.
-     * Unmatched bookings use clinicId='simplybook-import', doctorId='sb-unmatched'.
-     */
-    addSimplyBookBatch: async (
-        incoming: Array<Omit<Booking, 'id' | 'createdAt'> & { sbId?: string }>
-    ): Promise<{ added: number; skipped: number }> => {
-        await ensureLoaded();
-        const now = new Date().toISOString();
-        let added = 0, skipped = 0;
-
-        // Build a set of existing sbIds for O(1) duplicate check
-        const existingSbIds = new Set(bookings.map(b => b.sbId).filter(Boolean));
-
-        for (const booking of incoming) {
-            const { sbId } = booking as any;
-            if (sbId && existingSbIds.has(sbId)) {
-                skipped++;
-                continue;
-            }
-            const newBooking: Booking = {
-                ...booking,
+        const newBooking = await prisma.booking.create({
+            data: {
+                ...rest,
                 id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
-                createdAt: now,
+                createdAt: new Date().toISOString(),
                 source: 'simplybook',
                 sbId,
                 statusHistory: [{
-                    timestamp: now,
+                    timestamp: new Date().toISOString(),
                     oldStatus: '',
                     newStatus: booking.status || 'confirmed',
-                    changedBy: 'SimplyBook Migration',
-                }],
-            } as Booking;
-            bookings.push(newBooking);
-            if (sbId) existingSbIds.add(sbId);
-            added++;
-        }
+                    changedBy: 'SimplyBook Sync',
+                }] as any
+            } as any
+        });
+        return newBooking as any as Booking;
+    },
 
-        if (added > 0) {
-            await saveToBlob('bookings', bookings);
+    addSimplyBookBatch: async (
+        incoming: Array<Omit<Booking, 'id' | 'createdAt'> & { sbId?: string }>
+    ): Promise<{ added: number; skipped: number }> => {
+        let added = 0, skipped = 0;
+        for (const booking of incoming) {
+            const { sbId } = booking as any;
+            if (sbId) {
+                const existing = await prisma.booking.findFirst({ where: { sbId } });
+                if (existing) { skipped++; continue; }
+            }
+            const now = new Date().toISOString();
+            await prisma.booking.create({
+                data: {
+                    ...booking,
+                    id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
+                    createdAt: now,
+                    source: 'simplybook',
+                    sbId,
+                    statusHistory: [{
+                        timestamp: now,
+                        oldStatus: '',
+                        newStatus: booking.status || 'confirmed',
+                        changedBy: 'SimplyBook Migration',
+                    }] as any
+                } as any
+            });
+            added++;
         }
         return { added, skipped };
     },
@@ -175,80 +156,82 @@ export const BookingsStore = {
      * Update a booking's status by sbId (used by webhook cascade).
      */
     updateBySbId: async (sbId: string, status: Booking['status']): Promise<boolean> => {
-        await ensureLoaded();
-        const booking = bookings.find(b => b.sbId === sbId);
+        const booking = await prisma.booking.findFirst({ where: { sbId } });
         if (!booking) return false;
+        
         const oldStatus = booking.status;
-        if (!booking.statusHistory) booking.statusHistory = [];
-        booking.statusHistory.push({
+        const history = (booking.statusHistory as any[]) || [];
+        history.push({
             timestamp: new Date().toISOString(),
             oldStatus,
             newStatus: status,
             changedBy: 'SimplyBook Webhook',
         });
-        booking.status = status;
-        await saveToBlob('bookings', bookings);
+        
+        await prisma.booking.update({
+            where: { id: booking.id },
+            data: { status, statusHistory: history }
+        });
         return true;
     },
 
     update: async (id: string, updates: Partial<Booking> & { staffName?: string }) => {
-        await ensureLoaded();
-        const index = bookings.findIndex(b => b.id === id);
-        if (index !== -1) {
-            const oldBooking = bookings[index];
-            const staffName = updates.staffName || 'Admin';
-            // Remove staffName from updates before storing
-            const { staffName: _, ...cleanUpdates } = updates;
+        const oldBooking = await prisma.booking.findUnique({ where: { id } });
+        if (!oldBooking) return null;
 
-            // Record status change in history if status changed
-            if (cleanUpdates.status && cleanUpdates.status !== oldBooking.status) {
-                const history = oldBooking.statusHistory || [];
-                history.push({
-                    timestamp: new Date().toISOString(),
-                    oldStatus: oldBooking.status,
-                    newStatus: cleanUpdates.status,
-                    changedBy: staffName,
-                });
-                cleanUpdates.statusHistory = history;
-            }
+        const staffName = updates.staffName || 'Admin';
+        const { staffName: _, ...cleanUpdates } = updates;
 
-            bookings[index] = { ...bookings[index], ...cleanUpdates };
-            await saveToBlob('bookings', bookings);
-
-            const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};
-            await LogsStore.add({
-                userId: user.id || 'admin',
-                userName: user.name || 'Admin',
-                action: 'UPDATE_BOOKING',
-                details: `Updated booking ${id}. Changes: ${Object.keys(cleanUpdates).join(', ')}`,
-                entityId: id,
-                entityType: 'Booking'
+        if (cleanUpdates.status && cleanUpdates.status !== oldBooking.status) {
+            const history = (oldBooking.statusHistory as any[]) || [];
+            history.push({
+                timestamp: new Date().toISOString(),
+                oldStatus: oldBooking.status,
+                newStatus: cleanUpdates.status,
+                changedBy: staffName,
             });
-
-            return bookings[index];
+            (cleanUpdates as any).statusHistory = history;
         }
-        return null;
+
+        const updated = await prisma.booking.update({
+            where: { id },
+            data: cleanUpdates as any
+        });
+
+        const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};
+        await LogsStore.add({
+            userId: user.id || 'admin',
+            userName: user.name || 'Admin',
+            action: 'UPDATE_BOOKING',
+            details: `Updated booking ${id}. Changes: ${Object.keys(cleanUpdates).join(', ')}`,
+            entityId: id,
+            entityType: 'Booking'
+        });
+
+        return updated as any as Booking;
     },
 
     updateStatus: async (id: string, status: Booking['status'], staffName?: string) => {
-        await ensureLoaded();
-        const booking = bookings.find(b => b.id === id);
+        const booking = await prisma.booking.findUnique({ where: { id } });
         if (booking) {
             const oldStatus = booking.status;
-            // Record status history
-            if (!booking.statusHistory) booking.statusHistory = [];
-            booking.statusHistory.push({
+            const history = (booking.statusHistory as any[]) || [];
+            history.push({
                 timestamp: new Date().toISOString(),
                 oldStatus,
                 newStatus: status,
                 changedBy: staffName || 'Admin',
             });
-            booking.status = status;
-            // When a booking is completed, mark it as needing a bill
+            
+            const dataToUpdate: any = { status, statusHistory: history };
             if (status === 'completed' && booking.billingStatus !== 'billed') {
-                booking.billingStatus = 'pending_bill';
+                dataToUpdate.billingStatus = 'pending_bill';
             }
-            await saveToBlob('bookings', bookings);
+
+            const updated = await prisma.booking.update({
+                where: { id },
+                data: dataToUpdate
+            });
 
             const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};
             await LogsStore.add({
@@ -259,7 +242,17 @@ export const BookingsStore = {
                 entityId: id,
                 entityType: 'Booking'
             });
+            return updated as any as Booking;
         }
-        return booking;
+        return undefined;
+    },
+    
+    delete: async (id: string) => {
+        try {
+            await prisma.booking.delete({ where: { id } });
+            return true;
+        } catch {
+            return false;
+        }
     }
 };
