@@ -94,6 +94,10 @@ export default function ClientsPage() {
     const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
     const [targetClientId, setTargetClientId] = useState<string>('');
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 50;
+
     // Edit / Register State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -114,6 +118,11 @@ export default function ClientsPage() {
 
     const refreshClients = () => ClientsStore.getAll().then(setClients);
     useEffect(() => { refreshClients(); }, []);
+
+    // Reset pagination on search
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
 
     // SimplyBook import state
     const [importingSB, setImportingSB] = useState(false);
@@ -211,6 +220,9 @@ export default function ClientsPage() {
         c.emiratesIdNumber?.includes(searchQuery) ||
         c.passportNo?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+    const paginatedClients = filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     const toggleSelection = (id: string) => {
         const s = new Set(selectedClientIds);
@@ -526,7 +538,7 @@ export default function ClientsPage() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {filteredClients.map(client => (
+                        {paginatedClients.map(client => (
                             <tr key={client.id}
                                 className={`hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${selectedClientIds.has(client.id) ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
                                 onClick={() => toggleSelection(client.id)}>
@@ -596,12 +608,42 @@ export default function ClientsPage() {
                                 </td>
                             </tr>
                         ))}
-                        {filteredClients.length === 0 && (
+                        {paginatedClients.length === 0 && (
                             <tr><td colSpan={10} className="p-8 text-center text-gray-500">No clients found matching your search.</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredClients.length)}</span> of{' '}
+                        <span className="font-medium">{filteredClients.length}</span> results
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                            Previous
+                        </button>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                            Page {currentPage} of {totalPages}
+                        </div>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ── Visit Dates Modal ── */}
             {visitDatesClient && (
