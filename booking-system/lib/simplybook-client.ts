@@ -17,8 +17,8 @@ const JSONRPC_ADMIN  = 'https://user-api.simplybook.it/admin/';
 const COMPANY        = process.env.SIMPLYBOOK_COMPANY_LOGIN  || 'firstmedicalcenter';
 const API_KEY        = process.env.SIMPLYBOOK_API_KEY        || '6688b526d9f4598cba7aa85987b94ac42fe68772b459e06626e3b583017ecfa2';
 const SECRET_KEY     = process.env.SIMPLYBOOK_SECRET_KEY     || 'cf487a3b9a23c350b2b203af878b0c529ac936aac3b35e8232769d3aaa3b59b6';
-const ADMIN_LOGIN    = process.env.SIMPLYBOOK_ADMIN_LOGIN    || '';
-const ADMIN_PASSWORD = process.env.SIMPLYBOOK_ADMIN_PASSWORD || '';
+const ADMIN_LOGIN    = process.env.SIMPLYBOOK_ADMIN_LOGIN    || 'dubaifmcapi';
+const ADMIN_PASSWORD = process.env.SIMPLYBOOK_ADMIN_PASSWORD || 'NewPassword2';
 
 // ── Token caches ──
 let adminToken: string | null = null;
