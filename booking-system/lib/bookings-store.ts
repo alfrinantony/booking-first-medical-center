@@ -268,5 +268,3 @@ export const BookingsStore = {
         }
     }
 };
-/ /   t r i g g e r   d e p l o y  
- 
