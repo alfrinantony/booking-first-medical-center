@@ -14,12 +14,19 @@ export const BookingsStore = {
         return bookings as any as Booking[];
     },
 
-    getByFilters: async (filters: { clinicId?: string; deptId?: string; doctorId?: string; date?: string; search?: string }) => {
+    getByFilters: async (filters: { clinicId?: string; deptId?: string; doctorId?: string; date?: string; search?: string; startDate?: string; endDate?: string }) => {
         const where: any = {};
         if (filters.clinicId) where.clinicId = filters.clinicId;
         if (filters.deptId) where.deptId = filters.deptId;
         if (filters.doctorId) where.doctorId = filters.doctorId;
-        if (filters.date) where.date = filters.date;
+        
+        if (filters.date) {
+            where.date = filters.date;
+        } else if (filters.startDate || filters.endDate) {
+            where.date = {};
+            if (filters.startDate) where.date.gte = filters.startDate;
+            if (filters.endDate) where.date.lte = filters.endDate;
+        }
 
         if (filters.search) {
             const search = filters.search.toLowerCase();
@@ -30,7 +37,11 @@ export const BookingsStore = {
             ];
         }
 
-        const bookings = await prisma.booking.findMany({ where, orderBy: { date: 'desc' } });
+        const bookings = await prisma.booking.findMany({ 
+            where, 
+            orderBy: { date: 'desc' },
+            take: 2000 // Safety limit to prevent memory crashes
+        });
         return bookings as any as Booking[];
     },
 

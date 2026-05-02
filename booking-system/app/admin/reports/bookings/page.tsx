@@ -14,12 +14,16 @@ export default function BookingsReport() {
 
     useEffect(() => {
         setLoading(true);
-        fetch('/api/admin/bookings')
+        const params = new URLSearchParams();
+        if (dateFrom) params.append('startDate', dateFrom);
+        if (dateTo) params.append('endDate', dateTo);
+        
+        fetch(`/api/admin/bookings?${params}`)
             .then(res => res.json())
             .then(data => setBookings(Array.isArray(data) ? data : []))
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
-    }, []);
+    }, [dateFrom, dateTo]);
 
     const filteredBookings = useMemo(() => {
         return bookings.filter(b => {

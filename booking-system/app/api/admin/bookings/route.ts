@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
         doctorId: searchParams.get('doctorId') || undefined,
         date: searchParams.get('date') || undefined,
         search: searchParams.get('search') || undefined,
+        startDate: searchParams.get('startDate') || undefined,
+        endDate: searchParams.get('endDate') || undefined,
     };
 
     const bookings = await BookingsStore.getByFilters(filters);
