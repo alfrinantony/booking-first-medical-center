@@ -4,7 +4,13 @@ import { LogsStore } from './logs-store';
 import { MedicineStore, ServicesStore } from './services-store';
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+    datasources: {
+        db: {
+            url: process.env.DATABASE_URL,
+        },
+    },
+});
 
 export const BookingsStore = {
     getAll: async () => {
