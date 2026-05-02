@@ -701,9 +701,7 @@ export async function GET(request: NextRequest) {
                     email:              sbRecord.clientEmail,
                     whatsappNumber:     sbRecord.clientPhone,
                     status:             bookingStatus,
-                    source:             'simplybook',
                     sbId:               sbRecord.sbId,
-                    sbHash:             sbRecord.sbHash,
                     sbProviderName:     rawProviderName || undefined,
                     sbServiceName:      sbRecord.serviceName,
                     sbInvoiceId:        invoiceId,
@@ -712,7 +710,6 @@ export async function GET(request: NextRequest) {
                     sbInvoiceCurrency:  invoiceCurrency,
                     sbPaymentStatus:    paymentStatus,
                     sbPaymentProcessor: paymentProcessor,
-                    paymentMethod:      paymentType === 'online' ? 'online' : undefined,
                 } as any);
             }
 

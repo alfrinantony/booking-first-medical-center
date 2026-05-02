@@ -75,7 +75,8 @@ async function getBestToken(): Promise<string> {
             console.log('[SimplyBook] ✅ Admin token via getUserToken');
             return adminToken;
         } catch (err) {
-            console.warn('[SimplyBook] ⚠️ getUserToken failed:', String(err).substring(0, 150));
+            console.warn('[SimplyBook] ⚠️ getUserToken failed:', err);
+            throw new Error(`getUserToken failed: ${err}`);
         }
     }
 
@@ -97,9 +98,26 @@ export async function callAdmin(method: string, params: unknown[] = []): Promise
             'X-Company-Login': COMPANY,
             'X-User-Token': token,
         });
-    } catch (err) {
+    } catch (err: any) {
         if (adminIsFullAccess) {
-            // Admin call failed — try public fallback
+            // Admin token might be expired/invalid on SimplyBook's side despite our cache.
+            // Clear cache.
+            adminToken = null;
+            adminTokenExpiresAt = 0;
+            
+            // If it's Access denied or Invalid token, retry once with a fresh admin token!
+            if (String(err).includes('Access denied') || String(err).includes('Invalid')) {
+                console.warn(`[SimplyBook] Admin ${method} failed with ${err.message}. Retrying with fresh admin token.`);
+                const freshToken = await getBestToken();
+                if (freshToken) {
+                    return await rpcCall(JSONRPC_ADMIN, method, params, {
+                        'X-Company-Login': COMPANY,
+                        'X-User-Token': freshToken,
+                    });
+                }
+            }
+            
+            // Try public fallback
             console.warn(`[SimplyBook] Admin ${method} failed, trying public`);
             const pubToken = await getPublicToken();
             return await rpcCall(JSONRPC_PUBLIC, method, params, {

@@ -11,17 +11,18 @@ async function callRpc(url, method, params, headers = {}) {
 
 async function test() {
     const COMPANY = 'firstmedicalcenter';
-    const API_KEY = '6688b526d9f4598cba7aa85987b94ac42fe68772b459e06626e3b583017ecfa2';
+    const ADMIN_LOGIN = 'dubaifmcapi';
+    const ADMIN_PASSWORD = 'NewPassword2';
     
-    console.log('Testing .it ...');
+    console.log('Testing .it getUserToken ...');
     try {
-        const token = await callRpc('https://user-api.simplybook.it/login', 'getToken', [COMPANY, API_KEY]);
+        const token = await callRpc('https://user-api.simplybook.it/login', 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]);
         console.log('.it Token:', token);
     } catch(e) { console.error('.it Error:', e); }
 
-    console.log('Testing .me ...');
+    console.log('Testing .me getUserToken ...');
     try {
-        const token2 = await callRpc('https://user-api.simplybook.me/login', 'getToken', [COMPANY, API_KEY]);
+        const token2 = await callRpc('https://user-api.simplybook.me/login', 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]);
         console.log('.me Token:', token2);
     } catch(e) { console.error('.me Error:', e); }
 }
