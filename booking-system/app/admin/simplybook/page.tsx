@@ -63,9 +63,19 @@ function paymentBadge(record: SimplybookRecord) {
     );
 }
 function formatTime(dt: string) {
-    if (!dt) return 'â€”';
+    if (!dt) return '-';
     const parts = dt.split(' ');
-    return parts[1] ? parts[1].substring(0, 5) : dt;
+    let timeStr = parts[1] ? parts[1].substring(0, 5) : dt;
+    if (timeStr.length > 5) timeStr = timeStr.substring(0, 5);
+    
+    if (!timeStr.includes(':')) return timeStr;
+    const [h, m] = timeStr.split(':');
+    const hours = parseInt(h, 10);
+    if (isNaN(hours)) return timeStr;
+    
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours.toString().padStart(2, '0')}:${m} ${period}`;
 }
 
 function formatDate(d: string) {

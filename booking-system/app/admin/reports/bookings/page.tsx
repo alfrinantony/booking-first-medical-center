@@ -4,6 +4,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, Search, Filter, Loader2, ArrowUpRight, Clock, FileText, CheckCircle, XCircle } from 'lucide-react';
 
 export default function BookingsReport() {
+    function formatTime(timeStr: string) {
+        if (!timeStr) return '-';
+        if (timeStr.length > 5) timeStr = timeStr.substring(0, 5);
+        if (!timeStr.includes(':')) return timeStr;
+        const [h, m] = timeStr.split(':');
+        const hours = parseInt(h, 10);
+        if (isNaN(hours)) return timeStr;
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        return `${displayHours.toString().padStart(2, '0')}:${m} ${period}`;
+    }
+
     const [bookings, setBookings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [dateFrom, setDateFrom] = useState(() => {
@@ -92,7 +104,9 @@ export default function BookingsReport() {
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {filteredBookings.map((b, i) => (
                                     <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <td className="px-4 py-3 font-medium">{b.date} {b.slot}</td>
+                                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                                            {b.date} <span className="text-gray-500 ml-1 text-xs">{formatTime(b.slot)}</span>
+                                        </td>
                                         <td className="px-4 py-3">{b.patientName}</td>
                                         <td className="px-4 py-3">{b.serviceName || b.sbServiceName}</td>
                                         <td className="px-4 py-3 text-gray-500">{b.sbProviderName || 'In-House'}</td>
