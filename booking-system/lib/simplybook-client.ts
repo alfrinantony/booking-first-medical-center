@@ -219,6 +219,7 @@ export async function getAdminBookings(
         { date_from: dateFrom, date_to: dateTo, upcoming: true },// upcoming flag
     ];
 
+    let lastErr: any = null;
     for (const filter of filtersToTry) {
         try {
             const result = await callAdmin('getBookings', [filter, limit, skip]);
@@ -230,11 +231,11 @@ export async function getAdminBookings(
                 return arr;
             }
         } catch (err) {
+            lastErr = err;
             console.warn(`[SimplyBook] getBookings filter ${JSON.stringify(filter)} failed:`, String(err).substring(0, 120));
         }
     }
-    console.warn('[SimplyBook] getAdminBookings: all filter attempts returned 0 results');
-    return [];
+    throw new Error(`[SimplyBook] getAdminBookings failed or 0 results. Last err: ` + lastErr);
 }
 
 // ── Admin: single booking ──

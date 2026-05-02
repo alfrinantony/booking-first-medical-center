@@ -164,7 +164,7 @@ function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; o
                         <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
                             <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">Time</p>
                             <p className="text-sm font-bold text-gray-900 dark:text-white">
-                                {formatTime(booking.startDateTime)} â€“ {formatTime(booking.endDateTime)}
+                                {!booking.startDateTime ? 'Awaiting Sync' : `${formatTime(booking.startDateTime)} – ${formatTime(booking.endDateTime)}`}
                             </p>
                         </div>
                     </div>
@@ -641,7 +641,7 @@ export default function SimplyBookPage() {
                                                 <p className="font-semibold text-gray-900 dark:text-white">{formatDate(b.date)}</p>
                                                 <p className="text-xs text-indigo-500 flex items-center gap-1 mt-0.5">
                                                     <Clock className="w-3 h-3" />
-                                                    {formatTime(b.startDateTime)} â€“ {formatTime(b.endDateTime)}
+                                                    {!b.startDateTime ? 'Awaiting Sync' : `${formatTime(b.startDateTime)} – ${formatTime(b.endDateTime)}`}
                                                 </p>
                                             </td>
                                             <td className="px-4 py-3">

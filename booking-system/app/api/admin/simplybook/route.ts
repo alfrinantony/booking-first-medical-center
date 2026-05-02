@@ -159,8 +159,16 @@ function mapAdminBooking(
     clientMap: Map<string, { name: string; email: string; phone: string }>,
     matchResult: DoctorEntry | null
 ): SimplybookRecord {
-    const startDT: string = b.start_date_time || b.start_date || '';
-    const endDT: string   = b.end_date_time   || b.end_date   || '';
+    let startDT = b.start_date_time || '';
+    if (!startDT && b.start_date) {
+        startDT = b.start_time ? `${b.start_date} ${b.start_time}` : b.start_date;
+    }
+    
+    let endDT = b.end_date_time || '';
+    if (!endDT && b.end_date) {
+        endDT = b.end_time ? `${b.end_date} ${b.end_time}` : b.end_date;
+    }
+    
     const [dateStr = '', timeStr = ''] = startDT.split(' ');
 
     // SimplyBook getBookings returns client/event/unit as plain STRINGS
