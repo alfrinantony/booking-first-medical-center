@@ -63,33 +63,30 @@ async function getBestToken(): Promise<string> {
     const now = Date.now();
     if (adminToken && now < adminTokenExpiresAt) return adminToken;
 
-    // Try getUserToken with User API Key
     if (ADMIN_LOGIN && ADMIN_PASSWORD) {
-        try {
-            const token = await rpcCall(
-                JSONRPC_LOGIN, 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]
-            ) as string;
-            adminToken = token;
-            adminTokenExpiresAt = now + 55 * 60 * 1000;
-            adminIsFullAccess = true;
-            console.log('[SimplyBook] ✅ Admin token via getUserToken');
-            return adminToken;
-        } catch (err: any) {
-            console.warn('[SimplyBook] ⚠️ getUserToken failed:', err.message || err);
+        // Prepare variations of the password to try
+        const passwordsToTry = [
+            ADMIN_PASSWORD,
+            // SimplyBook requires API User Keys to be prefixed with 'api_user_key_'
+            ADMIN_PASSWORD.startsWith('api_user_key_') ? ADMIN_PASSWORD : `api_user_key_${ADMIN_PASSWORD}`
+        ];
+
+        let lastErr: any;
+        for (const pwd of Array.from(new Set(passwordsToTry))) {
             try {
-                // If the user provided an API User Key instead of a password, we must use getToken with 3 args
                 const token = await rpcCall(
-                    JSONRPC_LOGIN, 'getToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]
+                    JSONRPC_LOGIN, 'getUserToken', [COMPANY, ADMIN_LOGIN, pwd]
                 ) as string;
                 adminToken = token;
                 adminTokenExpiresAt = now + 55 * 60 * 1000;
                 adminIsFullAccess = true;
-                console.log('[SimplyBook] ✅ Admin token via getToken (API User Key)');
+                console.log('[SimplyBook] ✅ Admin token via getUserToken');
                 return adminToken;
-            } catch (err2: any) {
-                console.warn('[SimplyBook] ⚠️ getToken with API User Key also failed:', err2.message || err2);
+            } catch (err: any) {
+                lastErr = err;
             }
         }
+        console.warn('[SimplyBook] ⚠️ getUserToken failed after trying variants:', lastErr?.message || lastErr);
     }
 
     // Fallback: public token

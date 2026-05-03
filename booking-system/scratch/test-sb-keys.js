@@ -15,13 +15,13 @@ async function test() {
     const ADMIN_PASSWORD = 'NewPassword2';
     
     console.log('Getting user token...');
-    const token = await callRpc('https://user-api.simplybook.me/login', 'getUserToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]);
+    const token = await callRpc('https://user-api.simplybook.it/login', 'getToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]);
 
     const headers = { 'X-Company-Login': COMPANY, 'X-User-Token': token };
     
     console.log('Getting admin booking for 236832...');
     try {
-        const details = await callRpc('https://user-api.simplybook.me/admin/', 'getBooking', ['236832'], headers);
+        const details = await callRpc('https://user-api.simplybook.it/admin/', 'getBooking', ['236832'], headers);
         console.log('Details:', details);
     } catch(e) {
         console.error('Error:', e);
