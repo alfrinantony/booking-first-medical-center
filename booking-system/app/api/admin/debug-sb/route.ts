@@ -10,7 +10,10 @@ const containerName = 'fmc-data';
 const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
 const containerClient = blobServiceClient.getContainerClient(containerName);
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const keyParam = searchParams.get('key');
+
     const keys = [
         'medicines',
         'registered-products',
@@ -23,24 +26,37 @@ export async function GET() {
         'clinics',
         'category-order'
     ];
-    const results: Record<string, string> = {};
-    for (const key of keys) {
-        try {
-            const blobName = key.endsWith('.json') ? key : `${key}.json`;
-            const blobClient = containerClient.getBlobClient(blobName);
-            const buffer = await blobClient.downloadToBuffer();
-            const data = JSON.parse(buffer.toString('utf-8'));
-            if (data) {
-                await prisma.blobStore.upsert({
-                    where: { key },
-                    update: { data },
-                    create: { key, data }
-                });
-                results[key] = 'Success';
-            }
-        } catch (e: any) {
-            results[key] = `Error: ${e.message}`;
-        }
+
+    if (!keyParam) {
+        return NextResponse.json({ 
+            message: "Pass ?key=KEY_NAME to migrate a specific key to avoid 30s timeout.", 
+            availableKeys: keys 
+        });
     }
+
+    if (!keys.includes(keyParam)) {
+        return NextResponse.json({ error: "Invalid key." }, { status: 400 });
+    }
+
+    const results: Record<string, string> = {};
+    try {
+        const blobName = keyParam.endsWith('.json') ? keyParam : `${keyParam}.json`;
+        const blobClient = containerClient.getBlobClient(blobName);
+        const buffer = await blobClient.downloadToBuffer();
+        const data = JSON.parse(buffer.toString('utf-8'));
+        if (data) {
+            await prisma.blobStore.upsert({
+                where: { key: keyParam },
+                update: { data },
+                create: { key: keyParam, data }
+            });
+            results[keyParam] = 'Success';
+        } else {
+            results[keyParam] = 'No data found in Azure';
+        }
+    } catch (e: any) {
+        results[keyParam] = `Error: ${e.message}`;
+    }
+
     return NextResponse.json({ results });
 }
