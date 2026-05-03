@@ -20,29 +20,33 @@ function parseSlotToMinutes(slot: string): number {
 }
 
 export async function GET(request: NextRequest) {
-    const searchParams = request.nextUrl.searchParams;
-    const filters = {
-        clinicId: searchParams.get('clinicId') || undefined,
-        deptId: searchParams.get('deptId') || undefined,
-        doctorId: searchParams.get('doctorId') || undefined,
-        date: searchParams.get('date') || undefined,
-        search: searchParams.get('search') || undefined,
-        startDate: searchParams.get('startDate') || undefined,
-        endDate: searchParams.get('endDate') || undefined,
-    };
-
-    if (searchParams.has('page') || searchParams.has('limit')) {
-        const paginatedFilters = {
-            ...filters,
-            page: parseInt(searchParams.get('page') || '1', 10),
-            limit: parseInt(searchParams.get('limit') || '50', 10),
+    try {
+        const searchParams = request.nextUrl.searchParams;
+        const filters = {
+            clinicId: searchParams.get('clinicId') || undefined,
+            deptId: searchParams.get('deptId') || undefined,
+            doctorId: searchParams.get('doctorId') || undefined,
+            date: searchParams.get('date') || undefined,
+            search: searchParams.get('search') || undefined,
+            startDate: searchParams.get('startDate') || undefined,
+            endDate: searchParams.get('endDate') || undefined,
         };
-        const data = await BookingsStore.getPaginated(paginatedFilters);
-        return NextResponse.json(data);
-    }
 
-    const bookings = await BookingsStore.getByFilters(filters);
-    return NextResponse.json(bookings);
+        if (searchParams.has('page') || searchParams.has('limit')) {
+            const paginatedFilters = {
+                ...filters,
+                page: parseInt(searchParams.get('page') || '1', 10),
+                limit: parseInt(searchParams.get('limit') || '50', 10),
+            };
+            const data = await BookingsStore.getPaginated(paginatedFilters);
+            return NextResponse.json(data);
+        }
+
+        const bookings = await BookingsStore.getByFilters(filters);
+        return NextResponse.json(bookings);
+    } catch (err: any) {
+        return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 });
+    }
 }
 
 export async function POST(request: NextRequest) {

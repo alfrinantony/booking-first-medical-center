@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
 import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, Pill, UserPlus, X, History, Sparkles, ExternalLink, Phone, CreditCard, Package, CheckCircle, Pencil, Mail } from 'lucide-react';
-import { ClientsStore } from '@/lib/clients-store';
 import Link from 'next/link';
 import type { SimplybookRecord } from '@/lib/simplybook-store';
 import {
@@ -580,24 +579,35 @@ export default function AdminAppointmentsPage() {
     const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
     const [quickForm, setQuickForm] = useState({ firstName: '', lastName: '', email: '', phone: '', gender: '', dateOfBirth: '' });
 
-    const saveQuickClient = () => {
+    const saveQuickClient = async () => {
         const fullName = `${quickForm.firstName} ${quickForm.lastName}`.trim();
         if (!fullName) { alert('Please enter first and last name'); return; }
         // Generate a unique ID
         const clientId = `client_${Date.now()}`;
-        ClientsStore.update(clientId, {
-            name: fullName,
-            firstName: quickForm.firstName,
-            lastName: quickForm.lastName,
-            email: quickForm.email || undefined,
-            mobile: quickForm.phone || undefined,
-            phone: quickForm.phone || undefined,
-            gender: (quickForm.gender as 'Male' | 'Female') || undefined,
-            dateOfBirth: quickForm.dateOfBirth || undefined,
-        });
-        setIsQuickRegOpen(false);
-        setQuickForm({ firstName: '', lastName: '', email: '', phone: '', gender: '', dateOfBirth: '' });
-        alert(`Client "${fullName}" registered successfully!\nRemaining details can be filled at the clinic.`);
+        
+        try {
+            await fetch('/api/admin/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: clientId,
+                    name: fullName,
+                    firstName: quickForm.firstName,
+                    lastName: quickForm.lastName,
+                    email: quickForm.email || undefined,
+                    mobile: quickForm.phone || undefined,
+                    phone: quickForm.phone || undefined,
+                    gender: (quickForm.gender as 'Male' | 'Female') || undefined,
+                    dateOfBirth: quickForm.dateOfBirth || undefined,
+                })
+            });
+            setIsQuickRegOpen(false);
+            setQuickForm({ firstName: '', lastName: '', email: '', phone: '', gender: '', dateOfBirth: '' });
+            alert(`Client "${fullName}" registered successfully!\nRemaining details can be filled at the clinic.`);
+        } catch (error) {
+            console.error('Failed to register client:', error);
+            alert('Failed to register client. Please try again.');
+        }
     };
 
 

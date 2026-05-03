@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ClientsStore, Client } from '@/lib/clients-store';
+import type { Client } from '@/lib/clients-store';
 import { maskPhone, maskEmail } from '@/lib/emr-store';
 import type { EMRConfig, EMRPushRecord } from '@/lib/emr-store';
 import type { ClientRestriction } from '@/lib/restrictions-store';
@@ -245,10 +245,19 @@ export default function ClientsPage() {
 
     const handleMergeClick = () => { if (selectedClientIds.size < 2) return; setTargetClientId(Array.from(selectedClientIds)[0]); setIsMergeModalOpen(true); };
 
-    const confirmMerge = () => {
+    const confirmMerge = async () => {
         const ids = Array.from(selectedClientIds);
-        ids.filter(id => id !== targetClientId).forEach(src => ClientsStore.merge(targetClientId, src));
-        setSelectedClientIds(new Set()); setIsMergeModalOpen(false); refreshClients(); alert('Clients merged successfully!');
+        try {
+            await fetch('/api/admin/clients/merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetClientId, sourceClientIds: ids })
+            });
+            alert('Clients merged successfully.');
+        } catch (error) {
+            alert('Failed to merge clients.');
+        }
+        setSelectedClientIds(new Set()); setIsMergeModalOpen(false); refreshClients();
     };
 
     const handleEditClick = (client: Client, e: React.MouseEvent) => {
@@ -397,7 +406,11 @@ export default function ClientsPage() {
         };
 
         if (editingClient) {
-            ClientsStore.update(editingClient.id, updates);
+            fetch('/api/admin/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: editingClient.id, ...updates })
+            }).catch(() => {});
             // Save connected patients to localStorage
             localStorage.setItem(`client-grouping-${editingClient.id}`, JSON.stringify(connectedPatients));
         }

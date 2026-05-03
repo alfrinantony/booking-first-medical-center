@@ -22,3 +22,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: String(error) }, { status: 500 });
     }
 }
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const clientId = body.id || `client_${Date.now()}`;
+        await ClientsStore.update(clientId, body);
+        return NextResponse.json({ success: true, clientId });
+    } catch (error) {
+        return NextResponse.json({ error: String(error) }, { status: 500 });
+    }
+}
