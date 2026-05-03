@@ -9,9 +9,9 @@ import {
     Briefcase, ChevronDown, ChevronRight, Printer
 } from 'lucide-react';
 import type { Employee, EmployeeStatus, EmploymentType, Gender } from '@/lib/hr-store';
-import { WORKPLACES, VISA_ISSUING_BRANCHES, LABOR_CARD_STATUSES, DEPARTMENTS } from '@/lib/hr-store';
-import type { EmployeeDocument, DocumentCategory, DocumentCategoryInfo } from '@/lib/hr-documents-store';
-import { DOCUMENT_CATEGORIES } from '@/lib/hr-documents-store';
+import { WORKPLACES, VISA_ISSUING_BRANCHES, LABOR_CARD_STATUSES, DEPARTMENTS } from '@/lib/hr-constants';
+import type { EmployeeDocument, DocumentCategory, DocumentCategoryInfo } from '@/lib/hr-constants';
+import { DOCUMENT_CATEGORIES } from '@/lib/hr-constants';
 import type { TerminationType } from '@/lib/hr-payroll-store';
 import { HRPayroll } from '@/lib/hr-payroll-store';
 import LeaveTab from '@/components/LeaveTab';

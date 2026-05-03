@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Invoice } from '@/lib/billing-store';
+import type { Invoice } from '@/lib/billing-store';
 import { clinics } from '@/lib/data';
 import { FileText, Download, Calendar, Building2, TrendingUp, Receipt, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 

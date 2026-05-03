@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LoyaltyTransaction } from '@/lib/loyalty-store';
+import type { LoyaltyTransaction } from '@/lib/loyalty-store';
 import { TrendingUp, TrendingDown, Search, Award, AlertTriangle, MapPin, Clock, Calendar, ArrowRight } from 'lucide-react';
 
 export default function LoyaltyPage() {

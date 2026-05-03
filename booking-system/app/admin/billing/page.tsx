@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Invoice, InvoiceLineItem } from '@/lib/billing-store';
+import type { Invoice, InvoiceLineItem } from '@/lib/billing-store';
 import { Booking, Clinic, Medicine, InventoryBatch } from '@/lib/data';
-import { PackageOption } from '@/lib/packages-store';
-import { AddonService } from '@/lib/addon-services-store';
+import type { PackageOption } from '@/lib/packages-store';
+import type { AddonService } from '@/lib/addon-services-store';
 
 export default function BillingPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);

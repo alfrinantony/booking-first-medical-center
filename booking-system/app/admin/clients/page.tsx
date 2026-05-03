@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Client } from '@/lib/clients-store';
-import { maskPhone, maskEmail } from '@/lib/emr-store';
+import { maskPhone, maskEmail } from '@/lib/mask-utils';
 import type { EMRConfig, EMRPushRecord } from '@/lib/emr-store';
 import type { ClientRestriction } from '@/lib/restrictions-store';
 import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock, Download, Calendar } from 'lucide-react';

@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { RegisteredCustomer as RegisteredUser } from '@/lib/customer-auth-server-store';
+import type { RegisteredCustomer as RegisteredUser } from '@/lib/customer-auth-server-store';
 import {
     Users, Search, Shield, ShieldOff, KeyRound, Edit2, Trash2, X,
     Merge, Check, Mail, Phone, Calendar, Ban, CheckCircle2,
     AlertTriangle, Eye, EyeOff, User, Download, Loader2
 } from 'lucide-react';
-import { maskPhone, maskEmail } from '@/lib/emr-store';
+import { maskPhone, maskEmail } from '@/lib/mask-utils';
 
 export default function RegisteredUsersPage() {
     const [users, setUsers] = useState<RegisteredUser[]>([]);

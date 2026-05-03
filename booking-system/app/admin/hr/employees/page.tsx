@@ -8,7 +8,7 @@ import {
     UserPlus, X
 } from 'lucide-react';
 import type { Employee, EmploymentType, EmployeeStatus, Gender, MaritalStatus } from '@/lib/hr-store';
-import { WORKPLACES, VISA_ISSUING_BRANCHES, LABOR_CARD_STATUSES, DEPARTMENTS } from '@/lib/hr-store';
+import { WORKPLACES, VISA_ISSUING_BRANCHES, LABOR_CARD_STATUSES, DEPARTMENTS } from '@/lib/hr-constants';
 
 interface EmployeeFormData {
     firstName: string;

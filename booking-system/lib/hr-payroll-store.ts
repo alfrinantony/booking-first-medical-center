@@ -3,7 +3,7 @@
 // (UAE Labor Law defaults)
 // ─────────────────────────────────────────────────────────────
 
-import { Employee } from './hr-store';
+import type { Employee } from './hr-store';
 
 export type TerminationType = 'EMPLOYER_TERMINATION' | 'RESIGNATION' | 'END_OF_CONTRACT';
 export type OvertimeCompensation = 'PAID' | 'TIME_BACK';

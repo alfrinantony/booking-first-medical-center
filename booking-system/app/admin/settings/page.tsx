@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AppSettings } from '@/lib/settings-store';
+import type { AppSettings } from '@/lib/settings-store';
 import { timeSlots, clinics as allClinics } from '@/lib/data';
 import { Save, Eye, EyeOff, Bell, Activity, Loader2, CheckCircle2, XCircle, Star, Cloud, Bot, CreditCard, Megaphone, Phone, Server, Fingerprint, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
-import { EMRConfig } from '@/lib/emr-store';
+import type { EMRConfig } from '@/lib/emr-store';
 
 const DEFAULT_SETTINGS: AppSettings = {
     companyName: 'First Medical Center LLC', contactEmail: 'admin@bookingfirst.com',

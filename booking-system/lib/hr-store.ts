@@ -10,42 +10,12 @@ export type Gender = 'MALE' | 'FEMALE';
 export type MaritalStatus = 'SINGLE' | 'MARRIED' | 'DIVORCED' | 'WIDOWED';
 
 export interface IncentiveSlab {
-    label: string;        // e.g. "Slab 1", "Bronze", "Target A"
-    targetAmount: number; // target to achieve (AED)
-    percentage: number;   // incentive % on achieving this slab
+    label: string;
+    targetAmount: number;
+    percentage: number;
 }
 
-export const DEPARTMENTS = ['Clinical', 'Administration', 'Operation'] as const;
-
-// ── Workplace / Branch Constants ──
-export const WORKPLACES = [
-    { id: 'clinic-1', name: 'Al Muraqabat Branch' },
-    { id: 'clinic-2', name: 'Al Qiyadah Branch' },
-    { id: 'clinic-3', name: 'Silicon Oasis Branch' },
-    { id: 'head-office', name: 'Head Office' },
-] as const;
-
-export const VISA_ISSUING_BRANCHES = [
-    'Al Muraqabat Branch',
-    'Al Qiyadah Branch',
-    'Silicon Oasis Branch',
-    'Head Office',
-    'Outside',
-] as const;
-
-export const LABOR_CARD_STATUSES = [
-    'Not Started',
-    'Application Submitted',
-    'Under Processing',
-    'Medical Test Pending',
-    'Medical Test Done',
-    'Awaiting Approval',
-    'Approved',
-    'Card Issued',
-    'Renewal Pending',
-    'Expired',
-    'Cancelled',
-] as const;
+export * from './hr-constants';
 
 export interface Employee {
     id: string;

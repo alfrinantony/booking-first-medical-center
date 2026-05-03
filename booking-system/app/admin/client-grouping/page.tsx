@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { RegisteredCustomer as RegisteredUser } from '@/lib/customer-auth-server-store';
+import type { RegisteredCustomer as RegisteredUser } from '@/lib/customer-auth-server-store';
 import { Users, Search, Link2, Unlink, UserPlus } from 'lucide-react';
 import { PatientRelationship } from '@/lib/store';
 

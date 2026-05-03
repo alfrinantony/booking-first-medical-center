@@ -21,7 +21,7 @@ const puppeteer = require('puppeteer');
         await page.evaluate(() => {
             sessionStorage.setItem('adminUser', JSON.stringify({ id: '1', name: 'Super Admin', role: 'SUPER_ADMIN', permissions: { reassign_doctor: ['allow'] } }));
         });
-        await page.goto('http://localhost:3000/admin/appointments', { waitUntil: 'networkidle2' });
+        await page.goto('http://localhost:3000/admin/hr/employees', { waitUntil: 'networkidle2' });
         console.log('Page loaded!');
         // Wait a bit to ensure all useEffects run
         await new Promise(r => setTimeout(r, 5000));

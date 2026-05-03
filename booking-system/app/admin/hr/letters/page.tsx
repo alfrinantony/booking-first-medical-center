@@ -6,7 +6,7 @@ import {
     Clock, AlertTriangle, ChevronDown, Eye, Send
 } from 'lucide-react';
 import type { LetterType, LetterStatus, EmployeeLetter } from '@/lib/hr-letters-store';
-import { LETTER_TYPE_LABELS } from '@/lib/hr-letters-store';
+import { LETTER_TYPE_LABELS } from '@/lib/hr-constants';
 
 interface Employee {
     id: string;

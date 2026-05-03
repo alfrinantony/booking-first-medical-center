@@ -7,13 +7,11 @@ import {
     ArrowRight, Eye, Clock, CheckCircle, AlertTriangle, XCircle,
     Upload, Image as ImageIcon
 } from 'lucide-react';
-import type {
-    JobOpening, Candidate, RecruitmentStage, OpeningStatus, CandidateSource
-} from '@/lib/hr-recruitment-store';
+import type { JobOpening, Candidate, RecruitmentStage } from '@/lib/hr-recruitment-store';
 import {
     RECRUITMENT_STAGES, ACTIVE_STAGES, CANDIDATE_SOURCES, JOB_DESCRIPTION_TEMPLATES
-} from '@/lib/hr-recruitment-store';
-import { WORKPLACES } from '@/lib/hr-store';
+} from '@/lib/hr-constants';
+import { WORKPLACES } from '@/lib/hr-constants';
 
 type ViewMode = 'openings' | 'pipeline';
 

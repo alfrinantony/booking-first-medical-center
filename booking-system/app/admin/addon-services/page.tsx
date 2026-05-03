@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { AddonService, AddonConsumable } from '@/lib/addon-services-store';
+import type { AddonService, AddonConsumable } from '@/lib/addon-services-store';
 import { Zap, Plus, Pencil, Trash2, X, Check, Package, AlertTriangle, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, RefreshCw, GripVertical, Lock } from 'lucide-react';
 
 interface Medicine { id: string; name: string; centralStock: number; }

@@ -5,21 +5,10 @@
 import { HRStore } from './hr-store';
 import type { Employee } from './hr-store';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
+import { LETTER_TYPE_LABELS, LETTER_REF_PREFIXES } from './hr-constants';
+export type { LetterType } from './hr-constants';
 
-export type LetterType = 'SALARY_CERTIFICATE' | 'EMPLOYMENT_CERTIFICATE' | 'EXPERIENCE_CERTIFICATE';
 export type LetterStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
-
-export const LETTER_TYPE_LABELS: Record<LetterType, string> = {
-    SALARY_CERTIFICATE: 'Salary Certificate',
-    EMPLOYMENT_CERTIFICATE: 'Employment Certificate',
-    EXPERIENCE_CERTIFICATE: 'Experience Certificate',
-};
-
-const LETTER_REF_PREFIXES: Record<LetterType, string> = {
-    SALARY_CERTIFICATE: 'SC',
-    EMPLOYMENT_CERTIFICATE: 'EC',
-    EXPERIENCE_CERTIFICATE: 'EXP',
-};
 
 export interface EmployeeLetter {
     id: string;

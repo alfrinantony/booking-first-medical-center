@@ -10,8 +10,8 @@ import type {
     Account, Transaction, Payable, Receivable,
     AccountType, TransactionType, PaymentMethod, InvoiceStatus
 } from '@/lib/accounting-store';
-import { ACCOUNT_TYPES, DETAIL_TYPES, ACCOUNT_TYPE_LABELS, EMPLOYEE_EXPENSE_CATEGORIES } from '@/lib/accounting-store';
-import { WORKPLACES } from '@/lib/hr-store';
+import { ACCOUNT_TYPES, DETAIL_TYPES, ACCOUNT_TYPE_LABELS, EMPLOYEE_EXPENSE_CATEGORIES } from '@/lib/accounting-constants';
+import { WORKPLACES } from '@/lib/hr-constants';
 
 type TabView = 'dashboard' | 'accounts' | 'transactions' | 'employee_costs' | 'branch_accounts' | 'reports' | 'payables';
 

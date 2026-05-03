@@ -1,129 +1,101 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x", "debian-openssl-1.1.x", "windows"]
 }
 
-// ── Generic KV Store for smaller configs (packages, services, etc) ──
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
 model BlobStore {
   key  String @id
   data Json
 }
 
-// ── Bookings ──
 model Booking {
-  id                 String   @id
-  clinicId           String
-  deptId             String
-  doctorId           String
-  serviceId          String
-  serviceName        String?
-  date               String
-  slot               String
-  duration           Int?     @default(30)
-  patientName        String
-  whatsappNumber     String?
-  email              String?
-  status             String
-  amount             Float?
-  notes              String?
-  
-  // Embedded arrays & JSON fields
-  selectedMedicineIds Json?   // String[]
-  statusHistory       Json?   // { timestamp, oldStatus, newStatus, changedBy }[]
+  id                  String   @id
+  clinicId            String
+  deptId              String
+  doctorId            String
+  serviceId           String
+  serviceName         String?
+  date                String
+  slot                String
+  duration            Int?     @default(30)
+  patientName         String
+  whatsappNumber      String?
+  email               String?
+  status              String
+  amount              Float?
+  notes               String?
+  selectedMedicineIds Json?
+  statusHistory       Json?
   linkedPackageId     String?
-  
-  billingStatus      String?
-  
-  // SimplyBook fields
-  sbId               String?
-  sbInvoiceNumber    String?
-  sbInvoiceAmount    Float?
-  sbInvoiceCurrency  String?
-  sbPaymentProcessor String?
-  sbPaymentStatus    String?
-  sbProviderName     String?
-  sbServiceName      String?
-
-  createdAt          String
-  anyDoctor          Boolean? @default(false)
+  billingStatus       String?
+  sbId                String?
+  sbInvoiceNumber     String?
+  sbInvoiceAmount     Float?
+  sbInvoiceCurrency   String?
+  sbPaymentProcessor  String?
+  sbPaymentStatus     String?
+  sbProviderName      String?
+  sbServiceName       String?
+  createdAt           String
+  anyDoctor           Boolean? @default(false)
 
   @@index([date])
   @@index([clinicId, deptId, doctorId])
-  @@index([patientName, whatsappNumber, email])
-  @@index([status])
+  @@index([patientName, whatsappNumber])
 }
 
-// ── Standalone Clients ──
 model Client {
-  id                 String   @id
-  name               String
-  firstName          String?
-  middleName         String?
-  lastName           String?
-  phone              String?
-  mobile             String?
-  whatsapp           String?
-  email              String?
-  
-  // EMR & Personal
-  gender             String?
-  dateOfBirth        String?
-  clientClass        String?
-  civilStatus        String?
-  nationality        String?
-  passportNo         String?
-  
-  // Emirates ID
-  emiratesIdNumber   String?
-  emiratesIdIssueDate String?
-  emiratesIdExpiryDate String?
-  idFrontBase64      String?
-  idFrontName        String?
-  idBackBase64       String?
-  idBackName         String?
-  
-  // Arabic & Meta
-  firstNameArabic    String?
-  lastNameArabic     String?
-  religion           String?
-  profession         String?
-  country            String?
-  citizenship        String?
-  emirates           String?
-  race               String?
-  residentType       String?
-  poBox              String?
-  city               String?
-  ethnicGroup        String?
-  language           String?
-  address            String?
-  remark             String?
-  
-  // Emergency Contact
+  id                     String   @id
+  name                   String
+  firstName              String?
+  middleName             String?
+  lastName               String?
+  phone                  String?
+  mobile                 String?
+  whatsapp               String?
+  email                  String?
+  gender                 String?
+  dateOfBirth            String?
+  clientClass            String?
+  civilStatus            String?
+  nationality            String?
+  passportNo             String?
+  emiratesIdNumber       String?
+  emiratesIdIssueDate    String?
+  emiratesIdExpiryDate   String?
+  idFrontBase64          String?
+  idFrontName            String?
+  idBackBase64           String?
+  idBackName             String?
+  firstNameArabic        String?
+  lastNameArabic         String?
+  religion               String?
+  profession             String?
+  country                String?
+  citizenship            String?
+  emirates               String?
+  race                   String?
+  residentType           String?
+  poBox                  String?
+  city                   String?
+  ethnicGroup            String?
+  language               String?
+  address                String?
+  remark                 String?
   emergencyContactPerson String?
   emergencyRelationship  String?
   emergencyTelephone     String?
   emergencyWorkMobile    String?
-
-  // Derived metrics cached
-  totalBookings      Int?     @default(0)
-  lastBookingDate    String?
-  
-  // Simplybook tracking
-  source             String?
-  sbClientId         String?
-  visitDates         Json?    // String[]
-  
-  // Meta
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@index([name])
-  @@index([phone, mobile, email])
-  @@index([emiratesIdNumber, passportNo])
+  totalBookings          Int?     @default(0)
+  lastBookingDate        String?
+  source                 String?
+  sbClientId             String?
+  visitDates             Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
