@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Invoice, InvoiceLineItem } from '@/lib/billing-store';
 import { Booking, Clinic, Medicine, InventoryBatch } from '@/lib/data';
-import type { PackageOption } from '@/lib/packages-store';
 import type { AddonService } from '@/lib/addon-services-store';
+import { Receipt, Search, Plus, FileText, Printer, Calendar, Clock, User, MapPin, Package, AlertTriangle, CreditCard, Scissors, Zap, RefreshCw, X } from 'lucide-react';
 
 export default function BillingPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
