@@ -31,6 +31,16 @@ export async function GET(request: NextRequest) {
         endDate: searchParams.get('endDate') || undefined,
     };
 
+    if (searchParams.has('page') || searchParams.has('limit')) {
+        const paginatedFilters = {
+            ...filters,
+            page: parseInt(searchParams.get('page') || '1', 10),
+            limit: parseInt(searchParams.get('limit') || '50', 10),
+        };
+        const data = await BookingsStore.getPaginated(paginatedFilters);
+        return NextResponse.json(data);
+    }
+
     const bookings = await BookingsStore.getByFilters(filters);
     return NextResponse.json(bookings);
 }

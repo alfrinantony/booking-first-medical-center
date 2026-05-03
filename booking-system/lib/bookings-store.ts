@@ -45,6 +45,46 @@ export const BookingsStore = {
         return bookings as any as Booking[];
     },
 
+    getPaginated: async (filters: { clinicId?: string; deptId?: string; doctorId?: string; date?: string; search?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => {
+        const where: any = {};
+        if (filters.clinicId) where.clinicId = filters.clinicId;
+        if (filters.deptId) where.deptId = filters.deptId;
+        if (filters.doctorId) where.doctorId = filters.doctorId;
+        
+        if (filters.date) {
+            where.date = filters.date;
+        } else if (filters.startDate || filters.endDate) {
+            where.date = {};
+            if (filters.startDate) where.date.gte = filters.startDate;
+            if (filters.endDate) where.date.lte = filters.endDate;
+        }
+
+        if (filters.search) {
+            const search = filters.search.toLowerCase();
+            where.OR = [
+                { patientName: { contains: search, mode: 'insensitive' } },
+                { whatsappNumber: { contains: search } },
+                { email: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        const page = filters.page || 1;
+        const limit = filters.limit || 50;
+        const skip = (page - 1) * limit;
+
+        const [bookings, total] = await Promise.all([
+            prisma.booking.findMany({ 
+                where, 
+                orderBy: { date: 'desc' },
+                skip,
+                take: limit
+            }),
+            prisma.booking.count({ where })
+        ]);
+
+        return { bookings: bookings as any as Booking[], total };
+    },
+
 
     add: async (booking: Omit<Booking, 'id' | 'createdAt'>) => {
         const id = Math.random().toString(36).substr(2, 9);

@@ -96,6 +96,7 @@ export default function ClientsPage() {
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
+    const [totalClients, setTotalClients] = useState(0);
     const itemsPerPage = 50;
 
     // Edit / Register State
@@ -116,8 +117,29 @@ export default function ClientsPage() {
     const [connDropdownOpen, setConnDropdownOpen] = useState(false);
     const [newConnRelation, setNewConnRelation] = useState('Spouse');
 
-    const refreshClients = () => ClientsStore.getAll().then(setClients);
-    useEffect(() => { refreshClients(); }, []);
+    const refreshClients = async () => {
+        try {
+            const res = await fetch(`/api/admin/clients?page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchQuery)}`);
+            const data = await res.json();
+            if (data.clients) {
+                setClients(data.clients);
+                setTotalClients(data.total);
+            } else {
+                setClients(data); // Legacy fallback
+                setTotalClients(data.length);
+            }
+        } catch (e) {
+            console.error('Failed to load clients:', e);
+        }
+    };
+
+    // Debounced search and page change
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            refreshClients();
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [currentPage, searchQuery]);
 
     // Reset pagination on search
     useEffect(() => {
@@ -212,17 +234,8 @@ export default function ClientsPage() {
         );
     };
 
-    const filteredClients = clients.filter(c =>
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.phone?.includes(searchQuery) ||
-        c.mobile?.includes(searchQuery) ||
-        c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.emiratesIdNumber?.includes(searchQuery) ||
-        c.passportNo?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
-    const paginatedClients = filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(totalClients / itemsPerPage));
+    const paginatedClients = clients;
 
     const toggleSelection = (id: string) => {
         const s = new Set(selectedClientIds);
@@ -620,8 +633,8 @@ export default function ClientsPage() {
                 <div className="flex items-center justify-between mt-4">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredClients.length)}</span> of{' '}
-                        <span className="font-medium">{filteredClients.length}</span> results
+                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalClients)}</span> of{' '}
+                        <span className="font-medium">{totalClients}</span> results
                     </p>
                     <div className="flex items-center gap-2">
                         <button

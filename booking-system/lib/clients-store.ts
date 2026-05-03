@@ -120,6 +120,35 @@ export const ClientsStore = {
         return Array.from(clientsMap.values());
     },
 
+    getPage: async (page: number = 1, limit: number = 50, search: string = ''): Promise<{ clients: Client[], total: number }> => {
+        let allClients = await ClientsStore.getAll();
+        
+        if (search) {
+            const s = search.toLowerCase();
+            allClients = allClients.filter(c => 
+                c.name.toLowerCase().includes(s) ||
+                c.phone?.includes(s) ||
+                c.mobile?.includes(s) ||
+                c.email?.toLowerCase().includes(s) ||
+                c.emiratesIdNumber?.includes(s) ||
+                c.passportNo?.toLowerCase().includes(s)
+            );
+        }
+
+        // Sort by lastBookingDate descending, or creation date
+        allClients.sort((a, b) => {
+            const dateA = a.lastBookingDate || a.createdAt || '';
+            const dateB = b.lastBookingDate || b.createdAt || '';
+            return dateB.localeCompare(dateA);
+        });
+
+        const total = allClients.length;
+        const startIndex = (page - 1) * limit;
+        const paginated = allClients.slice(startIndex, startIndex + limit);
+
+        return { clients: paginated, total };
+    },
+
     merge: async (targetClientId: string, sourceClientId: string) => {
         const bookings = await BookingsStore.getAll();
         const sourceBookings = bookings.filter(b => {

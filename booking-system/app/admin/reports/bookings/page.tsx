@@ -17,38 +17,55 @@ export default function BookingsReport() {
     }
 
     const [bookings, setBookings] = useState<any[]>([]);
+    const [totalBookings, setTotalBookings] = useState(0);
     const [loading, setLoading] = useState(true);
     const [dateFrom, setDateFrom] = useState(() => {
         const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0];
     });
     const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0]);
     const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 50;
 
-    useEffect(() => {
+    const fetchBookings = () => {
         setLoading(true);
         const params = new URLSearchParams();
         if (dateFrom) params.append('startDate', dateFrom);
         if (dateTo) params.append('endDate', dateTo);
+        if (search) params.append('search', search);
+        params.append('page', currentPage.toString());
+        params.append('limit', itemsPerPage.toString());
         
         fetch(`/api/admin/bookings?${params}`)
             .then(res => res.json())
-            .then(data => setBookings(Array.isArray(data) ? data : []))
+            .then(data => {
+                if (data.bookings) {
+                    setBookings(data.bookings);
+                    setTotalBookings(data.total);
+                } else {
+                    setBookings(Array.isArray(data) ? data : []);
+                    setTotalBookings(Array.isArray(data) ? data.length : 0);
+                }
+            })
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
-    }, [dateFrom, dateTo]);
+    };
 
-    const filteredBookings = useMemo(() => {
-        return bookings.filter(b => {
-            const d = new Date(b.date || b.createdAt);
-            const inDate = (!dateFrom || d >= new Date(dateFrom)) && (!dateTo || d <= new Date(dateTo));
-            const inSearch = search ? (
-                (b.patientName || '').toLowerCase().includes(search.toLowerCase()) ||
-                (b.serviceName || '').toLowerCase().includes(search.toLowerCase()) ||
-                (b.sbProviderName || '').toLowerCase().includes(search.toLowerCase())
-            ) : true;
-            return inDate && inSearch;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [bookings, dateFrom, dateTo, search]);
+    // Debounced fetch when search changes, or when page/dates change
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchBookings();
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [dateFrom, dateTo, search, currentPage]);
+
+    // Reset pagination on search or date change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, dateFrom, dateTo]);
+
+    const totalPages = Math.max(1, Math.ceil(totalBookings / itemsPerPage));
+    const filteredBookings = bookings; // Server handles filtering and sorting
 
     return (
         <div className="p-4 md:p-8 space-y-6">
@@ -126,6 +143,36 @@ export default function BookingsReport() {
                     </div>
                 )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalBookings)}</span> of{' '}
+                        <span className="font-medium">{totalBookings}</span> results
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300"
+                        >
+                            Previous
+                        </button>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                            Page {currentPage} of {totalPages}
+                        </div>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
