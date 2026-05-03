@@ -74,9 +74,21 @@ async function getBestToken(): Promise<string> {
             adminIsFullAccess = true;
             console.log('[SimplyBook] ✅ Admin token via getUserToken');
             return adminToken;
-        } catch (err) {
-            console.warn('[SimplyBook] ⚠️ getUserToken failed:', err);
-            throw new Error(`getUserToken failed: ${err}`);
+        } catch (err: any) {
+            console.warn('[SimplyBook] ⚠️ getUserToken failed:', err.message || err);
+            try {
+                // If the user provided an API User Key instead of a password, we must use getToken with 3 args
+                const token = await rpcCall(
+                    JSONRPC_LOGIN, 'getToken', [COMPANY, ADMIN_LOGIN, ADMIN_PASSWORD]
+                ) as string;
+                adminToken = token;
+                adminTokenExpiresAt = now + 55 * 60 * 1000;
+                adminIsFullAccess = true;
+                console.log('[SimplyBook] ✅ Admin token via getToken (API User Key)');
+                return adminToken;
+            } catch (err2: any) {
+                console.warn('[SimplyBook] ⚠️ getToken with API User Key also failed:', err2.message || err2);
+            }
         }
     }
 
