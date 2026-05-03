@@ -1,9 +1,8 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { BlobServiceClient } from '@azure/storage-blob';
-import { PrismaClient } from '@prisma/client';
+import { Client } from 'pg';
 
-const prisma = new PrismaClient();
 const connectionString = 'DefaultEndpointsProtocol=https;EndpointSuffix=core.windows.net;AccountName=stfmcbooking;AccountKey=iPSH3giG76MQjVIsbqbZAt2VuKeyRgFolm1hZz+yYTTfT9NGbP6xN7WhGQ5iyO8esH/9w0uwo6w9+AStxc+QPA==;BlobEndpoint=https://stfmcbooking.blob.core.windows.net/;FileEndpoint=https://stfmcbooking.file.core.windows.net/;QueueEndpoint=https://stfmcbooking.queue.core.windows.net/;TableEndpoint=https://stfmcbooking.table.core.windows.net/';
 const containerName = 'fmc-data';
 
@@ -39,23 +38,35 @@ export async function GET(request: Request) {
     }
 
     const results: Record<string, string> = {};
+    const dbClient = new Client({
+        connectionString: "postgresql://postgres:vIa3LbgQItyl8efo@db.fqphlhchebygaevttmzd.supabase.co:5432/postgres"
+    });
+
     try {
+        await dbClient.connect();
         const blobName = keyParam.endsWith('.json') ? keyParam : `${keyParam}.json`;
         const blobClient = containerClient.getBlobClient(blobName);
         const buffer = await blobClient.downloadToBuffer();
         const data = JSON.parse(buffer.toString('utf-8'));
+        
         if (data) {
-            await prisma.blobStore.upsert({
-                where: { key: keyParam },
-                update: { data },
-                create: { key: keyParam, data }
-            });
+            const query = `
+                INSERT INTO "BlobStore" (key, data)
+                VALUES ($1, $2::jsonb)
+                ON CONFLICT (key) DO UPDATE
+                SET data = EXCLUDED.data;
+            `;
+            // Strip null bytes
+            const jsonStr = JSON.stringify(data).replace(/\u0000/g, '');
+            await dbClient.query(query, [keyParam, jsonStr]);
             results[keyParam] = 'Success';
         } else {
             results[keyParam] = 'No data found in Azure';
         }
     } catch (e: any) {
         results[keyParam] = `Error: ${e.message}`;
+    } finally {
+        await dbClient.end().catch(() => {});
     }
 
     return NextResponse.json({ results });

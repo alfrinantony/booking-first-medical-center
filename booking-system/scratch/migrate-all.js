@@ -1,4 +1,3 @@
-const fetch = require('node-fetch');
 
 const keys = [
     'medicines',
@@ -17,7 +16,7 @@ async function run() {
     for (const key of keys) {
         console.log(`Migrating ${key}...`);
         try {
-            const res = await fetch(`http://localhost:3000/api/admin/debug-sb?key=${key}`);
+            const res = await fetch(`https://ai.dubaifmc.com/api/admin/debug-sb?key=${key}`);
             const data = await res.json();
             console.log(data);
         } catch (e) {
