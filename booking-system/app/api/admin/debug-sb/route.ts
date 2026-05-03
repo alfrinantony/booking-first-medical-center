@@ -23,7 +23,26 @@ export async function GET(request: Request) {
         'category-images',
         'inventory-batches',
         'clinics',
-        'category-order'
+        'category-order',
+        'room-checklists',
+        'hr-employees',
+        'hr-shifts',
+        'hr-recruitment',
+        'hr-payslips',
+        'hr-payslip',
+        'hr-letters',
+        'hr-leave',
+        'hr-eos',
+        'hr-documents',
+        'hr-calendar',
+        'hr-attendance',
+        'users',
+        'adminUsers',
+        'clinician-schedules',
+        'stock-transfers',
+        'expired-stock',
+        'stock-adjustments',
+        'distributions'
     ];
 
     if (!keyParam) {
