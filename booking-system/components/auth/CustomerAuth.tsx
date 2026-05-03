@@ -163,13 +163,27 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
         e.preventDefault();
         setError(null);
         setSuccessMsg(null);
+        
+        // ── Validation ──
+        if (!email.includes('@') || !email.includes('.')) {
+            setError('Please enter a valid email address.');
+            return;
+        }
+
+        // Clean phone number: keep only '+' and digits
+        const cleanedPhone = phone.replace(/[^\d+]/g, '');
+        if (!/^\+\d{12}$/.test(cleanedPhone)) {
+            setError('Phone number must start with "+" followed by exactly 12 digits (e.g., +971501234567).');
+            return;
+        }
+
         setOtpLoading(true);
 
         try {
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, phone, password, dateOfBirth: dob, gender })
+                body: JSON.stringify({ name, email, phone: cleanedPhone, password, dateOfBirth: dob, gender })
             });
             const result = await res.json();
             
@@ -542,9 +556,17 @@ export default function CustomerAuth({ onSuccess }: CustomerAuthProps) {
                                     required
                                     type="tel"
                                     value={phone}
-                                    onChange={e => setPhone(e.target.value)}
+                                    onChange={e => {
+                                        let val = e.target.value;
+                                        // Auto-add + if user starts typing a number
+                                        if (val.length > 0 && !val.startsWith('+')) {
+                                            val = '+' + val.replace(/\+/g, '');
+                                        }
+                                        setPhone(val);
+                                    }}
                                     className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    placeholder="+971 50 123 4567"
+                                    placeholder="+971501234567"
+                                    maxLength={16}
                                 />
                             </div>
                         </div>
