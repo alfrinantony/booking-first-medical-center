@@ -197,11 +197,23 @@ export default function ClientsPage() {
         fetch('/api/admin/emr').then(r => r.json()).then(data => setEmrConfig(data.config || data)).catch(() => {});
     }, []);
 
-    const handlePushToEMR = async (client: Client) => {
+    const handlePushToEMR = async (client: Client, isAuto = false) => {
         if (!emrConfig.enabled || !emrConfig.endpointUrl) {
-            alert('EMR integration is not configured. Please go to Settings to configure it.');
+            if (!isAuto) alert('EMR integration is not configured. Please go to Settings to configure it.');
             return;
         }
+
+        // Omit contact details for privacy when exporting to Clinic Soft EMR
+        const emrPayload = { ...client };
+        delete emrPayload.email;
+        delete emrPayload.phone;
+        delete emrPayload.mobile;
+        delete emrPayload.whatsapp;
+        delete emrPayload.emergencyContactPerson;
+        delete emrPayload.emergencyTelephone;
+        delete emrPayload.emergencyWorkMobile;
+        delete emrPayload.emergencyRelationship;
+
         setPushingEMR(prev => new Set(prev).add(client.id));
         setEmrPushRecords(prev => ({ ...prev, [client.id]: { clientId: client.id, status: 'pending', timestamp: new Date().toISOString() } }));
         try {
@@ -211,7 +223,7 @@ export default function ClientsPage() {
                 body: JSON.stringify({
                     endpointUrl: emrConfig.endpointUrl,
                     apiKey: emrConfig.apiKey,
-                    patientData: client,
+                    patientData: emrPayload,
                 }),
             });
             const data = await res.json();
@@ -421,6 +433,10 @@ export default function ClientsPage() {
             body: JSON.stringify(payload)
         }).then(() => {
             refreshClients();
+            // Automatically push to EMR on new registration
+            if (!editingClient && emrConfig.enabled && emrConfig.endpointUrl) {
+                handlePushToEMR(payload as Client, true);
+            }
         }).catch(() => {});
         
         // Save connected patients to localStorage
