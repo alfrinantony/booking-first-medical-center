@@ -120,13 +120,19 @@ export default function ClientsPage() {
     const refreshClients = async () => {
         try {
             const res = await fetch(`/api/admin/clients?page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchQuery)}`);
+            if (!res.ok) {
+                console.error('API error:', res.status, res.statusText);
+                return; // don't try to parse and set invalid data
+            }
             const data = await res.json();
-            if (data.clients) {
+            if (data.clients && Array.isArray(data.clients)) {
                 setClients(data.clients);
-                setTotalClients(data.total);
-            } else {
+                setTotalClients(data.total || 0);
+            } else if (Array.isArray(data)) {
                 setClients(data); // Legacy fallback
                 setTotalClients(data.length);
+            } else {
+                console.error('Unexpected API response shape:', data);
             }
         } catch (e) {
             console.error('Failed to load clients:', e);
@@ -405,17 +411,22 @@ export default function ClientsPage() {
             emergencyWorkMobile: editForm.emergencyWorkMobile || undefined,
         };
 
-        if (editingClient) {
-            fetch('/api/admin/clients', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: editingClient.id, ...updates })
-            }).catch(() => {});
-            // Save connected patients to localStorage
-            localStorage.setItem(`client-grouping-${editingClient.id}`, JSON.stringify(connectedPatients));
-        }
+        const payload = editingClient 
+            ? { id: editingClient.id, ...updates }
+            : { id: `client_${Date.now()}`, ...updates };
+
+        fetch('/api/admin/clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(() => {
+            refreshClients();
+        }).catch(() => {});
+        
+        // Save connected patients to localStorage
+        localStorage.setItem(`client-grouping-${payload.id}`, JSON.stringify(connectedPatients));
+        
         setIsEditModalOpen(false);
-        refreshClients();
     };
 
     /* ── Helper: text input ── */

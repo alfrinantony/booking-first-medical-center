@@ -1,0 +1,211 @@
+app/admin/appointments/page.tsx(1056,92): error TS2367: This comparison appears to be unintentional because the types '"cash" | "clinic" | "wallet" | undefined' and '"package"' have no overlap.
+app/admin/appointments/page.tsx(1421,37): error TS2322: Type '(navigateToBilling?: boolean) => Promise<void>' is not assignable to type 'MouseEventHandler<HTMLButtonElement>'.
+  Types of parameters 'navigateToBilling' and 'event' are incompatible.
+    Type 'MouseEvent<HTMLButtonElement, MouseEvent>' is not assignable to type 'boolean | undefined'.
+app/admin/billing/page.tsx(6,15): error TS2305: Module '"@/lib/packages-store"' has no exported member 'PackageOption'.
+app/admin/billing/page.tsx(513,30): error TS2304: Cannot find name 'Receipt'.
+app/admin/billing/page.tsx(519,26): error TS2304: Cannot find name 'Plus'.
+app/admin/billing/page.tsx(529,30): error TS2304: Cannot find name 'AlertTriangle'.
+app/admin/billing/page.tsx(552,26): error TS2304: Cannot find name 'Search'.
+app/admin/billing/page.tsx(583,93): error TS2304: Cannot find name 'FileText'.
+app/admin/billing/page.tsx(590,42): error TS2304: Cannot find name 'Search'.
+app/admin/billing/page.tsx(663,116): error TS2304: Cannot find name 'Calendar'.
+app/admin/billing/page.tsx(667,116): error TS2304: Cannot find name 'Clock'.
+app/admin/billing/page.tsx(671,116): error TS2304: Cannot find name 'User'.
+app/admin/billing/page.tsx(679,42): error TS2304: Cannot find name 'CreditCard'.
+app/admin/billing/page.tsx(854,50): error TS2304: Cannot find name 'Zap'.
+app/admin/billing/page.tsx(874,46): error TS2304: Cannot find name 'Zap'.
+app/admin/billing/page.tsx(953,62): error TS2304: Cannot find name 'X'.
+app/admin/billing/page.tsx(980,42): error TS2304: Cannot find name 'Package'.
+app/admin/billing/page.tsx(1065,74): error TS2304: Cannot find name 'AlertTriangle'.
+app/admin/billing/page.tsx(1179,116): error TS2304: Cannot find name 'MapPin'.
+app/admin/billing/page.tsx(1338,38): error TS2304: Cannot find name 'Printer'.
+app/admin/checklists/page.tsx(338,25): error TS2339: Property 'role' does not exist on type 'UserProfile'.
+app/admin/checklists/page.tsx(338,57): error TS2339: Property 'role' does not exist on type 'UserProfile'.
+app/admin/hr/employees/[id]/page.tsx(13,15): error TS2305: Module '"@/lib/hr-constants"' has no exported member 'EmployeeDocument'.
+app/admin/hr/recruitment/page.tsx(10,15): error TS2305: Module '"@/lib/hr-recruitment-store"' has no exported member 'JobOpening'.
+app/admin/hr/recruitment/page.tsx(10,27): error TS2305: Module '"@/lib/hr-recruitment-store"' has no exported member 'Candidate'.
+app/admin/hr/recruitment/page.tsx(26,51): error TS2304: Cannot find name 'OpeningStatus'.
+app/admin/hr/recruitment/page.tsx(32,80): error TS2304: Cannot find name 'CandidateSource'.
+app/admin/hr/recruitment/page.tsx(86,78): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(167,37): error TS2304: Cannot find name 'OpeningStatus'.
+app/admin/hr/recruitment/page.tsx(202,66): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(202,78): error TS2339: Property 'title' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(229,111): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(241,78): error TS2339: Property 'status' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(306,53): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(308,112): error TS2339: Property 'title' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(309,92): error TS2339: Property 'employmentType' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(311,83): error TS2339: Property 'department' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(313,101): error TS2339: Property 'workplaceName' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(316,53): error TS2339: Property 'salaryMin' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(316,69): error TS2339: Property 'salaryMax' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(317,63): error TS2339: Property 'salaryMin' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(317,98): error TS2339: Property 'salaryMax' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(322,134): error TS2339: Property 'status' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(323,57): error TS2339: Property 'status' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(327,98): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(337,71): error TS2339: Property 'title' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(337,93): error TS2339: Property 'department' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(338,77): error TS2339: Property 'workplaceId' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(338,108): error TS2339: Property 'workplaceName' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(339,80): error TS2339: Property 'employmentType' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(339,112): error TS2339: Property 'description' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(340,78): error TS2339: Property 'requirements' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(340,106): error TS2339: Property 'salaryMin' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(341,75): error TS2339: Property 'salaryMax' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(341,102): error TS2339: Property 'status' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(341,123): error TS2339: Property 'openDate' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(347,99): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(375,63): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(375,76): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(375,83): error TS2339: Property 'title' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(562,142): error TS2304: Cannot find name 'OpeningStatus'.
+app/admin/hr/recruitment/page.tsx(639,65): error TS2339: Property 'status' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(640,60): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(640,73): error TS2339: Property 'id' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(640,80): error TS2339: Property 'title' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(640,92): error TS2339: Property 'workplaceName' does not exist on type 'OpeningWithCount'.
+app/admin/hr/recruitment/page.tsx(682,148): error TS2304: Cannot find name 'CandidateSource'.
+app/admin/hr/recruitment/page.tsx(781,152): error TS2304: Cannot find name 'CandidateSource'.
+app/api/admin/debug-sb/route.ts(4,24): error TS7016: Could not find a declaration file for module 'pg'. 'C:/AntiGravityWorks/Booking First Medical Center/booking-system/node_modules/pg/esm/index.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/pg` if it exists or add a new declaration (.d.ts) file containing `declare module 'pg';`
+app/api/admin/hr/attendance/alerts/route.ts(28,27): error TS2339: Property 'length' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(29,28): error TS2339: Property 'filter' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(29,35): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/api/admin/hr/attendance/alerts/route.ts(30,26): error TS2339: Property 'filter' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(30,33): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/api/admin/hr/attendance/alerts/route.ts(31,28): error TS2339: Property 'filter' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(31,35): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/api/admin/hr/attendance/alerts/route.ts(32,32): error TS2339: Property 'filter' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(32,39): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/api/admin/hr/attendance/device/route.ts(68,62): error TS2345: Argument of type '{ name: any; serialNumber: any; host: any; port: any; autoSyncEnabled: any; autoSyncIntervalMinutes: any; }' is not assignable to parameter of type 'Omit<DeviceConfig, "id" | "status" | "lastSync">'.
+  Type '{ name: any; serialNumber: any; host: any; port: any; autoSyncEnabled: any; autoSyncIntervalMinutes: any; }' is missing the following properties from type 'Omit<DeviceConfig, "id" | "status" | "lastSync">': branchId, branchName
+app/api/admin/hr/attendance/sync/route.ts(29,32): error TS2322: Type 'Promise<number>' is not assignable to type 'number'.
+app/api/admin/hr/attendance/sync/route.ts(29,61): error TS2345: Argument of type '{ employeeId: string; date: string; punchIn: string | null; punchOut: string | null; source: "BIOMETRIC"; notes: string; }[]' is not assignable to parameter of type 'Omit<AttendanceRecord, "id" | "status" | "createdAt" | "updatedAt" | "totalHours">[]'.
+  Type '{ employeeId: string; date: string; punchIn: string | null; punchOut: string | null; source: "BIOMETRIC"; notes: string; }' is missing the following properties from type 'Omit<AttendanceRecord, "id" | "status" | "createdAt" | "updatedAt" | "totalHours">': rawHours, breakDeducted, isSplitDuty, shifts
+app/api/admin/hr/notifications/route.ts(18,27): error TS2339: Property 'map' does not exist on type 'Promise<any[]>'.
+app/api/admin/hr/notifications/route.ts(18,37): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+app/api/admin/hr/notifications/route.ts(31,45): error TS2339: Property 'length' does not exist on type 'Promise<any[]>'.
+app/api/admin/hr/notifications/route.ts(32,35): error TS2339: Property 'length' does not exist on type 'Promise<any[]>'.
+app/api/admin/hr/notifications/route.ts(33,39): error TS2339: Property 'length' does not exist on type 'Promise<any[]>'.
+app/api/admin/hr/notifications/route.ts(33,56): error TS2339: Property 'length' does not exist on type 'Promise<any[]>'.
+app/api/admin/schedule/route.ts(49,9): error TS2322: Type '{ available: boolean; reason?: string | undefined; shift?: ShiftAssignment | undefined; }' is not assignable to type '{ available: boolean; reason: string; }'.
+  Types of property 'reason' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+app/api/admin/simplybook/migrate-all/route.ts(83,25): error TS2339: Property 'Clinic' does not exist on type 'typeof import("C:/AntiGravityWorks/Booking First Medical Center/booking-system/lib/data")'.
+app/api/admin/simplybook/route.ts(172,50): error TS2339: Property 'split' does not exist on type '{}'.
+app/api/admin/simplybook/route.ts(218,9): error TS2322: Type '{}' is not assignable to type 'string'.
+app/api/admin/simplybook/route.ts(219,9): error TS2322: Type '{}' is not assignable to type 'string'.
+app/api/admin/simplybook/route.ts(228,9): error TS2322: Type '{}' is not assignable to type 'string'.
+app/api/admin/simplybook/route.ts(229,9): error TS2322: Type '{}' is not assignable to type 'string'.
+app/api/payment/webhook/route.ts(42,25): error TS2561: Object literal may only specify known properties, but 'paymentStatus' does not exist in type 'Partial<Booking> & { staffName?: string | undefined; }'. Did you mean to write 'sbPaymentStatus'?
+app/api/payment/webhook/route.ts(49,25): error TS2322: Type '"consultation"' is not assignable to type 'InvoiceCategory | undefined'.
+app/api/webhooks/simplybook/route.ts(95,15): error TS2741: Property 'matchStatus' is missing in type '{ sbId: string; sbHash: string; company: string; startDateTime: string; endDateTime: string; date: string; time: string; eventId: string; unitId: string; serviceName: string; providerName: string; ... 8 more ...; raw: Record<...>; }' but required in type 'SimplybookRecord'.
+components/BookingWizard.tsx(2145,46): error TS2304: Cannot find name 'Package'.
+components/LiveAvatarBubble.tsx(131,105): error TS2367: This comparison appears to be unintentional because the types 'AgentState' and '"connected"' have no overlap.
+components/VoiceAgentBubble.tsx(5,10): error TS2724: '"@/lib/restrictions-store"' has no exported member named 'useRestrictionsStore'. Did you mean 'RestrictionsStore'?
+lib/bookings-store.ts(118,78): error TS2339: Property 'length' does not exist on type 'string | number | true | JsonObject | JsonArray'.
+  Property 'length' does not exist on type 'number'.
+lib/bookings-store.ts(119,33): error TS2488: Type 'string | number | true | JsonObject | JsonArray' must have a '[Symbol.iterator]()' method that returns an iterator.
+lib/clients-store.ts(140,50): error TS2339: Property 'createdAt' does not exist on type 'Client'.
+lib/clients-store.ts(141,50): error TS2339: Property 'createdAt' does not exist on type 'Client'.
+lib/email-service.ts(136,64): error TS2339: Property 'options' does not exist on type 'Transport<SentMessageInfo, TransportOptions>'.
+lib/hr-documents-store.ts(10,25): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(85,16): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(88,40): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(97,56): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(102,42): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(107,28): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(107,62): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(109,20): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(127,64): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(145,36): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-documents-store.ts(160,31): error TS2304: Cannot find name 'EmployeeDocument'.
+lib/hr-letters-store.ts(19,17): error TS2304: Cannot find name 'LetterType'.
+lib/hr-letters-store.ts(41,33): error TS2304: Cannot find name 'LetterType'.
+lib/hr-letters-store.ts(269,89): error TS2304: Cannot find name 'LetterType'.
+lib/hr-letters-store.ts(285,21): error TS2304: Cannot find name 'LetterType'.
+lib/hr-recruitment-store.ts(10,24): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(61,26): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(152,15): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(153,17): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(154,35): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(154,61): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(172,49): error TS2304: Cannot find name 'OpeningStatus'.
+lib/hr-recruitment-store.ts(172,92): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(192,49): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(197,35): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(197,91): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(200,24): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(211,61): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(211,104): error TS2304: Cannot find name 'JobOpening'.
+lib/hr-recruitment-store.ts(230,70): error TS2304: Cannot find name 'RecruitmentStage'.
+lib/hr-recruitment-store.ts(230,116): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(250,51): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(255,37): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(255,92): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(258,26): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(269,63): error TS2304: Cannot find name 'Candidate'.
+lib/hr-recruitment-store.ts(269,105): error TS2304: Cannot find name 'Candidate'.
+scratch/check-blob.ts(1,30): error TS2307: Cannot find module './lib/blob-persistence' or its corresponding type declarations.
+scratch/run-clients.ts(5,38): error TS2307: Cannot find module './lib/clients-store' or its corresponding type declarations.
+scratch/run-clients.ts(6,31): error TS2307: Cannot find module './lib/packages-store' or its corresponding type declarations.
+scratch/run-clients.ts(34,23): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(35,22): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(36,23): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(37,20): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(52,20): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(53,29): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(54,28): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(55,29): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(56,27): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(57,25): error TS18046: 'record' is of type 'unknown'.
+scratch/run-clients.ts(58,24): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(50,29): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(51,29): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(52,29): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(53,30): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(54,26): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(55,33): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(56,32): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(57,33): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(58,28): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(59,38): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(60,39): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(61,30): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-bookings-csv-to-pg.ts(62,31): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(44,23): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(45,22): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(46,23): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(47,20): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(75,20): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(76,29): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(77,28): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(78,29): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(79,27): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(80,25): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(81,24): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(141,29): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(142,29): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(143,29): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(144,30): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(145,26): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(146,33): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(147,32): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(148,33): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(149,28): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(150,38): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(151,39): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(152,30): error TS18046: 'record' is of type 'unknown'.
+scripts/migrate-csv.ts(153,31): error TS18046: 'record' is of type 'unknown'.
+test-branch-logic.ts(2,10): error TS2305: Module '"./lib/data.js"' has no exported member 'clinicStore'.
+test-branch-logic.ts(33,49): error TS18048: 'branch1' is possibly 'undefined'.
+test-branch-logic.ts(33,61): error TS18048: 'sourceDept' is possibly 'undefined'.
+test-branch-logic.ts(34,49): error TS18048: 'branch2' is possibly 'undefined'.
+test-branch-logic.ts(54,30): error TS18048: 'branch1' is possibly 'undefined'.
+test-branch-logic.ts(60,28): error TS18048: 'branchClinic' is possibly 'undefined'.
+test-db.ts(7,35): error TS2339: Property 'departments' does not exist on type 'never'.
+test-db.ts(9,49): error TS2339: Property 'name' does not exist on type 'never'.
+test-services.ts(1,10): error TS2459: Module '"./app/api/admin/schedule/route"' declares 'ServicesStore' locally, but it is not exported.

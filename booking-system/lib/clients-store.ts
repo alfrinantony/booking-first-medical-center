@@ -137,8 +137,13 @@ export const ClientsStore = {
 
         // Sort by lastBookingDate descending, or creation date
         allClients.sort((a, b) => {
-            const dateA = a.lastBookingDate || a.createdAt || '';
-            const dateB = b.lastBookingDate || b.createdAt || '';
+            const getIsoDateStr = (val: any) => {
+                if (!val) return '';
+                if (val instanceof Date) return val.toISOString();
+                return String(val);
+            };
+            const dateA = getIsoDateStr(a.lastBookingDate || a.createdAt);
+            const dateB = getIsoDateStr(b.lastBookingDate || b.createdAt);
             return dateB.localeCompare(dateA);
         });
 
