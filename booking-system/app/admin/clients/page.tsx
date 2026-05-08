@@ -334,10 +334,12 @@ export default function ClientsPage() {
         setReadingEid(true);
         setEidDemoWarning(false);
         try {
-            const res = await fetch('/api/admin/emirates-id/read');
-            const data = await res.json();
-            if (data.success && data.formFields) {
-                const ff = data.formFields as Record<string, string>;
+            // Read from the local toolkit directly on the client machine
+            const { readEmiratesId, mapToClientForm } = await import('@/lib/emirates-id');
+            const result = await readEmiratesId();
+            
+            if (result.success && result.data) {
+                const ff = mapToClientForm(result.data);
                 setEditingClient(null);
                 setIsRegistering(true);
                 setEditForm(prev => ({
@@ -355,10 +357,10 @@ export default function ClientsPage() {
                     nationality: ff.nationality || prev.nationality,
                     profession: ff.profession || prev.profession,
                 }));
-                if (data.isDemo) setEidDemoWarning(true);
+                if (result.isDemo) setEidDemoWarning(true);
                 setIsEditModalOpen(true);
             } else {
-                alert(data.error || 'Failed to read Emirates ID card.');
+                alert(result.error || 'Failed to read Emirates ID card.');
             }
         } catch {
             alert('Could not connect to Emirates ID reader service.');

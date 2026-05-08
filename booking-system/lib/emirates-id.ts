@@ -130,13 +130,24 @@ export async function readEmiratesId(toolkitUrl?: string): Promise<EmiratesIdRea
     const baseUrl = toolkitUrl || process.env.EMIRATES_ID_TOOLKIT_URL || 'http://localhost:9694';
 
     try {
-        // Common ICA Toolkit endpoints — try in order
-        const endpoints = [
-            `${baseUrl}/CardReader/ReadPublicData`,
-            `${baseUrl}/eid/ReadPublicData`,
-            `${baseUrl}/api/ReadCard`,
-            `${baseUrl}/ReadCard`,
-        ];
+        // Common ICA Toolkit endpoints — try in order, including common local ports
+        const baseUrls = toolkitUrl 
+            ? [toolkitUrl] 
+            : [
+                process.env.EMIRATES_ID_TOOLKIT_URL,
+                'http://127.0.0.1:9694',
+                'http://127.0.0.1:1111',
+                'http://localhost:9694',
+                'http://localhost:1111'
+              ].filter(Boolean) as string[];
+
+        const endpoints: string[] = [];
+        baseUrls.forEach(base => {
+            endpoints.push(`${base}/CardReader/ReadPublicData`);
+            endpoints.push(`${base}/eid/ReadPublicData`);
+            endpoints.push(`${base}/api/ReadCard`);
+            endpoints.push(`${base}/ReadCard`);
+        });
 
         let lastError = '';
         for (const endpoint of endpoints) {
