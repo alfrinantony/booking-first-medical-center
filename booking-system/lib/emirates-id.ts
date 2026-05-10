@@ -136,8 +136,11 @@ export async function readEmiratesId(toolkitUrl?: string): Promise<EmiratesIdRea
             : [
                 process.env.EMIRATES_ID_TOOLKIT_URL,
                 'http://127.0.0.1:9004',
+                'https://127.0.0.1:9004',
                 'http://localhost:9004',
+                'https://localhost:9004',
                 'http://127.0.0.1:9694',
+                'https://127.0.0.1:9694',
                 'http://127.0.0.1:1111',
                 'http://localhost:9694',
                 'http://localhost:1111'
@@ -189,6 +192,71 @@ export async function readEmiratesId(toolkitUrl?: string): Promise<EmiratesIdRea
                     lastError = `Connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`;
                 }
             }
+        }
+
+        // WebSocket fallback
+        try {
+            console.log('[Emirates ID] HTTP endpoints failed, trying WebSockets...');
+            const wsData = await new Promise<EmiratesIdReadResult>((resolve, reject) => {
+                let isResolved = false;
+                let ws: WebSocket;
+                try {
+                    ws = new WebSocket('wss://127.0.0.1:9004');
+                } catch (e) {
+                    return reject(e);
+                }
+
+                const timeout = setTimeout(() => {
+                    if (!isResolved) {
+                        isResolved = true;
+                        ws.close();
+                        reject(new Error('WebSocket connection timed out'));
+                    }
+                }, 6000);
+
+                ws.onopen = () => {
+                    // Send common payloads
+                    ws.send(JSON.stringify({ cmd: 'ReadPublicData' }));
+                    ws.send(JSON.stringify({ command: 'ReadPublicData' }));
+                    ws.send(JSON.stringify({ cmd: 'Connect' }));
+                };
+
+                ws.onmessage = (event) => {
+                    if (isResolved) return;
+                    try {
+                        const raw = JSON.parse(event.data);
+                        
+                        // Check if card is present flag exists and is false
+                        if (raw.IsCardPresent === false) {
+                            isResolved = true;
+                            clearTimeout(timeout);
+                            ws.close();
+                            resolve({ success: false, error: 'No Emirates ID card detected. Please insert the card into the reader.' });
+                            return;
+                        }
+
+                        if (raw && (raw.IdNumber || raw.idNumber || raw.fullNameEnglish || raw.FullNameEnglish)) {
+                            isResolved = true;
+                            clearTimeout(timeout);
+                            ws.close();
+                            resolve({ success: true, data: parseIcaResponse(raw) });
+                        }
+                    } catch (e) {
+                        // ignore non-json messages
+                    }
+                };
+
+                ws.onerror = (e) => {
+                    if (!isResolved) {
+                        isResolved = true;
+                        clearTimeout(timeout);
+                        reject(new Error('WebSocket error'));
+                    }
+                };
+            });
+            if (wsData) return wsData;
+        } catch (wsErr) {
+            console.warn('[Emirates ID] WebSocket fallback failed:', wsErr);
         }
 
         // All endpoints failed — return demo data for development
