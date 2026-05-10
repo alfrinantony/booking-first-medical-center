@@ -135,6 +135,8 @@ export async function readEmiratesId(toolkitUrl?: string): Promise<EmiratesIdRea
             ? [toolkitUrl] 
             : [
                 process.env.EMIRATES_ID_TOOLKIT_URL,
+                'http://127.0.0.1:9004',
+                'http://localhost:9004',
                 'http://127.0.0.1:9694',
                 'http://127.0.0.1:1111',
                 'http://localhost:9694',
