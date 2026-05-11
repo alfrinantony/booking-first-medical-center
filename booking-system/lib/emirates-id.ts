@@ -135,6 +135,8 @@ export async function readEmiratesId(toolkitUrl?: string): Promise<EmiratesIdRea
             ? [toolkitUrl] 
             : [
                 process.env.EMIRATES_ID_TOOLKIT_URL,
+                'https://toolkitagent.mohre.gov.ae:9004',
+                'https://toolkitagent.emiratesid.ae:9004',
                 'http://127.0.0.1:9004',
                 'https://127.0.0.1:9004',
                 'http://localhost:9004',
@@ -201,7 +203,7 @@ export async function readEmiratesId(toolkitUrl?: string): Promise<EmiratesIdRea
                 let isResolved = false;
                 let ws: WebSocket;
                 try {
-                    ws = new WebSocket('wss://127.0.0.1:9004');
+                    ws = new WebSocket('wss://toolkitagent.mohre.gov.ae:9004');
                 } catch (e) {
                     return reject(e);
                 }
