@@ -127,14 +127,14 @@ function parseIcaResponse(raw: IcaToolkitResponse): EmiratesIdData {
  * Attempt to read the Emirates ID card via the ICA Toolkit local service.
  */
 export async function readEmiratesId(toolkitUrl?: string): Promise<EmiratesIdReadResult> {
-    const baseUrl = toolkitUrl || process.env.EMIRATES_ID_TOOLKIT_URL || 'http://localhost:9694';
+    const baseUrl = toolkitUrl || process.env.NEXT_PUBLIC_EMIRATES_ID_TOOLKIT_URL || 'http://localhost:9694';
 
     try {
         // Common ICA Toolkit endpoints — try in order, including common local ports
         const baseUrls = toolkitUrl 
             ? [toolkitUrl] 
             : [
-                process.env.EMIRATES_ID_TOOLKIT_URL,
+                process.env.NEXT_PUBLIC_EMIRATES_ID_TOOLKIT_URL,
                 'https://toolkitagent.mohre.gov.ae:9004',
                 'https://toolkitagent.emiratesid.ae:9004',
                 'http://127.0.0.1:9004',
