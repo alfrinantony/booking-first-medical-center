@@ -455,6 +455,13 @@ export default function EmployeeDetailPage() {
                                 <p className="text-[10px] text-gray-400 mt-1">Select 1 or 2 days</p>
                             </div>
                             <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Agreed Working Hours Per Week</label>
+                                <input type="number" min="1" max="168" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    placeholder="e.g. 45"
+                                    value={(editForm as any).agreedWorkingHoursPerWeek ?? ''}
+                                    onChange={e => setEditForm({ ...editForm, agreedWorkingHoursPerWeek: Number(e.target.value) as any })} />
+                            </div>
+                            <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Notice Period</label>
                                 <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
                                     value={(editForm as any).noticePeriod || '1 Month'}

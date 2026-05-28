@@ -43,6 +43,7 @@ export interface Employee {
     employmentType: EmploymentType;
     status: EmployeeStatus;
     weeklyOffDays?: string[];
+    agreedWorkingHoursPerWeek?: number; // contracted hours per week, e.g. 45
     noticePeriod?: string;
     probationPeriod?: string;
     penaltyTrainingExpenses?: number;

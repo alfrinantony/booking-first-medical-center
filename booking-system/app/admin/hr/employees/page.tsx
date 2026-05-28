@@ -33,6 +33,7 @@ interface EmployeeFormData {
     employmentType: EmploymentType;
     status: EmployeeStatus;
     weeklyOffDays: string[];
+    agreedWorkingHoursPerWeek: number;
     noticePeriod: string;
     probationPeriod: string;
     penaltyTrainingExpenses: number;
@@ -77,7 +78,7 @@ const emptyForm: EmployeeFormData = {
     clinicId: 'clinic-1', workplaceIds: ['clinic-1'],
     joiningDate: new Date().toISOString().split('T')[0],
     contractEndDate: '', employmentType: 'FULL_TIME', status: 'ACTIVE',
-    weeklyOffDays: ['Friday'], noticePeriod: '1 Month', probationPeriod: '3 Months',
+    weeklyOffDays: ['Friday'], agreedWorkingHoursPerWeek: 45, noticePeriod: '1 Month', probationPeriod: '3 Months',
     penaltyTrainingExpenses: 0, resignationBanDuration: '', penaltyBanDetails: '',
     basicSalary: 0, housingAllowance: 0, transportAllowance: 0,
     workAllowance: 0, trainingAllowance: 0,
@@ -452,6 +453,12 @@ export default function EmployeesPage() {
                                             })}
                                         </div>
                                         <p className="text-xs text-gray-400 mt-1">Select 1 or 2 days</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Agreed Working Hours Per Week</label>
+                                        <input type="number" min="1" max="168" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                            placeholder="e.g. 45"
+                                            value={form.agreedWorkingHoursPerWeek} onChange={e => setForm({ ...form, agreedWorkingHoursPerWeek: Number(e.target.value) })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Notice Period</label>
