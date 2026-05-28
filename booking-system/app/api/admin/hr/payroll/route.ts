@@ -73,6 +73,7 @@ export async function GET(request: Request) {
             workAllowance: salary.workAllowance || 0,
             trainingAllowance: salary.trainingAllowance || 0,
             otherAllowances: salary.otherAllowances,
+            internalAllowance: salary.internalAllowance || 0,
             remainingLeave: leaveBalance.remainingAnnualLeave,
             leaveEncashment: leaveBalance.leaveEncashmentAmount,
             gratuityAccrued: gratuity.gratuityAmount,

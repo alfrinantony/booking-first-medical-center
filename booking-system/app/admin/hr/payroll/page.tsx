@@ -24,6 +24,7 @@ interface PayrollRow {
     workAllowance: number;
     trainingAllowance: number;
     otherAllowances: number;
+    internalAllowance?: number;
     remainingLeave: number;
     leaveEncashment: number;
     gratuityAccrued: number;
@@ -244,7 +245,7 @@ export default function PayrollPage() {
                                         <>
                                             <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{row.department}</td>
                                             <td className="px-4 py-3 text-sm text-right font-mono text-gray-900 dark:text-gray-100">{row.basicSalary.toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-sm text-right font-mono text-gray-500">{(row.housingAllowance + row.transportAllowance + row.workAllowance + row.trainingAllowance + row.otherAllowances).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-sm text-right font-mono text-gray-500">{(row.housingAllowance + row.transportAllowance + row.workAllowance + row.trainingAllowance + row.otherAllowances + (row.internalAllowance || 0)).toLocaleString()}</td>
                                             <td className="px-4 py-3 text-sm text-right font-mono font-semibold text-indigo-600 dark:text-indigo-400">{row.grossSalary.toLocaleString()}</td>
                                             <td className="px-4 py-3 text-sm text-right">{row.yearsOfService}</td>
                                             <td className="px-4 py-3 text-sm text-right">

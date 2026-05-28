@@ -15,6 +15,7 @@ export interface SalaryBreakdown {
     workAllowance: number;
     trainingAllowance: number;
     otherAllowances: number;
+    internalAllowance: number;
     grossSalary: number;
     dailyRate: number;
 }
@@ -71,7 +72,7 @@ export const HRPayroll = {
     /** Monthly salary breakdown */
     calculateSalary: (employee: Employee): SalaryBreakdown => {
         const gross = employee.basicSalary + employee.housingAllowance +
-            employee.transportAllowance + (employee.workAllowance || 0) + (employee.trainingAllowance || 0) + employee.otherAllowances;
+            employee.transportAllowance + (employee.workAllowance || 0) + (employee.trainingAllowance || 0) + employee.otherAllowances + (employee.internalAllowance || 0);
         return {
             basicSalary: employee.basicSalary,
             housingAllowance: employee.housingAllowance,
@@ -79,6 +80,7 @@ export const HRPayroll = {
             workAllowance: employee.workAllowance || 0,
             trainingAllowance: employee.trainingAllowance || 0,
             otherAllowances: employee.otherAllowances,
+            internalAllowance: employee.internalAllowance || 0,
             grossSalary: gross,
             dailyRate: Math.round((gross / 30) * 100) / 100,
         };
@@ -266,13 +268,15 @@ export const HRPayroll = {
         }
     ): MonthlyPayslip => {
         const p = params;
-        const dailyGross = (employee.basicSalary + employee.housingAllowance +
+        const internalAllowance = employee.internalAllowance || 0;
+        const dailyGrossNoInternal = (employee.basicSalary + employee.housingAllowance +
             employee.transportAllowance + (employee.workAllowance || 0) +
             (employee.trainingAllowance || 0) + employee.otherAllowances) / p.totalCalendarDays;
+        const dailyGross = dailyGrossNoInternal + (internalAllowance / p.totalCalendarDays);
 
         // --- EARNINGS ---
         const workDaysSalary = round(dailyGross * p.daysWorked);
-        const annualLeavePay = round(dailyGross * p.annualLeaveDays); // full pay
+        const annualLeavePay = round(dailyGrossNoInternal * p.annualLeaveDays); // full pay without internal allowance
         const phDaysPay = round(dailyGross * p.phDays); // full pay for public holidays
         const offDaysPay = round(dailyGross * p.offDays); // full pay for off days
 
@@ -281,8 +285,8 @@ export const HRPayroll = {
         const priorSick = p.cumulativeSickDaysThisYear - p.sickLeaveDays; // days before this month
         for (let i = 0; i < p.sickLeaveDays; i++) {
             const dayIdx = priorSick + i + 1;
-            if (dayIdx <= 15) sickPay += dailyGross;          // full pay
-            else if (dayIdx <= 45) sickPay += dailyGross / 2; // half pay
+            if (dayIdx <= 15) sickPay += dailyGrossNoInternal;          // full pay without internal allowance
+            else if (dayIdx <= 45) sickPay += dailyGrossNoInternal / 2; // half pay without internal allowance
             // else unpaid (0)
         }
         sickPay = round(sickPay);
@@ -393,6 +397,7 @@ export const HRPayroll = {
             workAllowance,
             trainingAllowance,
             otherAllowances: employee.otherAllowances,
+            internalAllowance,
             workDaysSalary,
             annualLeavePay,
             sickLeavePay: sickPay,
@@ -461,6 +466,7 @@ export interface MonthlyPayslip {
     workAllowance: number;
     trainingAllowance: number;
     otherAllowances: number;
+    internalAllowance: number;
     workDaysSalary: number;
     annualLeavePay: number;
     sickLeavePay: number;

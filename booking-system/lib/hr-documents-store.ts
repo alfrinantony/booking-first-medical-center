@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { loadFromBlob, saveToBlob } from './blob-persistence';
+import type { EmployeeDocument } from './hr-constants';
 
 export * from './hr-constants';
 

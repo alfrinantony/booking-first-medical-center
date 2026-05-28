@@ -45,6 +45,7 @@ export async function POST(request: Request) {
             otherAllowances: Number(body.otherAllowances) || 0,
             workAllowance: Number(body.workAllowance) || 0,
             trainingAllowance: Number(body.trainingAllowance) || 0,
+            internalAllowance: Number(body.internalAllowance) || 0,
             workplaceId: body.workplaceId || body.clinicId || 'clinic-1',
             annualLeaveEntitlement: Number(body.annualLeaveEntitlement) || 30,
             leavesTaken: Number(body.leavesTaken) || 0,

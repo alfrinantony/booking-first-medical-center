@@ -6,7 +6,8 @@ import { HRStore } from './hr-store';
 import type { Employee } from './hr-store';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 import { LETTER_TYPE_LABELS, LETTER_REF_PREFIXES } from './hr-constants';
-export type { LetterType } from './hr-constants';
+import type { LetterType } from './hr-constants';
+export type { LetterType };
 
 export type LetterStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 
@@ -55,7 +56,7 @@ function formatDate(iso: string): string {
 
 function renderSalaryCertificate(emp: Employee, issuedDate: string, refNum: string): string {
     const gross = emp.basicSalary + emp.housingAllowance + emp.transportAllowance
-        + (emp.workAllowance || 0) + (emp.trainingAllowance || 0) + emp.otherAllowances;
+        + (emp.workAllowance || 0) + (emp.trainingAllowance || 0) + emp.otherAllowances + (emp.internalAllowance || 0);
     return `
 <div style="font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto; padding: 40px 60px; color: #1a1a1a;">
     <div style="text-align: center; margin-bottom: 40px; border-bottom: 3px double #1a365d; padding-bottom: 20px;">
@@ -104,6 +105,10 @@ function renderSalaryCertificate(emp: Employee, issuedDate: string, refNum: stri
                 ${emp.otherAllowances ? `<tr style="border-bottom: 1px solid #ddd;">
                     <td style="padding: 8px 12px;">Other Allowances</td>
                     <td style="padding: 8px 12px; text-align: right; font-weight: bold;">AED ${emp.otherAllowances.toLocaleString()}</td>
+                </tr>` : ''}
+                ${emp.internalAllowance ? `<tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px 12px;">Internal Allowance</td>
+                    <td style="padding: 8px 12px; text-align: right; font-weight: bold;">AED ${emp.internalAllowance.toLocaleString()}</td>
                 </tr>` : ''}
                 <tr style="border-top: 2px solid #1a365d; background: #f7fafc;">
                     <td style="padding: 10px 12px; font-weight: bold;">Total Monthly Salary</td>

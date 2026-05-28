@@ -44,6 +44,7 @@ interface EmployeeFormData {
     workAllowance: number;
     trainingAllowance: number;
     otherAllowances: number;
+    internalAllowance: number;
     annualLeaveEntitlement: number;
     visaStatus: string;
     visaExpiryDate: string;
@@ -80,7 +81,7 @@ const emptyForm: EmployeeFormData = {
     penaltyTrainingExpenses: 0, resignationBanDuration: '', penaltyBanDetails: '',
     basicSalary: 0, housingAllowance: 0, transportAllowance: 0,
     workAllowance: 0, trainingAllowance: 0,
-    otherAllowances: 0, annualLeaveEntitlement: 30, visaStatus: '',
+    otherAllowances: 0, internalAllowance: 0, annualLeaveEntitlement: 30, visaStatus: '',
     visaExpiryDate: '', visaNumber: '', visaType: '', visaIssuingBranch: '',
     workPermitNumber: '', workPermitExpiry: '', workPermitStatus: 'Not Started',
     workPermitIssueDate: '', lcPersonalNumber: '', lcDesignation: '',
@@ -489,7 +490,7 @@ export default function EmployeesPage() {
 
                             {/* Salary */}
                             <fieldset className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                                <legend className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-2">Salary (AED)</legend>
+                                <legend className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-2">Contract Salary</legend>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Basic Salary</label>
@@ -521,8 +522,13 @@ export default function EmployeesPage() {
                                         <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                                             value={form.trainingAllowance} onChange={e => setForm({ ...form, trainingAllowance: Number(e.target.value) })} />
                                     </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Internal Allowance</label>
+                                        <input type="number" min="0" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                            value={form.internalAllowance} onChange={e => setForm({ ...form, internalAllowance: Number(e.target.value) })} />
+                                    </div>
                                     <div className="col-span-2 text-right text-sm font-semibold text-indigo-600">
-                                        Total: AED {(form.basicSalary + form.housingAllowance + form.transportAllowance + form.workAllowance + form.trainingAllowance + form.otherAllowances).toLocaleString()}
+                                        Total: AED {(form.basicSalary + form.housingAllowance + form.transportAllowance + form.workAllowance + form.trainingAllowance + form.otherAllowances + (form.internalAllowance || 0)).toLocaleString()}
                                     </div>
                                 </div>
                             </fieldset>

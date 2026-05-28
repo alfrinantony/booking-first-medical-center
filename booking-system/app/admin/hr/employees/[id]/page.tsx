@@ -495,7 +495,7 @@ export default function EmployeeDetailPage() {
                     </fieldset>
 
                     <fieldset className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                        <legend className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-2">Salary (AED / month)</legend>
+                        <legend className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-2">Contract Salary</legend>
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                             {[
                                 { label: 'Basic Salary', key: 'basicSalary' },
@@ -504,6 +504,7 @@ export default function EmployeeDetailPage() {
                                 { label: 'Other', key: 'otherAllowances' },
                                 { label: 'Work Allowance', key: 'workAllowance' },
                                 { label: 'Training Allowance', key: 'trainingAllowance' },
+                                { label: 'Internal Allowance', key: 'internalAllowance' },
                             ].map(f => (
                                 <div key={f.key}>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">{f.label}</label>
@@ -515,7 +516,7 @@ export default function EmployeeDetailPage() {
                             ))}
                         </div>
                         <div className="mt-3 text-right text-sm font-semibold text-indigo-600">
-                            Total: AED {((editForm.basicSalary || 0) + (editForm.housingAllowance || 0) + (editForm.transportAllowance || 0) + ((editForm as any).workAllowance || 0) + ((editForm as any).trainingAllowance || 0) + (editForm.otherAllowances || 0)).toLocaleString()}
+                            Total: AED {((editForm.basicSalary || 0) + (editForm.housingAllowance || 0) + (editForm.transportAllowance || 0) + ((editForm as any).workAllowance || 0) + ((editForm as any).trainingAllowance || 0) + (editForm.otherAllowances || 0) + ((editForm as any).internalAllowance || 0)).toLocaleString()}
                         </div>
                     </fieldset>
 
@@ -1168,7 +1169,7 @@ export default function EmployeeDetailPage() {
                         <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                             <Briefcase className="w-5 h-5 text-indigo-600" /> Monthly Salary Breakdown
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-8 gap-4">
                             {[
                                 { label: 'Basic', value: payroll.salary.basicSalary },
                                 { label: 'Housing', value: payroll.salary.housingAllowance },
@@ -1176,6 +1177,7 @@ export default function EmployeeDetailPage() {
                                 { label: 'Other', value: payroll.salary.otherAllowances },
                                 { label: 'Work', value: payroll.salary.workAllowance || 0 },
                                 { label: 'Training', value: payroll.salary.trainingAllowance || 0 },
+                                { label: 'Internal Allowance', value: payroll.salary.internalAllowance || 0 },
                                 { label: 'Gross Salary', value: payroll.salary.grossSalary, highlight: true },
                             ].map(item => (
                                 <div key={item.label} className={`p-3 rounded-lg ${item.highlight ? 'bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800' : 'bg-gray-50 dark:bg-gray-700/50'}`}>

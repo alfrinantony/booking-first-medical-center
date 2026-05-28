@@ -21,6 +21,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         if (body.housingAllowance !== undefined) body.housingAllowance = Number(body.housingAllowance);
         if (body.transportAllowance !== undefined) body.transportAllowance = Number(body.transportAllowance);
         if (body.otherAllowances !== undefined) body.otherAllowances = Number(body.otherAllowances);
+        if (body.workAllowance !== undefined) body.workAllowance = Number(body.workAllowance);
+        if (body.trainingAllowance !== undefined) body.trainingAllowance = Number(body.trainingAllowance);
+        if (body.internalAllowance !== undefined) body.internalAllowance = Number(body.internalAllowance);
         if (body.annualLeaveEntitlement !== undefined) body.annualLeaveEntitlement = Number(body.annualLeaveEntitlement);
         if (body.leavesTaken !== undefined) body.leavesTaken = Number(body.leavesTaken);
         if (body.sickLeavesTaken !== undefined) body.sickLeavesTaken = Number(body.sickLeavesTaken);

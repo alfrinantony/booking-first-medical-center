@@ -334,12 +334,12 @@ export default function ClientsPage() {
         setReadingEid(true);
         setEidDemoWarning(false);
         try {
-            // Read from the local toolkit directly on the client machine
-            const { readEmiratesId, mapToClientForm } = await import('@/lib/emirates-id');
-            const result = await readEmiratesId();
+            // Read from the API route which acts as a secure proxy to the toolkit
+            const res = await fetch('/api/admin/emirates-id/read');
+            const result = await res.json();
             
-            if (result.success && result.data) {
-                const ff = mapToClientForm(result.data);
+            if (result.success && result.formFields) {
+                const ff = result.formFields;
                 setEditingClient(null);
                 setIsRegistering(true);
                 setEditForm(prev => ({

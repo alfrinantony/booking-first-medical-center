@@ -31,6 +31,62 @@ export const LABOR_CARD_STATUSES = [
 
 export type LetterType = 'SALARY_CERTIFICATE' | 'EMPLOYMENT_CERTIFICATE' | 'EXPERIENCE_CERTIFICATE';
 
+export interface EmployeeDocument {
+    id: string;
+    employeeId: string;
+    category: DocumentCategory;
+    documentType: string;
+    fileName: string;
+    blobUrl: string;
+    fileSize: number;
+    mimeType: string;
+    uploadedAt: string;
+    expiryDate?: string;
+    issueDate?: string;
+    notes?: string;
+}
+
+export interface JobOpening {
+    id: string;
+    title: string;
+    department: string;
+    workplaceId: string;
+    workplaceName: string;
+    employmentType: string;
+    description: string;
+    requirements: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    status: OpeningStatus;
+    openDate: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface Candidate {
+    id: string;
+    jobOpeningId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    nationality: string;
+    currentPosition: string;
+    experience: number;
+    stage: RecruitmentStage;
+    source: CandidateSource;
+    interviewDate?: string;
+    notes?: string;
+    interviewNotes?: string;
+    interviewRating?: number;
+    offerSalary?: number;
+    offerDate?: string;
+    expectedJoiningDate?: string;
+    rejectionReason?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export const LETTER_TYPE_LABELS: Record<string, string> = {
     SALARY_CERTIFICATE: 'Salary Certificate',
     EMPLOYMENT_CERTIFICATE: 'Employment Certificate',

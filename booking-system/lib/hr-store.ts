@@ -49,13 +49,14 @@ export interface Employee {
     resignationBanDuration?: string;
     penaltyBanDetails?: string;
 
-    // Salary (AED)
+    // Contract Salary
     basicSalary: number;
     housingAllowance: number;
     transportAllowance: number;
     workAllowance: number;
     trainingAllowance: number;
     otherAllowances: number;
+    internalAllowance?: number;
 
     // Incentive Criteria
     incentiveBasis?: 'Income' | 'Profit'; // based on income or profit
@@ -150,6 +151,7 @@ const initialEmployees: Employee[] = [
         workAllowance: 1500,
         trainingAllowance: 500,
         otherAllowances: 1000,
+        internalAllowance: 0,
         incentiveBasis: 'Income',
         incentivePayoutTiming: 'Following Month',
         incentiveSlabs: [
@@ -234,6 +236,7 @@ const initialEmployees: Employee[] = [
         workAllowance: 800,
         trainingAllowance: 300,
         otherAllowances: 500,
+        internalAllowance: 0,
         annualLeaveEntitlement: 30,
         leavesTaken: 10,
         sickLeavesTaken: 1,
@@ -291,6 +294,7 @@ const initialEmployees: Employee[] = [
         workAllowance: 2000,
         trainingAllowance: 1000,
         otherAllowances: 1500,
+        internalAllowance: 0,
         annualLeaveEntitlement: 30,
         leavesTaken: 15,
         sickLeavesTaken: 3,
