@@ -32,9 +32,12 @@ export async function GET(req: NextRequest) {
     if (mode && token) {
         if (mode === 'subscribe' && token === VERIFY_TOKEN) {
             console.log('[MetaWebhook] VERIFIED');
-            return new NextResponse(challenge, { status: 200 });
+            return new Response(challenge, { 
+                status: 200,
+                headers: { 'Content-Type': 'text/plain' }
+            });
         } else {
-            return new NextResponse('Forbidden', { status: 403 });
+            return new Response('Forbidden', { status: 403 });
         }
     }
 
@@ -131,31 +134,42 @@ export async function POST(req: NextRequest) {
                         const contacts = change.value.contacts || [];
                         
                         for (const message of change.value.messages) {
-                            if (message.type === 'text' && message.text?.body) {
+                            if (message.type) {
                                 // Find sender name if available
                                 const contact = contacts.find((c: any) => c.wa_id === message.from);
                                 const senderName = contact?.profile?.name;
                                 
+                                let ts = message.timestamp ? parseInt(message.timestamp.toString()) : Date.now();
+                                if (ts < 100000000000) ts *= 1000; // Convert seconds to milliseconds if needed
+
+                                // Extract message content or use placeholder for media
+                                let content = `[${message.type.charAt(0).toUpperCase() + message.type.slice(1)} Message]`;
+                                if (message.type === 'text' && message.text?.body) {
+                                    content = message.text.body;
+                                }
+
                                 const msg: StoredWebhookMessage = {
                                     id: message.id || `wa-${Date.now()}`,
                                     senderId: message.from, // WhatsApp uses phone number as senderId
                                     senderName: senderName,
                                     recipientId: phoneNumberId,
-                                    message: message.text.body,
-                                    timestamp: new Date(parseInt(message.timestamp || Date.now().toString()) * (message.timestamp?.length === 10 ? 1000 : 1)).toISOString(),
+                                    message: content,
+                                    timestamp: new Date(ts).toISOString(),
                                     platform: 'whatsapp',
                                     read: false,
                                 };
                                 await storeWebhookMessage(msg);
 
-                                // Trigger WhatsApp Bot asynchronously
-                                try {
-                                    const { processWhatsAppMessage } = await import('@/lib/whatsapp-bot');
-                                    await processWhatsAppMessage(msg.senderId, phoneNumberId, message.text.body, senderName).catch(err => {
-                                        console.error('[MetaWebhook] WhatsApp background processing error:', err);
-                                    });
-                                } catch (err) {
-                                    console.error('[MetaWebhook] Failed to import/run wa-bot:', err);
+                                // Trigger WhatsApp Bot asynchronously only for text messages
+                                if (message.type === 'text' && message.text?.body) {
+                                    try {
+                                        const { processWhatsAppMessage } = await import('@/lib/whatsapp-bot');
+                                        await processWhatsAppMessage(msg.senderId, phoneNumberId, message.text.body, senderName).catch(err => {
+                                            console.error('[MetaWebhook] WhatsApp background processing error:', err);
+                                        });
+                                    } catch (err) {
+                                        console.error('[MetaWebhook] Failed to import/run wa-bot:', err);
+                                    }
                                 }
                             }
                         }
