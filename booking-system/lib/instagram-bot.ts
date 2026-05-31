@@ -129,7 +129,14 @@ async function sendInstagramMessage(recipientId: string, text: string) {
         return;
     }
 
-    const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${token}`;
+    // Must use the IG Business User ID as the sender, NOT /me — otherwise Meta returns a permission error
+    const igUserId = process.env.META_IG_USER_ID;
+    if (!igUserId) {
+        console.warn('[IgBot] META_IG_USER_ID not set. Cannot send Instagram reply.');
+        return;
+    }
+
+    const url = `https://graph.facebook.com/v21.0/${igUserId}/messages`;
     const payload = {
         messaging_type: 'RESPONSE',
         recipient: { id: recipientId },
@@ -139,7 +146,10 @@ async function sendInstagramMessage(recipientId: string, text: string) {
     try {
         const res = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
             body: JSON.stringify(payload)
         });
 

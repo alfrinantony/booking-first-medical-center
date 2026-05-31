@@ -147,8 +147,15 @@ export async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId:
         return;
     }
 
+    // Use provided phoneNumberId, fall back to env var (META_WA_PHONE_NUMBER_ID = 518094511384485)
+    const resolvedPhoneNumberId = phoneNumberId || process.env.META_WA_PHONE_NUMBER_ID;
+    if (!resolvedPhoneNumberId) {
+        console.warn('[WaBot] No WhatsApp Phone Number ID available. Cannot send reply.');
+        return;
+    }
+
     // https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
-    const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+    const url = `https://graph.facebook.com/v21.0/${resolvedPhoneNumberId}/messages`;
     
     const payload = {
         messaging_product: "whatsapp",
