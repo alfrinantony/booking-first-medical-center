@@ -20,7 +20,7 @@ export default function Home() {
       {/* ── Fixed Floating Contact Widget ── */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
         <a 
-          href="https://wa.me/97142506262" 
+          href="https://wa.me/971564343999" 
           target="_blank" 
           rel="noopener noreferrer"
           className="flex items-center justify-center w-14 h-14 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 hover:scale-110 transition-all cursor-pointer group"
@@ -85,7 +85,7 @@ export default function Home() {
                   Book Appointment
                 </Link>
                 <a
-                  href="https://wa.me/97142506262"
+                  href="https://wa.me/971564343999"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-green-50 dark:bg-transparent text-green-700 dark:text-green-400 font-semibold rounded-2xl border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-all hover:shadow-md"
