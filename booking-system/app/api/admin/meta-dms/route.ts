@@ -46,8 +46,14 @@ async function getMetaCreds() {
 }
 
 async function graphFetch(path: string, token: string, extra: Record<string, string> = {}) {
-    const params = new URLSearchParams({ access_token: token, ...extra });
-    const url = `${GRAPH_BASE}${path}?${params}`;
+    const params: Record<string, string> = { access_token: token, ...extra };
+    const appSecret = process.env.META_APP_SECRET;
+    if (appSecret) {
+        const crypto = await import('crypto');
+        params.appsecret_proof = crypto.createHmac('sha256', appSecret).update(token).digest('hex');
+    }
+    const urlParams = new URLSearchParams(params);
+    const url = `${GRAPH_BASE}${path}?${urlParams}`;
     const res = await fetch(url);
     if (!res.ok) {
         const errText = await res.text();

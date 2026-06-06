@@ -155,7 +155,14 @@ export async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId:
     }
 
     // https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
-    const url = `https://graph.facebook.com/v21.0/${resolvedPhoneNumberId}/messages`;
+    let url = `https://graph.facebook.com/v21.0/${resolvedPhoneNumberId}/messages`;
+    const appSecret = process.env.META_APP_SECRET;
+    
+    if (appSecret) {
+        const crypto = await import('crypto');
+        const appSecretProof = crypto.createHmac('sha256', appSecret).update(token).digest('hex');
+        url += `?appsecret_proof=${appSecretProof}`;
+    }
     
     const payload = {
         messaging_product: "whatsapp",
