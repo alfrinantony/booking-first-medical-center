@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
                             fromName: wm.senderName || 'User',
                             message: wm.message,
                             timestamp: wm.timestamp,
-                            isFromPage: wm.senderId === ownerId || wm.senderId === pageId || wm.senderId === igUserId,
+                            isFromPage: wm.senderId === ownerId || wm.senderId === pageId || wm.senderId === igUserId || wm.senderId === process.env.META_WA_PHONE_NUMBER_ID,
                         });
                     }
                 }
@@ -282,8 +282,10 @@ export async function GET(request: NextRequest) {
         for (const msg of webhookData.messages) {
             if (msg.platform !== 'instagram' && msg.platform !== 'facebook' && msg.platform !== 'whatsapp') continue;
             
-            const isClinicSender = (msg.platform === 'instagram' && msg.senderId === igUserId) || 
-                                   (msg.platform === 'facebook' && msg.senderId === pageId);
+            const isClinicSender = 
+                (msg.platform === 'instagram' && msg.senderId === igUserId) || 
+                (msg.platform === 'facebook' && msg.senderId === pageId) ||
+                (msg.platform === 'whatsapp' && msg.senderId === process.env.META_WA_PHONE_NUMBER_ID);
             
             const customerId = isClinicSender ? msg.recipientId : msg.senderId;
             
