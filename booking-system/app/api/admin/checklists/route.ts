@@ -10,13 +10,28 @@ export async function GET(request: Request) {
     const date = searchParams.get('date');
     const branchId = searchParams.get('branchId');
     const roomId = searchParams.get('roomId');
+    const days = searchParams.get('days');
 
     try {
         let checklists = await ChecklistStore.getAll();
 
-        if (date) checklists = checklists.filter(c => c.date === date);
+        if (date) {
+            checklists = checklists.filter(c => c.date === date);
+        } else if (days) {
+            const daysNum = parseInt(days, 10);
+            if (!isNaN(daysNum)) {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - daysNum);
+                const cutoffStr = cutoff.toISOString().split('T')[0];
+                checklists = checklists.filter(c => c.date >= cutoffStr);
+            }
+        }
+        
         if (branchId) checklists = checklists.filter(c => c.branchId === branchId);
         if (roomId) checklists = checklists.filter(c => c.roomId === roomId);
+
+        // Sort descending by date
+        checklists.sort((a, b) => b.date.localeCompare(a.date));
 
         return NextResponse.json(checklists);
     } catch (error) {

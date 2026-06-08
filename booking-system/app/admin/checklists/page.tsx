@@ -21,7 +21,7 @@ export default function DailyOperationsDashboard() {
     const [isLoading, setIsLoading] = useState(true);
     
     // UI Toggles
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'reports'>('dashboard');
 
     // Filters
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -83,7 +83,8 @@ export default function DailyOperationsDashboard() {
     const fetchChecklists = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/admin/checklists?date=${selectedDate}&branchId=${selectedBranchId}`);
+            const queryParam = activeTab === 'reports' ? 'days=100' : `date=${selectedDate}`;
+            const res = await fetch(`/api/admin/checklists?${queryParam}&branchId=${selectedBranchId}`);
             if (res.ok) {
                 const data = await res.json();
                 setChecklists(data);
@@ -343,6 +344,14 @@ export default function DailyOperationsDashboard() {
                         <Settings className="w-4 h-4" /> Room Configurations
                     </button>
                 )}
+                {(user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || true) && (
+                    <button
+                        onClick={() => setActiveTab('reports')}
+                        className={`px-4 py-2 font-semibold text-sm rounded-xl flex items-center gap-2 transition ${activeTab === 'reports' ? 'bg-gray-900 text-white shadow-md dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'}`}
+                    >
+                        <FileText className="w-4 h-4" /> 100 Days Report
+                    </button>
+                )}
             </div>
 
             {/* MAIN CONTENT AREA */}
@@ -407,7 +416,7 @@ export default function DailyOperationsDashboard() {
                         )}
                     </div>
                 </>
-            ) : (
+            ) : activeTab === 'settings' ? (
                 /* SETTINGS TAB */
                 <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
                     <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
@@ -506,6 +515,54 @@ export default function DailyOperationsDashboard() {
                                 )}
                             </div>
                         </div>
+                    </div>
+                </div>
+            ) : (
+                /* REPORTS TAB */
+                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
+                    <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Last 100 Days Report</h2>
+                        <p className="text-sm text-gray-500 mt-1">Overview of checklists submitted over the last 100 days.</p>
+                    </div>
+                    <div className="p-6 overflow-x-auto">
+                        <table className="w-full text-left text-sm min-w-max">
+                            <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500">
+                                <tr>
+                                    <th className="px-4 py-3 font-semibold">Date</th>
+                                    <th className="px-4 py-3 font-semibold">Room</th>
+                                    <th className="px-4 py-3 font-semibold">Supervisor</th>
+                                    <th className="px-4 py-3 font-semibold">Status</th>
+                                    <th className="px-4 py-3 font-semibold">Photos</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                {checklists.map((c, idx) => {
+                                    const roomName = activeBranch?.rooms?.find(r => r.id === c.roomId)?.name || c.roomId;
+                                    return (
+                                        <tr key={c.id || idx}>
+                                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{c.date}</td>
+                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{roomName}</td>
+                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{c.supervisorName}</td>
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2 py-1 text-[10px] font-bold rounded-lg border uppercase tracking-wider ${getStatusColor(c.status)}`}>
+                                                    {c.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-500">
+                                                {c.pictures?.length || 0} Photos
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {checklists.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                            No checklists found for the last 100 days.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}

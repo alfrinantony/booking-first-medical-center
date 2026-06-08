@@ -140,7 +140,9 @@ export async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId:
     const settings = await SettingsStore.getSettings();
     
     // Prioritize dedicated whatsapp token, fallback to shared messenger token or env var
-    const token = settings.whatsappAccessToken || settings.messengerAccessToken || process.env.META_PAGE_ACCESS_TOKEN;
+    const token = settings.whatsappAccessToken || process.env.META_WA_ACCESS_TOKEN || settings.messengerAccessToken || process.env.META_PAGE_ACCESS_TOKEN;
+    
+    console.log(`[WaBot] Using token starting with: ${token?.substring(0, 20)}...`);
     
     if (!token) {
         console.warn('[WaBot] No WhatsApp Access Token configured. Cannot send reply.');
