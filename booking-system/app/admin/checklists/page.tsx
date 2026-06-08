@@ -40,6 +40,11 @@ export default function DailyOperationsDashboard() {
     const [pictures, setPictures] = useState<string[]>([]);
     const [missingItemsText, setMissingItemsText] = useState('');
     const [remarks, setRemarks] = useState('');
+
+    // Report Filters
+    const [reportFilterDate, setReportFilterDate] = useState('');
+    const [reportFilterBranch, setReportFilterBranch] = useState('');
+    const [reportFilterRoom, setReportFilterRoom] = useState('');
     const [equipmentChecks, setEquipmentChecks] = useState<{equipmentId: string; status: any}[]>([]);
     const [consumableChecks, setConsumableChecks] = useState<{itemName: string; status: any}[]>([]);
     const [medicineChecks, setMedicineChecks] = useState<{medicineId: string; requiredQty: number; refilledQty: number; shortage: number; missing: boolean}[]>([]);
@@ -83,8 +88,10 @@ export default function DailyOperationsDashboard() {
     const fetchChecklists = async () => {
         setIsLoading(true);
         try {
-            const queryParam = activeTab === 'reports' ? 'days=100' : `date=${selectedDate}`;
-            const res = await fetch(`/api/admin/checklists?${queryParam}&branchId=${selectedBranchId}`);
+            const url = activeTab === 'reports' 
+                ? `/api/admin/checklists?days=100` 
+                : `/api/admin/checklists?date=${selectedDate}&branchId=${selectedBranchId}`;
+            const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
                 setChecklists(data);
@@ -209,7 +216,7 @@ export default function DailyOperationsDashboard() {
                     date: selectedDate,
                     branchId: selectedBranchId,
                     roomId: activeRoom.id,
-                    supervisorName: user?.name || 'Admin',
+                    supervisorName: user?.name ? `${user.name} (${user.email || user.role || 'User'})` : 'Admin',
                     status: finalStatus,
                     pictures,
                     missingItems: missingArray,
@@ -520,9 +527,43 @@ export default function DailyOperationsDashboard() {
             ) : (
                 /* REPORTS TAB */
                 <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
-                    <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Last 100 Days Report</h2>
-                        <p className="text-sm text-gray-500 mt-1">Overview of checklists submitted over the last 100 days.</p>
+                    <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Last 100 Days Report</h2>
+                            <p className="text-sm text-gray-500 mt-1">Overview of checklists submitted over the last 100 days.</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <input 
+                                type="date" 
+                                value={reportFilterDate}
+                                onChange={e => setReportFilterDate(e.target.value)}
+                                className="border-gray-200 dark:border-gray-700 rounded-xl focus:ring-indigo-500 bg-white dark:bg-gray-800 text-sm"
+                            />
+                            <select 
+                                value={reportFilterBranch}
+                                onChange={e => {
+                                    setReportFilterBranch(e.target.value);
+                                    setReportFilterRoom(''); // Reset room on branch change
+                                }}
+                                className="border-gray-200 dark:border-gray-700 rounded-xl focus:ring-indigo-500 bg-white dark:bg-gray-800 text-sm"
+                            >
+                                <option value="">All Branches</option>
+                                {clinicsData.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                            <select 
+                                value={reportFilterRoom}
+                                onChange={e => setReportFilterRoom(e.target.value)}
+                                className="border-gray-200 dark:border-gray-700 rounded-xl focus:ring-indigo-500 bg-white dark:bg-gray-800 text-sm"
+                                disabled={!reportFilterBranch}
+                            >
+                                <option value="">All Rooms</option>
+                                {clinicsData.find(c => c.id === reportFilterBranch)?.rooms?.map(r => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                     <div className="p-6 overflow-x-auto">
                         <table className="w-full text-left text-sm min-w-max">
@@ -536,12 +577,21 @@ export default function DailyOperationsDashboard() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                {checklists.map((c, idx) => {
-                                    const roomName = activeBranch?.rooms?.find(r => r.id === c.roomId)?.name || c.roomId;
+                                {checklists
+                                    .filter(c => {
+                                        if (reportFilterDate && c.date !== reportFilterDate) return false;
+                                        if (reportFilterBranch && c.branchId !== reportFilterBranch) return false;
+                                        if (reportFilterRoom && c.roomId !== reportFilterRoom) return false;
+                                        return true;
+                                    })
+                                    .map((c, idx) => {
+                                    const branch = clinicsData.find(b => b.id === c.branchId);
+                                    const roomName = branch?.rooms?.find(r => r.id === c.roomId)?.name || c.roomId;
+                                    const branchName = branch?.name || c.branchId;
                                     return (
                                         <tr key={c.id || idx}>
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{c.date}</td>
-                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{roomName}</td>
+                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{branchName} - {roomName}</td>
                                             <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{c.supervisorName}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-1 text-[10px] font-bold rounded-lg border uppercase tracking-wider ${getStatusColor(c.status)}`}>
@@ -554,10 +604,15 @@ export default function DailyOperationsDashboard() {
                                         </tr>
                                     );
                                 })}
-                                {checklists.length === 0 && (
+                                {checklists.filter(c => {
+                                    if (reportFilterDate && c.date !== reportFilterDate) return false;
+                                    if (reportFilterBranch && c.branchId !== reportFilterBranch) return false;
+                                    if (reportFilterRoom && c.roomId !== reportFilterRoom) return false;
+                                    return true;
+                                }).length === 0 && (
                                     <tr>
                                         <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                                            No checklists found for the last 100 days.
+                                            No checklists found matching filters.
                                         </td>
                                     </tr>
                                 )}
