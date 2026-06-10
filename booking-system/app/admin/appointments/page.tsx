@@ -409,9 +409,9 @@ export default function AdminAppointmentsPage() {
 
     const getNextStatusOptions = (currentStatus: Booking['status']) => {
         const flow: Record<string, Booking['status'][]> = {
-            'booked': ['confirmed', 'cancelled'],
+            'booked': ['confirmed', 'arrived', 'rescheduled', 'cancelled'],
             'confirmed': ['arrived', 'cancelled', 'rescheduled', 'no_show'],
-            'rescheduled': ['confirmed', 'cancelled'],
+            'rescheduled': ['confirmed', 'arrived', 'cancelled'],
             'arrived': ['in_service', 'cancelled', 'no_show'],
             'in_service': ['completed', 'cancelled'],
             'completed': [], // Terminal state

@@ -284,7 +284,13 @@ export const BookingsStore = {
         if (!booking) return false;
         
         const oldStatus = booking.status;
-        const history = (booking.statusHistory as any[]) || [];
+        let history = booking.statusHistory as any;
+        if (typeof history === 'string') {
+            try { history = JSON.parse(history); } catch { history = []; }
+        }
+        if (!Array.isArray(history)) {
+            history = [];
+        }
         history.push({
             timestamp: new Date().toISOString(),
             oldStatus,
@@ -307,7 +313,13 @@ export const BookingsStore = {
         const { staffName: _, ...cleanUpdates } = updates;
 
         if (cleanUpdates.status && cleanUpdates.status !== oldBooking.status) {
-            const history = (oldBooking.statusHistory as any[]) || [];
+            let history = oldBooking.statusHistory as any;
+            if (typeof history === 'string') {
+                try { history = JSON.parse(history); } catch { history = []; }
+            }
+            if (!Array.isArray(history)) {
+                history = [];
+            }
             history.push({
                 timestamp: new Date().toISOString(),
                 oldStatus: oldBooking.status,
