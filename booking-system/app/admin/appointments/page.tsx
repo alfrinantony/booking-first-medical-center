@@ -588,7 +588,8 @@ export default function AdminAppointmentsPage() {
         return Array.from(servicesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     })();
 
-    const canChangeDetails = canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import';
+    const isCompletedLock = editingBooking?.status === 'completed';
+    const canChangeDetails = (canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && !isCompletedLock;
 
     // Quick Client Registration
     const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
@@ -847,7 +848,7 @@ export default function AdminAppointmentsPage() {
                                                                         b.anyDoctor
                                                                             ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/10'
                                                                             : 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-900/15'
-                                                                    } hover:opacity-90 transition-opacity`}
+                                                                    } ${b.status === 'completed' ? 'opacity-70 grayscale' : 'hover:opacity-90'} transition-opacity`}
                                                                 >
                                                                     <span className="font-semibold text-gray-900 dark:text-white">{b.patientName}</span>
                                                                     <span className="text-gray-400 ml-1.5 text-[11px]">· {getServiceName(b)}</span>
@@ -1130,12 +1131,14 @@ export default function AdminAppointmentsPage() {
                                         <button
                                             onClick={() => handleEditClick(booking)}
                                             className={`flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
-                                                booking.billingStatus === 'billed'
-                                                    ? 'text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
-                                                    : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                                                booking.status === 'completed'
+                                                    ? 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+                                                    : booking.billingStatus === 'billed'
+                                                        ? 'text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                                                        : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
                                             }`}
                                         >
-                                            {booking.billingStatus === 'billed' ? '✏️ Edit (Billed)' : '✏️ Edit'}
+                                            {booking.status === 'completed' ? '👁️ View Details' : booking.billingStatus === 'billed' ? '✏️ Edit (Billed)' : '✏️ Edit'}
                                         </button>
                                         {isSb && (booking as any).sbId && (
                                             <>
@@ -1303,29 +1306,32 @@ export default function AdminAppointmentsPage() {
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Patient Name</label>
                                     <input type="text"
-                                        className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-800"
                                         value={editForm.patientName}
                                         onChange={(e) => setEditForm({ ...editForm, patientName: e.target.value })}
                                         required
+                                        disabled={isCompletedLock}
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Phone (WhatsApp)</label>
                                         <input type="text"
-                                            className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                            className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-800"
                                             value={editForm.whatsappNumber}
                                             onChange={(e) => setEditForm({ ...editForm, whatsappNumber: e.target.value })}
                                             placeholder="+971501234567"
+                                            disabled={isCompletedLock}
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Email</label>
                                         <input type="email"
-                                            className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                            className="w-full p-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-800"
                                             value={editForm.email}
                                             onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                                             placeholder="patient@email.com"
+                                            disabled={isCompletedLock}
                                         />
                                     </div>
                                 </div>
@@ -1438,18 +1444,19 @@ export default function AdminAppointmentsPage() {
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Date</label>
                                     <input type="date"
-                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-800"
                                         value={editForm.date}
                                         onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                        disabled={isCompletedLock}
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Time Slot</label>
                                     <select
-                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-800"
                                         value={editForm.slot}
                                         onChange={(e) => setEditForm({ ...editForm, slot: e.target.value })}
-                                        disabled={isLoadingRescheduleSlots}
+                                        disabled={isLoadingRescheduleSlots || isCompletedLock}
                                     >
                                         <option value={editingBooking.slot}>{editingBooking.slot} (Current)</option>
                                         {availableToRescheduleSlots
@@ -1472,14 +1479,16 @@ export default function AdminAppointmentsPage() {
                                     onClick={() => setIsEditModalOpen(false)}
                                     className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                                 >
-                                    Cancel
+                                    {isCompletedLock ? 'Close' : 'Cancel'}
                                 </button>
-                                <button
-                                    onClick={handleSaveChanges}
-                                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition-colors"
-                                >
-                                    Save Changes
-                                </button>
+                                {!isCompletedLock && (
+                                    <button
+                                        onClick={handleSaveChanges}
+                                        className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition-colors"
+                                    >
+                                        Save Changes
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
