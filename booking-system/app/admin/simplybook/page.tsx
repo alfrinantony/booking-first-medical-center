@@ -427,7 +427,7 @@ export default function SimplyBookPage() {
                             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow transition-colors disabled:opacity-50"
                         >
                             <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                            {syncing ? 'Importing...' : 'Import from SimplyBook'}
+                            {syncing ? 'Syncing...' : 'Sync Data for Review'}
                         </button>
                         <button
                             onClick={handleRefreshPayments}
@@ -490,7 +490,7 @@ export default function SimplyBookPage() {
                                 onClick={() => handleMigrate(dateFrom, dateTo)}
                                 className="flex items-center gap-1.5 px-4 py-2 bg-white text-violet-700 text-sm font-bold rounded-xl shadow hover:bg-violet-50 transition-colors disabled:opacity-50">
                                 {migrating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                {migrating ? 'Migrating...' : 'Migrate Selected Range'}
+                                {migrating ? 'Importing...' : 'Import Selected to Calendar'}
                             </button>
                         </div>
                     </div>
