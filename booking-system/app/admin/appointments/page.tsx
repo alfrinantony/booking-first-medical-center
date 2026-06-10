@@ -429,10 +429,9 @@ export default function AdminAppointmentsPage() {
     };
 
     const handleEditClick = (booking: Booking) => {
-        const canEditBilled = currentUser?.role === 'SUPER_ADMIN';
-        if (booking.billingStatus === 'billed' && !canEditBilled) {
-            alert("This appointment has already been billed and cannot be edited.");
-            return;
+        if (booking.billingStatus === 'billed') {
+            const confirmed = window.confirm("This appointment has already been billed. Are you sure you want to edit it?");
+            if (!confirmed) return;
         }
         setEditingBooking(booking);
         setEditForm({
@@ -1103,14 +1102,13 @@ export default function AdminAppointmentsPage() {
                                     <div className="flex border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
                                         <button
                                             onClick={() => handleEditClick(booking)}
-                                            disabled={booking.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN'}
                                             className={`flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
-                                                booking.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN'
-                                                    ? 'text-gray-400 cursor-not-allowed'
+                                                booking.billingStatus === 'billed'
+                                                    ? 'text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
                                                     : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
                                             }`}
                                         >
-                                            {booking.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN' ? '🔒 Locked' : '✏️ Edit'}
+                                            {booking.billingStatus === 'billed' ? '✏️ Edit (Billed)' : '✏️ Edit'}
                                         </button>
                                         {isSb && (booking as any).sbId && (
                                             <>
