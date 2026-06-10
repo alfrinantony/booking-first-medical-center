@@ -589,7 +589,7 @@ export default function AdminAppointmentsPage() {
     })();
 
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-    const isCompletedLock = editingBooking?.billingStatus === 'billed' && !isSuperAdmin;
+    const isCompletedLock = editingBooking?.status === 'completed' && !isSuperAdmin;
     const canChangeDetails = (canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && !isCompletedLock;
 
     // Quick Client Registration
@@ -849,7 +849,7 @@ export default function AdminAppointmentsPage() {
                                                                         b.anyDoctor
                                                                             ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/10'
                                                                             : 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-900/15'
-                                                                    } ${b.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN' ? 'opacity-70 grayscale' : 'hover:opacity-90'} transition-opacity`}
+                                                                    } ${b.status === 'completed' && currentUser?.role !== 'SUPER_ADMIN' ? 'opacity-70 grayscale' : 'hover:opacity-90'} transition-opacity`}
                                                                 >
                                                                     <span className="font-semibold text-gray-900 dark:text-white">{b.patientName}</span>
                                                                     <span className="text-gray-400 ml-1.5 text-[11px]">· {getServiceName(b)}</span>
@@ -1132,14 +1132,14 @@ export default function AdminAppointmentsPage() {
                                         <button
                                             onClick={() => handleEditClick(booking)}
                                             className={`flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
-                                                booking.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN'
+                                                booking.status === 'completed' && currentUser?.role !== 'SUPER_ADMIN'
                                                     ? 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
                                                     : booking.billingStatus === 'billed'
                                                         ? 'text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
                                                         : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
                                             }`}
                                         >
-                                            {booking.billingStatus === 'billed' && currentUser?.role !== 'SUPER_ADMIN' ? '🔒 Locked (Billed)' : booking.billingStatus === 'billed' ? '✏️ Edit (Billed)' : '✏️ Edit'}
+                                            {booking.status === 'completed' && currentUser?.role !== 'SUPER_ADMIN' ? '🔒 Locked (Completed)' : booking.billingStatus === 'billed' ? '✏️ Edit (Billed)' : '✏️ Edit'}
                                         </button>
                                         {isSb && (booking as any).sbId && (
                                             <>
