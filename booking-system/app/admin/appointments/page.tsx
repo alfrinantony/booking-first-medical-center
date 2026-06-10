@@ -386,12 +386,14 @@ export default function AdminAppointmentsPage() {
         status: Booking['status'];
         date: string;
         slot: string;
+        clinicId: string;
+        serviceId: string;
         doctorId: string;
         duration: number;
         patientName: string;
         whatsappNumber: string;
         email: string;
-    }>({ status: 'booked', date: '', slot: '', doctorId: '', duration: 30, patientName: '', whatsappNumber: '', email: '' });
+    }>({ status: 'booked', date: '', slot: '', clinicId: '', serviceId: '', doctorId: '', duration: 30, patientName: '', whatsappNumber: '', email: '' });
     const [availableToRescheduleSlots, setAvailableToRescheduleSlots] = useState<string[]>([]);
     const [isLoadingRescheduleSlots, setIsLoadingRescheduleSlots] = useState(false);
 
@@ -438,6 +440,8 @@ export default function AdminAppointmentsPage() {
             status: booking.status,
             date: booking.date,
             slot: booking.slot,
+            clinicId: booking.clinicId || '',
+            serviceId: booking.serviceId || '',
             doctorId: booking.doctorId,
             duration: booking.duration || 30,
             patientName: booking.patientName || '',
@@ -481,6 +485,8 @@ export default function AdminAppointmentsPage() {
                     status: editForm.status,
                     date: editForm.date,
                     slot: editForm.slot,
+                    clinicId: editForm.clinicId,
+                    serviceId: editForm.serviceId,
                     doctorId: editForm.doctorId,
                     duration: editForm.duration,
                     patientName: editForm.patientName,
@@ -531,9 +537,10 @@ export default function AdminAppointmentsPage() {
     const availableDocsForEdit = (() => {
         if (!editingBooking) return [];
 
-        // For unmatched SimplyBook bookings, show ALL doctors across ALL clinics
-        const isUnmatched = editingBooking.doctorId === 'sb-unmatched' ||
-            editingBooking.clinicId === 'simplybook-import';
+        const clinicIdToUse = editForm.clinicId || editingBooking.clinicId;
+        const serviceIdToUse = editForm.serviceId || editingBooking.serviceId;
+
+        const isUnmatched = (editForm.doctorId === 'sb-unmatched' || clinicIdToUse === 'simplybook-import');
         if (isUnmatched) {
             const docsMap = new Map<string, { id: string; name: string }>();
             clinics.forEach(c =>
@@ -544,18 +551,13 @@ export default function AdminAppointmentsPage() {
             return Array.from(docsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
         }
 
-        const clinic = clinics.find(c => c.id === editingBooking.clinicId);
+        const clinic = clinics.find(c => c.id === clinicIdToUse);
         if (!clinic) return [];
 
         let docs: any[] = [];
-        if (editingBooking.deptId) {
-            const dept = clinic.departments.find(d => d.id === editingBooking.deptId);
-            if (dept) docs = dept.doctors || [];
-        }
-
-        if (docs.length === 0 && editingBooking.serviceId) {
+        if (serviceIdToUse) {
             const deptsWithService = clinic.departments.filter(d => 
-                d.services && d.services.some(s => s.id === editingBooking.serviceId)
+                d.services && d.services.some(s => s.id === serviceIdToUse)
             );
             const docsMap = new Map();
             deptsWithService.forEach(d => {
@@ -571,8 +573,22 @@ export default function AdminAppointmentsPage() {
             });
             docs = Array.from(docsMap.values());
         }
-        return docs;
+        return docs.sort((a, b) => a.name.localeCompare(b.name));
     })();
+
+    const availableServicesForEdit = (() => {
+        if (!editingBooking) return [];
+        const clinicIdToUse = editForm.clinicId || editingBooking.clinicId;
+        const clinic = clinics.find(c => c.id === clinicIdToUse);
+        if (!clinic) return [];
+        const servicesMap = new Map();
+        clinic.departments.forEach(d => {
+            (d.services || []).forEach(s => servicesMap.set(s.id, s));
+        });
+        return Array.from(servicesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    })();
+
+    const canChangeDetails = canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import';
 
     // Quick Client Registration
     const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
@@ -1352,38 +1368,70 @@ export default function AdminAppointmentsPage() {
                                 )}
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Doctor</label>
-                                <select
-                                    className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
-                                    value={editForm.doctorId}
-                                    onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
-                                    disabled={editingBooking?.doctorId !== 'sb-unmatched' && editingBooking?.clinicId !== 'simplybook-import' && !canReassignDoctor}
-                                >
-                                    {(editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && (
-                                        <option value="sb-unmatched">— Select a doctor to assign —</option>
-                                    )}
-                                    {availableDocsForEdit.map(doc => (
-                                        <option key={doc.id} value={doc.id}>{doc.name}</option>
-                                    ))}
-                                </select>
-                                {(editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') ? (
-                                    <p className="text-xs text-violet-600 dark:text-violet-400 mt-1 flex items-center gap-1">
-                                        ⚠ SimplyBook provider unmatched — please assign a doctor from the list above.
-                                    </p>
-                                ) : !canReassignDoctor ? (
-                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">You do not have permission to change the assigned doctor.</p>
-                                ) : null}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Branch</label>
+                                    <select
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
+                                        value={editForm.clinicId}
+                                        onChange={(e) => setEditForm({ ...editForm, clinicId: e.target.value, doctorId: '', serviceId: '' })}
+                                        disabled={!canChangeDetails}
+                                    >
+                                        <option value="" disabled>Select Branch</option>
+                                        <option value="simplybook-import" disabled className="hidden">SimplyBook Import</option>
+                                        {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Procedure</label>
+                                    <select
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
+                                        value={editForm.serviceId}
+                                        onChange={(e) => setEditForm({ ...editForm, serviceId: e.target.value, doctorId: '' })}
+                                        disabled={!canChangeDetails || !editForm.clinicId || editForm.clinicId === 'simplybook-import'}
+                                    >
+                                        <option value="" disabled>Select Procedure</option>
+                                        {availableServicesForEdit.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Duration (mins)</label>
-                                <input
-                                    type="number" min="15" step="15"
-                                    className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
-                                    value={editForm.duration}
-                                    onChange={(e) => setEditForm({ ...editForm, duration: Number(e.target.value) })}
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Doctor</label>
+                                    <select
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
+                                        value={editForm.doctorId}
+                                        onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
+                                        disabled={!canChangeDetails}
+                                    >
+                                        {(editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && (
+                                            <option value="sb-unmatched">— Select a doctor to assign —</option>
+                                        )}
+                                        <option value="" disabled>Select Doctor</option>
+                                        {availableDocsForEdit.map(doc => (
+                                            <option key={doc.id} value={doc.id}>{doc.name}</option>
+                                        ))}
+                                    </select>
+                                    {(editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') ? (
+                                        <p className="text-xs text-violet-600 dark:text-violet-400 mt-1 flex items-center gap-1">
+                                            ⚠ SimplyBook provider unmatched — please assign a doctor.
+                                        </p>
+                                    ) : !canReassignDoctor ? (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">You do not have permission to change these details.</p>
+                                    ) : null}
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Duration (mins)</label>
+                                    <input
+                                        type="number" min="15" step="15"
+                                        className="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
+                                        value={editForm.duration}
+                                        onChange={(e) => setEditForm({ ...editForm, duration: Number(e.target.value) })}
+                                        disabled={!canChangeDetails}
+                                    />
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
