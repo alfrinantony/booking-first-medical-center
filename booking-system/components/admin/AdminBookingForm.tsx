@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { clinics, timeSlots, Booking, Service } from '@/lib/data';
+import { timeSlots, Booking, Service, Clinic } from '@/lib/data';
 import { Calendar, User, Phone, MapPin, Stethoscope, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useFormDraft } from '@/hooks/useFormDraft';
@@ -10,6 +10,23 @@ export default function AdminBookingForm() {
     const router = useRouter();
     const [step, setStep] = useState<'details' | 'confirm'>('details');
     const [loading, setLoading] = useState(false);
+    
+    // Live clinics data
+    const [clinics, setClinics] = useState<Clinic[]>([]);
+    const [loadingClinics, setLoadingClinics] = useState(true);
+
+    useEffect(() => {
+        fetch('/api/admin/clinics')
+            .then(res => res.json())
+            .then(data => {
+                setClinics(data);
+                setLoadingClinics(false);
+            })
+            .catch(err => {
+                console.error("Failed to load clinics", err);
+                setLoadingClinics(false);
+            });
+    }, []);
 
     // Form State
     const [customer, setCustomer] = useState({ name: '', phone: '' });
