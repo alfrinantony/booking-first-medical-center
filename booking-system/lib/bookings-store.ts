@@ -98,20 +98,38 @@ export const BookingsStore = {
 
     add: async (booking: Omit<Booking, 'id' | 'createdAt'>) => {
         const id = Math.random().toString(36).substr(2, 9);
-        const newBooking = await prisma.booking.create({
-            data: {
-                ...booking,
-                duration: booking.duration || 30,
-                amount: booking.amount || 0,
-                id,
-                createdAt: new Date().toISOString(),
-                statusHistory: [{
-                    timestamp: new Date().toISOString(),
-                    oldStatus: '',
-                    newStatus: booking.status || 'booked',
-                    changedBy: (booking as any).staffName || 'System',
-                }] as any
+        
+        const fullBooking: any = {
+            ...booking,
+            duration: booking.duration || 30,
+            amount: booking.amount || 0,
+            id,
+            createdAt: new Date().toISOString(),
+            statusHistory: [{
+                timestamp: new Date().toISOString(),
+                oldStatus: '',
+                newStatus: booking.status || 'booked',
+                changedBy: (booking as any).staffName || 'System',
+            }]
+        };
+
+        const allowedFields = new Set([
+            'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
+            'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
+            'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
+            'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
+            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor'
+        ]);
+
+        const filteredBooking: any = {};
+        for (const key of Object.keys(fullBooking)) {
+            if (allowedFields.has(key)) {
+                filteredBooking[key] = fullBooking[key];
             }
+        }
+
+        const newBooking = await prisma.booking.create({
+            data: filteredBooking
         });
 
         // Deduct medicine stock from the branch where the booking occurs
@@ -164,20 +182,37 @@ export const BookingsStore = {
             const existing = await prisma.booking.findFirst({ where: { sbId } });
             if (existing) return existing as any as Booking;
         }
+
+        const fullBooking: any = {
+            ...rest,
+            id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
+            createdAt: new Date().toISOString(),
+            sbId,
+            statusHistory: [{
+                timestamp: new Date().toISOString(),
+                oldStatus: '',
+                newStatus: booking.status || 'confirmed',
+                changedBy: 'SimplyBook Sync',
+            }]
+        };
+
+        const allowedFields = new Set([
+            'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
+            'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
+            'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
+            'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
+            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor'
+        ]);
+
+        const filteredBooking: any = {};
+        for (const key of Object.keys(fullBooking)) {
+            if (allowedFields.has(key)) {
+                filteredBooking[key] = fullBooking[key];
+            }
+        }
+
         const newBooking = await prisma.booking.create({
-            data: {
-                ...rest,
-                id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
-                createdAt: new Date().toISOString(),
-                source: 'simplybook',
-                sbId,
-                statusHistory: [{
-                    timestamp: new Date().toISOString(),
-                    oldStatus: '',
-                    newStatus: booking.status || 'confirmed',
-                    changedBy: 'SimplyBook Sync',
-                }] as any
-            } as any
+            data: filteredBooking
         });
         return newBooking as any as Booking;
     },
@@ -198,13 +233,21 @@ export const BookingsStore = {
         
         if (toCreate.length > 0) {
             const now = new Date().toISOString();
+            
+            const allowedFields = new Set([
+                'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
+                'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
+                'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
+                'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
+                'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor'
+            ]);
+
             const dataToInsert = toCreate.map(booking => {
                 const { sbId, ...rest } = booking as any;
-                return {
+                const fullObject: any = {
                     ...rest,
                     id: `sb-${sbId || Math.random().toString(36).substr(2, 9)}`,
                     createdAt: now,
-                    source: 'simplybook',
                     sbId,
                     statusHistory: [{
                         timestamp: now,
@@ -213,6 +256,14 @@ export const BookingsStore = {
                         changedBy: 'SimplyBook Migration',
                     }]
                 };
+
+                const filteredObject: any = {};
+                for (const key of Object.keys(fullObject)) {
+                    if (allowedFields.has(key)) {
+                        filteredObject[key] = fullObject[key];
+                    }
+                }
+                return filteredObject;
             });
             
             const result = await prisma.booking.createMany({
@@ -266,9 +317,24 @@ export const BookingsStore = {
             (cleanUpdates as any).statusHistory = history;
         }
 
+        const allowedFields = new Set([
+            'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
+            'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
+            'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
+            'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
+            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor'
+        ]);
+
+        const filteredUpdates: any = {};
+        for (const key of Object.keys(cleanUpdates)) {
+            if (allowedFields.has(key)) {
+                filteredUpdates[key] = (cleanUpdates as any)[key];
+            }
+        }
+
         const updated = await prisma.booking.update({
             where: { id },
-            data: cleanUpdates as any
+            data: filteredUpdates
         });
 
         const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};

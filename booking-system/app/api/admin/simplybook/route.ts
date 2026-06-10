@@ -187,12 +187,14 @@ function mapAdminBooking(
         b.client_name ||
         (b.client_id ? `Client #${b.client_id}` : 'Unknown Client');
 
-    const clientEmail =
+    const clientEmail = String(
         (typeof b.client !== 'string' ? b.client?.email : undefined) ||
-        clientFromMap?.email || b.client_email || '';
-    const clientPhone =
+        clientFromMap?.email || b.client_email || ''
+    );
+    const clientPhone = String(
         (typeof b.client !== 'string' ? b.client?.phone : undefined) ||
-        clientFromMap?.phone || b.client_phone || '';
+        clientFromMap?.phone || b.client_phone || ''
+    );
 
     // getBookings returns event & unit as plain strings
     const serviceName =

@@ -39,10 +39,9 @@ export async function POST(req: Request) {
                 if (booking) {
                     // 1. Update Booking status
                     await BookingsStore.update(bookingId, {
-                        paymentStatus: 'paid',
-                        paymentMethod: 'online',
+                        sbPaymentStatus: 'paid',
                         status: 'confirmed'
-                    });
+                    } as any);
 
                     // 2. Generate Invoice
                     await BillingStore.createInvoice({

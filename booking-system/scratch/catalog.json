@@ -1,0 +1,682 @@
+{
+  "categories": [
+    "Laser Hair Removal",
+    "Face Care",
+    "Injectables / Threads",
+    "Body care Treatments",
+    "Laser hair Removal-Lumenis Splendor",
+    "Hair Care",
+    "Services for Females",
+    "Electrolysis",
+    "CONSULTATION",
+    "Piercings",
+    "clinic",
+    "IV DRIPS",
+    "Services For Males",
+    "Jalupro",
+    "LASER SOFT LIGHT-FEMALE",
+    "Administration"
+  ],
+  "providers": [
+    "Mr.Waharon",
+    "Any Available Doctor",
+    "Dr.Mariam Javed",
+    "Dr.Poonam Sharma",
+    "Shoja Joseph",
+    "Dr.Ayesha Umar",
+    "Nishi Alisha",
+    "Himansha",
+    "Dr.Hadil Bou Massoud",
+    "Niroshima",
+    "Erika",
+    "Dr.Dina Khalil, MBBS, MD. Dermatology..",
+    "Nurse",
+    "For Delete",
+    "Kristina Garcia",
+    "Christina Antony",
+    "Anifet Antony",
+    "Soumyamol",
+    "Devika",
+    "Meekita",
+    "Priyamvada",
+    "Liza Bista",
+    "Nijitha",
+    "Sumnima",
+    "Dr.Faten",
+    "Meetika",
+    "Dr.Nabila Battat",
+    "Dn.Mereena-",
+    "Mereena-",
+    "Shermi-",
+    "Jijita-",
+    "Dr.Hadil Bou Massoud, MMBS MD Derma",
+    "Ainelyn Necesito",
+    "Dn.Ainelyn"
+  ],
+  "services": [
+    {
+      "name": "Male Full Body Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 449,
+      "duration": 60
+    },
+    {
+      "name": "HydraFacial-Classic",
+      "category": "Face Care",
+      "price": 99,
+      "duration": 45
+    },
+    {
+      "name": "Candela- Female Full Body Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 299,
+      "duration": 60
+    },
+    {
+      "name": "Male Upper Body Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 349,
+      "duration": 45
+    },
+    {
+      "name": "Botulinum Injection",
+      "category": "Injectables / Threads",
+      "price": 250,
+      "duration": 30
+    },
+    {
+      "name": "CO2 Fractional Laser",
+      "category": "Face Care",
+      "price": 499,
+      "duration": 30
+    },
+    {
+      "name": "Carbon Laser Peel",
+      "category": "Face Care",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Private Area Whitening",
+      "category": "Body care Treatments",
+      "price": 499,
+      "duration": 30
+    },
+    {
+      "name": "Lumenis- Female Full Body Laser Hair Removal",
+      "category": "Laser hair Removal-Lumenis Splendor",
+      "price": 349,
+      "duration": 60
+    },
+    {
+      "name": "Candela - Female Underarms & Bikini Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 175,
+      "duration": 15
+    },
+    {
+      "name": "PRP Hair Treatment",
+      "category": "Hair Care",
+      "price": 149,
+      "duration": 15
+    },
+    {
+      "name": "Candela- Female Face & Neck Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Candela- Female Underarms Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "HydraFacial-Premium",
+      "category": "Face Care",
+      "price": 199,
+      "duration": 60
+    },
+    {
+      "name": "Candela- Female Bikini Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 125,
+      "duration": 15
+    },
+    {
+      "name": "PRP-Injections",
+      "category": "Face Care",
+      "price": 249,
+      "duration": 30
+    },
+    {
+      "name": "Collagen Stimulators- Salmon DNA PDRN",
+      "category": "Injectables / Threads",
+      "price": 0,
+      "duration": 15
+    },
+    {
+      "name": "Male Underarms & Bikini Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 249,
+      "duration": 30
+    },
+    {
+      "name": "Hair PRP + Vitamin + Biotin",
+      "category": "Hair Care",
+      "price": 249,
+      "duration": 15
+    },
+    {
+      "name": "Electrolysis 15mts",
+      "category": "Electrolysis",
+      "price": 150,
+      "duration": 60
+    },
+    {
+      "name": "Dr. CYJ Hair Filler",
+      "category": "Hair Care",
+      "price": 499,
+      "duration": 15
+    },
+    {
+      "name": "PRP+Booster+MPF Injection",
+      "category": "Face Care",
+      "price": 449,
+      "duration": 30
+    },
+    {
+      "name": "RF Micro Needling",
+      "category": "Face Care",
+      "price": 499,
+      "duration": 30
+    },
+    {
+      "name": "PRP- Micro Needling",
+      "category": "Face Care",
+      "price": 199,
+      "duration": 15
+    },
+    {
+      "name": "Hair-Injection-",
+      "category": "Hair Care",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "General Consultation",
+      "category": "CONSULTATION",
+      "price": 150,
+      "duration": 15
+    },
+    {
+      "name": "JaluPro",
+      "category": "Injectables / Threads",
+      "price": 0,
+      "duration": 30
+    },
+    {
+      "name": "Ear Piercing",
+      "category": "Piercings",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Pico Laser",
+      "category": "Face Care",
+      "price": 499,
+      "duration": 15
+    },
+    {
+      "name": "LHR-M-Bikini",
+      "category": "clinic",
+      "price": 199,
+      "duration": 15
+    },
+    {
+      "name": "Male Beard Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "LHR-F-Face and Neck-",
+      "category": "clinic",
+      "price": 150,
+      "duration": 15
+    },
+    {
+      "name": "Lumenis- Female Underarms & Bikini Laser Hair Removal",
+      "category": "Laser hair Removal-Lumenis Splendor",
+      "price": 199,
+      "duration": 30
+    },
+    {
+      "name": "LHR-Male-Beard Line",
+      "category": "Laser Hair Removal",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Male Underarms Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Lumenis- Female Face & Neck Laser Hair Removal",
+      "category": "Laser hair Removal-Lumenis Splendor",
+      "price": 149,
+      "duration": 60
+    },
+    {
+      "name": "Male Bikini Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 199,
+      "duration": 15
+    },
+    {
+      "name": "LHR-Male-BODY-Without-Bikini",
+      "category": "Laser Hair Removal",
+      "price": 375,
+      "duration": 60
+    },
+    {
+      "name": "Skin Boosters- Profhilo",
+      "category": "Injectables / Threads",
+      "price": 0,
+      "duration": 30
+    },
+    {
+      "name": "Aesthetic Consultation",
+      "category": "CONSULTATION",
+      "price": 150,
+      "duration": 15
+    },
+    {
+      "name": "Candela- Female Legs Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 149,
+      "duration": 30
+    },
+    {
+      "name": "Sweat Reduction Treatment",
+      "category": "Body care Treatments",
+      "price": 1199,
+      "duration": 30
+    },
+    {
+      "name": "LHR-F-Underarms & Bikini-",
+      "category": "clinic",
+      "price": 175,
+      "duration": 15
+    },
+    {
+      "name": "Radient Skin IV",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 15
+    },
+    {
+      "name": "Filler-Lips",
+      "category": "Injectables / Threads",
+      "price": 499,
+      "duration": 30
+    },
+    {
+      "name": "Face & Neck Softlight",
+      "category": "Face Care",
+      "price": 249,
+      "duration": 30
+    },
+    {
+      "name": "Face-injection-",
+      "category": "Injectables / Threads",
+      "price": 199,
+      "duration": 30
+    },
+    {
+      "name": "Candela- Female Arms Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "LHR-F-Underarms-",
+      "category": "clinic",
+      "price": 100,
+      "duration": 25
+    },
+    {
+      "name": "Male Back Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 199,
+      "duration": 30
+    },
+    {
+      "name": "Carbon Peel- Face & Neck",
+      "category": "Face Care",
+      "price": 199,
+      "duration": 15
+    },
+    {
+      "name": "Male Beard, Nape & Ears Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 149,
+      "duration": 15
+    },
+    {
+      "name": "LHR-M-Neck",
+      "category": "clinic",
+      "price": 100,
+      "duration": 15
+    },
+    {
+      "name": "Dark Circle - Mesotherapy Injection",
+      "category": "Face Care",
+      "price": 299,
+      "duration": 30
+    },
+    {
+      "name": "Carbon Peel & serum& LED",
+      "category": "Face Care",
+      "price": 249,
+      "duration": 15
+    },
+    {
+      "name": "Lumenis- Female Bikini Laser Hair Removal",
+      "category": "Laser hair Removal-Lumenis Splendor",
+      "price": 149,
+      "duration": 15
+    },
+    {
+      "name": "Filler-Chin",
+      "category": "Injectables / Threads",
+      "price": 499,
+      "duration": 30
+    },
+    {
+      "name": "Candela- Female Upper Lips Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Male Chest & Abdomen Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 199,
+      "duration": 30
+    },
+    {
+      "name": "Lumenis- Female Arms Laser Hair Removal",
+      "category": "Laser hair Removal-Lumenis Splendor",
+      "price": 149,
+      "duration": 15
+    },
+    {
+      "name": "HydraFacial-Elite",
+      "category": "Face Care",
+      "price": 299,
+      "duration": 90
+    },
+    {
+      "name": "Specialist Consultation",
+      "category": "CONSULTATION",
+      "price": 250,
+      "duration": 15
+    },
+    {
+      "name": "LHR-F-Bikini-",
+      "category": "clinic",
+      "price": 150,
+      "duration": 15
+    },
+    {
+      "name": "Carbon Peel- Face, Neck & Back Neck",
+      "category": "Face Care",
+      "price": 249,
+      "duration": 30
+    },
+    {
+      "name": "PRP Face Injection and Mesotherapy",
+      "category": "Face Care",
+      "price": 349,
+      "duration": 30
+    },
+    {
+      "name": "LHR-F-Legs-",
+      "category": "clinic",
+      "price": 175,
+      "duration": 30
+    },
+    {
+      "name": "Skin Boosters- Jalupro Classic",
+      "category": "Jalupro",
+      "price": 449,
+      "duration": 100
+    },
+    {
+      "name": "LHR-M-Beard",
+      "category": "clinic",
+      "price": 125,
+      "duration": 15
+    },
+    {
+      "name": "Underarms Lightening",
+      "category": "Body care Treatments",
+      "price": 499,
+      "duration": 5
+    },
+    {
+      "name": "Multimix IV",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 20
+    },
+    {
+      "name": "Lumenis- Female Underarms Laser Hair Removal",
+      "category": "Laser hair Removal-Lumenis Splendor",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Eye Bag - Mesotherapy Injection",
+      "category": "Face Care",
+      "price": 399,
+      "duration": 55
+    },
+    {
+      "name": "Collagen Stimulators- Amber Saffron",
+      "category": "Face Care",
+      "price": 299,
+      "duration": 30
+    },
+    {
+      "name": "Back Carbon Laser",
+      "category": "Body care Treatments",
+      "price": 249,
+      "duration": 15
+    },
+    {
+      "name": "Filler-Cheeks",
+      "category": "Injectables / Threads",
+      "price": 499,
+      "duration": 30
+    },
+    {
+      "name": "Stretch Mark Treatment",
+      "category": "Body care Treatments",
+      "price": 749,
+      "duration": 20
+    },
+    {
+      "name": "Collagen Stimulators- Sculptra",
+      "category": "Injectables / Threads",
+      "price": 1499,
+      "duration": 45
+    },
+    {
+      "name": "Bikini Carbon Laser",
+      "category": "Services for Females",
+      "price": 299,
+      "duration": 15
+    },
+    {
+      "name": "Hydrafacial+LED",
+      "category": "Face Care",
+      "price": 149,
+      "duration": 60
+    },
+    {
+      "name": "Oxygeno Facial",
+      "category": "Face Care",
+      "price": 299,
+      "duration": 45
+    },
+    {
+      "name": "Male Chest Laser Hair Removal",
+      "category": "Laser Hair Removal",
+      "price": 149,
+      "duration": 30
+    },
+    {
+      "name": "Skin Boosters- Jalupro Super Hydro",
+      "category": "Jalupro",
+      "price": 799,
+      "duration": 30
+    },
+    {
+      "name": "Energy Boost IV",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 15
+    },
+    {
+      "name": "Weight Gain Drip",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 15
+    },
+    {
+      "name": "Filler-Undereyes",
+      "category": "Injectables / Threads",
+      "price": 249,
+      "duration": 30
+    },
+    {
+      "name": "LHR-M-Bikini&Underarms",
+      "category": "clinic",
+      "price": 249,
+      "duration": 30
+    },
+    {
+      "name": "Filler-Texas",
+      "category": "Injectables / Threads",
+      "price": 499,
+      "duration": 30
+    },
+    {
+      "name": "Monday Deal-Female Full Body Laser Hair Removal",
+      "category": "LASER SOFT LIGHT-FEMALE",
+      "price": 299,
+      "duration": 25
+    },
+    {
+      "name": "Monday Deal- Carbon Laser Facial",
+      "category": "LASER SOFT LIGHT-FEMALE",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Skin Boosters- Jalupro HMW",
+      "category": "Jalupro",
+      "price": 499,
+      "duration": 30
+    },
+    {
+      "name": "NAD+ IV",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 15
+    },
+    {
+      "name": "Skin Boosters- Jalupro Young Eye",
+      "category": "Jalupro",
+      "price": 699,
+      "duration": 30
+    },
+    {
+      "name": "Hair IV",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 15
+    },
+    {
+      "name": "LHR-M-Underarms",
+      "category": "clinic",
+      "price": 125,
+      "duration": 15
+    },
+    {
+      "name": "Fat Burning Drip",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 15
+    },
+    {
+      "name": "taby",
+      "category": "Administration",
+      "price": 36.69,
+      "duration": 15
+    },
+    {
+      "name": "Numbing Cream",
+      "category": "Administration",
+      "price": 25,
+      "duration": 60
+    },
+    {
+      "name": "Nose Piercing",
+      "category": "Piercings",
+      "price": 149,
+      "duration": 15
+    },
+    {
+      "name": "LHR-F-Upperlips-",
+      "category": "clinic",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "Belly Piercing",
+      "category": "Piercings",
+      "price": 199,
+      "duration": 30
+    },
+    {
+      "name": "Relax IV",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 15
+    },
+    {
+      "name": "Hair MAC+GF",
+      "category": "Hair Care",
+      "price": 399,
+      "duration": 10
+    },
+    {
+      "name": "Hair PRP Christmas Special",
+      "category": "Hair Care",
+      "price": 99,
+      "duration": 15
+    },
+    {
+      "name": "GUT Healer IV",
+      "category": "IV DRIPS",
+      "price": 350,
+      "duration": 5
+    }
+  ]
+}
