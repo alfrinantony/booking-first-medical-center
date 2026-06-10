@@ -795,16 +795,27 @@ export default function AdminAppointmentsPage() {
                                 return (
                                     <div key={day.toISOString()} className="flex flex-col">
                                         {timeSlots.map(slot => {
-                                            const slotBookings = dayBookings.filter(b => b.slot === slot);
+                                            const slotBookings = dayBookings.filter(b => {
+                                                const bStartSlot = b.slot.split(' - ')[0];
+                                                return bStartSlot === slot || b.slot === slot;
+                                            });
                                             const isAvailable = slotBookings.length === 0;
                                             return (
                                                 <div key={slot} className="flex border-b border-gray-50 dark:border-gray-700/50 group min-h-[44px]">
                                                     <div className="w-20 text-[11px] text-gray-400 font-mono py-2.5 px-3 border-r border-gray-100 dark:border-gray-700 shrink-0 select-none bg-gray-50/60 dark:bg-gray-800/60">
                                                         {slot}
                                                     </div>
-                                                    <div className={`flex-1 px-3 py-1.5 ${
-                                                        isAvailable ? 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer' : ''
-                                                    }`}>
+                                                    <div
+                                                        className={`flex-1 px-3 py-1.5 ${
+                                                            isAvailable ? 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer' : ''
+                                                        }`}
+                                                        onClick={() => {
+                                                            if (isAvailable) {
+                                                                const dateStr = format(day, 'yyyy-MM-dd');
+                                                                window.location.href = `/admin/appointments/book?date=${dateStr}&time=${encodeURIComponent(slot)}`;
+                                                            }
+                                                        }}
+                                                    >
                                                         {isAvailable ? (
                                                             <div className="h-full flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                                 <span className="text-[11px] text-indigo-400 flex items-center gap-1">

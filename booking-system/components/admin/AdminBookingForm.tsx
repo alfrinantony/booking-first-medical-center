@@ -3,11 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { timeSlots, Booking, Service, Clinic } from '@/lib/data';
 import { Calendar, User, Phone, MapPin, Stethoscope, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useFormDraft } from '@/hooks/useFormDraft';
+import { Suspense } from 'react';
 
-export default function AdminBookingForm() {
+function AdminBookingFormInner() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    
+    const initialDate = searchParams.get('date') || '';
+    const initialSlot = searchParams.get('time') || '';
+
     const [step, setStep] = useState<'details' | 'confirm'>('details');
     const [loading, setLoading] = useState(false);
     
@@ -35,8 +41,8 @@ export default function AdminBookingForm() {
         deptId: '',
         doctorId: '',
         serviceId: '',
-        date: '',
-        slot: '',
+        date: initialDate,
+        slot: initialSlot,
         duration: 30
     });
 
@@ -471,5 +477,13 @@ export default function AdminBookingForm() {
                 </div>
             </form>
         </div>
+    );
+}
+
+export default function AdminBookingForm() {
+    return (
+        <Suspense fallback={<div className="p-6 text-center text-gray-500">Loading form...</div>}>
+            <AdminBookingFormInner />
+        </Suspense>
     );
 }
