@@ -724,23 +724,23 @@ export default function BillingPage() {
                                 </h3>
                                 
                                 {/* Desktop headers */}
-                                <div className="hidden md:flex gap-2 text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 px-0.5">
+                                <div className="hidden md:flex md:items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">
                                     <div className="flex-1">Service / Package Description</div>
                                     <div className="w-16">Qty</div>
                                     <div className="w-24">Reg. Price</div>
                                     <div className="w-20">Disc. %</div>
                                     <div className="w-24">Disc. AED</div>
                                     <div className="w-24 text-right">Net Price</div>
-                                    {items.length > 1 && <div className="w-6"></div>}
+                                    {items.length > 1 && <div className="w-8"></div>}
                                 </div>
 
                                 <div className="space-y-2">
                                     {items.map((item, idx) => (
-                                        <div key={idx} className="flex flex-col md:flex-row gap-2 mb-4 md:mb-2 bg-gray-50 dark:bg-gray-800/30 md:bg-transparent md:dark:bg-transparent p-3 md:p-0 rounded-lg border border-gray-200 dark:border-gray-700 md:border-0">
+                                        <div key={idx} className="flex flex-col md:flex-row md:items-center gap-2 mb-4 md:mb-2 bg-gray-50 dark:bg-gray-800/30 md:bg-transparent md:dark:bg-transparent p-3 md:p-0 rounded-lg border border-gray-200 dark:border-gray-700 md:border-0">
                                             {item.description.startsWith('[Add-on]') ? (
                                                 <input type="text" readOnly className="flex-1 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-550 dark:text-gray-400 text-sm" value={item.description} />
                                             ) : item.isCustom ? (
-                                                <div className="flex-1 flex items-center gap-1 border border-indigo-300 dark:border-indigo-600 rounded-lg bg-white dark:bg-gray-850 focus-within:ring-2 focus-within:ring-indigo-500 overflow-hidden">
+                                                <div className="flex-1 flex items-center gap-1 border border-indigo-300 dark:border-indigo-600 rounded-lg bg-white dark:bg-gray-855 focus-within:ring-2 focus-within:ring-indigo-500 overflow-hidden">
                                                     <input 
                                                         type="text" 
                                                         autoFocus 
@@ -838,7 +838,7 @@ export default function BillingPage() {
                                                     <option value="___custom___">➕ Custom / Free Text Entry</option>
                                                 </select>
                                             )}
-                                            <input type="number" min="1" placeholder="Qty" className="w-full md:w-16 p-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-850 text-sm flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
+                                            <input type="number" min="1" placeholder="Qty" className="w-full md:w-16 p-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-855 text-sm flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
                                             <input type="number" min="0" placeholder="Reg.Price" className="w-full md:w-24 p-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-855 text-sm flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                                 value={item.regularPrice !== undefined ? item.regularPrice : item.unitPrice || ''} 
                                                 onChange={(e) => { 
@@ -873,11 +873,13 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = Number(((u[idx].regularPrice || 0) - u[idx].discountAmount).toFixed(2)); 
                                                     setItems(u); 
                                                 }} />
-                                            <div className="w-full md:w-24 px-2 py-2 text-sm text-right font-bold md:font-semibold bg-gray-50 dark:bg-gray-850 border dark:border-gray-700 rounded-lg self-center flex-shrink-0" title="Discounted Price">
+                                            <div className="w-full md:w-24 px-2 py-2 text-sm text-right font-bold md:font-semibold bg-gray-50 dark:bg-gray-855 border dark:border-gray-700 rounded-lg flex-shrink-0" title="Discounted Price">
                                                 {Number(item.unitPrice || 0).toFixed(2)}
                                             </div>
                                             {items.length > 1 && (
-                                                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 px-2 font-bold text-sm">✕</button>
+                                                <div className="w-8 flex items-center justify-center flex-shrink-0">
+                                                    <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 font-bold text-sm">✕</button>
+                                                </div>
                                             )}
                                         </div>
                                     ))}
