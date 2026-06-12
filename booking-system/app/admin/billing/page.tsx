@@ -520,7 +520,7 @@ export default function BillingPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 print:p-0 print:bg-white print:min-h-0">
             <datalist id="services-list">
                 {Array.from(new Map(clinics.filter(c => (clinicName && clinics.some(cl => cl.name === clinicName)) ? c.name === clinicName : true).flatMap(c => c.departments.flatMap(d => d.services)).map(s => [s.name, s])).values()).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
                     <option key={s.id} value={s.name}>{s.price} AED</option>
@@ -532,7 +532,7 @@ export default function BillingPage() {
                 ))}
             </datalist>
 
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-6xl mx-auto print:hidden">
                 <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
@@ -601,8 +601,9 @@ export default function BillingPage() {
                         </div>
                     )}
                 </div>
+            </div>
 
-                {/* Create Invoice Modal */}
+            {/* Create Invoice Modal */}
                 {isCreateModalOpen && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
                         <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-xl my-8">
@@ -1276,49 +1277,120 @@ export default function BillingPage() {
                     </div>
                 )}
 
-                {/* View Invoice Detail Modal */}
+
                 {viewingInvoice && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-xl">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h2 className="text-xl font-bold">{viewingInvoice.invoiceNumber}</h2>
-                                    <div className="font-semibold text-gray-800 dark:text-gray-200 mt-1">First Medical Center LLC</div>
-                                    <div className="text-xs text-gray-500 mb-1">TRN No: 100613574100003</div>
-                                    <p className="text-sm text-gray-500">{viewingInvoice.date}</p>
-                                </div>
-                                <button onClick={() => setViewingInvoice(null)} className="text-gray-500 hover:text-gray-700 text-xl">✕</button>
-                            </div>
-                            <div className="space-y-2 text-sm mb-4">
-                                <div><span className="text-gray-500">Client:</span> {viewingInvoice.clientName} ({viewingInvoice.clientPhone}){viewingInvoice.clientEmail ? ` · ${viewingInvoice.clientEmail}` : ''}</div>
-                                {viewingInvoice.clinicName && <div><span className="text-gray-500">Clinic:</span> {viewingInvoice.clinicName}</div>}
-                                <div><span className="text-gray-500">Payment:</span> {viewingInvoice.paymentMethod}</div>
-                                {(viewingInvoice as any).onlineReference && (
-                                    <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-md px-3 py-2">
-                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs">Online Ref:</span>
-                                        <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 text-sm">{(viewingInvoice as any).onlineReference}</span>
+
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto print:static print:p-0 print:bg-white print:block">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-xl print:shadow-none print:max-w-none print:p-0 print:rounded-none print:w-full print:bg-white print:text-black">
+                            {/* Premium Tax Invoice Header */}
+                            <div className="border-b-2 border-indigo-600 pb-4 mb-6 print:border-gray-350 print:pb-3 print:mb-4">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h1 className="text-2xl font-black tracking-tight text-indigo-600 dark:text-indigo-400 print:text-black">
+                                            FIRST MEDICAL CENTER LLC
+                                        </h1>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">
+                                            Premium Aesthetic & Laser Clinic
+                                        </p>
+                                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 print:text-gray-800 mt-2">
+                                            TRN No: 100613574100003
+                                        </p>
                                     </div>
-                                )}
-                                <div><span className="text-gray-500">Generated by:</span> {viewingInvoice.generatedBy}</div>
-                                {viewingInvoice.packageDetails && <div><span className="text-gray-500">Package:</span> {viewingInvoice.packageDetails}</div>}
+                                    <div className="text-right">
+                                        <h2 className="text-lg font-black text-gray-900 dark:text-white print:text-black tracking-wide">
+                                            TAX INVOICE
+                                        </h2>
+                                        <p className="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400 print:text-black mt-1">
+                                            {viewingInvoice.invoiceNumber}
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-1">
+                                            Date: {viewingInvoice.date}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setViewingInvoice(null)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-xl print:hidden">✕</button>
                             </div>
 
-                            <table className="w-full text-sm mb-4">
-                                <thead><tr className="border-b dark:border-gray-700"><th className="text-left py-1">Item</th><th className="text-right">Qty</th><th className="text-right">Reg. Price</th><th className="text-right">Disc.</th><th className="text-right">Final Price</th><th className="text-right">Total</th></tr></thead>
-                                <tbody>
-                                    {viewingInvoice.items.map((item, idx) => (
-                                        <tr key={idx} className="border-b dark:border-gray-700">
-                                            <td className="py-1 break-words">{item.description}</td>
-                                            <td className="text-right tabular-nums">{item.quantity}</td>
-                                            <td className="text-right tabular-nums">{Number(item.regularPrice ?? item.unitPrice ?? 0).toFixed(2)}</td>
-                                            <td className="text-right tabular-nums">{Number(item.discountAmount ?? 0).toFixed(2)}</td>
-                                            <td className="text-right tabular-nums">{Number(item.unitPrice || 0).toFixed(2)}</td>
-                                            <td className="text-right tabular-nums">{Number(item.total || 0).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
+                            {/* Client & Appointment Info */}
+                            <div className="grid grid-cols-2 gap-6 text-xs mb-6 border-b dark:border-gray-700 pb-4 print:border-gray-200 print:mb-4 print:pb-3 print:gap-4">
+                                <div>
+                                    <h3 className="font-bold text-gray-700 dark:text-gray-300 print:text-gray-800 uppercase tracking-wider mb-2 print:mb-1">
+                                        Patient Details
+                                    </h3>
+                                    <div className="space-y-1 text-gray-950 dark:text-white print:text-black">
+                                        <div className="font-bold text-sm">{viewingInvoice.clientName}</div>
+                                        <div>Phone: {viewingInvoice.clientPhone}</div>
+                                        {viewingInvoice.clientEmail && <div>Email: {viewingInvoice.clientEmail}</div>}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-700 dark:text-gray-300 print:text-gray-800 uppercase tracking-wider mb-2 print:mb-1">
+                                        Clinic & Appointment
+                                    </h3>
+                                    <div className="space-y-1 text-gray-950 dark:text-white print:text-black">
+                                        {viewingInvoice.clinicName && <div>Branch: <span className="font-medium">{viewingInvoice.clinicName}</span></div>}
+                                        {viewingInvoice.notes && (viewingInvoice.notes.includes("Doctor:") || viewingInvoice.notes.includes("Time:")) ? (
+                                            <>
+                                                {(() => {
+                                                    const notes = viewingInvoice.notes || '';
+                                                    const docMatch = notes.match(/Doctor:\s*([^|]+)/);
+                                                    const dateMatch = notes.match(/Date:\s*([^|]+)/);
+                                                    const timeMatch = notes.match(/Time:\s*([^|]+)/);
+                                                    return (
+                                                        <>
+                                                            {docMatch && <div>Doctor: {docMatch[1].trim()}</div>}
+                                                            {dateMatch && <div>Appt Date: {dateMatch[1].trim()}</div>}
+                                                            {timeMatch && <div>Time: {timeMatch[1].trim()}</div>}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </>
+                                        ) : (
+                                            <div>Generated By: {viewingInvoice.generatedBy}</div>
+                                        )}
+                                        <div>Payment Method: <span className="capitalize font-semibold">{viewingInvoice.paymentMethod}</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Service Items Table */}
+                            <table className="w-full text-xs mb-6 print:mb-4">
+                                <thead>
+                                    <tr className="border-b-2 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 print:text-gray-700 print:border-gray-300">
+                                        <th className="text-left pb-2 font-bold">Item Description</th>
+                                        <th className="text-right pb-2 w-12 font-bold">Qty</th>
+                                        <th className="text-right pb-2 w-20 font-bold">Price (Ex. VAT)</th>
+                                        <th className="text-right pb-2 w-16 font-bold">Disc.</th>
+                                        <th className="text-right pb-2 w-16 font-bold">VAT (5%)</th>
+                                        <th className="text-right pb-2 w-20 font-bold">Total (AED)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800 print:divide-gray-200">
+                                    {viewingInvoice.items.map((item, idx) => {
+                                        const itemReg = Number(item.regularPrice ?? item.unitPrice ?? 0);
+                                        const itemDisc = Number(item.discountAmount ?? 0);
+                                        const itemVat = (item.unitPrice * (viewingInvoice.taxPercentage / 100)) * item.quantity;
+                                        const itemTotal = (item.unitPrice * (1 + viewingInvoice.taxPercentage / 100)) * item.quantity;
+                                        return (
+                                            <tr key={idx} className="text-gray-900 dark:text-white print:text-black">
+                                                <td className="py-2.5 pr-2 break-words">
+                                                    <div className="font-semibold">{item.description}</div>
+                                                </td>
+                                                <td className="text-right py-2.5 tabular-nums">{item.quantity}</td>
+                                                <td className="text-right py-2.5 tabular-nums">{itemReg.toFixed(2)}</td>
+                                                <td className="text-right py-2.5 tabular-nums text-emerald-600 dark:text-emerald-400 print:text-black">
+                                                    {itemDisc > 0 ? `-${itemDisc.toFixed(2)}` : '0.00'}
+                                                </td>
+                                                <td className="text-right py-2.5 tabular-nums">{itemVat.toFixed(2)}</td>
+                                                <td className="text-right py-2.5 tabular-nums font-bold">{itemTotal.toFixed(2)}</td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
-                            <div className="space-y-1 text-sm">
+
+                            {/* Totals Summary */}
+                            <div className="space-y-1.5 text-xs border-t pt-4 dark:border-gray-700 print:border-gray-300 print:pt-3">
                                 {(() => {
                                     const vGross = viewingInvoice.items.reduce((sum, item) => sum + ((item.regularPrice !== undefined ? item.regularPrice : item.unitPrice) * item.quantity), 0);
                                     const vDisc = viewingInvoice.items.reduce((sum, item) => sum + ((item.discountAmount || 0) * item.quantity), 0);
@@ -1326,31 +1398,32 @@ export default function BillingPage() {
                                         <>
                                             {vDisc > 0 && (
                                                 <>
-                                                    <div className="flex justify-between text-gray-500"><span>Gross Total</span><span>{vGross.toFixed(2)} AED</span></div>
-                                                    <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{vDisc.toFixed(2)} AED</span></div>
+                                                    <div className="flex justify-between text-gray-500 print:text-gray-600"><span>Gross Total (Excl. VAT)</span><span>{vGross.toFixed(2)} AED</span></div>
+                                                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400 print:text-black font-medium"><span>Total Discount</span><span>-{vDisc.toFixed(2)} AED</span></div>
                                                 </>
                                             )}
                                         </>
                                     );
                                 })()}
-                                <div className="flex justify-between text-gray-500"><span>Amount (Excluding VAT)</span><span>{viewingInvoice.subtotal.toFixed(2)} AED</span></div>
-                                <div className="flex justify-between text-gray-500"><span>VAT ({viewingInvoice.taxPercentage}%)</span><span>{viewingInvoice.taxAmount.toFixed(2)} AED</span></div>
-                                <div className="flex justify-between font-bold text-lg border-t pt-2 dark:border-gray-600"><span>Total</span><span>{viewingInvoice.totalAmount.toFixed(2)} AED</span></div>
+                                <div className="flex justify-between text-gray-500 print:text-gray-600"><span>Amount (Excluding VAT)</span><span>{viewingInvoice.subtotal.toFixed(2)} AED</span></div>
+                                <div className="flex justify-between text-gray-500 print:text-gray-600"><span>VAT ({viewingInvoice.taxPercentage}%)</span><span>{viewingInvoice.taxAmount.toFixed(2)} AED</span></div>
+                                <div className="flex justify-between font-bold text-sm border-t pt-2.5 dark:border-gray-600 print:border-gray-300 print:pt-2"><span>Total (Inclusive of VAT)</span><span className="text-indigo-600 dark:text-indigo-400 print:text-black text-base">{viewingInvoice.totalAmount.toFixed(2)} AED</span></div>
                             </div>
                             
+                            {/* Payments References */}
                             {viewingInvoice.payments && viewingInvoice.payments.length > 0 && (
-                                <div className="mt-4 border-t dark:border-gray-700 pt-4">
-                                    <h4 className="font-bold text-sm mb-2 text-gray-700 dark:text-gray-300">Payment References</h4>
+                                <div className="mt-5 border-t dark:border-gray-700 pt-4 print:mt-4 print:pt-3 print:border-gray-300">
+                                    <h4 className="font-bold text-xs mb-2 text-gray-700 dark:text-gray-300 print:text-gray-800 uppercase tracking-wider">Payment References</h4>
                                     <div className="space-y-2">
                                         {viewingInvoice.payments.map((p, idx) => (
-                                            <div key={idx} className="flex justify-between flex-wrap items-center text-xs bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
+                                            <div key={idx} className="flex justify-between flex-wrap items-center text-xs bg-gray-50 dark:bg-gray-700/50 p-2.5 rounded print:bg-white print:border print:border-gray-200">
                                                 <div className="flex gap-2 items-center">
-                                                    <span className="capitalize font-medium text-gray-900 dark:text-white text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded">{p.mode}</span>
-                                                    <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{p.referenceNumber}</span>
+                                                    <span className="capitalize font-semibold text-gray-900 dark:text-white text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded print:border print:border-gray-300">{p.mode}</span>
+                                                    <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold print:text-black">{p.referenceNumber}</span>
                                                 </div>
-                                                <div className="text-gray-500 text-right">
-                                                    <div className="font-medium text-gray-900 dark:text-white">{p.amount.toFixed(2)} AED</div>
-                                                    <div style={{fontSize: '9px'}}>{new Date(p.date).toLocaleString()}</div>
+                                                <div className="text-gray-500 text-right print:text-black">
+                                                    <div className="font-bold text-gray-900 dark:text-white print:text-black">{p.amount.toFixed(2)} AED</div>
+                                                    <div style={{fontSize: '9px'}} className="text-gray-400 print:text-gray-600 mt-0.5">{new Date(p.date).toLocaleString()}</div>
                                                 </div>
                                             </div>
                                         ))}
@@ -1358,16 +1431,43 @@ export default function BillingPage() {
                                 </div>
                             )}
 
-                            {viewingInvoice.notes && <div className="mt-3 text-xs text-gray-500">Notes: {viewingInvoice.notes}</div>}
-                            <div className="mt-4 flex justify-end">
-                                <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
-                                    <Printer className="w-4 h-4" /> Print
+                            {/* Online Reference (if exists but payments empty) */}
+                            {!(viewingInvoice.payments && viewingInvoice.payments.length > 0) && (viewingInvoice as any).onlineReference && (
+                                <div className="mt-5 border-t dark:border-gray-700 pt-4 print:mt-4 print:pt-3 print:border-gray-300">
+                                    <div className="flex items-center justify-between text-xs bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 print:bg-white print:border-gray-200 print:text-black">
+                                        <span className="text-emerald-700 dark:text-emerald-400 font-bold print:text-gray-800">Online Reference:</span>
+                                        <span className="font-mono font-bold text-emerald-800 dark:text-emerald-300 text-sm print:text-black">{(viewingInvoice as any).onlineReference}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {viewingInvoice.notes && (
+                                <div className="mt-4 text-[10px] text-gray-500 print:text-gray-700 border-t pt-2 dark:border-gray-700 print:border-gray-200">
+                                    <strong>Notes:</strong> {viewingInvoice.notes}
+                                </div>
+                            )}
+                            
+                            {/* Policy Notice Footer */}
+                            <div className="mt-6 border-t-2 border-dashed border-gray-200 dark:border-gray-700 pt-4 text-center text-[10px] text-gray-500 dark:text-gray-400 print:text-gray-600 print:border-gray-300 print:mt-5 print:pt-3">
+                                <p className="font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 print:text-black text-[9px]">Important Policy Notice</p>
+                                <p className="mt-1">Purchased services won't refund, complete the services before the expiry of validity date.</p>
+                                <p className="mt-2 text-[9px] text-gray-400 dark:text-gray-500 print:text-gray-500 font-medium">Thank you for choosing First Medical Center LLC. We look forward to serving you again.</p>
+                            </div>
+
+                            {/* View Modal Action Buttons */}
+                            <div className="mt-6 flex justify-end gap-3 print:hidden border-t pt-4 dark:border-gray-700">
+                                <button onClick={() => setViewingInvoice(null)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors">
+                                    Close
+                                </button>
+                                <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 text-sm shadow-sm transition-colors">
+                                    <Printer className="w-4 h-4" /> Print Invoice
                                 </button>
                             </div>
                         </div>
                     </div>
                 )}
-            </div>
         </div>
     );
 }
+
+
