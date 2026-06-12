@@ -516,15 +516,32 @@ export const ServicesStore = {
         let updatedAny = false;
         let lastUpdatedService = null;
 
+        // 1. Find the target service name to match across all clinics
+        let targetServiceName: string | null = null;
         for (const clinic of clinicStore) {
             for (const department of clinic.departments) {
-                const serviceIndex = department.services.findIndex(s => s.id === serviceId);
-                if (serviceIndex !== -1) {
-                    const updatedService = { ...department.services[serviceIndex], ...updates };
-                    department.services[serviceIndex] = updatedService;
-                    lastUpdatedService = updatedService;
-                    updatedAny = true;
+                const svc = department.services.find(s => s.id === serviceId);
+                if (svc) {
+                    targetServiceName = svc.name;
+                    break;
                 }
+            }
+            if (targetServiceName) break;
+        }
+
+        if (!targetServiceName) return null;
+
+        // 2. Update all services with that name across all clinics
+        for (const clinic of clinicStore) {
+            for (const department of clinic.departments) {
+                department.services.forEach((s, index) => {
+                    if (s.name === targetServiceName) {
+                        const updatedService = { ...s, ...updates };
+                        department.services[index] = updatedService;
+                        lastUpdatedService = updatedService;
+                        updatedAny = true;
+                    }
+                });
             }
         }
 

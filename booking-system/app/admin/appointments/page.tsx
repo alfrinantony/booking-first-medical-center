@@ -589,7 +589,7 @@ export default function AdminAppointmentsPage() {
     })();
 
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-    const isCompletedLock = editingBooking?.status === 'completed' && !isSuperAdmin;
+    const isCompletedLock = (editingBooking?.status === 'completed' || editForm?.status === 'completed') && !isSuperAdmin;
     const canChangeDetails = (canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && !isCompletedLock;
 
     // Quick Client Registration
@@ -1484,7 +1484,7 @@ export default function AdminAppointmentsPage() {
                                 </button>
                                 {!isCompletedLock && (
                                     <button
-                                        onClick={handleSaveChanges}
+                                        onClick={() => handleSaveChanges(false)}
                                         className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition-colors"
                                     >
                                         Save Changes

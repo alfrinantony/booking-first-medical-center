@@ -182,13 +182,31 @@ export default function BillingPage() {
         if (sbRef) setOnlineReference(sbRef);
         if (sbId)  setLinkedSbId(sbId);
 
-        if (bookId && bookings.length > 0 && clinics.length > 0 && !selectedBooking) {
-            const match = bookings.find(b => b.id === bookId);
-            if (match) {
-                handleSelectBooking(match);
-                setIsCreateModalOpen(true);
-                window.history.replaceState({}, '', '/admin/billing');
-            }
+        if (bookId && clinics.length > 0 && !selectedBooking) {
+            // Try fetching the specific booking directly from the API first
+            fetch(`/api/bookings/${bookId}`)
+                .then(res => {
+                    if (res.ok) return res.json();
+                    throw new Error('Booking not found via direct API');
+                })
+                .then(booking => {
+                    if (booking) {
+                        handleSelectBooking(booking);
+                        setIsCreateModalOpen(true);
+                        window.history.replaceState({}, '', '/admin/billing');
+                    }
+                })
+                .catch(err => {
+                    console.error('Direct booking fetch failed, falling back to local bookings list:', err);
+                    if (bookings.length > 0) {
+                        const match = bookings.find(b => b.id === bookId);
+                        if (match) {
+                            handleSelectBooking(match);
+                            setIsCreateModalOpen(true);
+                            window.history.replaceState({}, '', '/admin/billing');
+                        }
+                    }
+                });
         }
     }, [bookings, clinics, selectedBooking]);
 
@@ -215,13 +233,21 @@ export default function BillingPage() {
                 clnName = clinic.name;
             }
             for (const dept of clinic.departments) {
-                const svc = dept.services.find(s => s.id === booking.serviceId);
+                const svc = dept.services.find(s => 
+                    s.id === booking.serviceId || 
+                    s.name === booking.serviceName || 
+                    (booking.serviceId && s.name.toLowerCase() === booking.serviceId.toLowerCase())
+                );
                 if (svc) {
                     svcName = svc.name;
                     svcPrice = svc.price || 0;
                     matchedService = svc;
                 }
-                const doc = dept.doctors.find(d => d.id === booking.doctorId);
+                const doc = dept.doctors.find(d => 
+                    d.id === booking.doctorId || 
+                    d.name === booking.doctorId || 
+                    (booking.doctorId && d.name.toLowerCase() === booking.doctorId.toLowerCase())
+                );
                 if (doc) docName = doc.name;
             }
         }

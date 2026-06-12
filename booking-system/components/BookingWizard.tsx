@@ -1341,7 +1341,7 @@ export default function BookingWizard() {
                             <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div><p className="mt-4 text-gray-500">Loading services...</p></div>
                         ) : (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-                                {BOOKING_CATEGORIES.map((cat) => {
+                                {catalogData.categories.map((cat) => {
                                     const catImage = categoryImages[cat];
                                     const count = catalogData.services.filter((s: any) => s.category === cat).length;
                                     const isEmpty = count === 0;
@@ -1498,6 +1498,9 @@ export default function BookingWizard() {
                                         const groupServices = group.filter
                                             ? allCatServices.filter(group.filter)
                                             : allCatServices.filter((s: any) => s.name.startsWith(group.prefix || ''));
+                                        
+                                        if (groupServices.length === 0) return null;
+
                                         return (
                                             <button key={group.key} onClick={() => { triggerHaptic(); setSelectedDeviceGroup(group.key); }}
                                                 className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-indigo-400 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] text-left">
