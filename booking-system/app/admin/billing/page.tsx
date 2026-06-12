@@ -723,6 +723,18 @@ export default function BillingPage() {
                                 {/* Line Items */}
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Services / Items</label>
+                                    
+                                    {/* Header Row for Desktop View */}
+                                    <div className="hidden md:flex gap-2 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2 px-0.5">
+                                        <div className="flex-1">Service / Package Description</div>
+                                        <div className="w-16">Qty</div>
+                                        <div className="w-24">Reg. Price</div>
+                                        <div className="w-20">Disc. %</div>
+                                        <div className="w-24">Disc. AED</div>
+                                        <div className="w-24 text-right">Net Price</div>
+                                        {items.length > 1 && <div className="w-6"></div>}
+                                    </div>
+
                                     {items.map((item, idx) => (
                                         <div key={idx} className="flex flex-col md:flex-row gap-2 mb-4 md:mb-2 bg-gray-50 dark:bg-gray-800/50 md:bg-transparent md:dark:bg-transparent p-3 md:p-0 rounded-lg border border-gray-200 dark:border-gray-700 md:border-0">
                                             {item.description.startsWith('[Add-on]') ? (
@@ -1209,7 +1221,7 @@ export default function BillingPage() {
                                             {clinics.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                         </select>
                                     </div>
-                                    <div>
+                                    <div className="md:col-span-2">
                                         <label className="block text-sm font-medium mb-1">Notes</label>
                                         <input type="text" placeholder="Optional notes" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={notes} onChange={(e) => setNotes(e.target.value)} />
                                     </div>
