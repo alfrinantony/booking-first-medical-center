@@ -603,144 +603,144 @@ export default function BillingPage() {
                 </div>
             </div>
 
-            {/* Create Invoice Modal */}
-                {isCreateModalOpen && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-xl my-8">
-                            <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><FileText className="w-5 h-5" /> Generate Invoice</h2>
-                            <div className="space-y-4">
+            {isCreateModalOpen && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto print:hidden">
+                    <div className="bg-gray-50 dark:bg-gray-950 rounded-2xl max-w-4xl w-full p-6 shadow-2xl my-8 border border-gray-200 dark:border-gray-850 flex flex-col max-h-[90vh]">
+                        {/* Modal Header */}
+                        <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-800">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-indigo-600" /> Generate Client Invoice
+                            </h2>
+                            <button onClick={() => setIsCreateModalOpen(false)} className="text-gray-400 hover:text-gray-650 dark:hover:text-gray-200 text-xl font-medium">✕</button>
+                        </div>
+                        
+                        {/* Scrollable Form Body */}
+                        <div className="flex-1 overflow-y-auto py-4 space-y-6 pr-2">
 
-                                {/* Client Details Auto-fill */}
-                                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-                                    <label className="block text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-2">🔍 Search & Auto-fill Client Details</label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-indigo-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search by patient name, phone, or booking ID..."
-                                            className="w-full pl-10 p-2 border border-indigo-300 dark:border-indigo-700 rounded-md bg-white dark:bg-gray-700 text-sm"
-                                            value={selectedBooking ? `${selectedBooking.patientName} — ${selectedBooking.date} ${selectedBooking.slot}` : bookingSearch}
-                                            onChange={e => { setBookingSearch(e.target.value); setSelectedBooking(null); setShowBookingDropdown(true); }}
-                                            onFocus={() => setShowBookingDropdown(true)}
-                                        />
-                                        {showBookingDropdown && !selectedBooking && (
-                                            <div className="absolute z-20 top-full mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                                {filteredBookings.length === 0 ? (
-                                                    <div className="p-3 text-sm text-gray-500">No bookings found.</div>
-                                                ) : (
-                                                    filteredBookings.map(b => {
-                                                        const { svcName, docName, clnName } = resolveNames(b);
-                                                        return (
-                                                            <button key={b.id} type="button"
-                                                                className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors border-b last:border-b-0 border-gray-100 dark:border-gray-700"
-                                                                onClick={() => {
-                                                                    setClientName(b.patientName || '');
-                                                                    setClientPhone(b.whatsappNumber || '');
-                                                                    setClientEmail(b.email || '');
-                                                                    setBookingSearch('');
-                                                                    setShowBookingDropdown(false);
-                                                                }}>
-                                                                <div className="flex justify-between items-start">
-                                                                    <div>
-                                                                        <div className="font-medium text-sm text-gray-900 dark:text-white">{b.patientName}</div>
-                                                                        <div className="text-xs text-gray-500 flex gap-2 mt-0.5">
-                                                                            <span>📱 {b.whatsappNumber || '—'}</span>
-                                                                            <span>💊 {svcName}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="text-right">
-                                                                        <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{b.date}</div>
-                                                                        <div className="text-xs text-gray-500">{b.slot} · {clnName}</div>
+                            {/* Card 1: Search & Auto-Fill Booking */}
+                            <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-850 rounded-xl p-4">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 mb-2 flex items-center gap-1.5">
+                                    <Search className="w-3.5 h-3.5" /> Search & Auto-Fill Client Booking
+                                </label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-3 w-4 h-4 text-indigo-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search by patient name, phone, or booking ID..."
+                                        className="w-full pl-10 p-2.5 border border-indigo-300 dark:border-indigo-750 rounded-lg bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                        value={selectedBooking ? `${selectedBooking.patientName} — ${selectedBooking.date} ${selectedBooking.slot}` : bookingSearch}
+                                        onChange={e => { setBookingSearch(e.target.value); setSelectedBooking(null); setShowBookingDropdown(true); }}
+                                        onFocus={() => setShowBookingDropdown(true)}
+                                    />
+                                    {showBookingDropdown && !selectedBooking && (
+                                        <div className="absolute z-20 top-full mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                            {filteredBookings.length === 0 ? (
+                                                <div className="p-3 text-sm text-gray-500">No bookings found.</div>
+                                            ) : (
+                                                filteredBookings.map(b => {
+                                                    const { svcName, docName, clnName } = resolveNames(b);
+                                                    return (
+                                                        <button key={b.id} type="button"
+                                                            className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors border-b last:border-b-0 border-gray-100 dark:border-gray-700"
+                                                            onClick={() => handleSelectBooking(b)}>
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <div className="font-medium text-sm text-gray-900 dark:text-white">{b.patientName}</div>
+                                                                    <div className="text-xs text-gray-500 flex gap-2 mt-0.5">
+                                                                        <span>📱 {b.whatsappNumber || '—'}</span>
+                                                                        <span>💊 {svcName}</span>
                                                                     </div>
                                                                 </div>
-                                                            </button>
-                                                        );
-                                                    })
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {selectedBooking && (
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <span className="text-xs text-green-700 dark:text-green-400 font-medium">✓ Client details filled.</span>
-                                            <button type="button" onClick={() => { setSelectedBooking(null); resetForm(); }} className="text-xs text-indigo-600 underline">Clear</button>
+                                                                <div className="text-right">
+                                                                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{b.date}</div>
+                                                                    <div className="text-xs text-gray-500">{b.slot} · {clnName}</div>
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })
+                                            )}
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Client Info */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Client Name *</label>
-                                        <input type="text" required className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={clientName} onChange={(e) => setClientName(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Client Phone *</label>
-                                        <input type="tel" required className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Client Email</label>
-                                        <input type="email" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
-                                    </div>
-                                </div>
-
-                                {/* Booking Info */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1 flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Booking Date</label>
-                                        <input type="date" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Time Slot</label>
-                                        <input type="text" placeholder="e.g. 10:00 AM" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1 flex items-center gap-1"><User className="w-3.5 h-3.5" /> Doctor / Technician</label>
-                                        <input type="text" placeholder="Doctor name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} />
-                                    </div>
-                                </div>
-
-                                {/* Online Payment Reference */}
-                                {(paymentMethod === 'online' || paymentMethod === 'card' || onlineReference) && (
-                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 flex items-center gap-3">
-                                        <CreditCard className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                                        <div className="flex-1">
-                                            <label className="block text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
-                                                Online Payment Reference
-                                                {onlineReference && <span className="ml-1 text-[10px] font-normal text-emerald-600">(pre-filled from SimplyBook — printed on receipt)</span>}
-                                            </label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. SI-2026000362 or Stripe charge ID"
-                                                className="w-full p-2 border border-emerald-300 dark:border-emerald-700 rounded-md bg-white dark:bg-gray-700 text-sm font-mono"
-                                                value={onlineReference}
-                                                onChange={(e) => setOnlineReference(e.target.value)}
-                                            />
-                                        </div>
+                                {selectedBooking && (
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className="text-xs text-green-700 dark:text-green-400 font-medium">✓ Client details filled.</span>
+                                        <button type="button" onClick={() => { setSelectedBooking(null); resetForm(); }} className="text-xs text-indigo-600 hover:text-indigo-800 underline">Clear</button>
                                     </div>
                                 )}
+                            </div>
 
-                                {/* Line Items */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Services / Items</label>
-                                    
-                                    {/* Header Row for Desktop View */}
-                                    <div className="hidden md:flex gap-2 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2 px-0.5">
-                                        <div className="flex-1">Service / Package Description</div>
-                                        <div className="w-16">Qty</div>
-                                        <div className="w-24">Reg. Price</div>
-                                        <div className="w-20">Disc. %</div>
-                                        <div className="w-24">Disc. AED</div>
-                                        <div className="w-24 text-right">Net Price</div>
-                                        {items.length > 1 && <div className="w-6"></div>}
+                            {/* Card 2: Patient & Appointment Details */}
+                            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2 border-b dark:border-gray-800 pb-2">
+                                    <User className="w-4 h-4 text-indigo-600" /> Patient & Appointment Details
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Patient Name *</label>
+                                            <input type="text" required className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">WhatsApp / Phone *</label>
+                                            <input type="tel" required className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Email Address</label>
+                                            <input type="email" className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
+                                        </div>
                                     </div>
+                                    <div className="space-y-3">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-indigo-400" /> Date</label>
+                                                <input type="date" className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-indigo-400" /> Time Slot</label>
+                                                <input type="text" placeholder="e.g. 10:00 AM" className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1"><User className="w-3.5 h-3.5 text-indigo-400" /> Doctor / Therapist</label>
+                                            <input type="text" placeholder="Practitioner name" className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-indigo-400" /> Clinic Branch</label>
+                                            <select className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={clinicName} onChange={(e) => setClinicName(e.target.value)}>
+                                                <option value="">— Select branch —</option>
+                                                {clinics.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
+                            {/* Card 3: Services & Procedures */}
+                            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2 border-b dark:border-gray-800 pb-2">
+                                    <Receipt className="w-4 h-4 text-indigo-600" /> Services & Procedures
+                                </h3>
+                                
+                                {/* Desktop headers */}
+                                <div className="hidden md:flex gap-2 text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 px-0.5">
+                                    <div className="flex-1">Service / Package Description</div>
+                                    <div className="w-16">Qty</div>
+                                    <div className="w-24">Reg. Price</div>
+                                    <div className="w-20">Disc. %</div>
+                                    <div className="w-24">Disc. AED</div>
+                                    <div className="w-24 text-right">Net Price</div>
+                                    {items.length > 1 && <div className="w-6"></div>}
+                                </div>
+
+                                <div className="space-y-2">
                                     {items.map((item, idx) => (
-                                        <div key={idx} className="flex flex-col md:flex-row gap-2 mb-4 md:mb-2 bg-gray-50 dark:bg-gray-800/50 md:bg-transparent md:dark:bg-transparent p-3 md:p-0 rounded-lg border border-gray-200 dark:border-gray-700 md:border-0">
+                                        <div key={idx} className="flex flex-col md:flex-row gap-2 mb-4 md:mb-2 bg-gray-50 dark:bg-gray-800/30 md:bg-transparent md:dark:bg-transparent p-3 md:p-0 rounded-lg border border-gray-200 dark:border-gray-700 md:border-0">
                                             {item.description.startsWith('[Add-on]') ? (
-                                                <input type="text" readOnly className="flex-1 p-2 border border-gray-200 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm" value={item.description} />
+                                                <input type="text" readOnly className="flex-1 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-550 dark:text-gray-400 text-sm" value={item.description} />
                                             ) : item.isCustom ? (
-                                                <div className="flex-1 flex items-center gap-1 border border-indigo-300 dark:border-indigo-600 rounded-md bg-white dark:bg-gray-800 focus-within:ring-2 focus-within:ring-indigo-500 overflow-hidden">
+                                                <div className="flex-1 flex items-center gap-1 border border-indigo-300 dark:border-indigo-600 rounded-lg bg-white dark:bg-gray-850 focus-within:ring-2 focus-within:ring-indigo-500 overflow-hidden">
                                                     <input 
                                                         type="text" 
                                                         autoFocus 
@@ -749,11 +749,11 @@ export default function BillingPage() {
                                                         value={item.description} 
                                                         onChange={e => { const u = [...items]; u[idx].description = e.target.value; setItems(u); }} 
                                                     />
-                                                    <button type="button" onClick={() => { const u = [...items]; u[idx].isCustom = false; u[idx].description = ''; setItems(u); }} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-red-500 px-3 bg-gray-100 dark:bg-gray-700 hover:bg-red-50 py-2 transition-colors border-l dark:border-gray-600" title="Cancel Custom Entry">Cancel</button>
+                                                    <button type="button" onClick={() => { const u = [...items]; u[idx].isCustom = false; u[idx].description = ''; setItems(u); }} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-red-500 px-3 bg-gray-100 dark:bg-gray-700 hover:bg-red-50 py-2 transition-colors border-l dark:border-gray-650" title="Cancel Custom Entry">Cancel</button>
                                                 </div>
                                             ) : (
                                                 <select 
-                                                    className="flex-1 p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" 
+                                                    className="flex-1 p-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-850 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" 
                                                     value={
                                                         clinics.flatMap(c => c.departments.flatMap(d => d.services)).some(s => s.name === item.description || (s.threeSessionPackage && `3 Sessions - ${s.name} (Valid for ${s.threeSessionPackage.validity || 90} days)` === item.description) || (s.sixSessionPackage && `6 Sessions - ${s.name} (Valid for ${s.sixSessionPackage.validity || 180} days)` === item.description)) 
                                                         ? item.description 
@@ -838,8 +838,8 @@ export default function BillingPage() {
                                                     <option value="___custom___">➕ Custom / Free Text Entry</option>
                                                 </select>
                                             )}
-                                            <input type="number" min="1" placeholder="Qty" className="w-full md:w-16 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
-                                            <input type="number" min="0" placeholder="Reg.Price" className="w-full md:w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm flex-shrink-0"
+                                            <input type="number" min="1" placeholder="Qty" className="w-full md:w-16 p-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-850 text-sm flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={item.quantity} onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], quantity: Number(e.target.value) }; setItems(u); }} />
+                                            <input type="number" min="0" placeholder="Reg.Price" className="w-full md:w-24 p-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-855 text-sm flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                                 value={item.regularPrice !== undefined ? item.regularPrice : item.unitPrice || ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -847,7 +847,7 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = u[idx].regularPrice! - (u[idx].discountAmount || 0); 
                                                     setItems(u); 
                                                 }} />
-                                            <input type="number" min="0" max={item.maxDiscountPercentage || ''} placeholder="Disc. %" className="w-full md:w-20 p-2 border border-blue-300 dark:border-blue-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
+                                            <input type="number" min="0" max={item.maxDiscountPercentage || ''} placeholder="Disc. %" className="w-full md:w-20 p-2 border border-indigo-200 dark:border-indigo-900 rounded-lg dark:bg-gray-855 text-sm flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                                 value={item.regularPrice && item.discountAmount ? Number(((item.discountAmount / item.regularPrice) * 100).toFixed(2)) : ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -860,7 +860,7 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = Number(((u[idx].regularPrice || 0) - u[idx].discountAmount).toFixed(2)); 
                                                     setItems(u); 
                                                 }} />
-                                            <input type="number" min="0" placeholder="Disc. AED" className="w-full md:w-24 p-2 border border-green-300 dark:border-green-700 rounded-md dark:bg-gray-700 text-sm flex-shrink-0"
+                                            <input type="number" min="0" placeholder="Disc. AED" className="w-full md:w-24 p-2 border border-green-200 dark:border-green-900 rounded-lg dark:bg-gray-855 text-sm flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                                 value={item.discountAmount !== undefined && item.discountAmount !== 0 ? item.discountAmount : ''} 
                                                 onChange={(e) => { 
                                                     const u = [...items]; 
@@ -873,61 +873,52 @@ export default function BillingPage() {
                                                     u[idx].unitPrice = Number(((u[idx].regularPrice || 0) - u[idx].discountAmount).toFixed(2)); 
                                                     setItems(u); 
                                                 }} />
-                                            <div className="w-full md:w-24 px-2 py-2 text-sm text-right font-bold md:font-normal bg-white md:bg-gray-50 dark:bg-gray-700 md:dark:bg-gray-800 border rounded-md dark:border-gray-600 self-center flex-shrink-0" title="Discounted Price">
+                                            <div className="w-full md:w-24 px-2 py-2 text-sm text-right font-bold md:font-semibold bg-gray-50 dark:bg-gray-850 border dark:border-gray-700 rounded-lg self-center flex-shrink-0" title="Discounted Price">
                                                 {Number(item.unitPrice || 0).toFixed(2)}
                                             </div>
                                             {items.length > 1 && (
-                                                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-500 px-2">✕</button>
+                                                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 px-2 font-bold text-sm">✕</button>
                                             )}
                                         </div>
                                     ))}
-                                    <button type="button" onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }])} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">+ Add Item</button>
                                 </div>
-
-                                {/* ── Add-on Services — Dropdown List ── */}
-                                <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-900/20 dark:to-fuchsia-900/10 border border-violet-200 dark:border-violet-700 rounded-xl p-4 space-y-3">
-                                    {/* Header */}
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center">
-                                                <Zap className="w-4 h-4 text-white" />
+                                <button type="button" onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }])} className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1">+ Add New Item Row</button>
+                                
+                                {/* Add-ons section */}
+                                <div className="pt-4 border-t border-gray-150 dark:border-gray-800 mt-4">
+                                    <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/10 dark:to-purple-950/10 border border-indigo-100 dark:border-indigo-900 rounded-xl p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+                                                    <Zap className="w-4 h-4 text-white" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-indigo-900 dark:text-indigo-200">Procedure Add-on Services</p>
+                                                    <p className="text-[10px] text-gray-500">Linked stock consumables will deduct automatically</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-violet-800 dark:text-violet-200">Add-on Services</p>
-                                                <p className="text-[11px] text-violet-500 dark:text-violet-400">Select from list · stock auto-deducted on billing</p>
+                                            <div className="flex items-center gap-2">
+                                                {selectedAddons.size > 0 && (
+                                                    <span className="text-[10px] font-bold bg-indigo-600 text-white px-2.5 py-0.5 rounded-full">
+                                                        {selectedAddons.size} Added
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            {selectedAddons.size > 0 && (
-                                                <span className="text-xs font-bold bg-violet-600 text-white px-2.5 py-0.5 rounded-full">
-                                                    {selectedAddons.size} added
-                                                </span>
-                                            )}
-                                            <a href="/admin/addon-services" target="_blank" className="text-[10px] text-violet-500 hover:text-violet-700 underline">Configure →</a>
-                                        </div>
-                                    </div>
 
-                                    {/* Dropdown selector */}
-                                    {addonServices.length === 0 ? (
-                                        <div className="text-center py-3 border-2 border-dashed border-violet-200 dark:border-violet-700 rounded-xl">
-                                            <Zap className="w-5 h-5 text-violet-300 mx-auto mb-1" />
-                                            <p className="text-xs text-violet-400">No active add-ons configured.</p>
-                                            <a href="/admin/addon-services" target="_blank" className="text-xs text-violet-600 hover:underline">Set up add-on services →</a>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2">
+                                        {addonServices.length === 0 ? (
+                                            <p className="text-xs text-gray-400 italic">No add-ons available.</p>
+                                        ) : (
                                             <select
-                                                id="addon-select"
-                                                className="flex-1 p-2.5 border border-violet-300 dark:border-violet-600 rounded-xl bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none text-gray-700 dark:text-gray-200"
+                                                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-xs focus:ring-2 focus:ring-indigo-500"
                                                 value=""
                                                 onChange={e => {
                                                     const addon = addonServices.find(a => a.id === e.target.value);
                                                     if (addon && !selectedAddons.has(addon.id)) toggleAddon(addon);
-                                                    // Reset dropdown
-                                                    (e.target as HTMLSelectElement).value = '';
+                                                    e.target.value = '';
                                                 }}
                                             >
-                                                <option value="" disabled>➕ Select an add-on to add…</option>
+                                                <option value="" disabled>➕ Select an add-on procedure to append...</option>
                                                 {(() => {
                                                     const grouped = addonServices.reduce<Record<string, AddonService[]>>((acc, a) => {
                                                         if (!acc[a.group]) acc[a.group] = [];
@@ -945,184 +936,202 @@ export default function BillingPage() {
                                                     ));
                                                 })()}
                                             </select>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {/* Selected add-ons list */}
-                                    {selectedAddons.size > 0 && (
-                                        <div className="space-y-1.5 pt-1 border-t border-violet-100 dark:border-violet-800">
-                                            {addonServices.filter(a => selectedAddons.has(a.id)).map(addon => {
-                                                const desc = `[Add-on] ${addon.name}`;
-                                                const notFetched = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).some(c => !batchesMap[c.medicineId]);
-                                                const allHaveBatch = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).every(c => !!pickBestBatch(c.medicineId));
-                                                const noLink = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).length === 0;
-                                                return (
-                                                    <div key={addon.id} className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-violet-200 dark:border-violet-700 rounded-lg px-3 py-2">
-                                                        <span className="flex-1 text-xs font-semibold text-gray-800 dark:text-white truncate">{addon.name}</span>
-                                                        {/* Stock indicator */}
-                                                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
-                                                            noLink ? 'bg-amber-100 text-amber-600' :
-                                                            notFetched ? 'bg-gray-100 text-gray-400' :
-                                                            allHaveBatch ? 'bg-emerald-100 text-emerald-700' :
-                                                            'bg-red-100 text-red-600'
-                                                        }`}>
-                                                            {noLink ? '⚠ no stock link' : notFetched ? '○ stock?' : allHaveBatch ? '● in stock' : '⚠ low stock'}
-                                                        </span>
-                                                        {/* Editable price */}
-                                                        <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden shrink-0">
-                                                            <input
-                                                                type="number" min="0"
-                                                                className="w-16 p-1 text-xs text-right bg-white dark:bg-gray-700 focus:outline-none border-none"
-                                                                value={addonPrices[addon.id] ?? addon.defaultPrice}
-                                                                onChange={e => {
-                                                                    const np = Number(e.target.value);
-                                                                    setAddonPrices(prev => ({ ...prev, [addon.id]: np }));
-                                                                    setItems(prev => prev.map(i => i.description === desc ? { ...i, unitPrice: np, regularPrice: np } : i));
-                                                                }}
-                                                            />
-                                                            <span className="text-[10px] pr-1.5 text-gray-400 bg-white dark:bg-gray-700">AED</span>
+                                        {selectedAddons.size > 0 && (
+                                            <div className="space-y-1.5 pt-2 border-t border-indigo-100 dark:border-indigo-900">
+                                                {addonServices.filter(a => selectedAddons.has(a.id)).map(addon => {
+                                                    const desc = `[Add-on] ${addon.name}`;
+                                                    const notFetched = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).some(c => !batchesMap[c.medicineId]);
+                                                    const allHaveBatch = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).every(c => !!pickBestBatch(c.medicineId));
+                                                    const noLink = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : []).length === 0;
+                                                    return (
+                                                        <div key={addon.id} className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-205 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-xs">
+                                                            <span className="flex-1 font-semibold text-gray-800 dark:text-gray-200 truncate">{addon.name}</span>
+                                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                                                                noLink ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400' :
+                                                                notFetched ? 'bg-gray-100 text-gray-500' :
+                                                                allHaveBatch ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400' :
+                                                                'bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400'
+                                                            }`}>
+                                                                {noLink ? 'no stock link' : notFetched ? 'stock check' : allHaveBatch ? 'in stock' : 'low stock'}
+                                                            </span>
+                                                            <div className="flex items-center border dark:border-gray-600 rounded-lg overflow-hidden shrink-0">
+                                                                <input
+                                                                    type="number" min="0"
+                                                                    className="w-14 p-1 text-right bg-white dark:bg-gray-700 focus:outline-none border-none text-xs"
+                                                                    value={addonPrices[addon.id] ?? addon.defaultPrice}
+                                                                    onChange={e => {
+                                                                        const np = Number(e.target.value);
+                                                                        setAddonPrices(prev => ({ ...prev, [addon.id]: np }));
+                                                                        setItems(prev => prev.map(i => i.description === desc ? { ...i, unitPrice: np, regularPrice: np } : i));
+                                                                    }}
+                                                                />
+                                                                <span className="text-[10px] pr-1.5 text-gray-400 bg-white dark:bg-gray-700">AED</span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleAddon(addon)}
+                                                                className="p-1 text-red-500 hover:text-red-750 transition-colors shrink-0 font-bold"
+                                                                title="Remove add-on"
+                                                            >
+                                                                ✕
+                                                            </button>
                                                         </div>
-                                                        {/* Remove */}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => toggleAddon(addon)}
-                                                            className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors shrink-0"
-                                                            title="Remove add-on"
-                                                        >
-                                                            <X className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })}
-
-                                            <div className="flex items-center justify-between pt-1">
-                                                <span className="text-xs text-violet-600 dark:text-violet-400">
-                                                    Subtotal: <strong>{Number(addonServices.filter(a => selectedAddons.has(a.id)).reduce((s, a) => s + (addonPrices[a.id] ?? a.defaultPrice ?? 0), 0)).toFixed(2)} AED</strong>
-                                                </span>
-                                                <button type="button" onClick={() => {
-                                                    selectedAddons.forEach(id => { const a = addonServices.find(x => x.id === id); if (a) setItems(prev => prev.filter(i => i.description !== `[Add-on] ${a.name}`)); });
-                                                    setSelectedAddons(new Set());
-                                                }} className="text-xs text-red-500 hover:text-red-700 font-medium">
-                                                    Remove all
-                                                </button>
+                                                    );
+                                                })}
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
+                            </div>
 
+                            {/* Card 4: Inventory & Consumables */}
+                            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2 border-b dark:border-gray-800 pb-2">
+                                    <Package className="w-4 h-4 text-indigo-600" /> Physical Stock lot deductions
+                                </h3>
+                                <p className="text-xs text-gray-500">Physical lot batches will deduct automatically from pharmacy inventory upon billing posting.</p>
+                                
+                                {items.every(i => !(i.consumptions && i.consumptions.length > 0)) ? (
+                                    <div className="text-xs text-gray-400 italic bg-gray-50 dark:bg-gray-850 p-4 text-center rounded-xl border border-dashed dark:border-gray-850">
+                                        No consumable items are linked to the selected services yet. Click "+ Add Resource Link" below to track physical lots manually if needed.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {items.map((item, idx) => (
+                                            <div key={idx} className="bg-gray-50 dark:bg-gray-850/50 rounded-xl p-3 border border-gray-150 dark:border-gray-850 space-y-2">
+                                                <div className="flex items-center justify-between pb-1 border-b dark:border-gray-800">
+                                                    <div className="text-xs font-bold text-gray-700 dark:text-gray-300">Item {idx + 1}: <span className="font-semibold text-gray-900 dark:text-white">{item.description || '(description missing)'}</span> <span className="text-gray-400 font-normal">(Qty: {item.quantity})</span></div>
+                                                    <button type="button" onClick={() => {
+                                                        const u = [...items];
+                                                        u[idx] = { ...item, consumptions: [...(item.consumptions || []), { medicineId: '', quantity: 1 }] };
+                                                        setItems(u);
+                                                    }} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-850 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded-md">+ Add Resource Link</button>
+                                                </div>
 
+                                                <div className="space-y-2 pt-1">
+                                                    {(item.consumptions || []).map((cons, cIdx) => (
+                                                        <div key={cIdx} className="relative pl-4 border-l-2 border-indigo-200 dark:border-indigo-850">
+                                                            <button type="button" onClick={() => {
+                                                                const u = [...items];
+                                                                u[idx].consumptions = u[idx].consumptions!.filter((_, i) => i !== cIdx);
+                                                                setItems(u);
+                                                            }} className="absolute -left-[9px] top-1.5 bg-white dark:bg-gray-800 text-red-500 hover:text-red-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] shadow border dark:border-gray-700 font-bold">✕</button>
 
-                                {/* Inventory Consumption Multi-Matrix */}
-
-                                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 space-y-3">
-                                    <label className="block text-sm font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                                        <Package className="w-4 h-4" /> Multi-Item Resource Tracker
-                                    </label>
-                                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Link multiple consumable units or boxes directly to a single invoice line item.</p>
-                                    {items.map((item, idx) => (
-                                        <div key={idx} className="bg-white dark:bg-gray-800 rounded-md p-3 border border-emerald-100 dark:border-emerald-900/30 space-y-2">
-                                            <div className="flex items-center justify-between pb-1 border-b border-gray-100 dark:border-gray-700">
-                                                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Item {idx + 1}: {item.description || '(no description)'} <span className="text-gray-400">(Qty: {item.quantity})</span></div>
-                                                <button type="button" onClick={() => {
-                                                    const u = [...items];
-                                                    u[idx] = { ...item, consumptions: [...(item.consumptions || []), { medicineId: '', quantity: 1 }] };
-                                                    setItems(u);
-                                                }} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200 uppercase tracking-wider bg-emerald-100/50 dark:bg-emerald-900/50 px-2 py-1 rounded">+ Add Resource Option</button>
-                                            </div>
-
-                                            <div className="space-y-3 pt-1">
-                                                {(item.consumptions || []).length === 0 && (
-                                                    <div className="text-[10px] text-gray-500 italic py-1">No resources linked to this service automatically.</div>
-                                                )}
-                                                {(item.consumptions || []).map((cons, cIdx) => (
-                                                    <div key={cIdx} className="relative pl-4 border-l-2 border-emerald-200 dark:border-emerald-700 mb-2">
-                                                        <button type="button" onClick={() => {
-                                                            const u = [...items];
-                                                            u[idx].consumptions = u[idx].consumptions!.filter((_, i) => i !== cIdx);
-                                                            setItems(u);
-                                                        }} className="absolute -left-[9px] top-1.5 bg-white dark:bg-gray-800 text-red-400 hover:text-red-500 rounded-full w-4 h-4 flex items-center justify-center text-[10px] shadow border border-red-100 dark:border-red-900/50">✕</button>
-
-                                                        <div className="grid grid-cols-12 gap-2 mt-1">
-                                                            <div className="col-span-6 md:col-span-5">
-                                                                <label className="block text-[9px] uppercase tracking-wider font-medium text-gray-500 mb-0.5">Medicine/Consumable</label>
-                                                                <select className="w-full p-1.5 border rounded text-[10px] bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none"
-                                                                    value={cons.medicineId || ''}
-                                                                    onChange={e => {
-                                                                        const u = [...items];
-                                                                        u[idx].consumptions![cIdx] = { ...cons, medicineId: e.target.value, batchId: undefined };
-                                                                        setItems(u);
-                                                                        if (e.target.value) fetchBatchesForMedicine(e.target.value);
-                                                                    }}>
-                                                                    <option value="">— Select Matrix —</option>
-                                                                    {medicines.map(m => (
-                                                                        <option key={m.id} value={m.id}>{m.name} (Stock: {m.centralStock})</option>
-                                                                    ))}
-                                                                </select>
+                                                            <div className="grid grid-cols-12 gap-2 mt-1">
+                                                                <div className="col-span-6 md:col-span-5">
+                                                                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Medicine/Consumable</label>
+                                                                    <select className="w-full p-1.5 border dark:border-gray-700 rounded text-[10px] bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-250 focus:outline-none"
+                                                                        value={cons.medicineId || ''}
+                                                                        onChange={e => {
+                                                                            const u = [...items];
+                                                                            u[idx].consumptions![cIdx] = { ...cons, medicineId: e.target.value, batchId: undefined };
+                                                                            setItems(u);
+                                                                            if (e.target.value) fetchBatchesForMedicine(e.target.value);
+                                                                        }}>
+                                                                        <option value="">— Select Medicine —</option>
+                                                                        {medicines.map(m => (
+                                                                            <option key={m.id} value={m.id}>{m.name} (Stock: {m.centralStock})</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div className="col-span-6 md:col-span-5">
+                                                                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Physical Batch (Lot)</label>
+                                                                    <select className="w-full p-1.5 border dark:border-gray-700 rounded text-[10px] bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-250 focus:outline-none"
+                                                                        value={cons.batchId || ''}
+                                                                        disabled={!cons.medicineId}
+                                                                        onChange={e => {
+                                                                            const u = [...items];
+                                                                            u[idx].consumptions![cIdx] = { ...cons, batchId: e.target.value || undefined };
+                                                                            setItems(u);
+                                                                        }}>
+                                                                        <option value="">— Select physical lot —</option>
+                                                                        {(batchesMap[cons.medicineId] || []).map(b => {
+                                                                            const isExp = b.expiryDate && new Date(b.expiryDate) < new Date();
+                                                                            return (
+                                                                                <option key={b.id} value={b.id} disabled={!!isExp || b.quantity <= 0}>
+                                                                                    {b.batchNumber} (Qty: {b.quantity}) {isExp ? 'EXPIRED' : ''}
+                                                                                </option>
+                                                                            );
+                                                                        })}
+                                                                    </select>
+                                                                </div>
+                                                                <div className="col-span-12 md:col-span-2">
+                                                                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Burn Qty</label>
+                                                                    <input type="number" min="1" className="w-full p-1.5 border dark:border-gray-700 rounded text-[10px] bg-white dark:bg-gray-800 focus:outline-none"
+                                                                        value={cons.quantity}
+                                                                        onChange={e => {
+                                                                            const u = [...items];
+                                                                            u[idx].consumptions![cIdx] = { ...cons, quantity: Number(e.target.value) };
+                                                                            setItems(u);
+                                                                        }} />
+                                                                </div>
                                                             </div>
-                                                            <div className="col-span-6 md:col-span-5">
-                                                                <label className="block text-[9px] uppercase tracking-wider font-medium text-gray-500 mb-0.5">Physical Batch (Lot)</label>
-                                                                <select className="w-full p-1.5 border rounded text-[10px] bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none"
-                                                                    value={cons.batchId || ''}
-                                                                    disabled={!cons.medicineId}
-                                                                    onChange={e => {
-                                                                        const u = [...items];
-                                                                        u[idx].consumptions![cIdx] = { ...cons, batchId: e.target.value || undefined };
-                                                                        setItems(u);
-                                                                    }}>
-                                                                    <option value="">— Select physical lot —</option>
-                                                                    {(batchesMap[cons.medicineId] || []).map(b => {
-                                                                        const isExp = b.expiryDate && new Date(b.expiryDate) < new Date();
-                                                                        return (
-                                                                            <option key={b.id} value={b.id} disabled={!!isExp || b.quantity <= 0}>
-                                                                                {b.batchNumber} (Qty: {b.quantity})
-                                                                            </option>
-                                                                        );
-                                                                    })}
-                                                                </select>
-                                                            </div>
-                                                            <div className="col-span-12 md:col-span-2">
-                                                                <label className="block text-[9px] uppercase tracking-wider font-medium text-gray-500 mb-0.5">Burn Qty</label>
-                                                                <input type="number" min="1" className="w-full p-1.5 border rounded text-[10px] bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none"
-                                                                    value={cons.quantity}
-                                                                    onChange={e => {
-                                                                        const u = [...items];
-                                                                        u[idx].consumptions![cIdx] = { ...cons, quantity: Number(e.target.value) };
-                                                                        setItems(u);
-                                                                    }} />
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        {cons.batchId && (() => {
-                                                            const batch = (batchesMap[cons.medicineId] || []).find(b => b.id === cons.batchId);
-                                                            if (!batch) return null;
-                                                            const isExp = batch.expiryDate && new Date(batch.expiryDate) < new Date();
-                                                            const totalNeeded = cons.quantity * item.quantity;
-                                                            const insufficient = batch.quantity < totalNeeded;
-                                                            if (isExp || insufficient) {
+                                                            
+                                                            {cons.batchId && (() => {
+                                                                const batch = (batchesMap[cons.medicineId] || []).find(b => b.id === cons.batchId);
+                                                                if (!batch) return null;
+                                                                const isExp = batch.expiryDate && new Date(batch.expiryDate) < new Date();
+                                                                const totalNeeded = cons.quantity * item.quantity;
+                                                                const insufficient = batch.quantity < totalNeeded;
+                                                                if (isExp || insufficient) {
+                                                                    return (
+                                                                        <div className="flex items-center gap-1.5 text-[10px] text-red-600 dark:text-red-400 mt-1.5 bg-red-50 dark:bg-red-950/20 p-1.5 rounded border border-red-100 dark:border-red-950/30">
+                                                                            <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                                                                            {isExp ? 'This physical lot has EXPIRED!' : `Needs ${totalNeeded} units total (${cons.quantity} × ${item.quantity} services). Only ${batch.quantity} available!`}
+                                                                        </div>
+                                                                    );
+                                                                }
                                                                 return (
-                                                                    <div className="flex items-center gap-1.5 text-[10px] text-red-600 dark:text-red-400 mt-1.5 bg-red-50 dark:bg-red-900/20 p-1.5 rounded border border-red-100 dark:border-red-900/50">
-                                                                        <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                                                                        {isExp ? 'This physical lot has EXPIRED!' : `Needs ${totalNeeded} units total (${cons.quantity} × ${item.quantity} services). Only ${batch.quantity} available!`}
+                                                                    <div className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5">
+                                                                        ✓ {batch.quantity} units available · Processing a {totalNeeded}-unit deduction
                                                                     </div>
                                                                 );
-                                                            }
-                                                            return (
-                                                                <div className="text-[9px] font-medium text-emerald-600 dark:text-emerald-400 mt-1.5">
-                                                                    ✓ {batch.quantity} raw units available · Processing a {totalNeeded}-unit deduction
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                ))}
+                                                            })()}
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
+                            {/* Card 5: Invoice Settings & Configurations */}
+                            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2 border-b dark:border-gray-800 pb-2">
+                                    <CreditCard className="w-4 h-4 text-indigo-600" /> Invoice Settings & Payment
+                                </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Package (if applicable)</label>
-                                        <input type="text" list="packages-list" placeholder="Search or type Package name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={packageDetails} 
+                                        <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Document Type *</label>
+                                        <select className="w-full p-2 border rounded-lg dark:bg-gray-850 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={invoiceCategory} onChange={(e) => setInvoiceCategory(e.target.value)}>
+                                            <option value="clinic_single">Single Session Invoice (FMC-SIV)</option>
+                                            <option value="clinic_package">Package Bill (FMC-PKG)</option>
+                                            <option value="package_session">Session billed from Package (FMC-PIV)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Payment Method *</label>
+                                        <select className="w-full p-2 border rounded-lg dark:bg-gray-855 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as any)}>
+                                            <option value="cash">Cash</option>
+                                            <option value="card">Card</option>
+                                            <option value="bank_transfer">Bank Transfer</option>
+                                            <option value="online">Online</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">VAT Percentage (%)</label>
+                                        <input type="number" min="0" max="100" className="w-full p-2 border rounded-lg dark:bg-gray-850 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={taxPercentage} onChange={(e) => setTaxPercentage(Number(e.target.value))} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Generated By (Staff Member) *</label>
+                                        <input type="text" required placeholder="Staff name" className="w-full p-2 border rounded-lg dark:bg-gray-850 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={generatedBy} onChange={(e) => setGeneratedBy(e.target.value)} />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Linked Package</label>
+                                        <input type="text" list="packages-list" placeholder="Select or type Package name" className="w-full p-2 border rounded-lg dark:bg-gray-855 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={packageDetails} 
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 setPackageDetails(val);
@@ -1189,64 +1198,52 @@ export default function BillingPage() {
                                                 }
                                             }} />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">VAT %</label>
-                                        <input type="number" min="0" max="100" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={taxPercentage} onChange={(e) => setTaxPercentage(Number(e.target.value))} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Document Type *</label>
-                                        <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={invoiceCategory} onChange={(e) => setInvoiceCategory(e.target.value)}>
-                                            <option value="clinic_single">Single Session Invoice (FMC-SIV)</option>
-                                            <option value="clinic_package">Package Bill (FMC-PKG)</option>
-                                            <option value="package_session">Session billed from Package (FMC-PIV)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Payment Method *</label>
-                                        <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as any)}>
-                                            <option value="cash">Cash</option>
-                                            <option value="card">Card</option>
-                                            <option value="bank_transfer">Bank Transfer</option>
-                                            <option value="online">Online</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Generated By *</label>
-                                        <input type="text" required placeholder="Staff name" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={generatedBy} onChange={(e) => setGeneratedBy(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Clinic Name</label>
-                                        <select className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" value={clinicName} onChange={(e) => setClinicName(e.target.value)}>
-                                            <option value="">— Select branch —</option>
-                                            {clinics.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                        </select>
-                                    </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium mb-1">Notes</label>
-                                        <input type="text" placeholder="Optional notes" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                                        <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Billing Notes / Comments</label>
+                                        <input type="text" placeholder="Optional notes printed on invoice" className="w-full p-2 border rounded-lg dark:bg-gray-850 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={notes} onChange={(e) => setNotes(e.target.value)} />
                                     </div>
                                 </div>
 
-                                {/* ── Duplicate Bill Warning ── */}
+                                {/* Online Reference */}
+                                {(paymentMethod === 'online' || paymentMethod === 'card' || onlineReference) && (
+                                    <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-xl p-3.5 flex items-center gap-3">
+                                        <CreditCard className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] uppercase tracking-wider font-bold text-emerald-700 dark:text-emerald-300 mb-1">
+                                                Online Transaction Reference
+                                                {onlineReference && <span className="ml-1 text-[9px] font-normal text-emerald-600">(pre-filled SimplyBook ref)</span>}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. SI-2026000362 or Stripe Charge ID"
+                                                className="w-full p-2 border border-emerald-300 dark:border-emerald-700 rounded-lg bg-white dark:bg-gray-800 text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                                value={onlineReference}
+                                                onChange={(e) => setOnlineReference(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Duplicate Warning */}
                                 {alreadyBilledInvoice && (
-                                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg p-4">
+                                    <div className="bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-900/50 rounded-xl p-4">
                                         <div className="flex items-start gap-3">
                                             <span className="text-red-500 text-lg mt-0.5">⚠</span>
                                             <div className="flex-1">
-                                                <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                                                <p className="text-xs font-bold text-red-700 dark:text-red-300">
                                                     This booking already has an invoice: <span className="font-mono">{alreadyBilledInvoice.invoiceNumber}</span>
                                                 </p>
-                                                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                                    Generating another invoice may result in a duplicate charge. Only continue if the previous invoice was voided or incorrect.
+                                                <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">
+                                                    Generating another invoice may result in a duplicate charge. Only continue if the previous invoice was voided.
                                                 </p>
                                                 <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
                                                     <input
                                                         type="checkbox"
                                                         checked={allowDuplicate}
                                                         onChange={e => setAllowDuplicate(e.target.checked)}
-                                                        className="w-4 h-4 accent-red-600"
+                                                        className="w-4 h-4 accent-red-600 rounded"
                                                     />
-                                                    <span className="text-sm font-semibold text-red-700 dark:text-red-300">
+                                                    <span className="text-xs font-bold text-red-700 dark:text-red-300">
                                                         I understand — create a new invoice anyway
                                                     </span>
                                                 </label>
@@ -1254,40 +1251,64 @@ export default function BillingPage() {
                                         </div>
                                     </div>
                                 )}
+                            </div>
 
-                                {/* Summary */}
-                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-1 text-sm">
-                                    {totalDiscount > 0 && (
-                                        <>
-                                            <div className="flex justify-between text-gray-500"><span>Gross Total</span><span>{grossTotal.toFixed(2)} AED</span></div>
-                                            <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{totalDiscount.toFixed(2)} AED</span></div>
-                                        </>
+                        </div>
+
+                        {/* Persistent Footer */}
+                        <div className="border-t border-gray-200 dark:border-gray-800 pt-4 mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            {/* Left side: Price Summary */}
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs">
+                                {totalDiscount > 0 && (
+                                    <div className="text-gray-500 dark:text-gray-400">
+                                        Gross: <span className="font-semibold text-gray-750 dark:text-gray-300">{grossTotal.toFixed(2)} AED</span>
+                                    </div>
+                                )}
+                                {totalDiscount > 0 && (
+                                    <div className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                        Disc: <span className="font-semibold">-{totalDiscount.toFixed(2)} AED</span>
+                                    </div>
+                                )}
+                                <div className="text-gray-500 dark:text-gray-400">
+                                    Net: <span className="font-semibold text-gray-750 dark:text-gray-300">{subtotal.toFixed(2)} AED</span>
+                                </div>
+                                <div className="text-gray-500 dark:text-gray-400">
+                                    VAT ({taxPercentage}%): <span className="font-semibold text-gray-750 dark:text-gray-300">{taxAmount.toFixed(2)} AED</span>
+                                </div>
+                                <div className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-lg border border-indigo-100/50 dark:border-indigo-900/30">
+                                    <span>Total:</span>
+                                    <span className="text-indigo-600 dark:text-indigo-400">{totalAmount.toFixed(2)} AED</span>
+                                </div>
+                            </div>
+
+                            {/* Right side: Action Buttons */}
+                            <div className="flex items-center gap-3 justify-end">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsCreateModalOpen(false)} 
+                                    className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-750 dark:text-gray-300 font-semibold text-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleCreateInvoice}
+                                    disabled={submitting || (!!alreadyBilledInvoice && !allowDuplicate)}
+                                    className="px-5 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                >
+                                    {submitting && (
+                                        <svg className="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24" fill="none">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                        </svg>
                                     )}
-                                    <div className="flex justify-between text-gray-500"><span>Amount (Excluding VAT)</span><span>{subtotal.toFixed(2)} AED</span></div>
-                                    <div className="flex justify-between text-gray-500"><span>VAT ({taxPercentage}%)</span><span>{taxAmount.toFixed(2)} AED</span></div>
-                                    <div className="flex justify-between font-bold text-lg border-t pt-2 dark:border-gray-600"><span>Total</span><span>{totalAmount.toFixed(2)} AED</span></div>
-                                </div>
-
-                                <div className="flex justify-end gap-3">
-                                    <button onClick={() => setIsCreateModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
-                                    <button
-                                        onClick={handleCreateInvoice}
-                                        disabled={submitting || (!!alreadyBilledInvoice && !allowDuplicate)}
-                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
-                                        {submitting && (
-                                            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                                            </svg>
-                                        )}
-                                        {submitting ? 'Saving...' : alreadyBilledInvoice && !allowDuplicate ? '⚠ Confirm Before Saving' : 'Create Invoice'}
-                                    </button>
-                                </div>
+                                    {submitting ? 'Saving...' : alreadyBilledInvoice && !allowDuplicate ? '⚠ Confirm Before Saving' : 'Create Invoice'}
+                                </button>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
+            )}
 
 
                 {viewingInvoice && (
