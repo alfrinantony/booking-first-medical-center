@@ -1405,6 +1405,9 @@ export default function AdminAppointmentsPage() {
                                         disabled={!canChangeDetails || !editForm.clinicId || editForm.clinicId === 'simplybook-import'}
                                     >
                                         <option value="" disabled>Select Procedure</option>
+                                        {editForm.serviceId && !availableServicesForEdit.some(s => s.id === editForm.serviceId) && (editingBooking?.sbServiceName || editingBooking?.serviceName) && (
+                                            <option value={editForm.serviceId}>{editingBooking.sbServiceName || editingBooking.serviceName}</option>
+                                        )}
                                         {availableServicesForEdit.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
                                 </div>
@@ -1423,6 +1426,14 @@ export default function AdminAppointmentsPage() {
                                             <option value="sb-unmatched">— Select a doctor to assign —</option>
                                         )}
                                         <option value="" disabled>Select Doctor</option>
+                                        <option value="any-doctor">
+                                            {editingBooking?.sbProviderName && editingBooking.sbProviderName.toLowerCase() !== 'any available doctor' 
+                                                ? `Any Doctor (Booked: ${editingBooking.sbProviderName})` 
+                                                : 'Any Available Doctor'}
+                                        </option>
+                                        {editForm.doctorId && editForm.doctorId !== 'any-doctor' && !availableDocsForEdit.some(d => d.id === editForm.doctorId) && editingBooking?.sbProviderName && (
+                                            <option value={editForm.doctorId}>{editingBooking.sbProviderName}</option>
+                                        )}
                                         {availableDocsForEdit.map(doc => (
                                             <option key={doc.id} value={doc.id}>{doc.name}</option>
                                         ))}
