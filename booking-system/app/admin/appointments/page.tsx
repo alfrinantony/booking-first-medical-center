@@ -1060,11 +1060,14 @@ export default function AdminAppointmentsPage() {
                                         {/* Time Axis (Sticky Left) */}
                                         <div className="sticky left-0 z-20 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-20 shrink-0 shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
                                             <div className="h-16 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900" /> {/* Header spacer */}
-                                            {timeSlots.map(slot => (
-                                                <div key={slot} className="h-[44px] text-[11px] text-gray-400 font-mono py-2.5 px-3 text-right select-none border-b border-gray-100 dark:border-gray-800">
-                                                    {slot}
-                                                </div>
-                                            ))}
+                                            {timeSlots.map(slot => {
+                                                const isHour = slot.includes(':00');
+                                                return (
+                                                    <div key={slot} className={`h-[44px] text-[11px] font-mono py-2.5 px-3 text-right select-none ${isHour ? 'border-b-2 border-gray-300 dark:border-gray-600 text-gray-500 font-bold' : 'border-b border-gray-100 dark:border-gray-800 text-gray-400'}`}>
+                                                        {slot}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                         
                                         {/* Doctor Columns */}
@@ -1126,10 +1129,9 @@ export default function AdminAppointmentsPage() {
                                                                 return (
                                                                     <div 
                                                                         key={slot} 
-                                                                        className={`h-[44px] border-b border-gray-50 dark:border-gray-700/50 group ${
-                                                                            !isAvailable ? 'opacity-40 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
-                                                                        }`}
-                                                                        style={!isAvailable ? { background: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.03) 10px, rgba(0,0,0,0.03) 20px)' } : {}}
+                                                                        className={`h-[44px] group ${
+                                                                            !isAvailable ? 'bg-gray-200 dark:bg-gray-700 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
+                                                                        } ${slot.includes(':00') ? 'border-b-2 border-gray-300 dark:border-gray-600' : 'border-b border-gray-50 dark:border-gray-700/50'}`}
                                                                         onClick={() => {
                                                                             if (isAvailable) {
                                                                                 const dateStr = format(day, 'yyyy-MM-dd');
