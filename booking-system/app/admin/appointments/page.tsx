@@ -107,6 +107,9 @@ export default function AdminAppointmentsPage() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
+    // HR Shifts
+    const [shifts, setShifts] = useState<any[]>([]);
+
     // ── Edit SB Client Info ──
     const [editClientModal, setEditClientModal] = useState<false | { sbId: string; name: string; phone: string; email: string }>(false);
     const [editClientSaving, setEditClientSaving] = useState(false);
@@ -206,6 +209,27 @@ export default function AdminAppointmentsPage() {
         }, 300);
         return () => clearTimeout(timeoutId);
     }, [selectedClinicId, selectedDeptId, selectedDoctorId, searchQuery]);
+
+    // Fetch HR shifts for resource calendar
+    useEffect(() => {
+        const fetchShifts = async () => {
+            if (!selectedClinicId) {
+                setShifts([]);
+                return;
+            }
+            try {
+                const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                const res = await fetch(`/api/admin/hr/shifts?date=${dateStr}&branchId=${selectedClinicId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setShifts(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                console.error('Failed to fetch shifts', err);
+            }
+        };
+        fetchShifts();
+    }, [selectedClinicId, selectedDate]);
 
     // Fetch SB bookings from local store (cached after sync)
     const fetchSbBookings = async (from?: string, to?: string) => {
@@ -612,6 +636,87 @@ export default function AdminAppointmentsPage() {
         }
     };
 
+    // ── Drag and Drop Logic ──
+    const [draggedBookingId, setDraggedBookingId] = useState<string | null>(null);
+
+    const getDoctorDepartment = (docId: string) => {
+        for (const clinic of clinics) {
+            for (const dept of clinic.departments) {
+                if (dept.doctors.some(d => d.id === docId)) {
+                    return dept;
+                }
+            }
+        }
+        return null;
+    };
+
+    const handleDragStart = (e: React.DragEvent, bookingId: string) => {
+        setDraggedBookingId(bookingId);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', bookingId);
+    };
+
+    const handleDrop = async (e: React.DragEvent, targetDoctorId: string) => {
+        e.preventDefault();
+        const bookingId = draggedBookingId;
+        setDraggedBookingId(null);
+        if (!bookingId) return;
+
+        if (bookingId.startsWith('sb-')) {
+            alert("Cannot reschedule an unsynced SimplyBook import. Please edit it in SimplyBook or map it first.");
+            return;
+        }
+
+        const booking = bookings.find(b => b.id === bookingId);
+        if (!booking) return;
+
+        // Scope check
+        const targetDept = getDoctorDepartment(targetDoctorId);
+        if (!targetDept) {
+            alert("Error: Doctor's department not found.");
+            return;
+        }
+        
+        const offersService = targetDept.services.some(s => s.id === booking.serviceId);
+        if (!offersService) {
+            alert(`Error: Dr. ${allDoctors.find(d => d.id === targetDoctorId)?.name} (${targetDept.name}) does not perform the scheduled service.`);
+            return;
+        }
+
+        // Calculate slot based on drop position
+        const bounds = e.currentTarget.getBoundingClientRect();
+        const offsetY = Math.max(0, e.clientY - bounds.top);
+        const ROW_HEIGHT = 44;
+        const MIN_PER_ROW = 15;
+        const CALENDAR_START_MINUTES = 10 * 60; // 10:00 AM
+        
+        const droppedMinutes = CALENDAR_START_MINUTES + Math.floor(offsetY / ROW_HEIGHT) * MIN_PER_ROW;
+        const hh = Math.floor(droppedMinutes / 60).toString().padStart(2, '0');
+        const mm = (droppedMinutes % 60).toString().padStart(2, '0');
+        const newSlot = `${hh}:${mm}`;
+
+        if (confirm(`Reschedule appointment to Dr. ${allDoctors.find(d => d.id === targetDoctorId)?.name} at ${newSlot}?`)) {
+            try {
+                const res = await fetch(`/api/bookings/${bookingId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        doctorId: targetDoctorId,
+                        slot: newSlot,
+                        staffName: getStaffName(),
+                    })
+                });
+                if (res.ok) {
+                    fetchBookings();
+                } else {
+                    alert('Failed to reschedule');
+                }
+            } catch {
+                alert('Error rescheduling');
+            }
+        }
+    };
+
     const availableDocsForEdit = (() => {
         if (!editingBooking) return [];
 
@@ -895,6 +1000,16 @@ export default function AdminAppointmentsPage() {
                             const isCurrentMonth = isSameMonth(day, currentDate);
 
                             if (viewMode === 'day') {
+                                if (!selectedClinicId || !selectedClinic) {
+                                    return (
+                                        <div key={day.toISOString()} className="flex-1 flex flex-col items-center justify-center text-gray-500 py-20 bg-gray-50/50 dark:bg-gray-800/20">
+                                            <Calendar className="w-12 h-12 mb-4 opacity-30 text-indigo-500" />
+                                            <p className="font-semibold text-gray-700 dark:text-gray-300">Please select a branch</p>
+                                            <p className="text-sm mt-1">Resource calendar is only available when a specific branch is selected.</p>
+                                        </div>
+                                    );
+                                }
+                                
                                 const CALENDAR_START_MINUTES = 10 * 60; // 10:00 AM
                                 const ROW_HEIGHT = 44; // px
                                 const MIN_PER_ROW = 15;
@@ -920,6 +1035,7 @@ export default function AdminAppointmentsPage() {
                                             _duration: duration,
                                             patientName: sb.clientName,
                                             deptId: sb.matchedDeptId || '',
+                                            doctorId: sb.matchedDoctorId || '',
                                             status: sb.status,
                                             anyDoctor: false,
                                             isSbOnly: true,
@@ -928,71 +1044,155 @@ export default function AdminAppointmentsPage() {
                                     })
                                 ];
 
-                                const overlapReady = combinedBookings.map(b => ({
-                                    ...b,
-                                    duration: b._duration
-                                }));
-
-                                const positionedBookings = calculateOverlaps(overlapReady);
+                                // Extract unique doctors from the selected branch
+                                const branchDoctors = Array.from(
+                                    new Set(selectedClinic.departments.flatMap(d => d.doctors).map(d => d.id))
+                                ).map(id => {
+                                    const dept = selectedClinic.departments.find(d => d.doctors.some(doc => doc.id === id))!;
+                                    return {
+                                        ...dept.doctors.find(doc => doc.id === id)!,
+                                        departmentName: dept.name
+                                    };
+                                });
 
                                 return (
-                                    <div key={day.toISOString()} className="relative flex flex-col min-w-[600px] overflow-x-auto">
-                                        {/* Background Grid */}
-                                        {timeSlots.map(slot => (
-                                            <div key={slot} className="flex border-b border-gray-50 dark:border-gray-700/50 group h-[44px]">
-                                                <div className="w-20 text-[11px] text-gray-400 font-mono py-2.5 px-3 border-r border-gray-100 dark:border-gray-700 shrink-0 select-none bg-gray-50/60 dark:bg-gray-800/60">
+                                    <div key={day.toISOString()} className="relative flex min-w-full overflow-x-auto overflow-y-auto">
+                                        {/* Time Axis (Sticky Left) */}
+                                        <div className="sticky left-0 z-20 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-20 shrink-0 shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
+                                            <div className="h-16 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900" /> {/* Header spacer */}
+                                            {timeSlots.map(slot => (
+                                                <div key={slot} className="h-[44px] text-[11px] text-gray-400 font-mono py-2.5 px-3 text-right select-none border-b border-gray-100 dark:border-gray-800">
                                                     {slot}
                                                 </div>
-                                                <div
-                                                    className="flex-1 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer relative"
-                                                    onClick={() => {
-                                                        const dateStr = format(day, 'yyyy-MM-dd');
-                                                        window.location.href = `/admin/appointments/book?date=${dateStr}&time=${encodeURIComponent(slot)}`;
-                                                    }}
-                                                >
-                                                    <div className="h-full flex items-center opacity-0 group-hover:opacity-100 transition-opacity pl-3">
-                                                        <span className="text-[11px] text-indigo-400 flex items-center gap-1">
-                                                            <Plus className="w-3 h-3" /> Book slot
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
+                                        
+                                        {/* Doctor Columns */}
+                                        <div className="flex flex-nowrap min-w-max pb-8 bg-white dark:bg-gray-800">
+                                            {branchDoctors.map(doctor => {
+                                                const docShifts = shifts.filter(s => s.employeeId === doctor.id);
+                                                const hasShift = docShifts.length > 0;
+                                                
+                                                const doctorBookings = combinedBookings.filter(b => b.doctorId === doctor.id);
+                                                const overlapReady = doctorBookings.map(b => ({ ...b, duration: b._duration }));
+                                                const positionedBookings = calculateOverlaps(overlapReady);
 
-                                        {/* Absolute Blocks */}
-                                        <div className="absolute top-0 right-0 bottom-0 left-20 pointer-events-none">
-                                            {positionedBookings.map(b => {
-                                                const startMins = parseTimeMins(b.slot);
-                                                const topPx = ((startMins - CALENDAR_START_MINUTES) / MIN_PER_ROW) * ROW_HEIGHT;
-                                                const heightPx = (b._duration / MIN_PER_ROW) * ROW_HEIGHT;
-                                                const widthPct = 100 / b._groupCols;
-                                                const leftPct = (b._colIndex / b._groupCols) * 100;
+                                                const deptName = doctor.departmentName.toLowerCase();
+                                                let colorBase = 'bg-gray-100 border-gray-400 text-gray-900 dark:bg-gray-800 dark:text-gray-100';
+                                                let colorCompleted = 'bg-gray-500 border-gray-600 text-white';
                                                 
-                                                const deptColorIndex = Math.max(0, deptOptions.findIndex(d => d.id === b.deptId));
-                                                const colorClass = DEPT_COLORS[deptColorIndex % DEPT_COLORS.length];
-                                                
+                                                if (deptName.includes('aesthetic') || deptName.includes('dermatology')) {
+                                                    colorBase = 'bg-green-100 border-green-400 text-green-900 dark:bg-green-900/30 dark:text-green-300';
+                                                    colorCompleted = 'bg-green-700 border-green-800 text-white shadow-inner';
+                                                } else if (deptName.includes('hair removal')) {
+                                                    colorBase = 'bg-red-100 border-red-400 text-red-900 dark:bg-red-900/30 dark:text-red-300';
+                                                    colorCompleted = 'bg-red-700 border-red-800 text-white shadow-inner';
+                                                } else if (deptName.includes('beauty therapy') || deptName.includes('nursing')) {
+                                                    colorBase = 'bg-blue-100 border-blue-400 text-blue-900 dark:bg-blue-900/30 dark:text-blue-300';
+                                                    colorCompleted = 'bg-blue-700 border-blue-800 text-white shadow-inner';
+                                                } else if (deptName.includes('physiotherapy')) {
+                                                    colorBase = 'bg-yellow-100 border-yellow-400 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-300';
+                                                    colorCompleted = 'bg-yellow-600 border-yellow-700 text-white shadow-inner';
+                                                }
+
                                                 return (
-                                                    <div
-                                                        key={b.id}
-                                                        className={`absolute p-[2px] pointer-events-auto transition-all`}
-                                                        style={{ top: topPx, height: heightPx, left: `${leftPct}%`, width: `${widthPct}%` }}
+                                                    <div 
+                                                        key={doctor.id} 
+                                                        className="w-[220px] shrink-0 border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800"
+                                                        onDragOver={(e) => e.preventDefault()}
+                                                        onDrop={(e) => handleDrop(e, doctor.id)}
                                                     >
-                                                        <div
-                                                            onClick={() => !b.isSbOnly && handleEditClick(b as any)}
-                                                            className={`h-full w-full rounded-md border-l-4 p-1.5 flex flex-col overflow-hidden text-xs cursor-pointer hover:shadow-md transition-shadow ${
-                                                                b.anyDoctor ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100' : colorClass
-                                                            } ${b.status === 'completed' && currentUser?.role !== 'SUPER_ADMIN' ? 'opacity-70 grayscale' : ''}
-                                                            ${b.isSbOnly ? 'border-dashed opacity-80' : ''}`}
-                                                        >
-                                                            <div className="font-semibold truncate">{b.patientName}</div>
-                                                            <div className="text-[10px] opacity-70 truncate mt-0.5">
-                                                                {b.isSbOnly ? b._rawSb.serviceName : getServiceName(b as any)}
+                                                        {/* Doctor Header */}
+                                                        <div className="h-16 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col justify-center items-center sticky top-0 z-10 px-3 text-center shadow-sm">
+                                                            <span className="text-sm font-bold text-gray-900 dark:text-white truncate w-full">{doctor.name}</span>
+                                                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide truncate w-full mt-0.5">{doctor.departmentName}</span>
+                                                        </div>
+
+                                                        {/* Background Grid & Shading */}
+                                                        <div className="relative">
+                                                            {timeSlots.map(slot => {
+                                                                const mins = parseTimeMins(slot);
+                                                                let isAvailable = false;
+                                                                if (hasShift) {
+                                                                    isAvailable = docShifts.some(s => {
+                                                                        const sStart = parseTimeMins(s.startTime);
+                                                                        const sEnd = parseTimeMins(s.endTime);
+                                                                        return mins >= sStart && mins < sEnd;
+                                                                    });
+                                                                } else {
+                                                                    isAvailable = true; 
+                                                                }
+
+                                                                return (
+                                                                    <div 
+                                                                        key={slot} 
+                                                                        className={`h-[44px] border-b border-gray-50 dark:border-gray-700/50 group ${
+                                                                            !isAvailable ? 'opacity-40 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
+                                                                        }`}
+                                                                        style={!isAvailable ? { background: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.03) 10px, rgba(0,0,0,0.03) 20px)' } : {}}
+                                                                        onClick={() => {
+                                                                            if (isAvailable) {
+                                                                                const dateStr = format(day, 'yyyy-MM-dd');
+                                                                                window.location.href = `/admin/appointments/book?date=${dateStr}&time=${encodeURIComponent(slot)}&doctorId=${doctor.id}&clinicId=${selectedClinicId}`;
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <div className="h-full flex items-center opacity-0 group-hover:opacity-100 transition-opacity pl-2">
+                                                                            <span className="text-[10px] font-semibold text-indigo-400 flex items-center gap-1">
+                                                                                <Plus className="w-3 h-3" /> Book
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+
+                                                            {/* Absolute Blocks */}
+                                                            <div className="absolute top-0 right-0 bottom-0 left-0 pointer-events-none p-1">
+                                                                {positionedBookings.map(b => {
+                                                                    const startMins = parseTimeMins(b.slot);
+                                                                    const topPx = ((startMins - CALENDAR_START_MINUTES) / MIN_PER_ROW) * ROW_HEIGHT;
+                                                                    const heightPx = (b._duration / MIN_PER_ROW) * ROW_HEIGHT;
+                                                                    const widthPct = 100 / b._groupCols;
+                                                                    const leftPct = (b._colIndex / b._groupCols) * 100;
+                                                                    
+                                                                    const isCompleted = b.status === 'completed';
+                                                                    
+                                                                    return (
+                                                                        <div
+                                                                            key={b.id}
+                                                                            className={`absolute p-[1px] pointer-events-auto transition-all z-10`}
+                                                                            style={{ top: topPx, height: heightPx, left: `${leftPct}%`, width: `${widthPct}%` }}
+                                                                        >
+                                                                            <div
+                                                                                draggable={!b.isSbOnly}
+                                                                                onDragStart={(e) => !b.isSbOnly && handleDragStart(e, b.id)}
+                                                                                onClick={() => !b.isSbOnly && handleEditClick(b as any)}
+                                                                                className={`h-full w-full rounded-lg border p-1.5 flex flex-col overflow-hidden text-xs cursor-grab active:cursor-grabbing hover:shadow-lg transition-all ${
+                                                                                    isCompleted ? colorCompleted : colorBase
+                                                                                } ${b.isSbOnly ? 'border-dashed opacity-80' : ''}`}
+                                                                            >
+                                                                                <div className="font-bold truncate leading-tight flex justify-between">
+                                                                                    <span>{b.patientName}</span>
+                                                                                    <span className="opacity-70 text-[10px] ml-1">{b.slot}</span>
+                                                                                </div>
+                                                                                <div className="text-[10px] opacity-80 truncate mt-0.5 leading-tight">
+                                                                                    {b.isSbOnly ? b._rawSb.serviceName : getServiceName(b as any)}
+                                                                                </div>
+                                                                                <div className="mt-auto flex justify-between items-end">
+                                                                                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
+                                                                                        {b.status.replace('_', ' ')}
+                                                                                    </span>
+                                                                                    {b.isSbOnly && (
+                                                                                        <span className="text-[9px] font-bold uppercase tracking-wider opacity-60">
+                                                                                            SB
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
-                                                            {b.isSbOnly && (
-                                                                <div className="mt-auto text-[9px] font-bold uppercase tracking-wider opacity-60">
-                                                                    SimplyBook
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 );
