@@ -208,8 +208,9 @@ function mapAdminBooking(
         (b.unit_id ? `Provider #${b.unit_id}` : 'Unknown Provider');
 
     const rawStatus = String(b.status || '').toLowerCase();
+    const paymentStatus = String(b.payment_status || '').toLowerCase();
     let status: SimplybookRecord['status'] = 'confirmed';
-    if (rawStatus === '3' || rawStatus.includes('cancel')) status = 'cancelled';
+    if (rawStatus === '3' || rawStatus.includes('cancel') || paymentStatus === 'error') status = 'cancelled';
     else if (rawStatus.includes('pending') || rawStatus.includes('new')) status = 'pending';
     else if (rawStatus.includes('no') && rawStatus.includes('show')) status = 'noshow';
 
