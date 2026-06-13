@@ -43,11 +43,10 @@ async function parsePayload(request: NextRequest): Promise<Record<string, unknow
     return obj;
 }
 
-function deriveStatus(notifType: string, rawStatus?: string, paymentStatus?: string): SimplybookRecord['status'] {
+function deriveStatus(notifType: string, rawStatus?: string): SimplybookRecord['status'] {
     if (notifType === 'cancel') return 'cancelled';
     const s = String(rawStatus || '').toLowerCase();
-    const p = String(paymentStatus || '').toLowerCase();
-    if (s === '3' || s.includes('cancel') || p === 'error') return 'cancelled';
+    if (s === '3' || s.includes('cancel')) return 'cancelled';
     if (s.includes('pending') || s.includes('new')) return 'pending';
     return 'confirmed';
 }
@@ -75,6 +74,11 @@ export async function POST(request: NextRequest) {
 
         if (company !== EXPECTED_COMPANY) {
             return NextResponse.json({ ok: false, error: 'Company mismatch' }, { status: 403 });
+        }
+
+        if (String(payload.payment_status || '').toLowerCase() === 'error') {
+            console.log(`[SimplyBook webhook] Ignoring booking ${bookingId} due to payment_status: error`);
+            return NextResponse.json({ ok: true, action: 'ignored', reason: 'payment error' });
         }
 
         // ── Handle cancel immediately ──
@@ -109,7 +113,7 @@ export async function POST(request: NextRequest) {
             clientName:     String(clientData.name    || payload.client_name  || `Client`),
             clientEmail:    String(clientData.email   || payload.client_email || ''),
             clientPhone:    String(clientData.phone   || payload.client_phone || ''),
-            status:         deriveStatus(notifType, String(payload.status || ''), String(payload.payment_status || '')),
+            status:         deriveStatus(notifType, String(payload.status || '')),
             notificationType: notifType,
             receivedAt:     new Date().toISOString(),
             updatedAt:      new Date().toISOString(),
@@ -163,7 +167,7 @@ export async function POST(request: NextRequest) {
                     clientName:    dc.name || (dc.fname ? `${dc.fname} ${dc.lname || ''}`.trim() : minimalRecord.clientName),
                     clientEmail:   dc.email || minimalRecord.clientEmail,
                     clientPhone:   dc.phone || minimalRecord.clientPhone,
-                    status:        deriveStatus(notifType, String(detail.status || ''), String((detail as Record<string, unknown>).payment_status || '')),
+                    status:        deriveStatus(notifType, String(detail.status || '')),
                     raw:           detail as Record<string, unknown>,
                     updatedAt:     new Date().toISOString(),
                 };
@@ -177,8 +181,7 @@ export async function POST(request: NextRequest) {
         }
 
         // ── Cascade status to BookingsStore (if booking was migrated) ──
-        const sbRec = await SimplybookStore.getById(bookingId);
-        const finalStatus = deriveStatus(notifType, String(sbRec?.status || ''), String(sbRec?.paymentStatus || ''));
+        const finalStatus = deriveStatus(notifType, String((await SimplybookStore.getById(bookingId))?.status || ''));
         const bookingStoreStatus = finalStatus === 'cancelled' ? 'cancelled'
             : finalStatus === 'pending' ? 'booked'
             : 'confirmed';

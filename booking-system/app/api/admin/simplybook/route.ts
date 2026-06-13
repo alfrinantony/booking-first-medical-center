@@ -208,9 +208,8 @@ function mapAdminBooking(
         (b.unit_id ? `Provider #${b.unit_id}` : 'Unknown Provider');
 
     const rawStatus = String(b.status || '').toLowerCase();
-    const paymentStatus = String(b.payment_status || '').toLowerCase();
     let status: SimplybookRecord['status'] = 'confirmed';
-    if (rawStatus === '3' || rawStatus.includes('cancel') || paymentStatus === 'error') status = 'cancelled';
+    if (rawStatus === '3' || rawStatus.includes('cancel')) status = 'cancelled';
     else if (rawStatus.includes('pending') || rawStatus.includes('new')) status = 'pending';
     else if (rawStatus.includes('no') && rawStatus.includes('show')) status = 'noshow';
 
@@ -545,6 +544,10 @@ export async function GET(request: NextRequest) {
                     if (raw.invoice_currency) record.invoiceCurrency = String(raw.invoice_currency);
                 }
 
+                if (record.paymentStatus === 'error') {
+                    continue; // Skip failed/abandoned bookings
+                }
+
                 if (matchResult && record.status !== 'cancelled' && record.status !== 'noshow') {
                     matched++;
                 } else if (!matchResult) {
@@ -629,7 +632,6 @@ export async function GET(request: NextRequest) {
 
                 const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
                 const sbRecord = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
-                sbUpsertBatch.push(sbRecord);
 
                 // Extract billing info using multi-variant helper
                 const raw = booking as Record<string, unknown>;
@@ -655,6 +657,12 @@ export async function GET(request: NextRequest) {
                 sbRecord.paymentType      = paymentType;
                 sbRecord.paymentDate      = paymentDate;
                 sbRecord.paymentProcessor = paymentProcessor;
+
+                if (paymentStatus === 'error') {
+                    continue; // Skip failed/abandoned bookings entirely
+                }
+
+                sbUpsertBatch.push(sbRecord);
 
                 // Map SB status to Booking status
                 const bookingStatus = toBookingStatus(String(booking.status || ''));
