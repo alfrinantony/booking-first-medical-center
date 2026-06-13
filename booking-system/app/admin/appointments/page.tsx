@@ -280,7 +280,7 @@ export default function AdminAppointmentsPage() {
 
     const getBookingsForDate = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        return bookings.filter(b => b.date === dateStr);
+        return bookings.filter(b => b.date === dateStr && b.status !== 'cancelled');
     };
 
     const getSbBookingsForDate = (date: Date) => {
@@ -653,6 +653,13 @@ export default function AdminAppointmentsPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <Link
+                            href="/admin/appointments/cancelled"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded-lg transition-all border border-white/20 mr-1"
+                        >
+                            <History className="w-3.5 h-3.5" />
+                            Cancelled
+                        </Link>
                         <button
                             onClick={() => setIsQuickRegOpen(true)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded-lg transition-all border border-white/20"
