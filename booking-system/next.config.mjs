@@ -4,10 +4,10 @@ const nextConfig = {
     typescript: {
         ignoreBuildErrors: true,
     },
+    outputFileTracingIncludes: {
+        '/api/**/*': ['./node_modules/@prisma/client/**/*', './prisma/schema.prisma'],
+    },
     experimental: {
-        outputFileTracingIncludes: {
-            '/api/**/*': ['./node_modules/@prisma/client/**/*', './prisma/schema.prisma'],
-        },
     },
 };
 
