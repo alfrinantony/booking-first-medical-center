@@ -11,6 +11,84 @@ import {
     startOfWeek, endOfWeek, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays
 } from 'date-fns';
 
+// --- Helpers for Timeline View ---
+const DEPT_COLORS = [
+    'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+    'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800',
+    'bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800',
+    'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
+    'bg-pink-50 text-pink-800 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-800',
+    'bg-cyan-50 text-cyan-800 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-800',
+    'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800',
+];
+
+const parseTimeMins = (slotStr: string) => {
+    const timePart = slotStr.split(' - ')[0];
+    const match12 = timePart.match(/(\d+):(\d+)\s+(AM|PM)/i);
+    if (match12) {
+        let h = parseInt(match12[1], 10);
+        const m = parseInt(match12[2], 10);
+        const ampm = match12[3].toUpperCase();
+        if (ampm === 'PM' && h !== 12) h += 12;
+        if (ampm === 'AM' && h === 12) h = 0;
+        return h * 60 + m;
+    }
+    const match24 = timePart.match(/(\d+):(\d+)/);
+    if (match24) {
+        return parseInt(match24[1], 10) * 60 + parseInt(match24[2], 10);
+    }
+    return 0;
+};
+
+const calculateOverlaps = (bookings: any[]) => {
+    const sorted = [...bookings].sort((a, b) => {
+        const startA = parseTimeMins(a.slot || a.time || '');
+        const startB = parseTimeMins(b.slot || b.time || '');
+        return startA - startB;
+    });
+
+    const groups: any[][] = [];
+    let currentGroup: any[] = [];
+    let maxEndTime = 0;
+
+    for (const b of sorted) {
+        const start = parseTimeMins(b.slot || b.time || '');
+        const duration = b.duration || 30;
+        const end = start + duration;
+
+        if (currentGroup.length > 0 && start >= maxEndTime) {
+            groups.push(currentGroup);
+            currentGroup = [];
+            maxEndTime = 0;
+        }
+        currentGroup.push(b);
+        maxEndTime = Math.max(maxEndTime, end);
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup);
+
+    const positioned = [];
+    for (const group of groups) {
+        const cols: number[] = [];
+        for (const b of group) {
+            const start = parseTimeMins(b.slot || b.time || '');
+            const duration = b.duration || 30;
+            let colIndex = cols.findIndex(colEnd => colEnd <= start);
+            if (colIndex === -1) {
+                colIndex = cols.length;
+                cols.push(start + duration);
+            } else {
+                cols[colIndex] = start + duration;
+            }
+            b._colIndex = colIndex;
+            positioned.push(b);
+        }
+        for (const b of group) {
+            b._groupCols = cols.length;
+        }
+    }
+    return positioned;
+};
+
 export default function AdminAppointmentsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [sbBookings, setSbBookings] = useState<SimplybookRecord[]>([]);
@@ -817,56 +895,107 @@ export default function AdminAppointmentsPage() {
                             const isCurrentMonth = isSameMonth(day, currentDate);
 
                             if (viewMode === 'day') {
+                                const CALENDAR_START_MINUTES = 10 * 60; // 10:00 AM
+                                const ROW_HEIGHT = 44; // px
+                                const MIN_PER_ROW = 15;
+
+                                const combinedBookings = [
+                                    ...dayBookings.map(b => ({
+                                        ...b,
+                                        isSbOnly: false,
+                                        _duration: b.duration || 30,
+                                    })),
+                                    ...daySbBookings.map(sb => {
+                                        let duration = 30;
+                                        if (sb.startDateTime && sb.endDateTime) {
+                                            const startMs = new Date(sb.startDateTime.replace(' ', 'T')).getTime();
+                                            const endMs = new Date(sb.endDateTime.replace(' ', 'T')).getTime();
+                                            duration = Math.max(15, (endMs - startMs) / 60000);
+                                        }
+                                        return {
+                                            id: 'sb-' + sb.sbId,
+                                            slot: sb.time,
+                                            _duration: duration,
+                                            patientName: sb.clientName,
+                                            deptId: sb.matchedDeptId || '',
+                                            status: sb.status,
+                                            anyDoctor: false,
+                                            isSbOnly: true,
+                                            _rawSb: sb,
+                                        };
+                                    })
+                                ];
+
+                                const overlapReady = combinedBookings.map(b => ({
+                                    ...b,
+                                    duration: b._duration
+                                }));
+
+                                const positionedBookings = calculateOverlaps(overlapReady);
+
                                 return (
-                                    <div key={day.toISOString()} className="flex flex-col">
-                                        {timeSlots.map(slot => {
-                                            const slotBookings = dayBookings.filter(b => {
-                                                const bStartSlot = b.slot.split(' - ')[0];
-                                                return bStartSlot === slot || b.slot === slot;
-                                            });
-                                            const isAvailable = slotBookings.length === 0;
-                                            return (
-                                                <div key={slot} className="flex border-b border-gray-50 dark:border-gray-700/50 group min-h-[44px]">
-                                                    <div className="w-20 text-[11px] text-gray-400 font-mono py-2.5 px-3 border-r border-gray-100 dark:border-gray-700 shrink-0 select-none bg-gray-50/60 dark:bg-gray-800/60">
-                                                        {slot}
-                                                    </div>
-                                                    <div
-                                                        className={`flex-1 px-3 py-1.5 ${
-                                                            isAvailable ? 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer' : ''
-                                                        }`}
-                                                        onClick={() => {
-                                                            if (isAvailable) {
-                                                                const dateStr = format(day, 'yyyy-MM-dd');
-                                                                window.location.href = `/admin/appointments/book?date=${dateStr}&time=${encodeURIComponent(slot)}`;
-                                                            }
-                                                        }}
-                                                    >
-                                                        {isAvailable ? (
-                                                            <div className="h-full flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <span className="text-[11px] text-indigo-400 flex items-center gap-1">
-                                                                    <Plus className="w-3 h-3" /> Book slot
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            slotBookings.map(b => (
-                                                                <div
-                                                                    key={b.id}
-                                                                    onClick={() => handleEditClick(b)}
-                                                                    className={`mb-1 px-2.5 py-1 rounded-md cursor-pointer text-xs border-l-2 ${
-                                                                        b.anyDoctor
-                                                                            ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/10'
-                                                                            : 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-900/15'
-                                                                    } ${b.status === 'completed' && currentUser?.role !== 'SUPER_ADMIN' ? 'opacity-70 grayscale' : 'hover:opacity-90'} transition-opacity`}
-                                                                >
-                                                                    <span className="font-semibold text-gray-900 dark:text-white">{b.patientName}</span>
-                                                                    <span className="text-gray-400 ml-1.5 text-[11px]">· {getServiceName(b)}</span>
-                                                                </div>
-                                                            ))
-                                                        )}
+                                    <div key={day.toISOString()} className="relative flex flex-col min-w-[600px] overflow-x-auto">
+                                        {/* Background Grid */}
+                                        {timeSlots.map(slot => (
+                                            <div key={slot} className="flex border-b border-gray-50 dark:border-gray-700/50 group h-[44px]">
+                                                <div className="w-20 text-[11px] text-gray-400 font-mono py-2.5 px-3 border-r border-gray-100 dark:border-gray-700 shrink-0 select-none bg-gray-50/60 dark:bg-gray-800/60">
+                                                    {slot}
+                                                </div>
+                                                <div
+                                                    className="flex-1 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer relative"
+                                                    onClick={() => {
+                                                        const dateStr = format(day, 'yyyy-MM-dd');
+                                                        window.location.href = `/admin/appointments/book?date=${dateStr}&time=${encodeURIComponent(slot)}`;
+                                                    }}
+                                                >
+                                                    <div className="h-full flex items-center opacity-0 group-hover:opacity-100 transition-opacity pl-3">
+                                                        <span className="text-[11px] text-indigo-400 flex items-center gap-1">
+                                                            <Plus className="w-3 h-3" /> Book slot
+                                                        </span>
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
+                                            </div>
+                                        ))}
+
+                                        {/* Absolute Blocks */}
+                                        <div className="absolute top-0 right-0 bottom-0 left-20 pointer-events-none">
+                                            {positionedBookings.map(b => {
+                                                const startMins = parseTimeMins(b.slot);
+                                                const topPx = ((startMins - CALENDAR_START_MINUTES) / MIN_PER_ROW) * ROW_HEIGHT;
+                                                const heightPx = (b._duration / MIN_PER_ROW) * ROW_HEIGHT;
+                                                const widthPct = 100 / b._groupCols;
+                                                const leftPct = (b._colIndex / b._groupCols) * 100;
+                                                
+                                                const deptColorIndex = Math.max(0, deptOptions.findIndex(d => d.id === b.deptId));
+                                                const colorClass = DEPT_COLORS[deptColorIndex % DEPT_COLORS.length];
+                                                
+                                                return (
+                                                    <div
+                                                        key={b.id}
+                                                        className={`absolute p-[2px] pointer-events-auto transition-all`}
+                                                        style={{ top: topPx, height: heightPx, left: `${leftPct}%`, width: `${widthPct}%` }}
+                                                    >
+                                                        <div
+                                                            onClick={() => !b.isSbOnly && handleEditClick(b as any)}
+                                                            className={`h-full w-full rounded-md border-l-4 p-1.5 flex flex-col overflow-hidden text-xs cursor-pointer hover:shadow-md transition-shadow ${
+                                                                b.anyDoctor ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100' : colorClass
+                                                            } ${b.status === 'completed' && currentUser?.role !== 'SUPER_ADMIN' ? 'opacity-70 grayscale' : ''}
+                                                            ${b.isSbOnly ? 'border-dashed opacity-80' : ''}`}
+                                                        >
+                                                            <div className="font-semibold truncate">{b.patientName}</div>
+                                                            <div className="text-[10px] opacity-70 truncate mt-0.5">
+                                                                {b.isSbOnly ? b._rawSb.serviceName : getServiceName(b as any)}
+                                                            </div>
+                                                            {b.isSbOnly && (
+                                                                <div className="mt-auto text-[9px] font-bold uppercase tracking-wider opacity-60">
+                                                                    SimplyBook
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 );
                             }
