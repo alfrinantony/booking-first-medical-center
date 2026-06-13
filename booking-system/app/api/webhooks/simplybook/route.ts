@@ -46,7 +46,7 @@ async function parsePayload(request: NextRequest): Promise<Record<string, unknow
 function deriveStatus(notifType: string, rawStatus?: string): SimplybookRecord['status'] {
     if (notifType === 'cancel') return 'cancelled';
     const s = String(rawStatus || '').toLowerCase();
-    if (s.includes('cancel')) return 'cancelled';
+    if (s === '3' || s.includes('cancel')) return 'cancelled';
     if (s.includes('pending') || s.includes('new')) return 'pending';
     return 'confirmed';
 }

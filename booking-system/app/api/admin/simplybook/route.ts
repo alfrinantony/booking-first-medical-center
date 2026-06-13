@@ -144,8 +144,8 @@ function toSlot(timeStr: string): string {
 
 // ── Map SimplyBook status → Booking status ──
 function toBookingStatus(sbStatus: string): 'booked' | 'confirmed' | 'cancelled' | 'no_show' {
-    const s = sbStatus.toLowerCase();
-    if (s.includes('cancel')) return 'cancelled';
+    const s = String(sbStatus || '').toLowerCase();
+    if (s === '3' || s.includes('cancel')) return 'cancelled';
     if (s.includes('no') && s.includes('show')) return 'no_show';
     if (s === 'confirmed') return 'confirmed';
     return 'booked';
@@ -209,7 +209,7 @@ function mapAdminBooking(
 
     const rawStatus = String(b.status || '').toLowerCase();
     let status: SimplybookRecord['status'] = 'confirmed';
-    if (rawStatus.includes('cancel')) status = 'cancelled';
+    if (rawStatus === '3' || rawStatus.includes('cancel')) status = 'cancelled';
     else if (rawStatus.includes('pending') || rawStatus.includes('new')) status = 'pending';
     else if (rawStatus.includes('no') && rawStatus.includes('show')) status = 'noshow';
 
