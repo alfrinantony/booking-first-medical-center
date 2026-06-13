@@ -145,7 +145,8 @@ export default function AdminPage() {
     // Count stats
     const totalDoctors = clinics.reduce((sum, c) => sum + c.departments.reduce((ds, d) => ds + d.doctors.length, 0), 0);
     const totalBranches = clinics.length;
-    const todaysBookings = bookings.filter(b => b.date === today).length || bookings.length;
+    const activeBookings = bookings.filter(b => b.status !== 'cancelled');
+    const todaysBookings = activeBookings.filter(b => b.date === today).length || activeBookings.length;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-[#0f1117] relative overflow-hidden font-sans">

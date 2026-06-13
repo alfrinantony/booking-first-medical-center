@@ -159,7 +159,7 @@ export const SimplybookStore = {
         await ensureLoaded();
         const subset = date ? records.filter(r => r.date === date) : records;
         return {
-            total: subset.length,
+            total: subset.filter(r => r.status !== 'cancelled').length,
             confirmed: subset.filter(r => r.status === 'confirmed').length,
             cancelled: subset.filter(r => r.status === 'cancelled').length,
             pending: subset.filter(r => r.status === 'pending').length,

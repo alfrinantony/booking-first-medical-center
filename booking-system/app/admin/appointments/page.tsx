@@ -642,7 +642,7 @@ export default function AdminAppointmentsPage() {
                         <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-[11px] text-indigo-300 font-medium">Today:</span>
                             <span className="text-[11px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
-                                {getBookingsForDate(new Date()).length + getSbBookingsForDate(new Date()).length} Total
+                                {getBookingsForDate(new Date()).filter(b => b.status !== 'cancelled').length + getSbBookingsForDate(new Date()).filter(b => b.status !== 'cancelled').length} Total
                             </span>
                             <span className="text-[11px] font-bold bg-green-400/30 text-green-100 px-2 py-0.5 rounded-full">
                                 {getBookingsForDate(new Date()).filter(b => ['confirmed','arrived','in_service'].includes(b.status)).length} Active

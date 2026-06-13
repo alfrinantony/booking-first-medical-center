@@ -112,7 +112,8 @@ export default function ReportsPage() {
 
     // Overview stats
     const overviewStats = useMemo(() => {
-        const totalBookings = filteredBookings.length;
+        const activeBookings = filteredBookings.filter(b => b.status !== 'cancelled');
+        const totalBookings = activeBookings.length;
         const completedBookings = filteredBookings.filter(b => b.status === 'completed').length;
         const cancelledBookings = filteredBookings.filter(b => b.status === 'cancelled').length;
         const revenue = filteredBookings.reduce((sum, b) => {
@@ -125,7 +126,7 @@ export default function ReportsPage() {
         })();
         const prevBookings = bookings.filter(b => {
             const d = new Date(b.createdAt || b.date);
-            return d >= prevStart && d <= prevEnd;
+            return d >= prevStart && d <= prevEnd && b.status !== 'cancelled';
         });
         const bookingChange = prevBookings.length > 0
             ? ((totalBookings - prevBookings.length) / prevBookings.length * 100)
@@ -135,7 +136,7 @@ export default function ReportsPage() {
 
         // Top service
         const svcCounts: Record<string, number> = {};
-        filteredBookings.forEach(b => { svcCounts[b.serviceId] = (svcCounts[b.serviceId] || 0) + 1; });
+        activeBookings.forEach(b => { svcCounts[b.serviceId] = (svcCounts[b.serviceId] || 0) + 1; });
         const topServiceId = Object.entries(svcCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
 
         return { totalBookings, completedBookings, cancelledBookings, revenue, bookingChange, avgPerDay, topServiceId };
@@ -157,7 +158,7 @@ export default function ReportsPage() {
             return {
                 id: clinic.id,
                 name: clinic.name,
-                bookings: cb.length,
+                bookings: cb.filter(b => b.status !== 'cancelled').length,
                 completed: cb.filter(b => b.status === 'completed').length,
                 cancelled: cb.filter(b => b.status === 'cancelled').length,
                 revenue,
@@ -181,7 +182,7 @@ export default function ReportsPage() {
                 name: doc.name,
                 specialty: doc.specialty,
                 clinic: doc.clinicName,
-                bookings: db.length,
+                bookings: db.filter(b => b.status !== 'cancelled').length,
                 patients: uniquePatients,
                 revenue,
                 topService: topSvc ? getServiceName(topSvc[0]) : '—',
@@ -200,7 +201,7 @@ export default function ReportsPage() {
                 category: svc.category || '—',
                 price: svc.price,
                 duration: svc.duration,
-                bookings: sb.length,
+                bookings: sb.filter(b => b.status !== 'cancelled').length,
                 revenue,
                 isTaxable: svc.isTaxable,
             };
