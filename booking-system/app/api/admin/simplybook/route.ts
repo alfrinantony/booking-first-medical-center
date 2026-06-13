@@ -283,6 +283,7 @@ function extractInvoiceFields(inv: Record<string, unknown>) {
         rawStatus === 'partial' ? 'partial' as const :
         rawStatus === 'new'     ? 'new'     as const :
         rawStatus === 'pending' ? 'pending' as const :
+        rawStatus === 'error'   ? 'error'   as const :
         rawStatus               ? 'unpaid'  as const :
         undefined;
 
@@ -540,7 +541,11 @@ export async function GET(request: NextRequest) {
                     // Fallback: try raw booking fields
                     const raw = booking as Record<string, unknown>;
                     if (raw.invoice_amount) record.invoiceAmount = typeof raw.invoice_amount === 'number' ? raw.invoice_amount : undefined;
-                    if (raw.payment_status) record.paymentStatus = String(raw.payment_status) as typeof record.paymentStatus;
+                    if (raw.payment_status) {
+                        const ps = String(raw.payment_status).toLowerCase();
+                        if (ps === 'error') record.paymentStatus = 'error';
+                        else record.paymentStatus = ps as typeof record.paymentStatus;
+                    }
                     if (raw.invoice_currency) record.invoiceCurrency = String(raw.invoice_currency);
                 }
 

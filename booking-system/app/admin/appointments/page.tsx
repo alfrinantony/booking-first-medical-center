@@ -379,7 +379,7 @@ export default function AdminAppointmentsPage() {
 
     const selectedDayBookings = getBookingsForDate(selectedDate);
     // Exclude SB bookings that have been migrated (already shown in selectedDayBookings)
-    const migratedSbIds = new Set(bookings.filter(b => (b as any).source === 'simplybook').map(b => (b as any).sbId).filter(Boolean));
+    const migratedSbIds = new Set(bookings.filter(b => !!b.sbId).map(b => b.sbId as string).filter(Boolean));
     const selectedDaySbBookings = getSbBookingsForDate(selectedDate).filter(sb => !migratedSbIds.has(sb.sbId));
 
     const getServiceName = (booking: Booking) => {
@@ -905,7 +905,9 @@ export default function AdminAppointmentsPage() {
                                         isSbOnly: false,
                                         _duration: b.duration || 30,
                                     })),
-                                    ...daySbBookings.map(sb => {
+                                    ...daySbBookings
+                                        .filter(sb => !migratedSbIds.has(sb.sbId))
+                                        .map(sb => {
                                         let duration = 30;
                                         if (sb.startDateTime && sb.endDateTime) {
                                             const startMs = new Date(sb.startDateTime.replace(' ', 'T')).getTime();

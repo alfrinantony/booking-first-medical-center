@@ -50,7 +50,7 @@ export interface SimplybookRecord {
     invoiceAmount?: number;         // Total invoice amount
     paidAmount?: number;            // Amount actually paid
     invoiceCurrency?: string;       // e.g. "AED"
-    paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'pending' | 'new'; // Payment state
+    paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'pending' | 'new' | 'error'; // Payment state
     paymentType?: 'online' | 'offline';  // How it was paid
     paymentProcessor?: string;      // e.g. "Stripe", "PayPal", "manual"
     paymentDate?: string;           // ISO datetime of payment

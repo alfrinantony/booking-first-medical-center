@@ -112,7 +112,7 @@ export default function ReportsPage() {
 
     // Overview stats
     const overviewStats = useMemo(() => {
-        const activeBookings = filteredBookings.filter(b => b.status !== 'cancelled');
+        const activeBookings = filteredBookings.filter(b => b.status !== 'cancelled' && b.status !== 'noshow');
         const totalBookings = activeBookings.length;
         const completedBookings = filteredBookings.filter(b => b.status === 'completed').length;
         const cancelledBookings = filteredBookings.filter(b => b.status === 'cancelled').length;
@@ -126,7 +126,7 @@ export default function ReportsPage() {
         })();
         const prevBookings = bookings.filter(b => {
             const d = new Date(b.createdAt || b.date);
-            return d >= prevStart && d <= prevEnd && b.status !== 'cancelled';
+            return d >= prevStart && d <= prevEnd && b.status !== 'cancelled' && b.status !== 'noshow';
         });
         const bookingChange = prevBookings.length > 0
             ? ((totalBookings - prevBookings.length) / prevBookings.length * 100)
