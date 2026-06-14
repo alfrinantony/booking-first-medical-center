@@ -554,10 +554,6 @@ export default function AdminAppointmentsPage() {
     };
 
     const getNextStatusOptions = (currentStatus: Booking['status']) => {
-        if (isSuperAdmin) {
-            return (['booked', 'confirmed', 'rescheduled', 'arrived', 'in_service', 'completed', 'cancelled', 'no_show'] as Booking['status'][]).filter(s => s !== currentStatus);
-        }
-        
         const pastApt = isPastAppointment();
 
         const forward: Record<string, Booking['status'][]> = {
@@ -574,9 +570,10 @@ export default function AdminAppointmentsPage() {
         let allowed = forward[currentStatus] || [];
 
         if (['booked', 'confirmed', 'arrived', 'in_service', 'rescheduled'].includes(currentStatus)) {
-            if (!pastApt) {
+            if (!pastApt || isSuperAdmin) {
                 allowed.push('cancelled', 'rescheduled');
-            } else {
+            }
+            if (pastApt || isSuperAdmin) {
                 allowed.push('no_show');
             }
         }
