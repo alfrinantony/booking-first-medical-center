@@ -5,7 +5,7 @@ import {
     Calendar, Search, RefreshCw, ExternalLink, User, Clock,
     Stethoscope, CheckCircle, XCircle, AlertCircle, Loader2,
     Phone, Mail, Hash, ChevronRight, X, Wifi, WifiOff, Filter,
-    AlertTriangle, Link2, Link2Off, CreditCard
+    Link2, Link2Off, CreditCard
 } from 'lucide-react';
 import type { SimplybookRecord } from '@/lib/simplybook-store';
 import Link from 'next/link';
@@ -143,7 +143,7 @@ function BookingDetailModal({ booking, onClose }: { booking: SimplybookRecord; o
                     {booking.matchStatus === 'unmatched' && (
                         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3">
                             <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Provider Not Matched
+                                <AlertCircle className="w-3 h-3" /> Provider Not Matched
                             </p>
                             <p className="text-xs text-amber-700 dark:text-amber-300">
                                 "{booking.providerName}" was not found in the app's doctor list.
@@ -306,7 +306,7 @@ export default function SimplyBookPage() {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-8">
             <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-sm w-full text-center shadow-xl border border-gray-100 dark:border-gray-800">
                 <div className="w-16 h-16 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                    <AlertTriangle className="w-8 h-8" />
+                    <AlertCircle className="w-8 h-8" />
                 </div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Access Restricted</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -669,7 +669,7 @@ export default function SimplyBookPage() {
                                                     </span>
                                                 ) : b.matchStatus === 'unmatched' ? (
                                                     <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                                                        <AlertTriangle className="w-3 h-3" /> Review
+                                                        <AlertCircle className="w-3 h-3" /> Review
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
