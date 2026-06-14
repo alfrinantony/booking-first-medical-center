@@ -139,6 +139,8 @@ export default function AdminAppointmentsPage() {
     const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
     const [searchQuery, setSearchQuery] = useState('');
 
+    const [calendarWidthPct, setCalendarWidthPct] = useState(66);
+
     // Calendar State
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -972,10 +974,13 @@ export default function AdminAppointmentsPage() {
             </div>
 
             {/* ── MAIN GRID ── */}
-            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
+            <div 
+                className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden"
+                style={{ '--cal-width': `${calendarWidthPct}%` } as React.CSSProperties}
+            >
 
                 {/* ── CALENDAR ── */}
-                <div className="lg:col-span-2 min-h-0 bg-white dark:bg-gray-800 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
+                <div className="min-h-0 bg-white dark:bg-gray-800 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700 w-full lg:w-[var(--cal-width)] shrink-0">
                     {viewMode !== 'day' && (
                         <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700 shrink-0">
                             {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
@@ -1011,7 +1016,7 @@ export default function AdminAppointmentsPage() {
                                 }
                                 
                                 const CALENDAR_START_MINUTES = 10 * 60; // 10:00 AM
-                                const ROW_HEIGHT = 44; // px
+                                const ROW_HEIGHT = 66; // px
                                 const MIN_PER_ROW = 15;
 
                                 const combinedBookings = [
@@ -1064,7 +1069,7 @@ export default function AdminAppointmentsPage() {
                                                 const isHour = slot.includes(':00');
                                                 const isLastOfHour = slot.includes(':45');
                                                 return (
-                                                    <div key={slot} className={`h-[44px] text-[11px] font-mono py-2.5 px-3 text-right select-none ${isLastOfHour ? 'border-b-2 border-gray-400 dark:border-gray-600' : 'border-b border-gray-100 dark:border-gray-800'} ${isHour ? 'text-gray-500 font-bold' : 'text-gray-400'}`}>
+                                                    <div key={slot} className={`h-[66px] text-[11px] font-mono py-2.5 px-3 text-right select-none ${isLastOfHour ? 'border-b-2 border-gray-400 dark:border-gray-600' : 'border-b border-gray-100 dark:border-gray-800'} ${isHour ? 'text-gray-500 font-bold' : 'text-gray-400'}`}>
                                                         {slot}
                                                     </div>
                                                 );
@@ -1131,8 +1136,8 @@ export default function AdminAppointmentsPage() {
                                                                 return (
                                                                     <div 
                                                                         key={slot} 
-                                                                        className={`h-[44px] group ${
-                                                                            !isAvailable ? 'bg-gray-300 dark:bg-gray-800 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
+                                                                        className={`h-[66px] group ${
+                                                                            !isAvailable ? 'bg-yellow-200 dark:bg-yellow-800/80 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
                                                                         } ${isLastOfHour ? 'border-b-2 border-gray-400 dark:border-gray-600' : 'border-b border-gray-100 dark:border-gray-700/50'}`}
                                                                         onClick={() => {
                                                                             if (isAvailable) {
@@ -1243,8 +1248,33 @@ export default function AdminAppointmentsPage() {
                     </div>
                 </div>
 
+                {/* ── RESIZER ── */}
+                <div 
+                    className="w-1.5 cursor-col-resize bg-gray-200 dark:bg-gray-700 hover:bg-indigo-400 active:bg-indigo-600 transition-colors hidden lg:block shrink-0 z-30"
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        const startX = e.clientX;
+                        const startWidth = calendarWidthPct;
+                        const onMouseMove = (moveEvent: MouseEvent) => {
+                            const deltaX = moveEvent.clientX - startX;
+                            const containerWidth = document.body.clientWidth;
+                            const deltaPct = (deltaX / containerWidth) * 100;
+                            let newWidth = startWidth + deltaPct;
+                            if (newWidth < 30) newWidth = 30;
+                            if (newWidth > 80) newWidth = 80;
+                            setCalendarWidthPct(newWidth);
+                        };
+                        const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                        };
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                    }}
+                />
+
                 {/* ── DAY DETAIL PANEL ── */}
-                <div className="min-h-0 bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+                <div className="min-h-0 bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden flex-1 shrink-0 min-w-0">
                     <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
                         <h2 className="text-sm font-bold text-gray-900 dark:text-white">{format(selectedDate, 'EEEE, MMM d')}</h2>
                         <span className="text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
