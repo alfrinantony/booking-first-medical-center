@@ -535,6 +535,10 @@ export default function AdminAppointmentsPage() {
     };
 
     const getNextStatusOptions = (currentStatus: Booking['status']) => {
+        if (isSuperAdmin) {
+            return (['booked', 'confirmed', 'rescheduled', 'arrived', 'in_service', 'completed', 'cancelled', 'no_show'] as Booking['status'][]).filter(s => s !== currentStatus);
+        }
+        
         const flow: Record<string, Booking['status'][]> = {
             'booked': ['confirmed', 'arrived', 'rescheduled', 'cancelled'],
             'confirmed': ['arrived', 'cancelled', 'rescheduled', 'no_show'],
