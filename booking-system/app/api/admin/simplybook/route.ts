@@ -103,31 +103,40 @@ function buildDoctorIndex(clinics: Clinic[]): DoctorEntry[] {
 }
 
 // ── Match a SimplyBook provider name to a doctor ─────────────────────────────
-// Returns the best match if score is good enough, otherwise null
 function matchDoctor(providerName: string, index: DoctorEntry[]): DoctorEntry | null {
     const target = normName(providerName);
     if (!target) return null;
 
     let bestEntry: DoctorEntry | null = null;
     let bestScore = Infinity;
+    let hasSubstringMatch = false;
 
     for (const entry of index) {
         // Exact match wins immediately
         if (entry.normalised === target) return entry;
 
         // Substring match
+        // E.g., "dr nabila laser".includes("dr nabila")
         if (entry.normalised.includes(target) || target.includes(entry.normalised)) {
             const dist = levenshtein(entry.normalised, target);
-            if (dist < bestScore) { bestScore = dist; bestEntry = entry; }
+            if (dist < bestScore || !hasSubstringMatch) { 
+                bestScore = dist; 
+                bestEntry = entry; 
+                hasSubstringMatch = true;
+            }
             continue;
         }
 
-        // Levenshtein distance
-        const dist = levenshtein(entry.normalised, target);
-        if (dist < bestScore) { bestScore = dist; bestEntry = entry; }
+        if (!hasSubstringMatch) {
+            // Levenshtein distance
+            const dist = levenshtein(entry.normalised, target);
+            if (dist < bestScore) { bestScore = dist; bestEntry = entry; }
+        }
     }
 
-    // Accept if distance is ≤ 3 characters or within 30% of name length
+    if (hasSubstringMatch) return bestEntry;
+
+    // Accept if distance is <= 3 characters or within 30% of name length
     const threshold = Math.max(3, Math.floor(target.length * 0.3));
     return bestScore <= threshold ? bestEntry : null;
 }
