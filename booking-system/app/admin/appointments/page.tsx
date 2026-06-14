@@ -1084,8 +1084,8 @@ export default function AdminAppointmentsPage() {
                                 return (
                                     <div key={day.toISOString()} className="relative flex min-w-full h-full overflow-x-auto overflow-y-auto">
                                         {/* Time Axis (Sticky Left) */}
-                                        <div className="sticky left-0 z-20 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-20 shrink-0 shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
-                                            <div className="sticky top-0 z-30 h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900" /> {/* Header spacer */}
+                                        <div className="sticky left-0 z-30 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-20 shrink-0 shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
+                                            <div className="sticky top-0 z-40 h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900" /> {/* Header spacer */}
                                             {timeSlots.map(slot => {
                                                 const isHour = slot.includes(':00');
                                                 const isLastOfHour = slot.includes(':45');
@@ -1117,7 +1117,7 @@ export default function AdminAppointmentsPage() {
                                                         onDrop={(e) => handleDrop(e, doctor.id)}
                                                     >
                                                         {/* Doctor Header */}
-                                                        <div className="h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 flex flex-col justify-center items-center sticky top-0 z-[15] px-3 text-center shadow-sm">
+                                                        <div className="h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 flex flex-col justify-center items-center sticky top-0 z-20 px-3 text-center shadow-sm">
                                                             <span className="text-sm font-bold text-gray-900 dark:text-white truncate w-full">{doctor.name}</span>
                                                             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide truncate w-full mt-0.5">{doctor.departmentName}</span>
                                                         </div>
