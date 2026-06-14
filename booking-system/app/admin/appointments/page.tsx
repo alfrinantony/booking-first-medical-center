@@ -91,6 +91,9 @@ const calculateOverlaps = (bookings: any[]) => {
 
 export default function AdminAppointmentsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
+
+    const [shifts, setShifts] = useState<any[]>([]);
+    const [clinicianSchedules, setClinicianSchedules] = useState<any[]>([]);
     const [sbBookings, setSbBookings] = useState<SimplybookRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [medicineCatalog, setMedicineCatalog] = useState<Medicine[]>([]);
@@ -108,7 +111,7 @@ export default function AdminAppointmentsPage() {
     const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
     // HR Shifts
-    const [shifts, setShifts] = useState<any[]>([]);
+
 
     // ── Edit SB Client Info ──
     const [editClientModal, setEditClientModal] = useState<false | { sbId: string; name: string; phone: string; email: string }>(false);
@@ -231,6 +234,24 @@ export default function AdminAppointmentsPage() {
             }
         };
         fetchShifts();
+    }, [selectedClinicId, selectedDate]);
+
+    // Fetch Clinician Schedules
+    useEffect(() => {
+        const fetchClinicianSchedules = async () => {
+            try {
+                const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                const url = `/api/admin/clinician-schedules?date=${dateStr}` + (selectedClinicId ? `&clinicId=${selectedClinicId}` : '');
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    setClinicianSchedules(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                console.error('Failed to fetch clinician schedules', err);
+            }
+        };
+        fetchClinicianSchedules();
     }, [selectedClinicId, selectedDate]);
 
     // Fetch SB bookings from local store (cached after sync)
@@ -1123,11 +1144,22 @@ export default function AdminAppointmentsPage() {
                                                                 const mins = parseTimeMins(slot);
                                                                 let isAvailable = false;
                                                                 if (hasShift) {
-                                                                    isAvailable = docShifts.some(s => {
+                                                                    const inShift = docShifts.some(s => {
                                                                         const sStart = parseTimeMins(s.startTime);
                                                                         const sEnd = parseTimeMins(s.endTime);
                                                                         return mins >= sStart && mins < sEnd;
                                                                     });
+                                                                    
+                                                                    if (inShift) {
+                                                                        const docSchedule = clinicianSchedules.find(s => s.doctorId === doctor.id);
+                                                                        if (docSchedule && docSchedule.slots && docSchedule.slots.length > 0) {
+                                                                            // Normalize slot string for exact match, ignoring leading zeros in hour
+                                                                            const slotNormalized = slot.replace(/^0/, '');
+                                                                            isAvailable = docSchedule.slots.some((schedSlot: string) => schedSlot.replace(/^0/, '') === slotNormalized);
+                                                                        } else {
+                                                                            isAvailable = true;
+                                                                        }
+                                                                    }
                                                                 } else {
                                                                     isAvailable = false; // Off day
                                                                 }
@@ -1137,7 +1169,7 @@ export default function AdminAppointmentsPage() {
                                                                     <div 
                                                                         key={slot} 
                                                                         className={`h-[66px] group ${
-                                                                            !isAvailable ? 'bg-gray-200/80 dark:bg-gray-800/80 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
+                                                                            !isAvailable ? 'bg-gray-200/80 dark:bg-gray-800/80 pointer-events-none' : 'bg-white dark:bg-gray-800 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
                                                                         } ${isLastOfHour ? 'border-b-2 border-gray-400 dark:border-gray-600' : 'border-b border-gray-100 dark:border-gray-700/50'}`}
                                                                         onClick={() => {
                                                                             if (isAvailable) {
