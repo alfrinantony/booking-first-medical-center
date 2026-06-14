@@ -1130,8 +1130,8 @@ export default function AdminAppointmentsPage() {
                                                                     <div 
                                                                         key={slot} 
                                                                         className={`h-[44px] group ${
-                                                                            !isAvailable ? 'bg-gray-200 dark:bg-gray-700 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
-                                                                        } ${slot.includes(':00') ? 'border-b-2 border-gray-300 dark:border-gray-600' : 'border-b border-gray-50 dark:border-gray-700/50'}`}
+                                                                            !isAvailable ? 'bg-gray-300 dark:bg-gray-800 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
+                                                                        } ${slot.includes(':00') ? 'border-b-2 border-gray-400 dark:border-gray-600' : 'border-b border-gray-100 dark:border-gray-700/50'}`}
                                                                         onClick={() => {
                                                                             if (isAvailable) {
                                                                                 const dateStr = format(day, 'yyyy-MM-dd');
