@@ -1107,23 +1107,7 @@ export default function AdminAppointmentsPage() {
                                                 const overlapReady = doctorBookings.map(b => ({ ...b, duration: b._duration }));
                                                 const positionedBookings = calculateOverlaps(overlapReady);
 
-                                                const deptName = doctor.departmentName.toLowerCase();
-                                                let colorBase = 'bg-gray-100 border-gray-400 text-gray-900 dark:bg-gray-800 dark:text-gray-100';
-                                                let colorCompleted = 'bg-gray-500 border-gray-600 text-white';
-                                                
-                                                if (deptName.includes('aesthetic') || deptName.includes('dermatology')) {
-                                                    colorBase = 'bg-green-100 border-green-400 text-green-900 dark:bg-green-900/30 dark:text-green-300';
-                                                    colorCompleted = 'bg-green-700 border-green-800 text-white shadow-inner';
-                                                } else if (deptName.includes('hair removal')) {
-                                                    colorBase = 'bg-red-100 border-red-400 text-red-900 dark:bg-red-900/30 dark:text-red-300';
-                                                    colorCompleted = 'bg-red-700 border-red-800 text-white shadow-inner';
-                                                } else if (deptName.includes('beauty therapy') || deptName.includes('nursing')) {
-                                                    colorBase = 'bg-blue-100 border-blue-400 text-blue-900 dark:bg-blue-900/30 dark:text-blue-300';
-                                                    colorCompleted = 'bg-blue-700 border-blue-800 text-white shadow-inner';
-                                                } else if (deptName.includes('physiotherapy')) {
-                                                    colorBase = 'bg-yellow-100 border-yellow-400 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-300';
-                                                    colorCompleted = 'bg-yellow-600 border-yellow-700 text-white shadow-inner';
-                                                }
+
 
                                                 return (
                                                     <div 
@@ -1194,7 +1178,20 @@ export default function AdminAppointmentsPage() {
                                                                     const widthPct = 100 / b._groupCols;
                                                                     const leftPct = (b._colIndex / b._groupCols) * 100;
                                                                     
-                                                                    const isCompleted = b.status === 'completed';
+                                                                    let statusColor = 'bg-gray-100 border-gray-400 text-gray-900 dark:bg-gray-800 dark:text-gray-100'; // Default
+                                                                    if (b.status === 'booked') {
+                                                                        statusColor = 'bg-yellow-200 border-yellow-500 text-yellow-900 dark:bg-yellow-900/60 dark:border-yellow-600 dark:text-yellow-200';
+                                                                    } else if (b.status === 'confirmed') {
+                                                                        statusColor = 'bg-blue-200 border-blue-500 text-blue-900 dark:bg-blue-900/60 dark:border-blue-600 dark:text-blue-200';
+                                                                    } else if (b.status === 'arrived') {
+                                                                        statusColor = 'bg-gray-900 border-black text-white dark:bg-black dark:border-gray-800 dark:text-gray-200';
+                                                                    } else if (b.status === 'in_service') {
+                                                                        statusColor = 'bg-green-200 border-green-500 text-green-900 dark:bg-green-900/60 dark:border-green-600 dark:text-green-200';
+                                                                    } else if (b.status === 'completed') {
+                                                                        statusColor = 'bg-[#8B4513] border-[#5C2E0B] text-white dark:bg-[#A0522D] dark:border-[#8B4513]'; // Brown
+                                                                    } else if (b.status === 'cancelled') {
+                                                                        statusColor = 'bg-red-200 border-red-500 text-red-900 dark:bg-red-900/60 dark:border-red-600 dark:text-red-200';
+                                                                    }
                                                                     
                                                                     return (
                                                                         <div
@@ -1207,7 +1204,7 @@ export default function AdminAppointmentsPage() {
                                                                                 onDragStart={(e) => !b.isSbOnly && handleDragStart(e, b.id)}
                                                                                 onClick={() => !b.isSbOnly && handleEditClick(b as any)}
                                                                                 className={`h-full w-full rounded-lg border p-1.5 flex flex-col overflow-hidden text-xs cursor-grab active:cursor-grabbing hover:shadow-lg transition-all ${
-                                                                                    isCompleted ? colorCompleted : colorBase
+                                                                                    statusColor
                                                                                 } ${b.isSbOnly ? 'border-dashed opacity-80' : ''}`}
                                                                             >
                                                                                 <div className="font-bold truncate leading-tight flex justify-between">
