@@ -312,20 +312,47 @@ export const BookingsStore = {
         const staffName = updates.staffName || 'Admin';
         const { staffName: _, ...cleanUpdates } = updates;
 
+        let history = oldBooking.statusHistory as any;
+        if (typeof history === 'string') {
+            try { history = JSON.parse(history); } catch { history = []; }
+        }
+        if (!Array.isArray(history)) {
+            history = [];
+        }
+
+        let historyChanged = false;
+
         if (cleanUpdates.status && cleanUpdates.status !== oldBooking.status) {
-            let history = oldBooking.statusHistory as any;
-            if (typeof history === 'string') {
-                try { history = JSON.parse(history); } catch { history = []; }
-            }
-            if (!Array.isArray(history)) {
-                history = [];
-            }
             history.push({
                 timestamp: new Date().toISOString(),
                 oldStatus: oldBooking.status,
                 newStatus: cleanUpdates.status,
                 changedBy: staffName,
+                action: 'Status Changed',
             });
+            historyChanged = true;
+        }
+
+        const details = [];
+        if (cleanUpdates.date && cleanUpdates.date !== oldBooking.date) details.push(`Date from ${oldBooking.date} to ${cleanUpdates.date}`);
+        if (cleanUpdates.slot && cleanUpdates.slot !== oldBooking.slot) details.push(`Time from ${oldBooking.slot} to ${cleanUpdates.slot}`);
+        if (cleanUpdates.doctorId && cleanUpdates.doctorId !== oldBooking.doctorId) details.push(`Doctor changed`);
+        if (cleanUpdates.clinicId && cleanUpdates.clinicId !== oldBooking.clinicId) details.push(`Branch changed`);
+        if (cleanUpdates.serviceId && cleanUpdates.serviceId !== oldBooking.serviceId) details.push(`Procedure changed`);
+
+        if (details.length > 0) {
+            history.push({
+                timestamp: new Date().toISOString(),
+                oldStatus: cleanUpdates.status || oldBooking.status,
+                newStatus: cleanUpdates.status || oldBooking.status,
+                changedBy: staffName,
+                action: 'Appointment Edited',
+                details: details.join(', ')
+            });
+            historyChanged = true;
+        }
+
+        if (historyChanged) {
             (cleanUpdates as any).statusHistory = history;
         }
 

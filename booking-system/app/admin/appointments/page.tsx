@@ -506,6 +506,7 @@ export default function AdminAppointmentsPage() {
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [showJourney, setShowJourney] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
     const [editForm, setEditForm] = useState<{
         status: Booking['status'];
@@ -564,6 +565,7 @@ export default function AdminAppointmentsPage() {
             const confirmed = window.confirm("This appointment has already been billed. Are you sure you want to edit it?");
             if (!confirmed) return;
         }
+        setShowJourney(false);
         setEditingBooking(booking);
         setEditForm({
             status: booking.status,
@@ -1999,7 +2001,8 @@ export default function AdminAppointmentsPage() {
                                         {historyBooking.statusHistory.map((entry, idx) => {
                                             const isFirst = idx === 0;
                                             const isLast = idx === historyBooking.statusHistory!.length - 1;
-                                            const dotColor = ({
+                                            const isEdited = entry.action === 'Appointment Edited';
+                                            const dotColor = isEdited ? 'bg-indigo-500' : ({
                                                 'booked': 'bg-blue-500',
                                                 'confirmed': 'bg-green-500',
                                                 'arrived': 'bg-teal-500',
@@ -2024,11 +2027,18 @@ export default function AdminAppointmentsPage() {
                                             return (
                                                 <div key={idx} className="relative flex items-start gap-4 pb-6">
                                                     <div className={`relative z-10 w-[32px] h-[32px] flex items-center justify-center shrink-0 rounded-full border-4 border-white dark:border-gray-800 ${dotColor}`}>
-                                                        {isFirst ? <Plus className="w-3.5 h-3.5 text-white" /> : isLast ? <CheckCircle className="w-3.5 h-3.5 text-white" /> : <Clock className="w-3 h-3 text-white" />}
+                                                        {isFirst ? <Plus className="w-3.5 h-3.5 text-white" /> : isEdited ? <Pencil className="w-3 h-3 text-white" /> : isLast ? <CheckCircle className="w-3.5 h-3.5 text-white" /> : <Clock className="w-3 h-3 text-white" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0 pt-1">
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            {isFirst ? (
+                                                            {isEdited ? (
+                                                                <div className="flex flex-col gap-1 w-full">
+                                                                    <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700 w-fit">
+                                                                        Details Edited
+                                                                    </span>
+                                                                    <span className="text-xs text-gray-600 dark:text-gray-300 font-medium bg-gray-50 dark:bg-gray-700/50 p-2 rounded border border-gray-100 dark:border-gray-700">{entry.details}</span>
+                                                                </div>
+                                                            ) : isFirst && !entry.action ? (
                                                                 <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${badgeColor}`}>Booking Created</span>
                                                             ) : (
                                                                 <>
@@ -2038,7 +2048,7 @@ export default function AdminAppointmentsPage() {
                                                                 </>
                                                             )}
                                                         </div>
-                                                        <div className="text-[11px] text-gray-500 mt-1">
+                                                        <div className="text-[11px] text-gray-500 mt-2">
                                                             🕐 {new Date(entry.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                         </div>
                                                         <div className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
