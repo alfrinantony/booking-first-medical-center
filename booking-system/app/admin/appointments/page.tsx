@@ -1169,7 +1169,7 @@ export default function AdminAppointmentsPage() {
                                                                     <div 
                                                                         key={slot} 
                                                                         className={`h-[66px] group ${
-                                                                            !isAvailable ? 'bg-gray-100 dark:bg-gray-900 bg-[url("data:image/svg+xml,%3Csvg width=\\\'10\\\' height=\\\'10\\\' viewBox=\\\'0 0 10 10\\\' xmlns=\\\'http://www.w3.org/2000/svg\\\'%3E%3Cpath d=\\\'M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2\\\' stroke=\\\'rgba(0,0,0,0.04)\\\' stroke-width=\\\'1\\\'/%3E%3C/svg%3E")] dark:bg-[url("data:image/svg+xml,%3Csvg width=\\\'10\\\' height=\\\'10\\\' viewBox=\\\'0 0 10 10\\\' xmlns=\\\'http://www.w3.org/2000/svg\\\'%3E%3Cpath d=\\\'M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2\\\' stroke=\\\'rgba(255,255,255,0.02)\\\' stroke-width=\\\'1\\\'/%3E%3C/svg%3E")] pointer-events-none' : 'bg-white dark:bg-gray-800 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
+                                                                            !isAvailable ? 'bg-gray-100 dark:bg-gray-900 bg-stripes pointer-events-none' : 'bg-white dark:bg-gray-800 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
                                                                         } ${isLastOfHour ? 'border-b-2 border-gray-400 dark:border-gray-600' : 'border-b border-gray-100 dark:border-gray-700/50'}`}
                                                                         onClick={() => {
                                                                             if (isAvailable) {

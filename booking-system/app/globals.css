@@ -70,3 +70,11 @@ body {
   }
 }
 
+
+.bg-stripes {
+  background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.04), rgba(0,0,0,0.04) 10px, transparent 10px, transparent 20px);
+}
+.dark .bg-stripes {
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02) 10px, transparent 10px, transparent 20px);
+}
+
