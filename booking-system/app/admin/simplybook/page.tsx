@@ -236,6 +236,7 @@ export default function SimplyBookPage() {
     const [stats, setStats] = useState<Stats>({ total: 0, confirmed: 0, cancelled: 0, pending: 0 });
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
+    const [migrating, setMigrating] = useState(false);
     const [refreshingPayments, setRefreshingPayments] = useState(false);
     const [paymentRefreshResult, setPaymentRefreshResult] = useState<{invoicesFetched:number; bookingsUpdated:number} | null>(null);
     const [syncResult, setSyncResult] = useState<{synced:number; matched:number; unmatched:number} | null>(null);

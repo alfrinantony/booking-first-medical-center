@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function check() { try { const sbNames = await prisma.booking.groupBy({ by: ['doctorId'], where: { sbProviderName: 'Kristina Garcia' }, _count: true }); console.log(sbNames); } catch(e) { console.error(e); } finally { await prisma.$disconnect(); } } check();

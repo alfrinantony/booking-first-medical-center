@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function check() { try { const doctors = await prisma.doctor.findMany({ where: { name: { contains: 'Kristina', mode: 'insensitive' } } }); console.log(doctors); } catch(e) { console.error(e); } finally { await prisma.$disconnect(); } } check();
