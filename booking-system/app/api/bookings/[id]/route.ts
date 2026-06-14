@@ -35,6 +35,41 @@ export async function PATCH(
         const { id } = await params;
         const body = await request.json();
 
+        // If the ID is a SimplyBook import ID, we create a new booking for it.
+        if (id.startsWith('sb-')) {
+            const sbId = id.replace('sb-', '');
+            const { SimplybookStore } = await import('@/lib/simplybook-store');
+            const sbRecord = await SimplybookStore.getById(sbId);
+            
+            if (!sbRecord) {
+                return NextResponse.json({ error: 'SimplyBook record not found' }, { status: 404 });
+            }
+
+            const newBooking = await BookingsStore.create({
+                doctorId: body.doctorId,
+                clinicId: body.clinicId || 'simplybook-import',
+                serviceId: body.serviceId || 'srv-unknown',
+                date: body.date,
+                slot: body.slot,
+                duration: body.duration || 30,
+                status: body.status || 'booked',
+                patientName: body.patientName || sbRecord.clientName,
+                whatsappNumber: body.whatsappNumber || sbRecord.clientPhone || '',
+                email: body.email || sbRecord.clientEmail || '',
+                source: 'simplybook',
+                sbId: sbId
+            });
+
+            await SimplybookStore.upsert({
+                ...sbRecord,
+                matchStatus: 'matched',
+                matchedDoctorId: body.doctorId,
+                syncedToBookingsId: newBooking.id
+            });
+
+            return NextResponse.json(newBooking);
+        }
+
         // Get existing booking BEFORE update for penalty logic
         const existingBooking = await BookingsStore.getById(id);
         if (!existingBooking) {

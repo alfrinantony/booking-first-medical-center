@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const doctors_store_1 = require("../lib/doctors-store");
+import { DoctorsStore } from '../lib/doctors-store';
 async function run() {
-    const clinics = await doctors_store_1.DoctorsStore.getClinics();
+    const clinics = await DoctorsStore.getClinics();
     const allDoctors = clinics.flatMap(c => c.departments.flatMap(d => d.doctors));
     const kristinas = allDoctors.filter(d => d.name.toLowerCase().includes('kristina'));
     console.log(JSON.stringify(kristinas, null, 2));

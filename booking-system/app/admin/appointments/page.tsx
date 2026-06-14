@@ -556,6 +556,11 @@ export default function AdminAppointmentsPage() {
     const getNextStatusOptions = (currentStatus: Booking['status']) => {
         const pastApt = isPastAppointment();
 
+        if (isSuperAdmin) {
+            return ['booked', 'confirmed', 'arrived', 'in_service', 'completed', 'cancelled', 'no_show', 'rescheduled']
+                .filter(s => s !== currentStatus) as Booking['status'][];
+        }
+
         const forward: Record<string, Booking['status'][]> = {
             'booked': ['confirmed', 'arrived', 'in_service', 'completed'],
             'confirmed': ['arrived', 'in_service', 'completed'],
@@ -570,10 +575,10 @@ export default function AdminAppointmentsPage() {
         let allowed = forward[currentStatus] || [];
 
         if (['booked', 'confirmed', 'arrived', 'in_service', 'rescheduled'].includes(currentStatus)) {
-            if (!pastApt || isSuperAdmin) {
+            if (!pastApt) {
                 allowed.push('cancelled', 'rescheduled');
             }
-            if (pastApt || isSuperAdmin) {
+            if (pastApt) {
                 allowed.push('no_show');
             }
         }
@@ -719,15 +724,12 @@ export default function AdminAppointmentsPage() {
         setDraggedBookingId(null);
         if (!bookingId) return;
 
-        if (bookingId.startsWith('sb-')) {
-            alert("Cannot reschedule an unsynced SimplyBook import. Please edit it in SimplyBook or map it first.");
-            return;
-        }
+        // Allow dragging sb- records to assign them to a doctor
 
         const booking = bookings.find(b => b.id === bookingId);
         if (!booking) return;
 
-        if (['completed', 'cancelled', 'no_show'].includes(booking.status)) {
+        if (['completed', 'cancelled', 'no_show'].includes(booking.status) && !isSuperAdmin) {
             alert(`Cannot reschedule a ${booking.status.replace('_', ' ')} appointment.`);
             return;
         }
@@ -1263,9 +1265,9 @@ export default function AdminAppointmentsPage() {
                                                                             style={{ top: topPx, height: heightPx, left: `${leftPct}%`, width: `${widthPct}%` }}
                                                                         >
                                                                             <div
-                                                                                draggable={!b.isSbOnly}
-                                                                                onDragStart={(e) => !b.isSbOnly && handleDragStart(e, b.id)}
-                                                                                onClick={() => !b.isSbOnly && handleEditClick(b as any)}
+                                                                                draggable={true}
+                                                                                onDragStart={(e) => handleDragStart(e, b.id)}
+                                                                                onClick={() => handleEditClick(b as any)}
                                                                                 className={`h-full w-full rounded-lg border p-1.5 flex flex-col overflow-hidden text-xs cursor-grab active:cursor-grabbing hover:shadow-lg transition-all ${
                                                                                     statusColor
                                                                                 } ${b.isSbOnly ? 'border-dashed opacity-80' : ''}`}
