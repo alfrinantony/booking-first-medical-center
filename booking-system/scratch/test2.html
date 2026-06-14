@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body, html { margin: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+  .wrapper { display: flex; height: 100vh; flex-direction: column; }
+  .header { height: 100px; background: #333; flex-shrink: 0; }
+  .grid-container { flex: 1; display: flex; overflow: hidden; }
+  .scroll-container { flex: 1; overflow-x: auto; overflow-y: auto; display: flex; position: relative; }
+  .time-axis { width: 80px; position: sticky; left: 0; z-index: 30; background: white; flex-shrink: 0; }
+  .time-spacer { height: 64px; position: sticky; top: 0; z-index: 40; background: #ccc; }
+  .doctors-wrapper { display: flex; flex-wrap: nowrap; min-width: max-content; padding-bottom: 32px; }
+  .doctor-col { width: 165px; flex-shrink: 0; border-right: 1px solid #ddd; position: relative; }
+  .doc-header { height: 64px; position: sticky; top: 0; z-index: 20; background: #eee; border-bottom: 2px solid #aaa; display: flex; align-items: center; justify-content: center; }
+  .slots-wrapper { position: relative; }
+  .slot { height: 66px; border-bottom: 1px solid #eee; box-sizing: border-box; }
+  .appointment { position: absolute; z-index: 10; background: rgba(0,0,255,0.2); border: 1px solid blue; left: 0; width: 100%; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">App Header</div>
+  <div class="grid-container">
+    <div class="scroll-container">
+      <div class="time-axis">
+        <div class="time-spacer"></div>
+        <script>
+          for(let i=0; i<48; i++) {
+            document.write('<div class="slot">Slot ' + i + '</div>');
+          }
+        </script>
+      </div>
+      <div class="doctors-wrapper">
+        <script>
+          for(let d=0; d<3; d++) {
+            document.write('<div class="doctor-col">');
+            document.write('<div class="doc-header">Doctor ' + d + '</div>');
+            document.write('<div class="slots-wrapper">');
+            for(let i=0; i<48; i++) {
+              document.write('<div class="slot"></div>');
+            }
+            // Add a long appointment ending at 5:15 PM (slot 29)
+            if (d === 1) {
+              document.write('<div class="appointment" style="top: 0px; height: 1914px;">Appt to 5:15</div>');
+            }
+            document.write('</div></div>');
+          }
+        </script>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

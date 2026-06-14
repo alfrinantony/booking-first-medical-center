@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  .scroll-container {
+    height: 400px;
+    width: 600px;
+    overflow-x: auto;
+    overflow-y: auto;
+    border: 2px solid black;
+    display: flex;
+  }
+  .time-axis {
+    position: sticky;
+    left: 0;
+    width: 80px;
+    background: #eee;
+    z-index: 20;
+    flex-shrink: 0;
+  }
+  .time-header {
+    height: 64px;
+    position: sticky;
+    top: 0;
+    background: #ddd;
+    z-index: 30;
+  }
+  .columns-wrapper {
+    display: flex;
+    flex-wrap: nowrap;
+    min-width: max-content;
+    padding-bottom: 32px;
+  }
+  .column {
+    width: 165px;
+    flex-shrink: 0;
+    border-right: 1px solid #ccc;
+    position: relative;
+  }
+  .doc-header {
+    height: 64px;
+    position: sticky;
+    top: 0;
+    background: yellow;
+    z-index: 10;
+  }
+  .slot {
+    height: 66px;
+    border-bottom: 1px solid #eee;
+  }
+</style>
+</head>
+<body>
+  <div class="scroll-container">
+    <div class="time-axis">
+      <div class="time-header"></div>
+      <script>
+        for(let i=0; i<30; i++) document.write('<div class="slot">Time '+i+'</div>');
+      </script>
+    </div>
+    <div class="columns-wrapper">
+      <script>
+        for(let c=0; c<5; c++) {
+          document.write('<div class="column">');
+          document.write('<div class="doc-header">Doc '+c+'</div>');
+          for(let i=0; i<30; i++) document.write('<div class="slot">Slot '+i+'</div>');
+          document.write('</div>');
+        }
+      </script>
+    </div>
+  </div>
+</body>
+</html>

@@ -219,17 +219,37 @@ export const BookingsStore = {
 
     addSimplyBookBatch: async (
         incoming: Array<Omit<Booking, 'id' | 'createdAt'> & { sbId?: string }>
-    ): Promise<{ added: number; skipped: number }> => {
+    ): Promise<{ added: number; skipped: number; updated: number }> => {
         const incomingSbIds = incoming.map(b => b.sbId).filter(Boolean) as string[];
         const existing = await prisma.booking.findMany({
             where: { sbId: { in: incomingSbIds } },
-            select: { sbId: true }
+            select: { sbId: true, doctorId: true, clinicId: true, deptId: true }
         });
-        const existingSet = new Set(existing.map(e => e.sbId));
+        const existingMap = new Map(existing.map(e => [e.sbId, e]));
         
-        const toCreate = incoming.filter(b => !b.sbId || !existingSet.has(b.sbId));
-        const skipped = incoming.length - toCreate.length;
+        const toCreate = incoming.filter(b => !b.sbId || !existingMap.has(b.sbId));
+        const toUpdate = incoming.filter(b => b.sbId && existingMap.has(b.sbId));
+        
+        let skipped = 0;
         let added = 0;
+        let updated = 0;
+
+        for (const updateInfo of toUpdate) {
+            const ext = existingMap.get(updateInfo.sbId as string);
+            if (ext && (ext.doctorId !== updateInfo.doctorId || ext.clinicId !== updateInfo.clinicId || ext.deptId !== updateInfo.deptId)) {
+                await prisma.booking.updateMany({
+                    where: { sbId: updateInfo.sbId },
+                    data: {
+                        doctorId: updateInfo.doctorId,
+                        clinicId: updateInfo.clinicId,
+                        deptId: updateInfo.deptId,
+                    }
+                });
+                updated++;
+            } else {
+                skipped++;
+            }
+        }
         
         if (toCreate.length > 0) {
             const now = new Date().toISOString();

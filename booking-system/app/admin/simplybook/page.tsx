@@ -239,8 +239,7 @@ export default function SimplyBookPage() {
     const [refreshingPayments, setRefreshingPayments] = useState(false);
     const [paymentRefreshResult, setPaymentRefreshResult] = useState<{invoicesFetched:number; bookingsUpdated:number} | null>(null);
     const [syncResult, setSyncResult] = useState<{synced:number; matched:number; unmatched:number} | null>(null);
-    const [migrating, setMigrating] = useState(false);
-    const [migrateResult, setMigrateResult] = useState<{migrated:number; skipped:number; matched:number; unmatched:number; total:number} | null>(null);
+    const [migrateResult, setMigrateResult] = useState<{migrated:number; skipped:number; matched:number; unmatched:number; total:number; updated?:number} | null>(null);
     const [lastSync, setLastSync] = useState<string | null>(null);
     const [lastMigrate, setLastMigrate] = useState<string | null>(null);
     const [webhookOnline, setWebhookOnline] = useState<boolean | null>(null);
@@ -266,7 +265,8 @@ export default function SimplyBookPage() {
                 ...(search ? { search } : {}),
             });
             const res = await fetch(`/api/admin/simplybook?${params}`);
-            if (res.ok) setBookings(await res.json());
+            const data = await res.json();
+            if (res.ok && Array.isArray(data)) setBookings(data);
         } catch { /* ignore */ } finally { setLoading(false); }
     }, [dateFrom, dateTo, statusFilter, matchFilter, search]);
 
@@ -304,9 +304,9 @@ export default function SimplyBookPage() {
 
     if (roleChecked && currentUser?.role !== 'SUPER_ADMIN') return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-8">
-            <div className="text-center max-w-sm">
-                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle className="w-8 h-8 text-red-500" />
+            <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-sm w-full text-center shadow-xl border border-gray-100 dark:border-gray-800">
+                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <AlertTriangle className="w-8 h-8" />
                 </div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Access Restricted</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -344,17 +344,16 @@ export default function SimplyBookPage() {
         setRefreshingPayments(true);
         setPaymentRefreshResult(null);
         try {
-            const params = new URLSearchParams({ refresh_payments: 'true', from: dateFrom, to: dateTo });
-            const res = await fetch(`/api/admin/simplybook?${params}`);
+            const res = await fetch(`/api/admin/simplybook?refresh_payments=true&from=${dateFrom}&to=${dateTo}`);
             const data = await res.json();
             if (res.ok && data.ok) {
-                setPaymentRefreshResult({ invoicesFetched: data.invoicesFetched ?? 0, bookingsUpdated: data.bookingsUpdated ?? 0 });
+                setPaymentRefreshResult({ invoicesFetched: data.invoices_fetched, bookingsUpdated: data.bookings_updated });
             } else {
-                alert(`Payment refresh failed: ${data.error || 'Unknown error'}`);
+                alert(`Payment refresh failed: ${data.error}`);
             }
             await fetchBookings();
-        } catch (err) {
-            console.error('Payment refresh failed:', err);
+        } catch (e) {
+            alert('Failed to refresh payments');
         } finally {
             setRefreshingPayments(false);
         }
@@ -368,7 +367,7 @@ export default function SimplyBookPage() {
             const res = await fetch(`/api/admin/simplybook?${params}`);
             const data = await res.json();
             if (res.ok && data.ok) {
-                setMigrateResult({ migrated: data.migrated ?? 0, skipped: data.skipped ?? 0, matched: data.matched ?? 0, unmatched: data.unmatched ?? 0, total: data.total ?? 0 });
+                setMigrateResult({ migrated: data.migrated ?? 0, skipped: data.skipped ?? 0, matched: data.matched ?? 0, unmatched: data.unmatched ?? 0, total: data.total ?? 0, updated: data.updated ?? 0 });
                 setLastMigrate(`${new Date().toLocaleTimeString('en-AE')} — ${data.migrated} migrated`);
             } else {
                 alert(`Migration failed: ${data.error || 'Unknown error'}`);
@@ -495,10 +494,11 @@ export default function SimplyBookPage() {
                         </div>
                     </div>
                     {migrateResult && (
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mt-4">
                             {[
                                 {label:'Total SB', value: migrateResult.total, cls:'bg-white/10'},
                                 {label:'Migrated', value: migrateResult.migrated, cls:'bg-emerald-500/30'},
+                                {label:'Updated', value: migrateResult.updated || 0, cls:'bg-blue-500/30'},
                                 {label:'Already Exists', value: migrateResult.skipped, cls:'bg-white/10'},
                                 {label:'Matched', value: migrateResult.matched, cls:'bg-emerald-500/30'},
                                 {label:'Unmatched', value: migrateResult.unmatched, cls:'bg-amber-500/30'},

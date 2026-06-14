@@ -746,13 +746,14 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ ok: true, migrated: batchForBookings.length, records: batchForBookings });
             }
 
-            const { added, skipped } = await BookingsStore.addSimplyBookBatch(batchForBookings as any);
+            const { added, skipped, updated } = await BookingsStore.addSimplyBookBatch(batchForBookings as any);
 
             return NextResponse.json({
                 ok: true,
                 total: sbBookings.length,
                 migrated: added,
                 skipped,
+                updated,
                 matched: matchedCount,
                 unmatched: unmatchedCount,
                 dateFrom,
