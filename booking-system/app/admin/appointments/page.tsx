@@ -1133,7 +1133,7 @@ export default function AdminAppointmentsPage() {
                                                         onDrop={(e) => handleDrop(e, doctor.id)}
                                                     >
                                                         {/* Doctor Header */}
-                                                        <div className="h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 flex flex-col justify-center items-center sticky top-0 z-10 px-3 text-center shadow-sm">
+                                                        <div className="h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 flex flex-col justify-center items-center sticky top-0 z-[15] px-3 text-center shadow-sm">
                                                             <span className="text-sm font-bold text-gray-900 dark:text-white truncate w-full">{doctor.name}</span>
                                                             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide truncate w-full mt-0.5">{doctor.departmentName}</span>
                                                         </div>
