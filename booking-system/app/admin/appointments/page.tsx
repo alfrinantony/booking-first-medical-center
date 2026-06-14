@@ -992,7 +992,7 @@ export default function AdminAppointmentsPage() {
                     <div
                         className={`flex-1 grid gap-px bg-gray-100 dark:bg-gray-700 ${
                             viewMode === 'day'
-                                ? 'grid-cols-1 bg-transparent gap-0 overflow-y-auto'
+                                ? 'grid-cols-1 bg-transparent gap-0 overflow-hidden'
                                 : 'grid-cols-7 overflow-hidden'
                         }`}
                         style={viewMode !== 'day' ? { gridAutoRows: '1fr' } : undefined}
@@ -1061,10 +1061,10 @@ export default function AdminAppointmentsPage() {
                                 });
 
                                 return (
-                                    <div key={day.toISOString()} className="relative flex min-w-full overflow-x-auto overflow-y-auto">
+                                    <div key={day.toISOString()} className="relative flex min-w-full h-full overflow-x-auto overflow-y-auto">
                                         {/* Time Axis (Sticky Left) */}
                                         <div className="sticky left-0 z-20 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-20 shrink-0 shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
-                                            <div className="h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900" /> {/* Header spacer */}
+                                            <div className="sticky top-0 z-30 h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900" /> {/* Header spacer */}
                                             {timeSlots.map(slot => {
                                                 const isHour = slot.includes(':00');
                                                 const isLastOfHour = slot.includes(':45');
@@ -1107,7 +1107,7 @@ export default function AdminAppointmentsPage() {
                                                 return (
                                                     <div 
                                                         key={doctor.id} 
-                                                        className="w-[220px] shrink-0 border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800"
+                                                        className="w-[165px] shrink-0 border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800"
                                                         onDragOver={(e) => e.preventDefault()}
                                                         onDrop={(e) => handleDrop(e, doctor.id)}
                                                     >
@@ -1129,7 +1129,7 @@ export default function AdminAppointmentsPage() {
                                                                         return mins >= sStart && mins < sEnd;
                                                                     });
                                                                 } else {
-                                                                    isAvailable = true; 
+                                                                    isAvailable = false; // Off day
                                                                 }
                                                                 const isLastOfHour = slot.includes(':45');
 
@@ -1137,7 +1137,7 @@ export default function AdminAppointmentsPage() {
                                                                     <div 
                                                                         key={slot} 
                                                                         className={`h-[66px] group ${
-                                                                            !isAvailable ? 'bg-yellow-200 dark:bg-yellow-800/80 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
+                                                                            !isAvailable ? 'bg-gray-200/80 dark:bg-gray-800/80 pointer-events-none' : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 cursor-pointer'
                                                                         } ${isLastOfHour ? 'border-b-2 border-gray-400 dark:border-gray-600' : 'border-b border-gray-100 dark:border-gray-700/50'}`}
                                                                         onClick={() => {
                                                                             if (isAvailable) {
