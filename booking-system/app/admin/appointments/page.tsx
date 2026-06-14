@@ -535,22 +535,53 @@ export default function AdminAppointmentsPage() {
         } catch { return 'Admin'; }
     };
 
+    const isPastAppointment = () => {
+        try {
+            if (!editForm.date || !editForm.slot) return false;
+            const timeMatch = editForm.slot.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+            if (!timeMatch) return false;
+            let h = parseInt(timeMatch[1], 10);
+            const m = parseInt(timeMatch[2], 10);
+            const period = timeMatch[3].toUpperCase();
+            if (period === 'PM' && h !== 12) h += 12;
+            if (period === 'AM' && h === 12) h = 0;
+            
+            const aptDate = new Date(`${editForm.date}T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`);
+            return new Date() > aptDate;
+        } catch {
+            return false;
+        }
+    };
+
     const getNextStatusOptions = (currentStatus: Booking['status']) => {
         if (isSuperAdmin) {
             return (['booked', 'confirmed', 'rescheduled', 'arrived', 'in_service', 'completed', 'cancelled', 'no_show'] as Booking['status'][]).filter(s => s !== currentStatus);
         }
         
-        const flow: Record<string, Booking['status'][]> = {
-            'booked': ['confirmed', 'arrived', 'rescheduled', 'cancelled'],
-            'confirmed': ['arrived', 'cancelled', 'rescheduled', 'no_show'],
-            'rescheduled': ['confirmed', 'arrived', 'cancelled'],
-            'arrived': ['in_service', 'cancelled', 'no_show'],
-            'in_service': ['completed', 'cancelled'],
-            'completed': [], // Terminal state
-            'cancelled': [],  // Terminal state
-            'no_show': []     // Terminal state
+        const pastApt = isPastAppointment();
+
+        const forward: Record<string, Booking['status'][]> = {
+            'booked': ['confirmed', 'arrived', 'in_service', 'completed'],
+            'confirmed': ['arrived', 'in_service', 'completed'],
+            'arrived': ['in_service', 'completed'],
+            'in_service': ['completed'],
+            'rescheduled': ['confirmed', 'arrived', 'in_service', 'completed'],
+            'completed': [],
+            'cancelled': [],
+            'no_show': []
         };
-        return flow[currentStatus] || [];
+
+        let allowed = forward[currentStatus] || [];
+
+        if (['booked', 'confirmed', 'arrived', 'in_service', 'rescheduled'].includes(currentStatus)) {
+            if (!pastApt) {
+                allowed.push('cancelled', 'rescheduled');
+            } else {
+                allowed.push('no_show');
+            }
+        }
+
+        return Array.from(new Set(allowed)).filter(s => s !== currentStatus);
     };
 
     const handleGenerateReceipt = (bookingId: string, sbRef?: string, sbId?: string) => {
