@@ -858,7 +858,7 @@ export default function AdminAppointmentsPage() {
     })();
 
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-    const isCompletedLock = (editingBooking?.status === 'completed' || editForm?.status === 'completed') && !isSuperAdmin;
+    const isCompletedLock = editingBooking?.status === 'completed' && !isSuperAdmin;
     const canChangeDetails = (canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && !isCompletedLock;
 
     // Quick Client Registration
