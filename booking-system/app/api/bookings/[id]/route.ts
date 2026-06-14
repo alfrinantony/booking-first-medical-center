@@ -80,6 +80,88 @@ export async function PATCH(
         const newStatus = body.status;
         const customerPhone = existingBooking.whatsappNumber || existingBooking.email || '';
 
+        // --- DOCTOR OVERLAP & BUMPING LOGIC (only if time or doctor changes) ---
+        const targetDoctorId = body.doctorId || existingBooking.doctorId;
+        const targetDate = body.date || existingBooking.date;
+        const targetSlot = body.slot || existingBooking.slot;
+        const targetDuration = body.duration || existingBooking.duration || 30;
+        
+        if ((body.doctorId && body.doctorId !== existingBooking.doctorId) || 
+            (body.date && body.date !== existingBooking.date) || 
+            (body.slot && body.slot !== existingBooking.slot)) {
+            
+            const existingBookings = await BookingsStore.getAll();
+            const newStart = slotToMinutes(targetSlot);
+            const newEnd = newStart + targetDuration;
+
+            const doctorOverlaps = existingBookings.filter(b => 
+                b.id !== id && // Don't match self
+                b.doctorId === targetDoctorId &&
+                b.date === targetDate &&
+                b.status !== 'cancelled' &&
+                (() => {
+                    const bStart = slotToMinutes(b.slot);
+                    const bEnd = bStart + (b.duration || 30);
+                    return newStart < bEnd && bStart < newEnd;
+                })()
+            );
+
+            if (doctorOverlaps.length > 0) {
+                const allCanBeBumped = doctorOverlaps.every(b => b.anyDoctor === true);
+                if (!allCanBeBumped) {
+                    return NextResponse.json(
+                        { error: 'The selected doctor is already booked at this time.' },
+                        { status: 409 }
+                    );
+                }
+
+                // Bump them!
+                const { DoctorsStore } = await import('@/lib/doctors-store');
+                const clinics = await DoctorsStore.getClinics();
+                const allDocs = clinics.flatMap(c => c.departments.map(d => ({ ...d, clinicId: c.id })).flatMap(d => d.doctors.map(doc => ({ ...doc, clinicId: d.clinicId, deptId: d.id }))));
+                
+                for (const overlappingBooking of doctorOverlaps) {
+                    const sameClinicDocs = allDocs.filter(d => d.clinicId === overlappingBooking.clinicId && d.id !== targetDoctorId && d.id !== overlappingBooking.doctorId);
+                    
+                    let alternativeDoc = null;
+                    for (const candidate of sameClinicDocs) {
+                        const candidateOverlaps = existingBookings.some(b => 
+                            b.id !== id && // ignore self
+                            b.doctorId === candidate.id &&
+                            b.date === overlappingBooking.date &&
+                            b.status !== 'cancelled' &&
+                            (() => {
+                                const bStart = slotToMinutes(b.slot);
+                                const bEnd = bStart + (b.duration || 30);
+                                const oStart = slotToMinutes(overlappingBooking.slot);
+                                const oEnd = oStart + (overlappingBooking.duration || 30);
+                                return oStart < bEnd && bStart < oEnd;
+                            })()
+                        );
+                        if (!candidateOverlaps) {
+                            alternativeDoc = candidate;
+                            break;
+                        }
+                    }
+
+                    if (alternativeDoc) {
+                        await BookingsStore.update(overlappingBooking.id, {
+                            doctorId: alternativeDoc.id,
+                            deptId: alternativeDoc.deptId,
+                            staffName: 'System (Auto-Reassigned)'
+                        });
+                        overlappingBooking.doctorId = alternativeDoc.id;
+                    } else {
+                        return NextResponse.json(
+                            { error: 'The selected doctor is booked, and no other doctors are available to take the floating Any Available appointments.' },
+                            { status: 409 }
+                        );
+                    }
+                }
+            }
+        }
+        // --- END DOCTOR OVERLAP LOGIC ---
+
         const updatedBooking = await BookingsStore.update(id, { ...body });
         if (!updatedBooking) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 });

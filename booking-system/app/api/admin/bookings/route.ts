@@ -156,6 +156,111 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // --- DOCTOR OVERLAP & BUMPING LOGIC ---
+        const doctorOverlaps = existingBookings.filter(b => 
+            b.doctorId === body.doctorId &&
+            b.date === body.date &&
+            b.status !== 'cancelled' &&
+            (() => {
+                const bStart = parseSlotToMinutes(b.slot);
+                const bEnd = bStart + (b.duration || 30);
+                return newStart < bEnd && bStart < newEnd; // ranges overlap
+            })()
+        );
+
+        if (doctorOverlaps.length > 0) {
+            if (body.anyDoctor) {
+                // We are trying to book "any doctor" but the selected one is busy.
+                // Find another doctor automatically!
+                const { DoctorsStore } = await import('@/lib/doctors-store');
+                const clinics = await DoctorsStore.getClinics();
+                const allDocs = clinics.flatMap(c => c.departments.map(d => ({ ...d, clinicId: c.id })).flatMap(d => d.doctors.map(doc => ({ ...doc, clinicId: d.clinicId, deptId: d.id }))));
+                const sameClinicDocs = allDocs.filter(d => d.clinicId === body.clinicId && d.id !== body.doctorId);
+                
+                let alternativeDoc = null;
+                for (const candidate of sameClinicDocs) {
+                    const candidateOverlaps = existingBookings.some(b => 
+                        b.doctorId === candidate.id &&
+                        b.date === body.date &&
+                        b.status !== 'cancelled' &&
+                        (() => {
+                            const bStart = parseSlotToMinutes(b.slot);
+                            const bEnd = bStart + (b.duration || 30);
+                            return newStart < bEnd && bStart < newEnd;
+                        })()
+                    );
+                    if (!candidateOverlaps) {
+                        alternativeDoc = candidate;
+                        break;
+                    }
+                }
+
+                if (alternativeDoc) {
+                    body.doctorId = alternativeDoc.id;
+                    body.deptId = alternativeDoc.deptId;
+                } else {
+                    return NextResponse.json(
+                        { error: 'No doctors are available for this time slot.' },
+                        { status: 409 }
+                    );
+                }
+            } else {
+                // Specific booking. Check if we can bump the existing overlaps.
+                const allCanBeBumped = doctorOverlaps.every(b => b.anyDoctor === true);
+                if (!allCanBeBumped) {
+                    return NextResponse.json(
+                        { error: 'The selected doctor is already booked at this time.' },
+                        { status: 409 }
+                    );
+                }
+
+                // Bump them!
+                const { DoctorsStore } = await import('@/lib/doctors-store');
+                const clinics = await DoctorsStore.getClinics();
+                const allDocs = clinics.flatMap(c => c.departments.map(d => ({ ...d, clinicId: c.id })).flatMap(d => d.doctors.map(doc => ({ ...doc, clinicId: d.clinicId, deptId: d.id }))));
+                
+                for (const overlappingBooking of doctorOverlaps) {
+                    const sameClinicDocs = allDocs.filter(d => d.clinicId === overlappingBooking.clinicId && d.id !== body.doctorId && d.id !== overlappingBooking.doctorId);
+                    
+                    let alternativeDoc = null;
+                    for (const candidate of sameClinicDocs) {
+                        const candidateOverlaps = existingBookings.some(b => 
+                            b.doctorId === candidate.id &&
+                            b.date === overlappingBooking.date &&
+                            b.status !== 'cancelled' &&
+                            (() => {
+                                const bStart = parseSlotToMinutes(b.slot);
+                                const bEnd = bStart + (b.duration || 30);
+                                const oStart = parseSlotToMinutes(overlappingBooking.slot);
+                                const oEnd = oStart + (overlappingBooking.duration || 30);
+                                return oStart < bEnd && bStart < oEnd;
+                            })()
+                        );
+                        if (!candidateOverlaps) {
+                            alternativeDoc = candidate;
+                            break;
+                        }
+                    }
+
+                    if (alternativeDoc) {
+                        await BookingsStore.update(overlappingBooking.id, {
+                            doctorId: alternativeDoc.id,
+                            deptId: alternativeDoc.deptId,
+                            staffName: 'System (Auto-Reassigned)'
+                        });
+                        // Also update the in-memory array so subsequent checks in this loop see it
+                        overlappingBooking.doctorId = alternativeDoc.id;
+                    } else {
+                        return NextResponse.json(
+                            { error: 'The selected doctor is booked, and no other doctors are available to take the floating Any Available appointments.' },
+                            { status: 409 }
+                        );
+                    }
+                }
+            }
+        }
+        // --- END DOCTOR OVERLAP LOGIC ---
+
         const newBooking = await BookingsStore.add({
             ...body,
             duration,

@@ -24,23 +24,28 @@ async function run() {
             continue; // Skip historical records to be fast
         }
         const sbNorm = normalizeName(sb.providerName || '');
-        if (!sbNorm || sbNorm.includes('anyavailable'))
+        if (!sbNorm)
             continue;
         let bestDoc = null;
         let bestScore = 0;
-        for (const doc of allDoctors) {
-            const docNorm = normalizeName(doc.name);
-            // If one contains the other, it's a very strong match
-            if (sbNorm.includes(docNorm) || docNorm.includes(sbNorm)) {
-                bestDoc = doc;
-                break;
+        if (sbNorm.includes('anyavailable')) {
+            bestDoc = allDoctors[0]; // Just assign the first doctor temporarily; the bump logic will handle conflicts.
+        }
+        else {
+            for (const doc of allDoctors) {
+                const docNorm = normalizeName(doc.name);
+                // If one contains the other, it's a very strong match
+                if (sbNorm.includes(docNorm) || docNorm.includes(sbNorm)) {
+                    bestDoc = doc;
+                    break;
+                }
             }
         }
         if (bestDoc) {
             console.log(`Matching SB Provider "${sb.providerName}" -> Doctor "${bestDoc.name}"`);
             const newBooking = await bookings_store_1.BookingsStore.add({
                 doctorId: bestDoc.id,
-                deptId: bestDoc.departmentId || '',
+                deptId: bestDoc.departmentId || 'unknown',
                 clinicId: 'simplybook-import', // Cannot reliably guess clinic without more logic
                 serviceId: 'srv-unknown',
                 date: sb.date || sb.startDateTime?.split('T')[0] || new Date().toISOString().split('T')[0],
@@ -50,7 +55,8 @@ async function run() {
                 patientName: sb.clientName,
                 whatsappNumber: sb.clientPhone || '',
                 email: sb.clientEmail || '',
-                sbId: sb.sbId
+                sbId: sb.sbId,
+                anyDoctor: sbNorm.includes('anyavailable')
             });
             await simplybook_store_1.SimplybookStore.upsert({
                 ...sb,

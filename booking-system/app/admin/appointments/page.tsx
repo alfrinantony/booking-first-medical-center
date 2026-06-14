@@ -1244,7 +1244,10 @@ export default function AdminAppointmentsPage() {
                                                                     const leftPct = (b._colIndex / b._groupCols) * 100;
                                                                     
                                                                     let statusColor = 'bg-gray-100 border-gray-400 text-gray-900 dark:bg-gray-800 dark:text-gray-100'; // Default
-                                                                    if (b.status === 'booked') {
+                                                                    
+                                                                    if (b.anyDoctor && ['booked', 'confirmed', 'rescheduled', 'arrived'].includes(b.status)) {
+                                                                        statusColor = 'bg-pink-200 border-pink-500 text-pink-900 dark:bg-pink-900/60 dark:border-pink-600 dark:text-pink-200';
+                                                                    } else if (b.status === 'booked' || b.status === 'rescheduled') {
                                                                         statusColor = 'bg-yellow-200 border-yellow-500 text-yellow-900 dark:bg-yellow-900/60 dark:border-yellow-600 dark:text-yellow-200';
                                                                     } else if (b.status === 'confirmed') {
                                                                         statusColor = 'bg-blue-200 border-blue-500 text-blue-900 dark:bg-blue-900/60 dark:border-blue-600 dark:text-blue-200';
@@ -1254,7 +1257,7 @@ export default function AdminAppointmentsPage() {
                                                                         statusColor = 'bg-green-200 border-green-500 text-green-900 dark:bg-green-900/60 dark:border-green-600 dark:text-green-200';
                                                                     } else if (b.status === 'completed') {
                                                                         statusColor = 'bg-[#8B4513] border-[#5C2E0B] text-white dark:bg-[#A0522D] dark:border-[#8B4513]'; // Brown
-                                                                    } else if (b.status === 'cancelled') {
+                                                                    } else if (b.status === 'cancelled' || b.status === 'no_show') {
                                                                         statusColor = 'bg-red-200 border-red-500 text-red-900 dark:bg-red-900/60 dark:border-red-600 dark:text-red-200';
                                                                     }
                                                                     
