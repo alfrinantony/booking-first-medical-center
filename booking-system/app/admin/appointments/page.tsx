@@ -1143,26 +1143,24 @@ export default function AdminAppointmentsPage() {
                                                             {timeSlots.map(slot => {
                                                                 const mins = parseTimeMins(slot);
                                                                 let isAvailable = false;
-                                                                if (hasShift) {
-                                                                    const inShift = docShifts.some(s => {
+                                                                const docSchedule = clinicianSchedules.find(s => s.doctorId === doctor.id);
+                                                                const hasClinicianSchedule = docSchedule && docSchedule.slots && docSchedule.slots.length > 0;
+
+                                                                if (hasClinicianSchedule) {
+                                                                    // Explicit Clinician Schedule overrides HR shifts
+                                                                    const slotNormalized = slot.replace(/^0/, '');
+                                                                    isAvailable = docSchedule.slots.some((schedSlot: string) => schedSlot.replace(/^0/, '') === slotNormalized);
+                                                                } else if (hasShift) {
+                                                                    // Fallback to HR Shift logic
+                                                                    isAvailable = docShifts.some(s => {
                                                                         const sStart = parseTimeMins(s.startTime);
                                                                         const sEnd = parseTimeMins(s.endTime);
                                                                         return mins >= sStart && mins < sEnd;
                                                                     });
-                                                                    
-                                                                    if (inShift) {
-                                                                        const docSchedule = clinicianSchedules.find(s => s.doctorId === doctor.id);
-                                                                        if (docSchedule && docSchedule.slots && docSchedule.slots.length > 0) {
-                                                                            // Normalize slot string for exact match, ignoring leading zeros in hour
-                                                                            const slotNormalized = slot.replace(/^0/, '');
-                                                                            isAvailable = docSchedule.slots.some((schedSlot: string) => schedSlot.replace(/^0/, '') === slotNormalized);
-                                                                        } else {
-                                                                            isAvailable = true;
-                                                                        }
-                                                                    }
                                                                 } else {
                                                                     isAvailable = false; // Off day
                                                                 }
+                                                                
                                                                 const isLastOfHour = slot.includes(':45');
 
                                                                 return (
