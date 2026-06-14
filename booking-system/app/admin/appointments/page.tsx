@@ -727,6 +727,31 @@ export default function AdminAppointmentsPage() {
         const booking = bookings.find(b => b.id === bookingId);
         if (!booking) return;
 
+        if (['completed', 'cancelled', 'no_show'].includes(booking.status)) {
+            alert(`Cannot reschedule a ${booking.status.replace('_', ' ')} appointment.`);
+            return;
+        }
+
+        const isPast = (() => {
+            try {
+                if (!booking.date || !booking.slot) return false;
+                const timeMatch = booking.slot.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+                if (!timeMatch) return false;
+                let h = parseInt(timeMatch[1], 10);
+                const m = parseInt(timeMatch[2], 10);
+                const period = timeMatch[3].toUpperCase();
+                if (period === 'PM' && h !== 12) h += 12;
+                if (period === 'AM' && h === 12) h = 0;
+                const aptDate = new Date(`${booking.date}T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`);
+                return new Date() > aptDate;
+            } catch { return false; }
+        })();
+
+        if (isPast && !isSuperAdmin) {
+            alert("Cannot reschedule an appointment after its scheduled time.");
+            return;
+        }
+
         // Scope check
         const targetDept = getDoctorDepartment(targetDoctorId);
         if (!targetDept) {
@@ -742,15 +767,19 @@ export default function AdminAppointmentsPage() {
 
         // Calculate slot based on drop position
         const bounds = e.currentTarget.getBoundingClientRect();
-        const offsetY = Math.max(0, e.clientY - bounds.top);
-        const ROW_HEIGHT = 44;
+        // The doctor column has a 64px header (h-16), so we subtract it
+        const gridOffsetY = Math.max(0, e.clientY - bounds.top - 64);
+        const ROW_HEIGHT = 66; // Matches the UI rendering height
         const MIN_PER_ROW = 15;
         const CALENDAR_START_MINUTES = 10 * 60; // 10:00 AM
         
-        const droppedMinutes = CALENDAR_START_MINUTES + Math.floor(offsetY / ROW_HEIGHT) * MIN_PER_ROW;
-        const hh = Math.floor(droppedMinutes / 60).toString().padStart(2, '0');
+        const droppedMinutes = CALENDAR_START_MINUTES + Math.floor(gridOffsetY / ROW_HEIGHT) * MIN_PER_ROW;
+        let hh = Math.floor(droppedMinutes / 60);
         const mm = (droppedMinutes % 60).toString().padStart(2, '0');
-        const newSlot = `${hh}:${mm}`;
+        const period = hh >= 12 ? 'PM' : 'AM';
+        if (hh > 12) hh -= 12;
+        if (hh === 0) hh = 12;
+        const newSlot = `${hh.toString().padStart(2, '0')}:${mm} ${period}`;
 
         if (confirm(`Reschedule appointment to Dr. ${allDoctors.find(d => d.id === targetDoctorId)?.name} at ${newSlot}?`)) {
             try {
