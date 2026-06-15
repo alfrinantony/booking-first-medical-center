@@ -1,41 +1,54 @@
-name: Deploy to Azure Static Web Apps
+name: Deploy to Azure Web App
 
 on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, closed]
     branches: [main]
   workflow_dispatch:
 
 jobs:
   build_and_deploy:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and Deploy
-        id: swa
-        uses: Azure/static-web-apps-deploy@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: "upload"
-          app_location: "/booking-system"
-          api_location: ""
-          output_location: ""
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: booking-system/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: booking-system
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: booking-system
+
+      - name: Build Next.js
+        run: npm run build
+        working-directory: booking-system
         env:
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
 
-  close_pull_request:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    name: Close Pull Request
-    steps:
-      - name: Close Pull Request
-        uses: Azure/static-web-apps-deploy@v1
+      - name: Prepare Standalone Build
+        run: |
+          cp -r public .next/standalone/public
+          mkdir -p .next/standalone/.next/static
+          cp -r .next/static .next/standalone/.next/static
+        working-directory: booking-system
+
+      - name: Zip Standalone Build
+        run: zip -r deploy.zip .
+        working-directory: booking-system/.next/standalone
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          action: "close"
+          app-name: fmc-booking-app
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: booking-system/.next/standalone/deploy.zip
