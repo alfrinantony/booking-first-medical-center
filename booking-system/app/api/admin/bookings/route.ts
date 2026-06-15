@@ -100,14 +100,17 @@ export async function POST(request: NextRequest) {
         }
 
         // Duration-aware overlap check: same patient, same date, overlapping time range
-        const existingBookings = await BookingsStore.getAll();
+        const bookingsOnDate = await BookingsStore.getByFilters({ date: body.date });
 
         // ── Service Interval and Follow-Up Validation ──
         let isFollowUp = false;
-        if (service) {
+        if (service && service.minimumIntervalDays) {
+            const minInterval = service.minimumIntervalDays;
+            
             // Find past bookings for this same service and patient
             // Find ANY non-cancelled booking for this service and patient to enforce intervals against their nearest scheduled date
-            const pastBookings = existingBookings.filter(b => 
+            const patientBookings = await BookingsStore.getByFilters({ patientName: body.patientName });
+            const pastBookings = patientBookings.filter(b => 
                 b.patientName === body.patientName && 
                 b.serviceId === body.serviceId && 
                 b.status !== 'cancelled'
@@ -141,7 +144,7 @@ export async function POST(request: NextRequest) {
         const newStart = parseSlotToMinutes(body.slot);
         const newEnd = newStart + duration;
 
-        const duplicate = existingBookings.find(b =>
+        const duplicate = bookingsOnDate.find(b =>
             b.patientName === body.patientName &&
             b.date === body.date &&
             b.status !== 'cancelled' &&
@@ -161,7 +164,7 @@ export async function POST(request: NextRequest) {
         // --- DOCTOR OVERLAP & BUMPING LOGIC ---
         let doctorOverlaps: any[] = [];
         if (body.doctorId !== 'any-doctor') {
-            doctorOverlaps = existingBookings.filter(b => 
+            doctorOverlaps = bookingsOnDate.filter(b => 
                 b.doctorId === body.doctorId &&
                 b.date === body.date &&
                 b.status !== 'cancelled' &&
@@ -192,7 +195,7 @@ export async function POST(request: NextRequest) {
                 const newEnd = newStart + duration;
                 
                 for (const candidate of sameClinicDocs) {
-                    const candidateOverlaps = existingBookings.some(b => 
+                    const candidateOverlaps = bookingsOnDate.some(b => 
                         b.doctorId === candidate.id &&
                         b.date === body.date &&
                         b.status !== 'cancelled' &&
@@ -237,7 +240,7 @@ export async function POST(request: NextRequest) {
                     
                     let alternativeDoc = null;
                     for (const candidate of sameClinicDocs) {
-                        const candidateOverlaps = existingBookings.some(b => 
+                        const candidateOverlaps = bookingsOnDate.some(b => 
                             b.doctorId === candidate.id &&
                             b.date === overlappingBooking.date &&
                             b.status !== 'cancelled' &&
