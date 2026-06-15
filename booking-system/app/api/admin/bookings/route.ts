@@ -157,27 +157,38 @@ export async function POST(request: NextRequest) {
         }
 
         // --- DOCTOR OVERLAP & BUMPING LOGIC ---
-        const doctorOverlaps = existingBookings.filter(b => 
-            b.doctorId === body.doctorId &&
-            b.date === body.date &&
-            b.status !== 'cancelled' &&
-            (() => {
-                const bStart = parseSlotToMinutes(b.slot);
-                const bEnd = bStart + (b.duration || 30);
-                return newStart < bEnd && bStart < newEnd; // ranges overlap
-            })()
-        );
+        let doctorOverlaps: any[] = [];
+        if (body.doctorId !== 'any-doctor') {
+            doctorOverlaps = existingBookings.filter(b => 
+                b.doctorId === body.doctorId &&
+                b.date === body.date &&
+                b.status !== 'cancelled' &&
+                (() => {
+                    const bStart = parseSlotToMinutes(b.slot);
+                    const bEnd = bStart + (b.duration || 30);
+                    const newStart = parseSlotToMinutes(body.slot);
+                    const newEnd = newStart + duration;
+                    return newStart < bEnd && bStart < newEnd; // ranges overlap
+                })()
+            );
+        }
 
-        if (doctorOverlaps.length > 0) {
-            if (body.anyDoctor) {
-                // We are trying to book "any doctor" but the selected one is busy.
+        if (doctorOverlaps.length > 0 || body.doctorId === 'any-doctor') {
+            if (body.anyDoctor || body.doctorId === 'any-doctor') {
+                // We are trying to book "any doctor" but the selected one is busy, or no specific doctor was selected.
                 // Find another doctor automatically!
                 const { DoctorsStore } = await import('@/lib/doctors-store');
                 const clinics = await DoctorsStore.getClinics();
                 const allDocs = clinics.flatMap(c => c.departments.map(d => ({ ...d, clinicId: c.id })).flatMap(d => d.doctors.map(doc => ({ ...doc, clinicId: d.clinicId, deptId: d.id }))));
+                
+                // If it's a laser service (or hydrafacial), we might want to prioritize techs, but for now any doc in the same clinic who can do it
+                // Actually, just same clinic docs that aren't the originally busy one
                 const sameClinicDocs = allDocs.filter(d => d.clinicId === body.clinicId && d.id !== body.doctorId);
                 
                 let alternativeDoc = null;
+                const newStart = parseSlotToMinutes(body.slot);
+                const newEnd = newStart + duration;
+                
                 for (const candidate of sameClinicDocs) {
                     const candidateOverlaps = existingBookings.some(b => 
                         b.doctorId === candidate.id &&
@@ -200,7 +211,7 @@ export async function POST(request: NextRequest) {
                     body.deptId = alternativeDoc.deptId;
                 } else {
                     return NextResponse.json(
-                        { error: 'No doctors are available for this time slot.' },
+                        { error: 'No available doctors at this time slot.' },
                         { status: 409 }
                     );
                 }
