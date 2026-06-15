@@ -128,7 +128,7 @@ function AvatarSession({ onEnd, remainingSeconds: initialRemaining }: { onEnd: (
                 </div>
 
                 {/* Status indicator */}
-                <div className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-white ${state === 'connected' ? 'bg-green-500 animate-pulse' :
+                <div className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-white ${(state as any) === 'connected' ? 'bg-green-500 animate-pulse' :
                     state === 'connecting' || state === 'initializing' ? 'bg-yellow-500 animate-pulse' :
                         'bg-gray-400'
                     }`} />

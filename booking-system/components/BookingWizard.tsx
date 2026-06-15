@@ -2145,7 +2145,7 @@ export default function BookingWizard() {
                                 <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-4 dark:bg-orange-900/20 dark:border-orange-800 animate-in fade-in slide-in-from-top-2">
                                     <div className="flex gap-3">
                                         <div className="flex-shrink-0 text-orange-600 mt-0.5">
-                                            <Package className="w-5 h-5" />
+                                            <PackageIcon className="w-5 h-5" />
                                         </div>
                                         <div>
                                             <h4 className="text-sm font-bold text-orange-800 dark:text-orange-400">Equipment Fully Booked</h4>

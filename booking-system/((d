@@ -1,0 +1,1 @@
+import { DoctorsStore } from '../lib/doctors-store'; async function run() { const clinics = await DoctorsStore.getClinics(); const allDocs = clinics.flatMap(c =; const laserDocs = allDocs.filter(d = as any).departmentName?.toLowerCase().includes('laser') 

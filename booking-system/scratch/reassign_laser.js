@@ -13,8 +13,9 @@ async function run() {
     const allSb = await simplybook_store_1.SimplybookStore.getAll();
     const clinics = await doctors_store_1.DoctorsStore.getClinics();
     const allDocs = clinics.flatMap(c => c.departments.map(d => ({ ...d, clinicId: c.id })).flatMap(d => d.doctors.map(doc => ({ ...doc, clinicId: d.clinicId, deptId: d.id, departmentName: d.name }))));
-    const laserDocs = allDocs.filter(d => (d.departmentName && d.departmentName.toLowerCase().includes('laser')) ||
-        (d.allowedServiceNames && d.allowedServiceNames.some((s) => s.toLowerCase().includes('laser'))));
+    const laserDocs = allDocs.filter(d => ((d.departmentName && d.departmentName.toLowerCase().includes('laser')) ||
+        (d.allowedServiceNames && d.allowedServiceNames.some((s) => s.toLowerCase().includes('laser')))) &&
+        !d.name.startsWith('Dr.'));
     console.log(`Found ${laserDocs.length} doctors who can perform laser.`);
     // Map SB records by ID for quick lookup
     const sbMap = new Map(allSb.map(sb => [sb.sbId, sb]));
@@ -50,7 +51,13 @@ async function run() {
                     break;
                 }
             }
-            if (alternativeDoc && alternativeDoc.id !== b.doctorId) {
+            if (!alternativeDoc) {
+                console.log(`Booking ${b.id}: No alternative doc found. All ${laserDocs.length} laser docs overlap!`);
+            }
+            else if (alternativeDoc.id === b.doctorId) {
+                // Already assigned to the best free laser doc
+            }
+            else {
                 console.log(`Reassigning booking ${b.id} (${b.patientName}) from ${b.doctorId} to ${alternativeDoc.id} for service ${sbRecord.serviceName}`);
                 await bookings_store_1.BookingsStore.update(b.id, {
                     doctorId: alternativeDoc.id,

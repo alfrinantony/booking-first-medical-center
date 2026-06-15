@@ -1,0 +1,66 @@
+app/admin/appointments/page.tsx(1551,92): error TS2367: This comparison appears to be unintentional because the types '"cash" | "clinic" | "wallet" | undefined' and '"package"' have no overlap.
+app/admin/appointments/page.tsx(2066,68): error TS2339: Property 'action' does not exist on type '{ timestamp: string; oldStatus: string; newStatus: string; changedBy: string; }'.
+app/admin/appointments/page.tsx(2101,234): error TS2339: Property 'details' does not exist on type '{ timestamp: string; oldStatus: string; newStatus: string; changedBy: string; }'.
+app/admin/appointments/page.tsx(2103,83): error TS2339: Property 'action' does not exist on type '{ timestamp: string; oldStatus: string; newStatus: string; changedBy: string; }'.
+app/admin/checklists/page.tsx(219,86): error TS2339: Property 'role' does not exist on type 'UserProfile'.
+app/admin/checklists/page.tsx(346,25): error TS2339: Property 'role' does not exist on type 'UserProfile'.
+app/admin/checklists/page.tsx(346,57): error TS2339: Property 'role' does not exist on type 'UserProfile'.
+app/admin/checklists/page.tsx(354,25): error TS2339: Property 'role' does not exist on type 'UserProfile'.
+app/admin/checklists/page.tsx(354,57): error TS2339: Property 'role' does not exist on type 'UserProfile'.
+app/admin/hr/recruitment/page.tsx(26,51): error TS2304: Cannot find name 'OpeningStatus'.
+app/admin/hr/recruitment/page.tsx(32,80): error TS2304: Cannot find name 'CandidateSource'.
+app/admin/hr/recruitment/page.tsx(167,37): error TS2304: Cannot find name 'OpeningStatus'.
+app/admin/hr/recruitment/page.tsx(339,61): error TS2322: Type 'string' is not assignable to type '"FULL_TIME" | "PART_TIME" | "CONTRACT"'.
+app/admin/hr/recruitment/page.tsx(562,142): error TS2304: Cannot find name 'OpeningStatus'.
+app/admin/hr/recruitment/page.tsx(682,148): error TS2304: Cannot find name 'CandidateSource'.
+app/admin/hr/recruitment/page.tsx(781,152): error TS2304: Cannot find name 'CandidateSource'.
+app/admin/hr/recruitment/page.tsx(853,84): error TS2339: Property 'photoUrl' does not exist on type 'Candidate'.
+app/admin/hr/recruitment/page.tsx(854,96): error TS2339: Property 'photoUrl' does not exist on type 'Candidate'.
+app/admin/hr/recruitment/page.tsx(861,130): error TS2339: Property 'photoFileName' does not exist on type 'Candidate'.
+app/admin/hr/recruitment/page.tsx(874,127): error TS2339: Property 'cvFileName' does not exist on type 'Candidate'.
+app/admin/reports/page.tsx(115,89): error TS2367: This comparison appears to be unintentional because the types '"booked" | "confirmed" | "rescheduled" | "arrived" | "in_service" | "completed" | "no_show"' and '"noshow"' have no overlap.
+app/admin/reports/page.tsx(129,82): error TS2367: This comparison appears to be unintentional because the types '"booked" | "confirmed" | "rescheduled" | "arrived" | "in_service" | "completed" | "no_show"' and '"noshow"' have no overlap.
+app/api/admin/debug-sb/route.ts(4,24): error TS7016: Could not find a declaration file for module 'pg'. 'C:/AntiGravityWorks/Booking First Medical Center/booking-system/node_modules/pg/esm/index.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/pg` if it exists or add a new declaration (.d.ts) file containing `declare module 'pg';`
+app/api/admin/hr/attendance/alerts/route.ts(28,27): error TS2339: Property 'length' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(29,28): error TS2339: Property 'filter' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(29,35): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/api/admin/hr/attendance/alerts/route.ts(30,26): error TS2339: Property 'filter' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(30,33): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/api/admin/hr/attendance/alerts/route.ts(31,28): error TS2339: Property 'filter' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(31,35): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/api/admin/hr/attendance/alerts/route.ts(32,32): error TS2339: Property 'filter' does not exist on type 'Promise<AttendanceAlert[]>'.
+app/api/admin/hr/attendance/alerts/route.ts(32,39): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/api/admin/hr/attendance/device/route.ts(68,62): error TS2345: Argument of type '{ name: any; serialNumber: any; host: any; port: any; autoSyncEnabled: any; autoSyncIntervalMinutes: any; }' is not assignable to parameter of type 'Omit<DeviceConfig, "id" | "status" | "lastSync">'.
+  Type '{ name: any; serialNumber: any; host: any; port: any; autoSyncEnabled: any; autoSyncIntervalMinutes: any; }' is missing the following properties from type 'Omit<DeviceConfig, "id" | "status" | "lastSync">': branchId, branchName
+app/api/admin/hr/attendance/sync/route.ts(29,32): error TS2322: Type 'Promise<number>' is not assignable to type 'number'.
+app/api/admin/hr/attendance/sync/route.ts(29,61): error TS2345: Argument of type '{ employeeId: string; date: string; punchIn: string | null; punchOut: string | null; source: "BIOMETRIC"; notes: string; }[]' is not assignable to parameter of type 'Omit<AttendanceRecord, "id" | "status" | "createdAt" | "updatedAt" | "totalHours">[]'.
+  Type '{ employeeId: string; date: string; punchIn: string | null; punchOut: string | null; source: "BIOMETRIC"; notes: string; }' is missing the following properties from type 'Omit<AttendanceRecord, "id" | "status" | "createdAt" | "updatedAt" | "totalHours">': rawHours, breakDeducted, isSplitDuty, shifts
+app/api/admin/hr/notifications/route.ts(18,27): error TS2339: Property 'map' does not exist on type 'Promise<(EmployeeDocument & { daysRemaining: number; })[]> | Promise<(EmployeeDocument & { daysOverdue: number; })[]>'.
+  Property 'map' does not exist on type 'Promise<(EmployeeDocument & { daysRemaining: number; })[]>'.
+app/api/admin/hr/notifications/route.ts(18,37): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+app/api/admin/hr/notifications/route.ts(31,45): error TS2339: Property 'length' does not exist on type 'Promise<(EmployeeDocument & { daysRemaining: number; })[]>'.
+app/api/admin/hr/notifications/route.ts(32,35): error TS2339: Property 'length' does not exist on type 'Promise<(EmployeeDocument & { daysOverdue: number; })[]>'.
+app/api/admin/hr/notifications/route.ts(33,39): error TS2339: Property 'length' does not exist on type 'Promise<(EmployeeDocument & { daysRemaining: number; })[]>'.
+app/api/admin/hr/notifications/route.ts(33,56): error TS2339: Property 'length' does not exist on type 'Promise<(EmployeeDocument & { daysOverdue: number; })[]>'.
+app/api/admin/schedule/route.ts(49,9): error TS2322: Type '{ available: boolean; reason?: string | undefined; shift?: ShiftAssignment | undefined; }' is not assignable to type '{ available: boolean; reason: string; }'.
+  Types of property 'reason' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+app/api/admin/simplybook/migrate-all/route.ts(83,25): error TS2339: Property 'Clinic' does not exist on type 'typeof import("C:/AntiGravityWorks/Booking First Medical Center/booking-system/lib/data")'.
+app/api/admin/simplybook/route.ts(181,50): error TS2339: Property 'split' does not exist on type '{}'.
+app/api/admin/simplybook/route.ts(229,9): error TS2322: Type '{}' is not assignable to type 'string'.
+app/api/admin/simplybook/route.ts(230,9): error TS2322: Type '{}' is not assignable to type 'string'.
+app/api/bookings/[id]/route.ts(48,52): error TS2339: Property 'create' does not exist on type '{ getAll: () => Promise<Booking[]>; getByFilters: (filters: { clinicId?: string | undefined; deptId?: string | undefined; doctorId?: string | undefined; date?: string | undefined; search?: string | undefined; startDate?: string | undefined; endDate?: string | undefined; }) => Promise<...>; ... 8 more ...; delete: (i...'.
+app/api/payment/webhook/route.ts(48,25): error TS2322: Type '"consultation"' is not assignable to type 'InvoiceCategory | undefined'.
+app/api/webhooks/simplybook/route.ts(100,15): error TS2741: Property 'matchStatus' is missing in type '{ sbId: string; sbHash: string; company: string; startDateTime: string; endDateTime: string; date: string; time: string; eventId: string; unitId: string; serviceName: string; providerName: string; ... 8 more ...; raw: Record<...>; }' but required in type 'SimplybookRecord'.
+test-branch-logic.ts(2,10): error TS2305: Module '"./lib/data.js"' has no exported member 'clinicStore'.
+test-branch-logic.ts(33,49): error TS18048: 'branch1' is possibly 'undefined'.
+test-branch-logic.ts(33,61): error TS18048: 'sourceDept' is possibly 'undefined'.
+test-branch-logic.ts(34,49): error TS18048: 'branch2' is possibly 'undefined'.
+test-branch-logic.ts(54,30): error TS18048: 'branch1' is possibly 'undefined'.
+test-branch-logic.ts(60,28): error TS18048: 'branchClinic' is possibly 'undefined'.
+test-db.ts(7,35): error TS2339: Property 'departments' does not exist on type 'never'.
+test-db.ts(9,49): error TS2339: Property 'name' does not exist on type 'never'.
+test-meta-dms.ts(2,19): error TS2307: Cannot find module 'node-fetch' or its corresponding type declarations.
+test-services.ts(1,10): error TS2459: Module '"./app/api/admin/schedule/route"' declares 'ServicesStore' locally, but it is not exported.

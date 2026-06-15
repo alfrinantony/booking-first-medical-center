@@ -133,7 +133,7 @@ export async function sendBookingConfirmation(
     <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;">Please arrive 10 minutes early. Bring a valid ID for your records.</p>`;
 
     await t.sendMail({
-        from: `"First Medical Center" <${(await t.transporter?.options as any)?.auth?.user || 'noreply@firstmedicalcenter.ae'}>`,
+        from: `"First Medical Center" <${((t as any).options)?.auth?.user || 'noreply@firstmedicalcenter.ae'}>`,
         to: booking.email,
         subject: `✅ Appointment Confirmed — ${formatDate(booking.date)} at ${booking.slot}`,
         html: wrapEmail('Appointment Confirmed', body),

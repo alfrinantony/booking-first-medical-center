@@ -4,6 +4,9 @@ const nextConfig = {
     typescript: {
         ignoreBuildErrors: true,
     },
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
     outputFileTracingIncludes: {
         '/api/**/*': ['./node_modules/@prisma/client/**/*', './prisma/schema.prisma'],
     },

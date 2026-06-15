@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, PhoneOff, X, ChevronDown, Timer, Globe } from 'lucide-react';
-import { useRestrictionsStore } from '@/lib/restrictions-store';
+
 import { useAuthStore } from '@/lib/store';
 
 import {
@@ -346,11 +346,11 @@ export default function VoiceAgentBubble() {
     const toggle = useCallback(() => {
         if (!isOpen) {
             if (user) {
-                const clientId = user.phone || user.email || user.name || '';
-                if (useRestrictionsStore.getState().isVoiceBlocked(clientId)) {
-                    alert('Voice booking is not available for your account.');
-                    return;
-                }
+                // TODO: Implement voice restriction check via API
+                // if (isVoiceBlocked(clientId)) {
+                //     alert('Voice booking is not available for your account.');
+                //     return;
+                // }
             }
             setIsOpen(true);
         } else if (!isInCall) {

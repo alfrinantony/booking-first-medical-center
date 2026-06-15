@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
             
             // Find past bookings for this same service and patient
             // Find ANY non-cancelled booking for this service and patient to enforce intervals against their nearest scheduled date
-            const patientBookings = await BookingsStore.getByFilters({ patientName: body.patientName });
+            const patientBookings = await BookingsStore.getByFilters({ search: body.patientName });
             const pastBookings = patientBookings.filter(b => 
                 b.patientName === body.patientName && 
                 b.serviceId === body.serviceId && 
