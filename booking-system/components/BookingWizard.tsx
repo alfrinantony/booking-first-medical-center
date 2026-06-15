@@ -1223,9 +1223,9 @@ export default function BookingWizard() {
             }
             // Clear the draft once successfully booked
             await clearDraft();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save booking', error);
-            alert('Failed to create booking. Please try again.');
+            alert(`Failed to create booking: ${error.message || 'Please try again.'}`);
             return;
         }
 

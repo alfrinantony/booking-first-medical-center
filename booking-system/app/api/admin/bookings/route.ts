@@ -53,8 +53,10 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         // Basic validation
-        if (!body.clinicId || !body.deptId || !body.doctorId || !body.serviceId || !body.date || !body.slot || !body.patientName) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        const requiredFields = ['clinicId', 'deptId', 'doctorId', 'serviceId', 'date', 'slot', 'patientName'];
+        const missingFields = requiredFields.filter(f => !body[f]);
+        if (missingFields.length > 0) {
+            return NextResponse.json({ error: `Missing required fields: ${missingFields.join(', ')}` }, { status: 400 });
         }
 
         // Auto-fetch duration from service module if not provided
