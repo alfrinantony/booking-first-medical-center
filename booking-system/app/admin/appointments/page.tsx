@@ -1149,7 +1149,7 @@ export default function AdminAppointmentsPage() {
                                 return (
                                     <div key={day.toISOString()} className="relative flex min-w-full h-full overflow-x-auto overflow-y-auto">
                                         {/* Time Axis (Sticky Left) */}
-                                        <div className="sticky left-0 z-30 h-max bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-20 shrink-0 shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
+                                        <div className="sticky left-0 z-30 h-max pb-8 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-20 shrink-0 shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
                                             <div className="sticky top-0 z-40 h-16 border-b-2 border-gray-400 dark:border-gray-600 bg-gray-50 dark:bg-gray-900" /> {/* Header spacer */}
                                             {timeSlots.map(slot => {
                                                 const isHour = slot.includes(':00');
@@ -1163,7 +1163,7 @@ export default function AdminAppointmentsPage() {
                                         </div>
                                         
                                         {/* Doctor Columns */}
-                                        <div className="flex flex-nowrap min-w-max pb-8 bg-white dark:bg-gray-800">
+                                        <div className="flex flex-nowrap min-w-max bg-white dark:bg-gray-800">
                                             {branchDoctors.map(doctor => {
                                                 const docShifts = shifts.filter(s => s.employeeId === doctor.id);
                                                 const hasShift = docShifts.length > 0;
@@ -1177,7 +1177,7 @@ export default function AdminAppointmentsPage() {
                                                 return (
                                                     <div 
                                                         key={doctor.id} 
-                                                        className="w-[165px] h-max shrink-0 border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800"
+                                                        className="w-[165px] h-max pb-8 shrink-0 border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800"
                                                         onDragOver={(e) => e.preventDefault()}
                                                         onDrop={(e) => handleDrop(e, doctor.id)}
                                                     >
