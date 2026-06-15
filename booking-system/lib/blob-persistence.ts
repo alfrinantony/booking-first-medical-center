@@ -23,13 +23,24 @@ function getContainerClient(): ContainerClient {
     return _containerClient;
 }
 
+const memoryCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 30000; // 30 seconds
+
 export async function loadFromBlob<T>(key: string, fallback: T): Promise<T> {
     try {
+        const now = Date.now();
+        const cached = memoryCache.get(key);
+        if (cached && (now - cached.timestamp < CACHE_TTL)) {
+            return cached.data as T;
+        }
+
         const blobName = key.endsWith('.json') ? key : `${key}.json`;
         const blobClient = getContainerClient().getBlobClient(blobName);
         const buffer = await blobClient.downloadToBuffer();
         const data = JSON.parse(buffer.toString('utf-8'));
         console.log(`[BlobPersist] Loaded "${key}" from Azure Blob`);
+        
+        memoryCache.set(key, { data, timestamp: now });
         return data as T;
     } catch (err: any) {
         if (err.statusCode === 404) {
@@ -48,6 +59,7 @@ export async function saveToBlob<T>(key: string, data: T): Promise<void> {
         const content = JSON.stringify(data, null, 2);
         await blobClient.upload(content, content.length);
         console.log(`[BlobPersist] Saved "${key}" to Azure Blob`);
+        memoryCache.set(key, { data, timestamp: Date.now() });
     } catch (err: any) {
         console.error(`[BlobPersist] Failed to save "${key}":`, err.message);
     }
