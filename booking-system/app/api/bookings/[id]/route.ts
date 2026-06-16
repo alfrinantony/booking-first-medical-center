@@ -35,8 +35,11 @@ export async function PATCH(
         const { id } = await params;
         const body = await request.json();
 
-        // If the ID is a SimplyBook import ID, we create a new booking for it.
-        if (id.startsWith('sb-')) {
+        // Get existing booking BEFORE update for penalty logic
+        const existingBooking = await BookingsStore.getById(id);
+
+        // If the ID is a SimplyBook import ID and not yet in our database, we migrate it.
+        if (id.startsWith('sb-') && !existingBooking) {
             const sbId = id.replace('sb-', '');
             const { SimplybookStore } = await import('@/lib/simplybook-store');
             const sbRecord = await SimplybookStore.getById(sbId);
@@ -46,6 +49,7 @@ export async function PATCH(
             }
 
             const newBooking = await BookingsStore.create({
+                id: id, // Retain the sb- ID in our DB
                 doctorId: body.doctorId,
                 clinicId: body.clinicId || 'simplybook-import',
                 serviceId: body.serviceId || 'srv-unknown',
@@ -70,8 +74,6 @@ export async function PATCH(
             return NextResponse.json(newBooking);
         }
 
-        // Get existing booking BEFORE update for penalty logic
-        const existingBooking = await BookingsStore.getById(id);
         if (!existingBooking) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
         }

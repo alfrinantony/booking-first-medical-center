@@ -726,7 +726,27 @@ export default function AdminAppointmentsPage() {
 
         // Allow dragging sb- records to assign them to a doctor
 
-        const booking = bookings.find(b => b.id === bookingId);
+        let booking = bookings.find(b => b.id === bookingId) || dayBookings.find(b => b.id === bookingId);
+        if (!booking && bookingId.startsWith('sb-')) {
+            const rawSbId = bookingId.replace('sb-', '');
+            const sbBooking = daySbBookings.find(sb => sb.sbId === rawSbId);
+            if (sbBooking) {
+                let duration = 30;
+                if (sbBooking.startDateTime && sbBooking.endDateTime) {
+                    const startMs = new Date(sbBooking.startDateTime.replace(' ', 'T')).getTime();
+                    const endMs = new Date(sbBooking.endDateTime.replace(' ', 'T')).getTime();
+                    duration = Math.max(15, (endMs - startMs) / 60000);
+                }
+                booking = {
+                    id: bookingId,
+                    status: 'booked',
+                    date: sbBooking.startDate,
+                    slot: sbBooking.time,
+                    serviceId: '', // Bypass service check
+                    duration: duration,
+                } as any;
+            }
+        }
         if (!booking) return;
 
         if (['completed', 'cancelled', 'no_show'].includes(booking.status) && !isSuperAdmin) {
@@ -755,18 +775,19 @@ export default function AdminAppointmentsPage() {
         }
 
         // Scope check
-        const targetDept = getDoctorDepartment(targetDoctorId);
-        if (!targetDept) {
-            alert("Error: Doctor's department not found.");
-            return;
+        if (targetDoctorId !== 'any-doctor') {
+            const targetDept = getDoctorDepartment(targetDoctorId);
+            if (!targetDept) {
+                alert("Error: Doctor's department not found.");
+                return;
+            }
+            
+            const offersService = booking.serviceId ? targetDept.services.some(s => s.id === booking.serviceId) : true;
+            if (!offersService) {
+                alert(`Error: Dr. ${allDoctors.find(d => d.id === targetDoctorId)?.name} (${targetDept.name}) does not perform the scheduled service.`);
+                return;
+            }
         }
-        
-        const offersService = targetDept.services.some(s => s.id === booking.serviceId);
-        if (!offersService) {
-            alert(`Error: Dr. ${allDoctors.find(d => d.id === targetDoctorId)?.name} (${targetDept.name}) does not perform the scheduled service.`);
-            return;
-        }
-
         // Calculate slot based on drop position
         const bounds = e.currentTarget.getBoundingClientRect();
         // The doctor column has a 64px header (h-16), so we subtract it
@@ -783,7 +804,8 @@ export default function AdminAppointmentsPage() {
         if (hh === 0) hh = 12;
         const newSlot = `${hh.toString().padStart(2, '0')}:${mm} ${period}`;
 
-        if (confirm(`Reschedule appointment to Dr. ${allDoctors.find(d => d.id === targetDoctorId)?.name} at ${newSlot}?`)) {
+        const docName = targetDoctorId === 'any-doctor' ? 'Any Available Doctor' : allDoctors.find(d => d.id === targetDoctorId)?.name;
+        if (confirm(`Reschedule appointment to ${docName} at ${newSlot}?`)) {
             try {
                 const res = await fetch(`/api/bookings/${bookingId}`, {
                     method: 'PATCH',
