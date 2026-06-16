@@ -87,18 +87,7 @@ export default function CheckoutForm({ amount, serviceName, bookingDate, slot, d
         <form id="payment-form" onSubmit={handleSubmit} className="w-full">
             <PaymentElement id="payment-element" options={paymentElementOptions} />
 
-            {/* Promo Code Input (Mock) */}
-            <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Promo Code</label>
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        placeholder="Enter code"
-                        className="flex-1 p-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-700"
-                    />
-                    <button type="button" className="px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Apply</button>
-                </div>
-            </div>
+
 
             <button
                 disabled={isLoading || !stripe || !elements}

@@ -30,18 +30,25 @@ function PaymentContent() {
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'clinic'>('card');
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Promo Code State
+    const [currentAmount, setCurrentAmount] = useState(amount);
+    const [promoCodeInput, setPromoCodeInput] = useState('');
+    const [appliedPromo, setAppliedPromo] = useState<any>(null);
+    const [promoError, setPromoError] = useState<string | null>(null);
+    const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+
     // Calculate totals
-    const totalAmount = amount;
+    const totalAmount = currentAmount;
 
     useEffect(() => {
-        if (paymentMethod === 'card' && amount > 0) {
+        if (paymentMethod === 'card' && currentAmount > 0) {
             setIsLoadingStripe(true);
             setStripeError("");
-            // Create PaymentIntent as soon as the page loads
+            // Create PaymentIntent as soon as the page loads (or when amount changes via promo)
             fetch("/api/payment/intent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ amount, bookingId }),
+                body: JSON.stringify({ amount: currentAmount, bookingId }),
             })
                 .then((res) => {
                     if (!res.ok) throw new Error("Could not initialize Stripe payment");
@@ -60,7 +67,57 @@ function PaymentContent() {
         } else {
             setClientSecret(""); // Reset client secret if not card
         }
-    }, [amount, paymentMethod]);
+    }, [currentAmount, paymentMethod]);
+
+    const handleApplyPromo = async () => {
+        if (!promoCodeInput) return;
+        setIsValidatingPromo(true);
+        setPromoError(null);
+
+        try {
+            const res = await fetch('/api/admin/promos');
+            if (res.ok) {
+                const promos = await res.json();
+                const promo = promos.find((p: any) => p.code === promoCodeInput && p.active);
+
+                if (!promo) {
+                    setPromoError('Invalid or inactive promo code.');
+                    setAppliedPromo(null);
+                    setCurrentAmount(amount); // Revert to original amount
+                    return;
+                }
+
+                // Calculate discount
+                let discount = 0;
+                if (promo.discountType === 'percentage') {
+                    discount = amount * (promo.discountValue / 100);
+                } else {
+                    discount = promo.discountValue;
+                }
+
+                const newAmount = Math.max(0, amount - discount);
+                
+                // Patch the booking in the database to reflect the new amount
+                if (bookingId) {
+                    await fetch(`/api/bookings/${bookingId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ amount: newAmount })
+                    });
+                }
+
+                setAppliedPromo(promo);
+                setCurrentAmount(newAmount);
+                setPromoCodeInput(''); // clear input on success
+            } else {
+                setPromoError('Failed to validate code.');
+            }
+        } catch (err) {
+            setPromoError('Error validating code.');
+        } finally {
+            setIsValidatingPromo(false);
+        }
+    };
 
     const handleMockPayment = async () => {
         setIsProcessing(true);
@@ -93,6 +150,13 @@ function PaymentContent() {
                             <span>{serviceName}:</span>
                             <span>{amount.toFixed(2)} AED</span>
                         </div>
+
+                        {appliedPromo && (
+                            <div className="flex justify-between text-sm text-green-600">
+                                <span>Promo Discount ({appliedPromo.code}):</span>
+                                <span>-{(amount - currentAmount).toFixed(2)} AED</span>
+                            </div>
+                        )}
 
                         <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white pt-2 border-t border-gray-200 dark:border-gray-700">
                             <span>Total to Pay:</span>
@@ -146,9 +210,35 @@ function PaymentContent() {
                                 </button>
                             </div>
                         ) : clientSecret ? (
-                            <Elements options={options} stripe={stripePromise}>
-                                <CheckoutForm amount={amount} serviceName={serviceName} bookingDate={bookingDate} slot={slot} doctorName={doctorName} clinicName={clinicName} />
-                            </Elements>
+                            <div className="space-y-6">
+                                {/* Promo Code Section */}
+                                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Have a Promo Code?</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Enter code"
+                                            value={promoCodeInput}
+                                            onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                                            disabled={isValidatingPromo}
+                                            className="flex-1 p-2 border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-shadow"
+                                        />
+                                        <button 
+                                            onClick={handleApplyPromo}
+                                            disabled={isValidatingPromo || !promoCodeInput}
+                                            className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
+                                        >
+                                            {isValidatingPromo ? 'Applying...' : 'Apply'}
+                                        </button>
+                                    </div>
+                                    {promoError && <p className="text-red-500 text-xs mt-2">{promoError}</p>}
+                                    {appliedPromo && <p className="text-green-500 text-xs mt-2 font-medium">Promo code applied successfully!</p>}
+                                </div>
+
+                                <Elements options={options} stripe={stripePromise}>
+                                    <CheckoutForm amount={currentAmount} serviceName={serviceName} bookingDate={bookingDate} slot={slot} doctorName={doctorName} clinicName={clinicName} />
+                                </Elements>
+                            </div>
                         ) : null}
                     </div>
                 )}
