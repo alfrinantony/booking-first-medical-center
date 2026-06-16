@@ -1146,6 +1146,14 @@ export default function AdminAppointmentsPage() {
                                     };
                                 });
 
+                                // Always append 'Any Available Doctor' column to show unassigned bookings
+                                branchDoctors.push({
+                                    id: 'any-doctor',
+                                    name: 'Any Available Doctor',
+                                    departmentName: 'General',
+                                    image: ''
+                                } as any);
+
                                 return (
                                     <div key={day.toISOString()} className="relative flex min-w-full h-full overflow-x-auto overflow-y-auto">
                                         {/* Time Axis (Sticky Left) */}
@@ -1168,7 +1176,11 @@ export default function AdminAppointmentsPage() {
                                                 const docShifts = shifts.filter(s => s.employeeId === doctor.id);
                                                 const hasShift = docShifts.length > 0;
                                                 
-                                                const doctorBookings = combinedBookings.filter(b => b.doctorId === doctor.id);
+                                                const doctorBookings = combinedBookings.filter(b => 
+                                                    doctor.id === 'any-doctor' 
+                                                        ? (b.doctorId === 'any-doctor' || b.anyDoctor)
+                                                        : b.doctorId === doctor.id
+                                                );
                                                 const overlapReady = doctorBookings.map(b => ({ ...b, duration: b._duration }));
                                                 const positionedBookings = calculateOverlaps(overlapReady);
 

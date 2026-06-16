@@ -24,11 +24,13 @@ export const BookingsStore = {
         return bookings as any as Booking[];
     },
 
-    getByFilters: async (filters: { clinicId?: string; deptId?: string; doctorId?: string; date?: string; search?: string; startDate?: string; endDate?: string }) => {
+    getByFilters: async (filters: { clinicId?: string; deptId?: string; doctorId?: string; date?: string; search?: string; startDate?: string; endDate?: string; patientName?: string; serviceId?: string }) => {
         const where: any = {};
         if (filters.clinicId) where.clinicId = filters.clinicId;
         if (filters.deptId) where.deptId = filters.deptId;
         if (filters.doctorId) where.doctorId = filters.doctorId;
+        if (filters.patientName) where.patientName = filters.patientName;
+        if (filters.serviceId) where.serviceId = filters.serviceId;
         
         if (filters.date) {
             where.date = filters.date;
@@ -55,11 +57,13 @@ export const BookingsStore = {
         return bookings as any as Booking[];
     },
 
-    getPaginated: async (filters: { clinicId?: string; deptId?: string; doctorId?: string; date?: string; search?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => {
+    getPaginated: async (filters: { clinicId?: string; deptId?: string; doctorId?: string; date?: string; search?: string; startDate?: string; endDate?: string; page?: number; limit?: number; patientName?: string; serviceId?: string }) => {
         const where: any = {};
         if (filters.clinicId) where.clinicId = filters.clinicId;
         if (filters.deptId) where.deptId = filters.deptId;
         if (filters.doctorId) where.doctorId = filters.doctorId;
+        if (filters.patientName) where.patientName = filters.patientName;
+        if (filters.serviceId) where.serviceId = filters.serviceId;
         
         if (filters.date) {
             where.date = filters.date;

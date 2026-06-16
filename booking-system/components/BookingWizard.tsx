@@ -1179,7 +1179,7 @@ export default function BookingWizard() {
             clinicId: selectedClinic?.id,
             deptId: selectedDept?.id,
             serviceId: selectedService?.id,
-            doctorId: selectedDoctor?.id,
+            doctorId: isAnyDoctor ? 'any-doctor' : selectedDoctor?.id,
             date: selectedDate?.toISOString().split('T')[0],
             slot: selectedSlot,
             duration: isFree ? Math.min(selectedService?.duration || 30, 30) : (selectedService?.duration || 30),
@@ -1210,7 +1210,14 @@ export default function BookingWizard() {
                 body: JSON.stringify(bookingData)
             });
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
+                const responseText = await res.text();
+                let err = {};
+                try {
+                    err = JSON.parse(responseText);
+                } catch (e) {
+                    console.error('Non-JSON error response:', responseText);
+                    err = { error: 'Server returned HTML or invalid JSON' };
+                }
                 if (res.status === 409) {
                     if (err.existingBookingId) {
                         createdBookingId = err.existingBookingId;
@@ -1221,7 +1228,8 @@ export default function BookingWizard() {
                         return;
                     }
                 } else {
-                    throw new Error(err.error || 'Booking failed');
+                    console.error('Server error response:', err);
+                    throw new Error(err.error || err.message || 'Booking failed (Server returned an error without details)');
                 }
             } else {
                 const createdBooking = await res.json();
