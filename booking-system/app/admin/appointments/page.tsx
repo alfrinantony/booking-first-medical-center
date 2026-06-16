@@ -1181,11 +1181,13 @@ export default function AdminAppointmentsPage() {
                                                     );
                                                 }
                                                 
-                                                const doctorBookings = combinedBookings.filter(b => 
-                                                    doctor.id === 'any-doctor' 
-                                                        ? (b.doctorId === 'any-doctor' || b.anyDoctor)
-                                                        : b.doctorId === doctor.id
-                                                );
+                                                const doctorBookings = combinedBookings.filter(b => {
+                                                    if (doctor.id === 'any-doctor') {
+                                                        const matchesRealDoctor = branchDoctors.some(d => d.id !== 'any-doctor' && d.id === b.doctorId);
+                                                        return !matchesRealDoctor;
+                                                    }
+                                                    return b.doctorId === doctor.id;
+                                                });
                                                 const overlapReady = doctorBookings.map(b => ({ ...b, duration: b._duration }));
                                                 const positionedBookings = calculateOverlaps(overlapReady);
 
