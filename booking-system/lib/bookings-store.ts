@@ -315,6 +315,11 @@ export const BookingsStore = {
         if (!Array.isArray(history)) {
             history = [];
         }
+
+        // If the booking has been locally modified, ignore SimplyBook webhooks to prevent overwriting
+        if (history.some((h: any) => h.isLocalModified)) {
+            return false;
+        }
         history.push({
             timestamp: new Date().toISOString(),
             oldStatus,

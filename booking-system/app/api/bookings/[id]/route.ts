@@ -164,7 +164,15 @@ export async function PATCH(
         }
         // --- END DOCTOR OVERLAP LOGIC ---
 
-        const updatedBooking = await BookingsStore.update(id, { ...body });
+        // Append a flag to statusHistory indicating it was locally modified
+        let history = existingBooking.statusHistory as any;
+        if (typeof history === 'string') {
+            try { history = JSON.parse(history); } catch { history = []; }
+        }
+        if (!Array.isArray(history)) history = [];
+        history.push({ isLocalModified: true, timestamp: new Date().toISOString() });
+
+        const updatedBooking = await BookingsStore.update(id, { ...body, statusHistory: history });
         if (!updatedBooking) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
         }
