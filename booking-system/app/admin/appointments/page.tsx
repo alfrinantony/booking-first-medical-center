@@ -1174,7 +1174,12 @@ export default function AdminAppointmentsPage() {
                                         <div className="flex flex-nowrap min-w-max bg-white dark:bg-gray-800">
                                             {branchDoctors.map(doctor => {
                                                 const docShifts = shifts.filter(s => s.employeeId === doctor.id);
-                                                const hasShift = docShifts.length > 0;
+                                                let hasShift = docShifts.length > 0;
+                                                if (doctor.id === 'any-doctor') {
+                                                    hasShift = branchDoctors.some(otherDoc => 
+                                                        otherDoc.id !== 'any-doctor' && shifts.some(s => s.employeeId === otherDoc.id)
+                                                    );
+                                                }
                                                 
                                                 const doctorBookings = combinedBookings.filter(b => 
                                                     doctor.id === 'any-doctor' 
@@ -1189,7 +1194,7 @@ export default function AdminAppointmentsPage() {
                                                 return (
                                                     <div 
                                                         key={doctor.id} 
-                                                        className="w-[165px] h-max pb-8 shrink-0 border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800"
+                                                        className={`${doctor.id === 'any-doctor' ? 'w-[495px]' : 'w-[165px]'} h-max pb-8 shrink-0 border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800`}
                                                         onDragOver={(e) => e.preventDefault()}
                                                         onDrop={(e) => handleDrop(e, doctor.id)}
                                                     >
@@ -1204,22 +1209,45 @@ export default function AdminAppointmentsPage() {
                                                             {timeSlots.map(slot => {
                                                                 const mins = parseTimeMins(slot);
                                                                 let isAvailable = false;
-                                                                const docSchedule = clinicianSchedules.find(s => s.doctorId === doctor.id);
-                                                                const hasClinicianSchedule = docSchedule && docSchedule.slots && docSchedule.slots.length > 0;
-
-                                                                if (hasClinicianSchedule) {
-                                                                    // Explicit Clinician Schedule overrides HR shifts
+                                                                
+                                                                if (doctor.id === 'any-doctor') {
                                                                     const slotNormalized = slot.replace(/^0/, '');
-                                                                    isAvailable = docSchedule.slots.some((schedSlot: string) => schedSlot.replace(/^0/, '') === slotNormalized);
-                                                                } else if (hasShift) {
-                                                                    // Fallback to HR Shift logic
-                                                                    isAvailable = docShifts.some(s => {
-                                                                        const sStart = parseTimeMins(s.startTime);
-                                                                        const sEnd = parseTimeMins(s.endTime);
-                                                                        return mins >= sStart && mins < sEnd;
+                                                                    isAvailable = branchDoctors.some(otherDoc => {
+                                                                        if (otherDoc.id === 'any-doctor') return false;
+                                                                        const otherDocSchedule = clinicianSchedules.find(s => s.doctorId === otherDoc.id);
+                                                                        const otherHasClinicianSchedule = otherDocSchedule && otherDocSchedule.slots && otherDocSchedule.slots.length > 0;
+                                                                        if (otherHasClinicianSchedule) {
+                                                                            return otherDocSchedule.slots.some((schedSlot: string) => schedSlot.replace(/^0/, '') === slotNormalized);
+                                                                        } else {
+                                                                            const otherDocShifts = shifts.filter(s => s.employeeId === otherDoc.id);
+                                                                            if (otherDocShifts.length > 0) {
+                                                                                return otherDocShifts.some(s => {
+                                                                                    const sStart = parseTimeMins(s.startTime);
+                                                                                    const sEnd = parseTimeMins(s.endTime);
+                                                                                    return mins >= sStart && mins < sEnd;
+                                                                                });
+                                                                            }
+                                                                        }
+                                                                        return false;
                                                                     });
                                                                 } else {
-                                                                    isAvailable = false; // Off day
+                                                                    const docSchedule = clinicianSchedules.find(s => s.doctorId === doctor.id);
+                                                                    const hasClinicianSchedule = docSchedule && docSchedule.slots && docSchedule.slots.length > 0;
+
+                                                                    if (hasClinicianSchedule) {
+                                                                        // Explicit Clinician Schedule overrides HR shifts
+                                                                        const slotNormalized = slot.replace(/^0/, '');
+                                                                        isAvailable = docSchedule.slots.some((schedSlot: string) => schedSlot.replace(/^0/, '') === slotNormalized);
+                                                                    } else if (hasShift) {
+                                                                        // Fallback to HR Shift logic
+                                                                        isAvailable = docShifts.some(s => {
+                                                                            const sStart = parseTimeMins(s.startTime);
+                                                                            const sEnd = parseTimeMins(s.endTime);
+                                                                            return mins >= sStart && mins < sEnd;
+                                                                        });
+                                                                    } else {
+                                                                        isAvailable = false; // Off day
+                                                                    }
                                                                 }
                                                                 
                                                                 const isLastOfHour = slot.includes(':45');
