@@ -51,7 +51,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
+        const rawBody = await request.text();
+        let body;
+        try {
+            body = JSON.parse(rawBody);
+        } catch (parseError: any) {
+            console.error('[BookingCreate] Failed to parse request JSON. Raw body:', rawBody);
+            return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+        }
+
         // Basic validation
         const requiredFields = ['clinicId', 'deptId', 'doctorId', 'serviceId', 'date', 'slot', 'patientName'];
         const missingFields = requiredFields.filter(f => !body[f]);
@@ -156,7 +164,10 @@ export async function POST(request: NextRequest) {
         );
         if (duplicate) {
             return NextResponse.json(
-                { error: 'You already have a booking that overlaps with this time slot.' },
+                { 
+                    error: 'You already have a booking that overlaps with this time slot.',
+                    existingBookingId: duplicate.id 
+                },
                 { status: 409 }
             );
         }
@@ -393,7 +404,8 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(newBooking, { status: 201 });
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
+    } catch (error: any) {
+        console.error('[BookingCreate] Failed to create booking:', error);
+        return NextResponse.json({ error: 'Failed to create booking: ' + (error.message || 'Unknown error') }, { status: 500 });
     }
 }

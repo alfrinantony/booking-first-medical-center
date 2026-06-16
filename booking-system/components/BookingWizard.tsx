@@ -1212,17 +1212,25 @@ export default function BookingWizard() {
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 if (res.status === 409) {
-                    alert(err.error || 'You already have a booking at this date and time.');
-                    return;
+                    if (err.existingBookingId) {
+                        createdBookingId = err.existingBookingId;
+                        // Clear draft and proceed to payment using the existing booking
+                        await clearDraft();
+                    } else {
+                        alert(err.error || 'You already have a booking at this date and time.');
+                        return;
+                    }
+                } else {
+                    throw new Error(err.error || 'Booking failed');
                 }
-                throw new Error(err.error || 'Booking failed');
+            } else {
+                const createdBooking = await res.json();
+                if (createdBooking && createdBooking.id) {
+                    createdBookingId = createdBooking.id;
+                }
+                // Clear the draft once successfully booked
+                await clearDraft();
             }
-            const createdBooking = await res.json();
-            if (createdBooking && createdBooking.id) {
-                createdBookingId = createdBooking.id;
-            }
-            // Clear the draft once successfully booked
-            await clearDraft();
         } catch (error: any) {
             console.error('Failed to save booking', error);
             alert(`Failed to create booking: ${error.message || 'Please try again.'}`);
