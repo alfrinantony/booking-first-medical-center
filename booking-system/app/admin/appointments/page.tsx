@@ -1146,8 +1146,8 @@ export default function AdminAppointmentsPage() {
                                     };
                                 });
 
-                                // Always append 'Any Available Doctor' column to show unassigned bookings
-                                branchDoctors.push({
+                                // Always prepend 'Any Available Doctor' column so it's immediately visible without scrolling
+                                branchDoctors.unshift({
                                     id: 'any-doctor',
                                     name: 'Any Available Doctor',
                                     departmentName: 'General',
