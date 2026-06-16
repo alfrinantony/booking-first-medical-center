@@ -113,6 +113,22 @@ export const BookingsStore = {
             }]
         };
 
+        const id = fullBooking.id || Math.random().toString(36).substr(2, 9);
+        const createdAt = fullBooking.createdAt || new Date().toISOString();
+        
+        const bookingToSave = {
+            ...fullBooking,
+            id,
+            createdAt,
+            duration: fullBooking.duration || 30,
+            amount: fullBooking.amount || 0,
+            statusHistory: fullBooking.statusHistory || [{
+                timestamp: createdAt,
+                status: fullBooking.status || 'booked',
+                changedBy: 'System (Online Booking)'
+            }]
+        };
+
         const allowedFields = new Set([
             'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
             'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
@@ -122,9 +138,9 @@ export const BookingsStore = {
         ]);
 
         const filteredBooking: any = {};
-        for (const key of Object.keys(fullBooking)) {
+        for (const key of Object.keys(bookingToSave)) {
             if (allowedFields.has(key)) {
-                filteredBooking[key] = fullBooking[key];
+                filteredBooking[key] = bookingToSave[key];
             }
         }
 
