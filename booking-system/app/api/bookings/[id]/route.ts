@@ -220,6 +220,16 @@ export async function PATCH(
         return NextResponse.json(updatedBooking);
     } catch (error: any) {
         console.error('Update failed:', error);
+        try {
+            await (await import('@/lib/logs-store')).LogsStore.add({
+                userId: 'system',
+                userName: 'System API Error',
+                action: 'ERROR_BOOKING_UPDATE',
+                details: error.message || String(error),
+                entityId: String(id),
+                entityType: 'Booking'
+            });
+        } catch (logErr) { /* ignore */ }
         return NextResponse.json({ error: 'Failed to update booking', details: error.message || String(error) }, { status: 500 });
     }
 }
