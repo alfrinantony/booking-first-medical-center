@@ -1,0 +1,8 @@
+<step title="Incoming Request" date="2026-06-17T07:24:05.092" instance="940659" url="/api/deployments/latest" method="GET" type="request" pid="850,1,28" Accept="*/*" Host="fmc-booking-app.scm.azurewebsites.net" User-Agent="AZURECLI/2.83.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." x-ms-client-request-id="8031cc64-6a1d-11f1-b05b-e8473ae610d7" X-ARR-LOG-ID="8031cc64-6a1d-11f1-b05b-e8473ae610d7" CLIENT-IP="84.66.5.123:62379" X-SITE-DEPLOYMENT-ID="fmc-booking-app" WAS-DEFAULT-HOSTNAME="fmc-booking-app.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest" X-Client-IP="84.66.5.123" X-Client-Port="62379" >
+  <step title="DeploymentService.GetResult" date="2026-06-17T07:24:05.124" >
+    <step title="DeploymentService.GetLatestDeployment" date="2026-06-17T07:24:05.127" >
+      <step title="DeploymentManager.GetResults" date="2026-06-17T07:24:05.132" /><!-- duration: 258ms -->
+    </step><!-- duration: 269ms -->
+  </step><!-- duration: 277ms -->
+  <step title="Outgoing response" date="2026-06-17T07:24:05.405" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 12ms -->
+</step><!-- duration: 327ms -->

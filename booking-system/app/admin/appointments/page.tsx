@@ -608,9 +608,9 @@ export default function AdminAppointmentsPage() {
             serviceId: booking.serviceId || '',
             doctorId: booking.doctorId,
             duration: booking.duration || 30,
-            patientName: booking.patientName || '',
-            whatsappNumber: booking.whatsappNumber || '',
-            email: booking.email || ''
+            patientName: booking.patientName || (booking as any).clientName || '',
+            whatsappNumber: booking.whatsappNumber || (booking as any).clientPhone || '',
+            email: booking.email || (booking as any).clientEmail || ''
         });
         setIsEditModalOpen(true);
         // Initial fetch for slots if dates are different or just to populate
@@ -744,6 +744,9 @@ export default function AdminAppointmentsPage() {
                     slot: sbBooking.time,
                     serviceId: '', // Bypass service check
                     duration: duration,
+                    patientName: sbBooking.clientName,
+                    whatsappNumber: sbBooking.clientPhone,
+                    email: sbBooking.clientEmail,
                 } as any;
             }
         }
@@ -813,6 +816,8 @@ export default function AdminAppointmentsPage() {
                     body: JSON.stringify({
                         doctorId: targetDoctorId,
                         slot: newSlot,
+                        date: booking.date,
+                        duration: booking.duration,
                         staffName: getStaffName(),
                     })
                 });
@@ -1147,6 +1152,8 @@ export default function AdminAppointmentsPage() {
                                             slot: sb.time,
                                             _duration: duration,
                                             patientName: sb.clientName,
+                                            whatsappNumber: sb.clientPhone,
+                                            email: sb.clientEmail,
                                             deptId: sb.matchedDeptId || '',
                                             doctorId: sb.matchedDoctorId || '',
                                             status: sb.status,
@@ -1206,9 +1213,9 @@ export default function AdminAppointmentsPage() {
                                                 const doctorBookings = combinedBookings.filter(b => {
                                                     if (doctor.id === 'any-doctor') {
                                                         const matchesRealDoctor = branchDoctors.some(d => d.id !== 'any-doctor' && d.id === b.doctorId);
-                                                        return !matchesRealDoctor;
+                                                        return b.anyDoctor || !matchesRealDoctor;
                                                     }
-                                                    return b.doctorId === doctor.id;
+                                                    return b.doctorId === doctor.id && !b.anyDoctor;
                                                 });
                                                 const overlapReady = doctorBookings.map(b => ({ ...b, duration: b._duration }));
                                                 const positionedBookings = calculateOverlaps(overlapReady);
@@ -1234,9 +1241,13 @@ export default function AdminAppointmentsPage() {
                                                                 const mins = parseTimeMins(slot);
                                                                 let isAvailable = false;
                                                                 
+                                                                const hasAnyScheduleConfigured = clinicianSchedules.length > 0 || shifts.length > 0;
                                                                 if (doctor.id === 'any-doctor') {
                                                                     const slotNormalized = slot.replace(/^0/, '');
-                                                                    isAvailable = branchDoctors.some(otherDoc => {
+                                                                    if (!hasAnyScheduleConfigured) {
+                                                                        isAvailable = true;
+                                                                    } else {
+                                                                        isAvailable = branchDoctors.some(otherDoc => {
                                                                         if (otherDoc.id === 'any-doctor') return false;
                                                                         const otherDocSchedule = clinicianSchedules.find(s => s.doctorId === otherDoc.id);
                                                                         const otherHasClinicianSchedule = otherDocSchedule && otherDocSchedule.slots && otherDocSchedule.slots.length > 0;
@@ -1253,7 +1264,8 @@ export default function AdminAppointmentsPage() {
                                                                             }
                                                                         }
                                                                         return false;
-                                                                    });
+                                                                        });
+                                                                    }
                                                                 } else {
                                                                     const docSchedule = clinicianSchedules.find(s => s.doctorId === doctor.id);
                                                                     const hasClinicianSchedule = docSchedule && docSchedule.slots && docSchedule.slots.length > 0;
@@ -1270,7 +1282,7 @@ export default function AdminAppointmentsPage() {
                                                                             return mins >= sStart && mins < sEnd;
                                                                         });
                                                                     } else {
-                                                                        isAvailable = false; // Off day
+                                                                        isAvailable = !hasAnyScheduleConfigured; // Open if no schedules configured for branch at all
                                                                     }
                                                                 }
                                                                 

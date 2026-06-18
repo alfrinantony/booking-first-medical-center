@@ -1,0 +1,527 @@
+2026-06-15T23:42:02.8301155+00:00 ContainerStatus: State: Starting, Action: EstablishingSiteNetworks, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-06-15T23:42:03.7792378+00:00 ContainerStatus: State: Starting, Action: StartingSiteContainers, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-06-15T23:42:03.7795180+00:00 ContainerStatus: Container start method called.
+2026-06-15T23:42:03.7849746+00:00 ContainerStatus: State: Starting, Action: PullingImage, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Pulling image 10.1.0.4:13209/appsvc/node:24-lts_20260504.4.tuxprod for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:42:03.7853398+00:00 ContainerStatus: Establishing network.
+2026-06-15T23:42:03.7856290+00:00 ContainerStatus: Pulling image: appsvc/node:24-lts_20260504.4.tuxprod.
+2026-06-15T23:43:16.7763875+00:00 ContainerStatus: Image appsvc/node:24-lts_20260504.4.tuxprod is pulled from registry mcr.microsoft.com
+2026-06-15T23:43:16.7815383+00:00 ContainerStatus: Container is starting.
+2026-06-15T23:43:16.7899643+00:00 ContainerStatus: State: Starting, Action: MountingVolumes, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Mounting volumes for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:43:16.7914583+00:00 ContainerStatus: Establishing user namespace if not established already.
+2026-06-15T23:43:16.7926005+00:00 ContainerStatus: Establishing network if not established already.
+2026-06-15T23:43:16.7928916+00:00 ContainerStatus: Mounting volumes.
+2026-06-15T23:43:16.7942466+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:43:16.7992941+00:00 ContainerStatus: Nested mountpoint volatile/logs
+2026-06-15T23:43:16.8050063+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:43:16.8402623+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:43:16.8475952+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:43:17.6314042+00:00 ContainerStatus: State: Starting, Action: CreatingContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Finished pulling container image and mounting volumes for fmc-booking-app. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-06-15T23:43:17.6315411+00:00 ContainerStatus: Creating container.
+2026-06-15T23:43:17.6316548+00:00 ContainerStatus: Creating pipes for streaming container io.
+2026-06-15T23:43:17.6317775+00:00 ContainerStatus: Creating stdout named pipe at /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173.
+2026-06-15T23:43:17.6329615+00:00 ContainerStatus: Successfully created stdout named pipe at: /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173.
+2026-06-15T23:43:17.6331573+00:00 ContainerStatus: Opening named pipe /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173 for reading in non-blocking mode.
+2026-06-15T23:43:17.6335464+00:00 ContainerStatus: Successfully opened named pipe: /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173.
+2026-06-15T23:43:17.6337508+00:00 ContainerStatus: Successfully removed non-blocking flag from /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173.
+2026-06-15T23:43:17.6344303+00:00 ContainerStatus: Creating stderr named pipe at /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602.
+2026-06-15T23:43:17.6349449+00:00 ContainerStatus: Successfully created stderr named pipe at: /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602.
+2026-06-15T23:43:17.6350652+00:00 ContainerStatus: Opening named pipe /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602 for reading in non-blocking mode.
+2026-06-15T23:43:17.6354740+00:00 ContainerStatus: Successfully opened named pipe: /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602.
+2026-06-15T23:43:17.6358200+00:00 ContainerStatus: Successfully removed non-blocking flag from /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602.
+2026-06-15T23:43:17.6360531+00:00 ContainerStatus: Creating container with image: appsvc/node:24-lts_20260504.4.tuxprod from registry: mcr.microsoft.com and fully qualified image name: mcr.microsoft.com/appsvc/node:24-lts_20260504.4.tuxprod
+2026-06-15T23:43:18.6493492+00:00 ContainerStatus: Starting container: 326ba785d64f_fmc-booking-app.
+2026-06-15T23:43:18.7229670+00:00 ContainerStatus: Starting watchers and probes.
+2026-06-15T23:43:18.7253248+00:00 ContainerStatus: Starting metrics collection.
+2026-06-15T23:43:18.7268106+00:00 ContainerStatus: Container is running.
+2026-06-15T23:43:18.7275280+00:00 ContainerStatus: State: Starting, Action: CreatingContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:43:18.7829345+00:00 ContainerStatus: Container start method finished after 75003 ms.
+2026-06-15T23:43:18.7886910+00:00 ContainerStatus: State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:43:18.8008715+00:00 ContainerStatus: State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-06-15T23:43:19.3543356+00:00 ContainerStream:    _____                               
+2026-06-15T23:43:19.3650165+00:00 ContainerStream:   /  _  \ __________ _________   ____  
+2026-06-15T23:43:19.3650636+00:00 ContainerStream:  /  /_\  \\___   /  |  \_  __ \_/ __ \ 
+2026-06-15T23:43:19.3650773+00:00 ContainerStream: /    |    \/    /|  |  /|  | \/\  ___/ 
+2026-06-15T23:43:19.3650815+00:00 ContainerStream: \____|__  /_____ \____/ |__|    \___  >
+2026-06-15T23:43:19.3650853+00:00 ContainerStream:         \/      \/                  \/ 
+2026-06-15T23:43:19.3650922+00:00 ContainerStream: A P P   S E R V I C E   O N   L I N U X
+2026-06-15T23:43:19.3650974+00:00 ContainerStream: 
+2026-06-15T23:43:19.3651016+00:00 ContainerStream: Documentation    : http://aka.ms/webapp-linux
+2026-06-15T23:43:19.3651293+00:00 ContainerStream: NodeJS quickstart: https://aka.ms/node-qs
+2026-06-15T23:43:19.3651353+00:00 ContainerStream: NodeJS Version   : v24.15.0
+2026-06-15T23:43:19.3651393+00:00 ContainerStream: Instance Name    : 10-30-0-138
+2026-06-15T23:43:19.3651455+00:00 ContainerStream: Instance Id      : bda878cffb7fdf6e967f5e7f2cc80f6a2d5af54229ce993d617d2fd35875954e
+2026-06-15T23:43:19.3651534+00:00 ContainerStream: 
+2026-06-15T23:43:19.3651573+00:00 ContainerStream: Note: Any data outside '/home' is not persisted
+2026-06-15T23:43:21.6160300+00:00 ContainerStream:  * Starting OpenBSD Secure Shell server sshd
+2026-06-15T23:43:21.6456882+00:00 ContainerStream:    ...done.
+2026-06-15T23:43:21.7371056+00:00 ContainerStream: WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
+2026-06-15T23:43:21.8359138+00:00 ContainerStream: Updating certificates in /etc/ssl/certs...
+2026-06-15T23:43:34.5648081+00:00 ContainerStream: rehash: warning: skipping duplicate certificate in SSLcom-TLS-Root-2022-ECC.pem
+2026-06-15T23:43:34.5672639+00:00 ContainerStream: rehash: warning: skipping duplicate certificate in SSLcom-TLS-Root-2022-RSA.pem
+2026-06-15T23:43:34.9953072+00:00 ContainerStream: rehash: warning: skipping ca-certificates.crt,it does not contain exactly one certificate or CRL
+2026-06-15T23:43:35.1858264+00:00 ContainerStream: 4 added, 0 removed; done.
+2026-06-15T23:43:35.1887787+00:00 ContainerStream: Running hooks in /etc/ca-certificates/update.d...
+2026-06-15T23:43:35.1954524+00:00 ContainerStream: done.
+2026-06-15T23:43:35.2086438+00:00 ContainerStream: CA certificates copied and updated successfully.
+2026-06-15T23:43:35.3407759+00:00 ContainerStream:  * Starting periodic command scheduler cron
+2026-06-15T23:43:35.3539764+00:00 ContainerStream:    ...done.
+2026-06-15T23:43:35.4443405+00:00 ContainerStream: Could not find build manifest file at '/home/site/wwwroot/oryx-manifest.toml'
+2026-06-15T23:43:35.4452515+00:00 ContainerStream: Could not find operation ID in manifest. Generating an operation id...
+2026-06-15T23:43:35.4460475+00:00 ContainerStream: Build Operation ID: 5bc2d161-aa7d-4417-ad20-290d71f93697
+2026-06-15T23:43:35.7563376+00:00 ContainerStream: Environment Variables for Application Insight's IPA Codeless Configuration exists..
+2026-06-15T23:43:35.9463232+00:00 ContainerStream: Writing output script to '/opt/startup/startup.sh'
+2026-06-15T23:43:36.1893450+00:00 ContainerStream: Running #!/bin/sh
+2026-06-15T23:43:36.1894244+00:00 ContainerStream: 
+2026-06-15T23:43:36.1894298+00:00 ContainerStream: # Enter the source directory to make sure the script runs where the user expects
+2026-06-15T23:43:36.1894354+00:00 ContainerStream: cd "/home/site/wwwroot"
+2026-06-15T23:43:36.1894511+00:00 ContainerStream: 
+2026-06-15T23:43:36.1910350+00:00 ContainerStream: export NODE_PATH=/usr/local/lib/node_modules:$NODE_PATH
+2026-06-15T23:43:36.1910501+00:00 ContainerStream: if [ -z "$PORT" ]; then
+2026-06-15T23:43:36.1910552+00:00 ContainerStream: 		export PORT=8080
+2026-06-15T23:43:36.1911102+00:00 ContainerStream: fi
+2026-06-15T23:43:36.1912091+00:00 ContainerStream: 
+2026-06-15T23:43:36.1912136+00:00 ContainerStream: PATH="$PATH:/home/site/wwwroot" node server.js
+2026-06-15T23:43:36.9184674+00:00 ContainerStream: node:internal/modules/cjs/loader:1479
+2026-06-15T23:43:36.9185731+00:00 ContainerStream:   throw err;
+2026-06-15T23:43:36.9185802+00:00 ContainerStream:   ^
+2026-06-15T23:43:36.9185903+00:00 ContainerStream: 
+2026-06-15T23:43:36.9185942+00:00 ContainerStream: Error: Cannot find module '/home/site/wwwroot/server.js'
+2026-06-15T23:43:36.9185981+00:00 ContainerStream:     at Module._resolveFilename (node:internal/modules/cjs/loader:1476:15)
+2026-06-15T23:43:36.9186022+00:00 ContainerStream:     at wrapResolveFilename (node:internal/modules/cjs/loader:1049:27)
+2026-06-15T23:43:36.9186061+00:00 ContainerStream:     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1073:10)
+2026-06-15T23:43:36.9186099+00:00 ContainerStream:     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1094:12)
+2026-06-15T23:43:36.9186148+00:00 ContainerStream:     at Module._load (node:internal/modules/cjs/loader:1262:25)
+2026-06-15T23:43:36.9186188+00:00 ContainerStream:     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+2026-06-15T23:43:36.9186228+00:00 ContainerStream:     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+2026-06-15T23:43:36.9186260+00:00 ContainerStream:     at node:internal/main/run_main_module:33:47 {
+2026-06-15T23:43:36.9186296+00:00 ContainerStream:   code: 'MODULE_NOT_FOUND',
+2026-06-15T23:43:36.9186331+00:00 ContainerStream:   requireStack: []
+2026-06-15T23:43:36.9186366+00:00 ContainerStream: }
+2026-06-15T23:43:36.9186405+00:00 ContainerStream: 
+2026-06-15T23:43:36.9186481+00:00 ContainerStream: Node.js v24.15.0
+2026-06-15T23:43:37.0028971+00:00 ContainerStatus: Container has finished running with exit code: 1.
+2026-06-15T23:43:37.0084741+00:00 ContainerStatus: Container is terminating. Grace period: 5 seconds.
+2026-06-15T23:43:37.0185915+00:00 ContainerStatus: Stop and delete container. Retry count = 0
+2026-06-15T23:43:37.0195050+00:00 ContainerStatus: Stopping container: 326ba785d64f_fmc-booking-app.
+2026-06-15T23:43:37.1322937+00:00 ContainerStatus: Deleting container: 326ba785d64f_fmc-booking-app. Retry count = 0
+2026-06-15T23:43:37.3522666+00:00 ContainerStatus: Container spec TerminationMessagePolicy  path 
+2026-06-15T23:43:37.3559258+00:00 ContainerStatus: Container is terminated. Total time elapsed: 345 ms.
+2026-06-15T23:43:37.3560792+00:00 ContainerStatus: Site container: fmc-booking-app terminated during site startup.
+2026-06-15T23:43:37.3988106+00:00 ContainerStatus: State: Stopping, Action: CancellingStartup, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.4791297+00:00 ContainerStatus: Site startup probe failed after 18.6406863 seconds.
+2026-06-15T23:43:37.6957441+00:00 ContainerStatus: State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.7070537+00:00 ContainerStatus: Failed to start site. Revert by stopping site.
+2026-06-15T23:43:37.7233302+00:00 ContainerStatus: State: Stopping, Action: StoppingSite, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.7319020+00:00 ContainerStatus: State: Stopping, Action: StoppingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.7332819+00:00 ContainerStatus: Site: fmc-booking-app stopped.
+========== New Cold Start Attempt (2026-06-15T23:43:37.7425313+00:00) ==========
+2026-06-15T23:43:37.7425313+00:00 ContainerStatus: State: Stopping, Action: UnmountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.8605344+00:00 ContainerStatus: State: Stopping, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:38.0272869+00:00 ContainerStatus: State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:43:38 (UTC), DetailsLevel: ERR
+2026-06-15T23:43:38.3770754+00:00 ContainerStatus: State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:43:38 (UTC), DetailsLevel: ERR
+2026-06-15T23:43:51.9550814+00:00 ContainerStatus: State: Starting, Action: EstablishingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:43:38 (UTC), DetailsLevel: ERR
+2026-06-15T23:43:52.3925908+00:00 ContainerStatus: State: Starting, Action: StartingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:43:38 (UTC), DetailsLevel: ERR
+2026-06-15T23:43:52.3939081+00:00 ContainerStatus: Container start method called.
+2026-06-15T23:43:52.3946638+00:00 ContainerStatus: State: Starting, Action: PullingImage, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pulling image mcr.microsoft.com/appsvc/node:24-lts_20260504.4.tuxprod for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:43:52.3948046+00:00 ContainerStatus: Establishing network.
+2026-06-15T23:43:52.3949401+00:00 ContainerStatus: Pulling image: appsvc/node:24-lts_20260504.4.tuxprod.
+2026-06-15T23:43:54.4989898+00:00 ContainerStatus: Image appsvc/node:24-lts_20260504.4.tuxprod is pulled from registry 10.1.0.5:13209
+2026-06-15T23:43:54.4991231+00:00 ContainerStatus: Container is starting.
+2026-06-15T23:43:54.4992138+00:00 ContainerStatus: State: Starting, Action: MountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Mounting volumes for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:43:54.4993096+00:00 ContainerStatus: Establishing user namespace if not established already.
+2026-06-15T23:43:54.4995118+00:00 ContainerStatus: Establishing network if not established already.
+2026-06-15T23:43:54.4996345+00:00 ContainerStatus: Mounting volumes.
+2026-06-15T23:43:54.4998259+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:43:54.5034537+00:00 ContainerStatus: Nested mountpoint volatile/logs
+2026-06-15T23:43:54.5114059+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:43:54.5302450+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:43:54.5383236+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:43:55.0480299+00:00 ContainerStatus: State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Finished pulling container image and mounting volumes for fmc-booking-app. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-06-15T23:43:55.0482666+00:00 ContainerStatus: Creating container.
+2026-06-15T23:43:55.0485365+00:00 ContainerStatus: Creating pipes for streaming container io.
+2026-06-15T23:43:55.0486964+00:00 ContainerStatus: Creating stdout named pipe at /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003.
+2026-06-15T23:43:55.0508109+00:00 ContainerStatus: Successfully created stdout named pipe at: /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003.
+2026-06-15T23:43:55.0509242+00:00 ContainerStatus: Opening named pipe /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003 for reading in non-blocking mode.
+2026-06-15T23:43:55.0511728+00:00 ContainerStatus: Successfully opened named pipe: /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003.
+2026-06-15T23:43:55.0513750+00:00 ContainerStatus: Successfully removed non-blocking flag from /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003.
+2026-06-15T23:43:55.0548530+00:00 ContainerStatus: Creating stderr named pipe at /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f.
+2026-06-15T23:43:55.0550712+00:00 ContainerStatus: Successfully created stderr named pipe at: /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f.
+2026-06-15T23:43:55.0551985+00:00 ContainerStatus: Opening named pipe /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f for reading in non-blocking mode.
+2026-06-15T23:43:55.0554238+00:00 ContainerStatus: Successfully opened named pipe: /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f.
+2026-06-15T23:43:55.0555497+00:00 ContainerStatus: Successfully removed non-blocking flag from /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f.
+2026-06-15T23:43:55.0557219+00:00 ContainerStatus: Creating container with image: appsvc/node:24-lts_20260504.4.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod
+2026-06-15T23:43:55.4749696+00:00 ContainerStatus: Starting container: 705f5026f035_fmc-booking-app.
+2026-06-15T23:43:55.5105101+00:00 ContainerStatus: Starting watchers and probes.
+2026-06-15T23:43:55.5108947+00:00 ContainerStatus: Starting metrics collection.
+2026-06-15T23:43:55.5123723+00:00 ContainerStatus: Container is running.
+2026-06-15T23:43:55.5124860+00:00 ContainerStatus: State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:43:55.5557849+00:00 ContainerStatus: Container start method finished after 3161 ms.
+2026-06-15T23:43:55.5560779+00:00 ContainerStatus: State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:43:55.5561379+00:00 ContainerStatus: State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-06-15T23:43:57.6479893+00:00 ContainerStream:    _____                               
+2026-06-15T23:43:57.6480549+00:00 ContainerStream:   /  _  \ __________ _________   ____  
+2026-06-15T23:43:57.6480592+00:00 ContainerStream:  /  /_\  \\___   /  |  \_  __ \_/ __ \ 
+2026-06-15T23:43:57.6480621+00:00 ContainerStream: /    |    \/    /|  |  /|  | \/\  ___/ 
+2026-06-15T23:43:57.6480648+00:00 ContainerStream: \____|__  /_____ \____/ |__|    \___  >
+2026-06-15T23:43:57.6480741+00:00 ContainerStream:         \/      \/                  \/ 
+2026-06-15T23:43:57.6487071+00:00 ContainerStream: A P P   S E R V I C E   O N   L I N U X
+2026-06-15T23:43:57.6487109+00:00 ContainerStream: 
+2026-06-15T23:43:57.6487139+00:00 ContainerStream: Documentation    : http://aka.ms/webapp-linux
+2026-06-15T23:43:57.6487168+00:00 ContainerStream: NodeJS quickstart: https://aka.ms/node-qs
+2026-06-15T23:43:57.6487196+00:00 ContainerStream: NodeJS Version   : v24.15.0
+2026-06-15T23:43:57.6487223+00:00 ContainerStream: Instance Name    : 10-30-0-138
+2026-06-15T23:43:57.6487264+00:00 ContainerStream: Instance Id      : bda878cffb7fdf6e967f5e7f2cc80f6a2d5af54229ce993d617d2fd35875954e
+2026-06-15T23:43:57.6487290+00:00 ContainerStream: 
+2026-06-15T23:43:57.6487319+00:00 ContainerStream: Note: Any data outside '/home' is not persisted
+2026-06-15T23:43:58.6127085+00:00 ContainerStream:  * Starting OpenBSD Secure Shell server sshd
+2026-06-15T23:43:58.6695813+00:00 ContainerStream:    ...done.
+2026-06-15T23:43:58.6876512+00:00 ContainerStream: WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
+2026-06-15T23:43:58.7363974+00:00 ContainerStream: Updating certificates in /etc/ssl/certs...
+2026-06-15T23:44:07.7558992+00:00 ContainerStream: rehash: warning: skipping duplicate certificate in SSLcom-TLS-Root-2022-ECC.pem
+2026-06-15T23:44:07.7559571+00:00 ContainerStream: rehash: warning: skipping duplicate certificate in SSLcom-TLS-Root-2022-RSA.pem
+2026-06-15T23:44:07.8731350+00:00 ContainerStream: rehash: warning: skipping ca-certificates.crt,it does not contain exactly one certificate or CRL
+2026-06-15T23:44:07.8901197+00:00 ContainerStream: 4 added, 0 removed; done.
+2026-06-15T23:44:07.8901964+00:00 ContainerStream: Running hooks in /etc/ca-certificates/update.d...
+2026-06-15T23:44:07.8975650+00:00 ContainerStream: done.
+2026-06-15T23:44:07.9105367+00:00 ContainerStream: CA certificates copied and updated successfully.
+2026-06-15T23:44:08.0067951+00:00 ContainerStream:  * Starting periodic command scheduler cron
+2026-06-15T23:44:08.0148188+00:00 ContainerStream:    ...done.
+2026-06-15T23:44:08.1146008+00:00 ContainerStream: Could not find build manifest file at '/home/site/wwwroot/oryx-manifest.toml'
+2026-06-15T23:44:08.1146442+00:00 ContainerStream: Could not find operation ID in manifest. Generating an operation id...
+2026-06-15T23:44:08.1151177+00:00 ContainerStream: Build Operation ID: b34f0d0c-7288-43e9-ae91-76c698ce7bc9
+2026-06-15T23:44:08.3261863+00:00 ContainerStream: Environment Variables for Application Insight's IPA Codeless Configuration exists..
+2026-06-15T23:44:08.3597280+00:00 ContainerStream: Writing output script to '/opt/startup/startup.sh'
+2026-06-15T23:44:08.4138195+00:00 ContainerStream: Running #!/bin/sh
+2026-06-15T23:44:08.4138582+00:00 ContainerStream: 
+2026-06-15T23:44:08.4138693+00:00 ContainerStream: # Enter the source directory to make sure the script runs where the user expects
+2026-06-15T23:44:08.4138732+00:00 ContainerStream: cd "/home/site/wwwroot"
+2026-06-15T23:44:08.4138759+00:00 ContainerStream: 
+2026-06-15T23:44:08.4139027+00:00 ContainerStream: export NODE_PATH=/usr/local/lib/node_modules:$NODE_PATH
+2026-06-15T23:44:08.4139057+00:00 ContainerStream: if [ -z "$PORT" ]; then
+2026-06-15T23:44:08.4139083+00:00 ContainerStream: 		export PORT=8080
+2026-06-15T23:44:08.4139107+00:00 ContainerStream: fi
+2026-06-15T23:44:08.4139132+00:00 ContainerStream: 
+2026-06-15T23:44:08.4139161+00:00 ContainerStream: PATH="$PATH:/home/site/wwwroot" node server.js
+2026-06-15T23:44:08.7989091+00:00 ContainerStream: node:internal/modules/cjs/loader:1479
+2026-06-15T23:44:08.7989396+00:00 ContainerStream:   throw err;
+2026-06-15T23:44:08.7989500+00:00 ContainerStream:   ^
+2026-06-15T23:44:08.7989528+00:00 ContainerStream: 
+2026-06-15T23:44:08.7989556+00:00 ContainerStream: Error: Cannot find module '/home/site/wwwroot/server.js'
+2026-06-15T23:44:08.7989584+00:00 ContainerStream:     at Module._resolveFilename (node:internal/modules/cjs/loader:1476:15)
+2026-06-15T23:44:08.7989611+00:00 ContainerStream:     at wrapResolveFilename (node:internal/modules/cjs/loader:1049:27)
+2026-06-15T23:44:08.7989640+00:00 ContainerStream:     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1073:10)
+2026-06-15T23:44:08.7989670+00:00 ContainerStream:     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1094:12)
+2026-06-15T23:44:08.7989700+00:00 ContainerStream:     at Module._load (node:internal/modules/cjs/loader:1262:25)
+2026-06-15T23:44:08.7989726+00:00 ContainerStream:     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+2026-06-15T23:44:08.7989753+00:00 ContainerStream:     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+2026-06-15T23:44:08.7989780+00:00 ContainerStream:     at node:internal/main/run_main_module:33:47 {
+2026-06-15T23:44:08.7989814+00:00 ContainerStream:   code: 'MODULE_NOT_FOUND',
+2026-06-15T23:44:08.7989839+00:00 ContainerStream:   requireStack: []
+2026-06-15T23:44:08.7989862+00:00 ContainerStream: }
+2026-06-15T23:44:08.7989885+00:00 ContainerStream: 
+2026-06-15T23:44:08.7989909+00:00 ContainerStream: Node.js v24.15.0
+2026-06-15T23:44:08.8553507+00:00 ContainerStatus: Container has finished running with exit code: 1.
+2026-06-15T23:44:08.8602013+00:00 ContainerStatus: Container is terminating. Grace period: 5 seconds.
+2026-06-15T23:44:08.8610848+00:00 ContainerStatus: Stop and delete container. Retry count = 0
+2026-06-15T23:44:08.8613196+00:00 ContainerStatus: Stopping container: 705f5026f035_fmc-booking-app.
+2026-06-15T23:44:08.9045988+00:00 ContainerStatus: Deleting container: 705f5026f035_fmc-booking-app. Retry count = 0
+2026-06-15T23:44:09.0360602+00:00 ContainerStatus: Container spec TerminationMessagePolicy  path 
+2026-06-15T23:44:09.0368466+00:00 ContainerStatus: Container is terminated. Total time elapsed: 176 ms.
+2026-06-15T23:44:09.0371862+00:00 ContainerStatus: Site container: fmc-booking-app terminated during site startup.
+2026-06-15T23:44:09.0375382+00:00 ContainerStatus: State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.0417097+00:00 ContainerStatus: Site startup probe failed after 13.4797847 seconds.
+2026-06-15T23:44:09.1167586+00:00 ContainerStatus: State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.1422731+00:00 ContainerStatus: Failed to start site. Revert by stopping site.
+2026-06-15T23:44:09.1428020+00:00 ContainerStatus: State: Stopping, Action: StoppingSite, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.1430692+00:00 ContainerStatus: State: Stopping, Action: StoppingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.1430853+00:00 ContainerStatus: Site: fmc-booking-app stopped.
+========== New Cold Start Attempt (2026-06-15T23:44:09.1462155+00:00) ==========
+2026-06-15T23:44:09.1462155+00:00 ContainerStatus: State: Stopping, Action: UnmountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.2238427+00:00 ContainerStatus: State: Stopping, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.2981264+00:00 ContainerStatus: Site: fmc-booking-app will be blocked for 1 minutes till 06/15/2026 23:45:09
+2026-06-15T23:44:09.2989639+00:00 ContainerStatus: State: Blocked, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site: fmc-booking-app will be blocked for 1 minutes till 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:09.3127550+00:00 ContainerStatus: State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:44:09 (UTC), DetailsLevel: WARN
+2026-06-15T23:44:09.5151166+00:00 ContainerStatus: State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:44:09 (UTC), DetailsLevel: WARN
+2026-06-15T23:44:14.7514429+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:14.7514748+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:19.9474345+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:19.9474856+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:25.0853890+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:25.0854191+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:30.2068720+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:30.2069045+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:35.3564795+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:35.3565040+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:40.5699121+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:40.5699653+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:45.7641502+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:45.7642588+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:50.9510405+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:50.9510693+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:56.0558306+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:56.0559182+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:01.1816889+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:45:01.1817151+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:06.4644990+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:45:06.4645966+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:09.2967674+00:00 ContainerStatus: Site: fmc-booking-app is unblocked.
+2026-06-15T23:45:11.6504368+00:00 ContainerStatus: State: Starting, Action: EstablishingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:45:12.0081931+00:00 ContainerStatus: State: Starting, Action: StartingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:45:12.0082882+00:00 ContainerStatus: Container start method called.
+2026-06-15T23:45:12.0083258+00:00 ContainerStatus: State: Starting, Action: PullingImage, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pulling image 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:45:12.0083987+00:00 ContainerStatus: Establishing network.
+2026-06-15T23:45:12.0084759+00:00 ContainerStatus: Pulling image: appsvc/node:24-lts_20260504.4.tuxprod.
+2026-06-15T23:45:13.5492944+00:00 ContainerStatus: Container is starting.
+2026-06-15T23:45:13.5493865+00:00 ContainerStatus: State: Starting, Action: MountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Mounting volumes for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:45:13.5494944+00:00 ContainerStatus: Establishing user namespace if not established already.
+2026-06-15T23:45:13.5495891+00:00 ContainerStatus: Establishing network if not established already.
+2026-06-15T23:45:13.5496884+00:00 ContainerStatus: Mounting volumes.
+2026-06-15T23:45:13.5499783+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:45:13.5560864+00:00 ContainerStatus: Nested mountpoint volatile/logs
+2026-06-15T23:45:13.5715799+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:45:13.5723824+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:45:13.5923614+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:45:13.6876036+00:00 ContainerStatus: State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Finished pulling container image and mounting volumes for fmc-booking-app. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-06-15T23:45:13.6916906+00:00 ContainerStatus: Creating container.
+2026-06-15T23:45:13.6918184+00:00 ContainerStatus: Creating pipes for streaming container io.
+2026-06-15T23:45:13.6919316+00:00 ContainerStatus: Creating stdout named pipe at /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945.
+2026-06-15T23:45:13.6921699+00:00 ContainerStatus: Successfully created stdout named pipe at: /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945.
+2026-06-15T23:45:13.6924883+00:00 ContainerStatus: Opening named pipe /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945 for reading in non-blocking mode.
+2026-06-15T23:45:13.6926266+00:00 ContainerStatus: Successfully opened named pipe: /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945.
+2026-06-15T23:45:13.6927471+00:00 ContainerStatus: Successfully removed non-blocking flag from /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945.
+2026-06-15T23:45:13.6929099+00:00 ContainerStatus: Creating stderr named pipe at /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69.
+2026-06-15T23:45:13.6930803+00:00 ContainerStatus: Successfully created stderr named pipe at: /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69.
+2026-06-15T23:45:13.6933272+00:00 ContainerStatus: Opening named pipe /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69 for reading in non-blocking mode.
+2026-06-15T23:45:13.6934856+00:00 ContainerStatus: Successfully opened named pipe: /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69.
+2026-06-15T23:45:13.6936067+00:00 ContainerStatus: Successfully removed non-blocking flag from /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69.
+2026-06-15T23:45:13.6937562+00:00 ContainerStatus: Creating container with image: appsvc/node:24-lts_20260504.4.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod
+2026-06-15T23:45:13.9389417+00:00 ContainerStatus: Starting container: 22ebb2da9d41_fmc-booking-app.
+2026-06-15T23:45:13.9662131+00:00 ContainerStatus: Starting watchers and probes.
+2026-06-15T23:45:13.9667133+00:00 ContainerStatus: Starting metrics collection.
+2026-06-15T23:45:13.9670152+00:00 ContainerStatus: Container is running.
+2026-06-15T23:45:13.9672808+00:00 ContainerStatus: State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:45:13.9887938+00:00 ContainerStatus: Container start method finished after 1980 ms.
+2026-06-15T23:45:13.9889812+00:00 ContainerStatus: State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:45:13.9890059+00:00 ContainerStatus: State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-06-15T23:45:14.0793368+00:00 ContainerStream:    _____                               
+2026-06-15T23:45:14.0794325+00:00 ContainerStream:   /  _  \ __________ _________   ____  
+2026-06-15T23:45:14.0794365+00:00 ContainerStream:  /  /_\  \\___   /  |  \_  __ \_/ __ \ 
+2026-06-15T23:45:14.0794392+00:00 ContainerStream: /    |    \/    /|  |  /|  | \/\  ___/ 
+2026-06-15T23:45:14.0794465+00:00 ContainerStream: \____|__  /_____ \____/ |__|    \___  >
+2026-06-15T23:45:14.0794493+00:00 ContainerStream:         \/      \/                  \/ 
+2026-06-15T23:45:14.0794519+00:00 ContainerStream: A P P   S E R V I C E   O N   L I N U X
+2026-06-15T23:45:14.0794544+00:00 ContainerStream: 
+2026-06-15T23:45:14.0794572+00:00 ContainerStream: Documentation    : http://aka.ms/webapp-linux
+2026-06-15T23:45:14.0794599+00:00 ContainerStream: NodeJS quickstart: https://aka.ms/node-qs
+2026-06-15T23:45:14.0794625+00:00 ContainerStream: NodeJS Version   : v24.15.0
+2026-06-15T23:45:14.0794653+00:00 ContainerStream: Instance Name    : 10-30-0-138
+2026-06-15T23:45:14.0794685+00:00 ContainerStream: Instance Id      : bda878cffb7fdf6e967f5e7f2cc80f6a2d5af54229ce993d617d2fd35875954e
+2026-06-15T23:45:14.0794710+00:00 ContainerStream: 
+2026-06-15T23:45:14.0794738+00:00 ContainerStream: Note: Any data outside '/home' is not persisted
+2026-06-15T23:45:14.8858771+00:00 ContainerStream:  * Starting OpenBSD Secure Shell server sshd
+2026-06-15T23:45:14.9022923+00:00 ContainerStream:    ...done.
+2026-06-15T23:45:14.9160099+00:00 ContainerStream: WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
+2026-06-15T23:45:14.9477930+00:00 ContainerStream: Updating certificates in /etc/ssl/certs...
+2026-06-15T23:45:22.1333654+00:00 ContainerStream: rehash: warning: skipping duplicate certificate in SSLcom-TLS-Root-2022-ECC.pem
+2026-06-15T23:45:22.1345168+00:00 ContainerStream: rehash: warning: skipping duplicate certificate in SSLcom-TLS-Root-2022-RSA.pem
+2026-06-15T23:45:22.2431914+00:00 ContainerStream: rehash: warning: skipping ca-certificates.crt,it does not contain exactly one certificate or CRL
+2026-06-15T23:45:22.2629317+00:00 ContainerStream: 4 added, 0 removed; done.
+2026-06-15T23:45:22.2630709+00:00 ContainerStream: Running hooks in /etc/ca-certificates/update.d...
+2026-06-15T23:45:22.2673744+00:00 ContainerStream: done.
+2026-06-15T23:45:22.2766007+00:00 ContainerStream: CA certificates copied and updated successfully.
+2026-06-15T23:45:22.3800451+00:00 ContainerStream:  * Starting periodic command scheduler cron
+2026-06-15T23:45:22.3935485+00:00 ContainerStream:    ...done.
+2026-06-15T23:45:22.4750473+00:00 ContainerStream: Could not find build manifest file at '/home/site/wwwroot/oryx-manifest.toml'
+2026-06-15T23:45:22.4766322+00:00 ContainerStream: Could not find operation ID in manifest. Generating an operation id...
+2026-06-15T23:45:22.4790110+00:00 ContainerStream: Build Operation ID: 74c2ca71-0baa-42df-9654-d3e6d25874d0
+2026-06-15T23:45:22.6393910+00:00 ContainerStream: Environment Variables for Application Insight's IPA Codeless Configuration exists..
+2026-06-15T23:45:22.6690384+00:00 ContainerStream: Writing output script to '/opt/startup/startup.sh'
+2026-06-15T23:45:22.7035784+00:00 ContainerStream: Running #!/bin/sh
+2026-06-15T23:45:22.7036219+00:00 ContainerStream: 
+2026-06-15T23:45:22.7036264+00:00 ContainerStream: # Enter the source directory to make sure the script runs where the user expects
+2026-06-15T23:45:22.7036295+00:00 ContainerStream: cd "/home/site/wwwroot"
+2026-06-15T23:45:22.7036323+00:00 ContainerStream: 
+2026-06-15T23:45:22.7048576+00:00 ContainerStream: export NODE_PATH=/usr/local/lib/node_modules:$NODE_PATH
+2026-06-15T23:45:22.7048669+00:00 ContainerStream: if [ -z "$PORT" ]; then
+2026-06-15T23:45:22.7048703+00:00 ContainerStream: 		export PORT=8080
+2026-06-15T23:45:22.7048731+00:00 ContainerStream: fi
+2026-06-15T23:45:22.7048756+00:00 ContainerStream: 
+2026-06-15T23:45:22.7048783+00:00 ContainerStream: PATH="$PATH:/home/site/wwwroot" node server.js
+2026-06-15T23:45:22.8301948+00:00 ContainerStream: node:internal/modules/cjs/loader:1479
+2026-06-15T23:45:22.8302151+00:00 ContainerStream:   throw err;
+2026-06-15T23:45:22.8302183+00:00 ContainerStream:   ^
+2026-06-15T23:45:22.8302207+00:00 ContainerStream: 
+2026-06-15T23:45:22.8302297+00:00 ContainerStream: Error: Cannot find module '/home/site/wwwroot/server.js'
+2026-06-15T23:45:22.8302327+00:00 ContainerStream:     at Module._resolveFilename (node:internal/modules/cjs/loader:1476:15)
+2026-06-15T23:45:22.8302355+00:00 ContainerStream:     at wrapResolveFilename (node:internal/modules/cjs/loader:1049:27)
+2026-06-15T23:45:22.8302382+00:00 ContainerStream:     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1073:10)
+2026-06-15T23:45:22.8302409+00:00 ContainerStream:     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1094:12)
+2026-06-15T23:45:22.8302436+00:00 ContainerStream:     at Module._load (node:internal/modules/cjs/loader:1262:25)
+2026-06-15T23:45:22.8302463+00:00 ContainerStream:     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+2026-06-15T23:45:22.8302491+00:00 ContainerStream:     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+2026-06-15T23:45:22.8302517+00:00 ContainerStream:     at node:internal/main/run_main_module:33:47 {
+2026-06-15T23:45:22.8302542+00:00 ContainerStream:   code: 'MODULE_NOT_FOUND',
+2026-06-15T23:45:22.8302568+00:00 ContainerStream:   requireStack: []
+2026-06-15T23:45:22.8302607+00:00 ContainerStream: }
+2026-06-15T23:45:22.8302631+00:00 ContainerStream: 
+2026-06-15T23:45:22.8302656+00:00 ContainerStream: Node.js v24.15.0
+2026-06-15T23:45:22.8724405+00:00 ContainerStatus: Container has finished running with exit code: 1.
+2026-06-15T23:45:22.8730949+00:00 ContainerStatus: Container is terminating. Grace period: 5 seconds.
+2026-06-15T23:45:22.8746271+00:00 ContainerStatus: Stop and delete container. Retry count = 0
+2026-06-15T23:45:22.8751191+00:00 ContainerStatus: Stopping container: 22ebb2da9d41_fmc-booking-app.
+2026-06-15T23:45:22.9112699+00:00 ContainerStatus: Deleting container: 22ebb2da9d41_fmc-booking-app. Retry count = 0
+2026-06-15T23:45:22.9975754+00:00 ContainerStatus: Container spec TerminationMessagePolicy  path 
+2026-06-15T23:45:22.9991023+00:00 ContainerStatus: Container is terminated. Total time elapsed: 125 ms.
+2026-06-15T23:45:23.0000177+00:00 ContainerStatus: Site container: fmc-booking-app terminated during site startup.
+2026-06-15T23:45:23.0011677+00:00 ContainerStatus: State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.0082630+00:00 ContainerStatus: Site startup probe failed after 9.0169641 seconds.
+2026-06-15T23:45:23.1021264+00:00 ContainerStatus: State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.1045888+00:00 ContainerStatus: Failed to start site. Revert by stopping site.
+2026-06-15T23:45:23.1047465+00:00 ContainerStatus: State: Stopping, Action: StoppingSite, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.1049797+00:00 ContainerStatus: State: Stopping, Action: StoppingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.1050267+00:00 ContainerStatus: Site: fmc-booking-app stopped.
+========== New Cold Start Attempt (2026-06-15T23:45:23.1109486+00:00) ==========
+2026-06-15T23:45:23.1109486+00:00 ContainerStatus: State: Stopping, Action: UnmountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.2165126+00:00 ContainerStatus: State: Stopping, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.2788132+00:00 ContainerStatus: Site: fmc-booking-app will be blocked for 1 minutes till 06/15/2026 23:46:23
+2026-06-15T23:45:23.2789922+00:00 ContainerStatus: State: Blocked, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site: fmc-booking-app will be blocked for 1 minutes till 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:23.2792779+00:00 ContainerStatus: State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:45:23 (UTC), DetailsLevel: WARN
+2026-06-15T23:45:23.4885564+00:00 ContainerStatus: State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:45:23 (UTC), DetailsLevel: WARN
+2026-06-15T23:45:28.5931159+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:28.5931699+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:33.6840663+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:33.6841298+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:38.7398084+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:38.7398369+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:43.7949904+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:43.7950155+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:48.8619087+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:48.8619381+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:53.9099880+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:53.9100142+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:58.9983310+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:58.9984504+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:04.2797557+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:04.2798334+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:09.3351988+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:09.3352262+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:14.3867455+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:14.3867724+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:19.4449507+00:00 ContainerStatus: State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:19.4449763+00:00 ContainerStatus: Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:23.2810076+00:00 ContainerStatus: Site: fmc-booking-app is unblocked.
+2026-06-15T23:46:24.5185350+00:00 ContainerStatus: State: Starting, Action: EstablishingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:25.0479451+00:00 ContainerStatus: State: Starting, Action: StartingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:25.0487853+00:00 ContainerStatus: Container start method called.
+2026-06-15T23:46:25.0488519+00:00 ContainerStatus: State: Starting, Action: PullingImage, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pulling image 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:46:25.0491355+00:00 ContainerStatus: Establishing network.
+2026-06-15T23:46:25.0492846+00:00 ContainerStatus: Pulling image: appsvc/node:24-lts_20260504.4.tuxprod.
+2026-06-15T23:46:26.8362145+00:00 ContainerStatus: Container is starting.
+2026-06-15T23:46:26.8363667+00:00 ContainerStatus: State: Starting, Action: MountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Mounting volumes for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:46:26.8365050+00:00 ContainerStatus: Establishing user namespace if not established already.
+2026-06-15T23:46:26.8377804+00:00 ContainerStatus: Establishing network if not established already.
+2026-06-15T23:46:26.8381398+00:00 ContainerStatus: Mounting volumes.
+2026-06-15T23:46:26.8389463+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:46:26.8471225+00:00 ContainerStatus: Nested mountpoint volatile/logs
+2026-06-15T23:46:26.8560469+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:46:26.8609281+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:46:26.8616925+00:00 ContainerStatus: Nested mountpoint 
+2026-06-15T23:46:26.9734846+00:00 ContainerStatus: State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Finished pulling container image and mounting volumes for fmc-booking-app. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-06-15T23:46:26.9741599+00:00 ContainerStatus: Creating container.
+2026-06-15T23:46:26.9747040+00:00 ContainerStatus: Creating pipes for streaming container io.
+2026-06-15T23:46:26.9748847+00:00 ContainerStatus: Creating stdout named pipe at /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005.
+2026-06-15T23:46:26.9751352+00:00 ContainerStatus: Successfully created stdout named pipe at: /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005.
+2026-06-15T23:46:26.9752935+00:00 ContainerStatus: Opening named pipe /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005 for reading in non-blocking mode.
+2026-06-15T23:46:26.9754769+00:00 ContainerStatus: Successfully opened named pipe: /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005.
+2026-06-15T23:46:26.9759030+00:00 ContainerStatus: Successfully removed non-blocking flag from /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005.
+2026-06-15T23:46:26.9761112+00:00 ContainerStatus: Creating stderr named pipe at /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4.
+2026-06-15T23:46:26.9762880+00:00 ContainerStatus: Successfully created stderr named pipe at: /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4.
+2026-06-15T23:46:26.9764039+00:00 ContainerStatus: Opening named pipe /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4 for reading in non-blocking mode.
+2026-06-15T23:46:26.9765302+00:00 ContainerStatus: Successfully opened named pipe: /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4.
+2026-06-15T23:46:26.9767170+00:00 ContainerStatus: Successfully removed non-blocking flag from /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4.
+2026-06-15T23:46:26.9771657+00:00 ContainerStatus: Creating container with image: appsvc/node:24-lts_20260504.4.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod
+2026-06-15T23:46:27.2173757+00:00 ContainerStatus: Starting container: 609d125386d5_fmc-booking-app.
+2026-06-15T23:46:27.2444493+00:00 ContainerStatus: Starting watchers and probes.
+2026-06-15T23:46:27.2446945+00:00 ContainerStatus: Starting metrics collection.
+2026-06-15T23:46:27.2466755+00:00 ContainerStatus: Container is running.
+2026-06-15T23:46:27.2481428+00:00 ContainerStatus: State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:46:27.2870407+00:00 ContainerStatus: Container start method finished after 2237 ms.
+2026-06-15T23:46:27.2872677+00:00 ContainerStatus: State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:46:27.2872980+00:00 ContainerStatus: State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-06-15T23:46:27.4624889+00:00 ContainerStream:    _____                               
+2026-06-15T23:46:27.4627651+00:00 ContainerStream:   /  _  \ __________ _________   ____  
+2026-06-15T23:46:27.4627700+00:00 ContainerStream:  /  /_\  \\___   /  |  \_  __ \_/ __ \ 
+2026-06-15T23:46:27.4627730+00:00 ContainerStream: /    |    \/    /|  |  /|  | \/\  ___/ 
+2026-06-15T23:46:27.4627759+00:00 ContainerStream: \____|__  /_____ \____/ |__|    \___  >
+2026-06-15T23:46:27.4627786+00:00 ContainerStream:         \/      \/                  \/ 
+2026-06-15T23:46:27.4627815+00:00 ContainerStream: A P P   S E R V I C E   O N   L I N U X
+2026-06-15T23:46:27.4627839+00:00 ContainerStream: 
+2026-06-15T23:46:27.4627940+00:00 ContainerStream: Documentation    : http://aka.ms/webapp-linux
+2026-06-15T23:46:27.4627971+00:00 ContainerStream: NodeJS quickstart: https://aka.ms/node-qs
+2026-06-15T23:46:27.4628000+00:00 ContainerStream: NodeJS Version   : v24.15.0
+2026-06-15T23:46:27.4628030+00:00 ContainerStream: Instance Name    : 10-30-0-138
+2026-06-15T23:46:27.4628065+00:00 ContainerStream: Instance Id      : bda878cffb7fdf6e967f5e7f2cc80f6a2d5af54229ce993d617d2fd35875954e
+2026-06-15T23:46:27.4628092+00:00 ContainerStream: 
+2026-06-15T23:46:27.4628122+00:00 ContainerStream: Note: Any data outside '/home' is not persisted
+2026-06-15T23:46:29.9824855+00:00 ContainerStream:  * Starting OpenBSD Secure Shell server sshd
+2026-06-15T23:46:29.9975017+00:00 ContainerStream:    ...done.
+2026-06-15T23:46:30.0147258+00:00 ContainerStream: WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
+2026-06-15T23:46:30.0741196+00:00 ContainerStream: Updating certificates in /etc/ssl/certs...
+2026-06-15T23:46:39.2712487+00:00 ContainerStream: rehash: warning: skipping duplicate certificate in SSLcom-TLS-Root-2022-ECC.pem
+2026-06-15T23:46:39.2713046+00:00 ContainerStream: rehash: warning: skipping duplicate certificate in SSLcom-TLS-Root-2022-RSA.pem
+2026-06-15T23:46:39.3910730+00:00 ContainerStream: rehash: warning: skipping ca-certificates.crt,it does not contain exactly one certificate or CRL
+2026-06-15T23:46:39.4079964+00:00 ContainerStream: 4 added, 0 removed; done.
+2026-06-15T23:46:39.4091941+00:00 ContainerStream: Running hooks in /etc/ca-certificates/update.d...
+2026-06-15T23:46:39.4125804+00:00 ContainerStream: done.
+2026-06-15T23:46:39.4225838+00:00 ContainerStream: CA certificates copied and updated successfully.
+2026-06-15T23:46:39.5042470+00:00 ContainerStream:  * Starting periodic command scheduler cron
+2026-06-15T23:46:39.5132690+00:00 ContainerStream:    ...done.
+2026-06-15T23:46:39.6527971+00:00 ContainerStream: Could not find build manifest file at '/home/site/wwwroot/oryx-manifest.toml'
+2026-06-15T23:46:39.6536021+00:00 ContainerStream: Could not find operation ID in manifest. Generating an operation id...
+2026-06-15T23:46:39.6536116+00:00 ContainerStream: Build Operation ID: df1a3918-7a1f-47e1-8c65-797c7fc7dda1
+2026-06-15T23:46:39.8242470+00:00 ContainerStream: Environment Variables for Application Insight's IPA Codeless Configuration exists..
+2026-06-15T23:46:39.8539614+00:00 ContainerStream: Writing output script to '/opt/startup/startup.sh'
+2026-06-15T23:46:39.9129656+00:00 ContainerStream: Running #!/bin/sh
+2026-06-15T23:46:39.9130045+00:00 ContainerStream: 
+2026-06-15T23:46:39.9130084+00:00 ContainerStream: # Enter the source directory to make sure the script runs where the user expects
+2026-06-15T23:46:39.9130109+00:00 ContainerStream: cd "/home/site/wwwroot"
+2026-06-15T23:46:39.9130133+00:00 ContainerStream: 
+2026-06-15T23:46:39.9130161+00:00 ContainerStream: export NODE_PATH=/usr/local/lib/node_modules:$NODE_PATH
+2026-06-15T23:46:39.9130186+00:00 ContainerStream: if [ -z "$PORT" ]; then
+2026-06-15T23:46:39.9130212+00:00 ContainerStream: 		export PORT=8080
+2026-06-15T23:46:39.9130301+00:00 ContainerStream: fi
+2026-06-15T23:46:39.9130326+00:00 ContainerStream: 
+2026-06-15T23:46:39.9130351+00:00 ContainerStream: PATH="$PATH:/home/site/wwwroot" node server.js
+2026-06-15T23:46:40.4933963+00:00 ContainerStream: node:internal/modules/cjs/loader:1479
+2026-06-15T23:46:40.4934382+00:00 ContainerStream:   throw err;
+2026-06-15T23:46:40.4934421+00:00 ContainerStream:   ^
+2026-06-15T23:46:40.4934447+00:00 ContainerStream: 
+2026-06-15T23:46:40.4934476+00:00 ContainerStream: Error: Cannot find module '/home/site/wwwroot/server.js'
+2026-06-15T23:46:40.4934505+00:00 ContainerStream:     at Module._resolveFilename (node:internal/modules/cjs/loader:1476:15)
+2026-06-15T23:46:40.4934534+00:00 ContainerStream:     at wrapResolveFilename (node:internal/modules/cjs/loader:1049:27)
+2026-06-15T23:46:40.4934627+00:00 ContainerStream:     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1073:10)
+2026-06-15T23:46:40.4934656+00:00 ContainerStream:     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1094:12)
+2026-06-15T23:46:40.4934685+00:00 ContainerStream:     at Module._load (node:internal/modules/cjs/loader:1262:25)
+2026-06-15T23:46:40.4934714+00:00 ContainerStream:     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+2026-06-15T23:46:40.4934743+00:00 ContainerStream:     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+2026-06-15T23:46:40.4934772+00:00 ContainerStream:     at node:internal/main/run_main_module:33:47 {
+2026-06-15T23:46:40.4934799+00:00 ContainerStream:   code: 'MODULE_NOT_FOUND',
+2026-06-15T23:46:40.4934826+00:00 ContainerStream:   requireStack: []
+2026-06-15T23:46:40.4934855+00:00 ContainerStream: }
+2026-06-15T23:46:40.4936824+00:00 ContainerStream: 
+2026-06-15T23:46:40.4936896+00:00 ContainerStream: Node.js v24.15.0
+2026-06-15T23:46:40.5598549+00:00 ContainerStatus: Container has finished running with exit code: 1.
+2026-06-15T23:46:40.5600252+00:00 ContainerStatus: Container is terminating. Grace period: 5 seconds.
+2026-06-15T23:46:40.5610808+00:00 ContainerStatus: Stop and delete container. Retry count = 0
+2026-06-15T23:46:40.5614123+00:00 ContainerStatus: Stopping container: 609d125386d5_fmc-booking-app.
+2026-06-15T23:46:40.6186382+00:00 ContainerStatus: Deleting container: 609d125386d5_fmc-booking-app. Retry count = 0
+2026-06-15T23:46:40.7494503+00:00 ContainerStatus: Container spec TerminationMessagePolicy  path 
+2026-06-15T23:46:40.7728181+00:00 ContainerStatus: Container is terminated. Total time elapsed: 212 ms.
+2026-06-15T23:46:40.7729915+00:00 ContainerStatus: Site container: fmc-booking-app terminated during site startup.
+2026-06-15T23:46:40.8002461+00:00 ContainerStatus: State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:46:40.8133598+00:00 ContainerStatus: Site startup probe failed after 13.5245018 seconds.
+2026-06-15T23:46:40.9357269+00:00 ContainerStatus: State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:46:40, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:46:40.9564858+00:00 ContainerStatus: Failed to start site. Revert by stopping site.
+2026-06-15T23:46:40.9566508+00:00 ContainerStatus: State: Stopping, Action: StoppingSite, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:46:40, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:46:40.9568961+00:00 ContainerStatus: State: Stopping, Action: StoppingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:46:40, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:46:40.9569168+00:00 ContainerStatus: Site: fmc-booking-app stopped.

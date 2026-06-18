@@ -48,13 +48,13 @@ export async function PATCH(
                 return NextResponse.json({ error: 'SimplyBook record not found' }, { status: 404 });
             }
 
-            const newBooking = await BookingsStore.create({
+            const newBooking = await BookingsStore.add({
                 id: id, // Retain the sb- ID in our DB
                 doctorId: body.doctorId,
                 clinicId: body.clinicId || 'simplybook-import',
                 serviceId: body.serviceId || 'srv-unknown',
-                date: body.date,
-                slot: body.slot,
+                date: body.date || sbRecord.startDate,
+                slot: body.slot || sbRecord.time,
                 duration: body.duration || 30,
                 status: body.status || 'booked',
                 patientName: body.patientName || sbRecord.clientName,

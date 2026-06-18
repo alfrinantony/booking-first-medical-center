@@ -1,0 +1,276 @@
+2026-06-15T23:42:02.8301155Z State: Starting, Action: EstablishingSiteNetworks, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-06-15T23:42:03.7792378Z State: Starting, Action: StartingSiteContainers, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-06-15T23:42:03.7795180Z Container start method called.
+2026-06-15T23:42:03.7849746Z State: Starting, Action: PullingImage, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Pulling image 10.1.0.4:13209/appsvc/node:24-lts_20260504.4.tuxprod for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:42:03.7853398Z Establishing network.
+2026-06-15T23:42:03.7856290Z Pulling image: appsvc/node:24-lts_20260504.4.tuxprod.
+2026-06-15T23:43:16.7763875Z Image appsvc/node:24-lts_20260504.4.tuxprod is pulled from registry mcr.microsoft.com
+2026-06-15T23:43:16.7815383Z Container is starting.
+2026-06-15T23:43:16.7899643Z State: Starting, Action: MountingVolumes, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Mounting volumes for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:43:16.7914583Z Establishing user namespace if not established already.
+2026-06-15T23:43:16.7926005Z Establishing network if not established already.
+2026-06-15T23:43:16.7928916Z Mounting volumes.
+2026-06-15T23:43:16.7942466Z Nested mountpoint 
+2026-06-15T23:43:16.7992941Z Nested mountpoint volatile/logs
+2026-06-15T23:43:16.8050063Z Nested mountpoint 
+2026-06-15T23:43:16.8402623Z Nested mountpoint 
+2026-06-15T23:43:16.8475952Z Nested mountpoint 
+2026-06-15T23:43:17.6314042Z State: Starting, Action: CreatingContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Finished pulling container image and mounting volumes for fmc-booking-app. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-06-15T23:43:17.6315411Z Creating container.
+2026-06-15T23:43:17.6316548Z Creating pipes for streaming container io.
+2026-06-15T23:43:17.6317775Z Creating stdout named pipe at /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173.
+2026-06-15T23:43:17.6329615Z Successfully created stdout named pipe at: /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173.
+2026-06-15T23:43:17.6331573Z Opening named pipe /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173 for reading in non-blocking mode.
+2026-06-15T23:43:17.6335464Z Successfully opened named pipe: /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173.
+2026-06-15T23:43:17.6337508Z Successfully removed non-blocking flag from /podr/container/pipe/326ba785d64f_fmc-booking-app/stdout_07f40cdf67f546dc8063bcdaf3853173.
+2026-06-15T23:43:17.6344303Z Creating stderr named pipe at /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602.
+2026-06-15T23:43:17.6349449Z Successfully created stderr named pipe at: /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602.
+2026-06-15T23:43:17.6350652Z Opening named pipe /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602 for reading in non-blocking mode.
+2026-06-15T23:43:17.6354740Z Successfully opened named pipe: /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602.
+2026-06-15T23:43:17.6358200Z Successfully removed non-blocking flag from /podr/container/pipe/326ba785d64f_fmc-booking-app/stderr_a18654186a9249e1acd0c0d33c860602.
+2026-06-15T23:43:17.6360531Z Creating container with image: appsvc/node:24-lts_20260504.4.tuxprod from registry: mcr.microsoft.com and fully qualified image name: mcr.microsoft.com/appsvc/node:24-lts_20260504.4.tuxprod
+2026-06-15T23:43:18.6493492Z Starting container: 326ba785d64f_fmc-booking-app.
+2026-06-15T23:43:18.7229670Z Starting watchers and probes.
+2026-06-15T23:43:18.7253248Z Starting metrics collection.
+2026-06-15T23:43:18.7268106Z Container is running.
+2026-06-15T23:43:18.7275280Z State: Starting, Action: CreatingContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:43:18.7829345Z Container start method finished after 75003 ms.
+2026-06-15T23:43:18.7886910Z State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:43:18.8008715Z State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-06-15T23:43:37.0028971Z Container has finished running with exit code: 1.
+2026-06-15T23:43:37.0084741Z Container is terminating. Grace period: 5 seconds.
+2026-06-15T23:43:37.0185915Z Stop and delete container. Retry count = 0
+2026-06-15T23:43:37.0195050Z Stopping container: 326ba785d64f_fmc-booking-app.
+2026-06-15T23:43:37.1322937Z Deleting container: 326ba785d64f_fmc-booking-app. Retry count = 0
+2026-06-15T23:43:37.3522666Z Container spec TerminationMessagePolicy  path 
+2026-06-15T23:43:37.3559258Z Container is terminated. Total time elapsed: 345 ms.
+2026-06-15T23:43:37.3560792Z Site container: fmc-booking-app terminated during site startup.
+2026-06-15T23:43:37.3988106Z State: Stopping, Action: CancellingStartup, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.4791297Z Site startup probe failed after 18.6406863 seconds.
+2026-06-15T23:43:37.6957441Z State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.7070537Z Failed to start site. Revert by stopping site.
+2026-06-15T23:43:37.7233302Z State: Stopping, Action: StoppingSite, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.7319020Z State: Stopping, Action: StoppingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.7332819Z Site: fmc-booking-app stopped.
+2026-06-15T23:43:37.7425313Z State: Stopping, Action: UnmountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:37.8605344Z State: Stopping, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:43:38.0272869Z State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:43:38 (UTC), DetailsLevel: ERR
+2026-06-15T23:43:38.3770754Z State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:43:38 (UTC), DetailsLevel: ERR
+2026-06-15T23:43:51.9550814Z State: Starting, Action: EstablishingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:43:38 (UTC), DetailsLevel: ERR
+2026-06-15T23:43:52.3925908Z State: Starting, Action: StartingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:43:38 (UTC), DetailsLevel: ERR
+2026-06-15T23:43:52.3939081Z Container start method called.
+2026-06-15T23:43:52.3946638Z State: Starting, Action: PullingImage, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pulling image mcr.microsoft.com/appsvc/node:24-lts_20260504.4.tuxprod for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:43:52.3948046Z Establishing network.
+2026-06-15T23:43:52.3949401Z Pulling image: appsvc/node:24-lts_20260504.4.tuxprod.
+2026-06-15T23:43:54.4989898Z Image appsvc/node:24-lts_20260504.4.tuxprod is pulled from registry 10.1.0.5:13209
+2026-06-15T23:43:54.4991231Z Container is starting.
+2026-06-15T23:43:54.4992138Z State: Starting, Action: MountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Mounting volumes for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:43:54.4993096Z Establishing user namespace if not established already.
+2026-06-15T23:43:54.4995118Z Establishing network if not established already.
+2026-06-15T23:43:54.4996345Z Mounting volumes.
+2026-06-15T23:43:54.4998259Z Nested mountpoint 
+2026-06-15T23:43:54.5034537Z Nested mountpoint volatile/logs
+2026-06-15T23:43:54.5114059Z Nested mountpoint 
+2026-06-15T23:43:54.5302450Z Nested mountpoint 
+2026-06-15T23:43:54.5383236Z Nested mountpoint 
+2026-06-15T23:43:55.0480299Z State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Finished pulling container image and mounting volumes for fmc-booking-app. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-06-15T23:43:55.0482666Z Creating container.
+2026-06-15T23:43:55.0485365Z Creating pipes for streaming container io.
+2026-06-15T23:43:55.0486964Z Creating stdout named pipe at /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003.
+2026-06-15T23:43:55.0508109Z Successfully created stdout named pipe at: /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003.
+2026-06-15T23:43:55.0509242Z Opening named pipe /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003 for reading in non-blocking mode.
+2026-06-15T23:43:55.0511728Z Successfully opened named pipe: /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003.
+2026-06-15T23:43:55.0513750Z Successfully removed non-blocking flag from /podr/container/pipe/705f5026f035_fmc-booking-app/stdout_d394d16d82794fb291d42df99fc9d003.
+2026-06-15T23:43:55.0548530Z Creating stderr named pipe at /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f.
+2026-06-15T23:43:55.0550712Z Successfully created stderr named pipe at: /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f.
+2026-06-15T23:43:55.0551985Z Opening named pipe /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f for reading in non-blocking mode.
+2026-06-15T23:43:55.0554238Z Successfully opened named pipe: /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f.
+2026-06-15T23:43:55.0555497Z Successfully removed non-blocking flag from /podr/container/pipe/705f5026f035_fmc-booking-app/stderr_ea410e386cdf4efda4d36eff6def480f.
+2026-06-15T23:43:55.0557219Z Creating container with image: appsvc/node:24-lts_20260504.4.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod
+2026-06-15T23:43:55.4749696Z Starting container: 705f5026f035_fmc-booking-app.
+2026-06-15T23:43:55.5105101Z Starting watchers and probes.
+2026-06-15T23:43:55.5108947Z Starting metrics collection.
+2026-06-15T23:43:55.5123723Z Container is running.
+2026-06-15T23:43:55.5124860Z State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:43:55.5557849Z Container start method finished after 3161 ms.
+2026-06-15T23:43:55.5560779Z State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:43:55.5561379Z State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-06-15T23:44:08.8553507Z Container has finished running with exit code: 1.
+2026-06-15T23:44:08.8602013Z Container is terminating. Grace period: 5 seconds.
+2026-06-15T23:44:08.8610848Z Stop and delete container. Retry count = 0
+2026-06-15T23:44:08.8613196Z Stopping container: 705f5026f035_fmc-booking-app.
+2026-06-15T23:44:08.9045988Z Deleting container: 705f5026f035_fmc-booking-app. Retry count = 0
+2026-06-15T23:44:09.0360602Z Container spec TerminationMessagePolicy  path 
+2026-06-15T23:44:09.0368466Z Container is terminated. Total time elapsed: 176 ms.
+2026-06-15T23:44:09.0371862Z Site container: fmc-booking-app terminated during site startup.
+2026-06-15T23:44:09.0375382Z State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:43:37, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.0417097Z Site startup probe failed after 13.4797847 seconds.
+2026-06-15T23:44:09.1167586Z State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.1422731Z Failed to start site. Revert by stopping site.
+2026-06-15T23:44:09.1428020Z State: Stopping, Action: StoppingSite, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.1430692Z State: Stopping, Action: StoppingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.1430853Z Site: fmc-booking-app stopped.
+2026-06-15T23:44:09.1462155Z State: Stopping, Action: UnmountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.2238427Z State: Stopping, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:44:09.2981264Z Site: fmc-booking-app will be blocked for 1 minutes till 06/15/2026 23:45:09
+2026-06-15T23:44:09.2989639Z State: Blocked, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site: fmc-booking-app will be blocked for 1 minutes till 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:09.3127550Z State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:44:09 (UTC), DetailsLevel: WARN
+2026-06-15T23:44:09.5151166Z State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:44:09 (UTC), DetailsLevel: WARN
+2026-06-15T23:44:14.7514429Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:14.7514748Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:19.9474345Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:19.9474856Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:25.0853890Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:25.0854191Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:30.2068720Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:30.2069045Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:35.3564795Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:35.3565040Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:40.5699121Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:40.5699653Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:45.7641502Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:45.7642588Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:50.9510405Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:50.9510693Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:44:56.0558306Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:44:56.0559182Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:01.1816889Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:45:01.1817151Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:06.4644990Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:45:06.4645966Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:09.2967674Z Site: fmc-booking-app is unblocked.
+2026-06-15T23:45:11.6504368Z State: Starting, Action: EstablishingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:45:12.0081931Z State: Starting, Action: StartingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:45:09, DetailsLevel: WARN
+2026-06-15T23:45:12.0082882Z Container start method called.
+2026-06-15T23:45:12.0083258Z State: Starting, Action: PullingImage, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pulling image 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:45:12.0083987Z Establishing network.
+2026-06-15T23:45:12.0084759Z Pulling image: appsvc/node:24-lts_20260504.4.tuxprod.
+2026-06-15T23:45:13.5492944Z Container is starting.
+2026-06-15T23:45:13.5493865Z State: Starting, Action: MountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Mounting volumes for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:45:13.5494944Z Establishing user namespace if not established already.
+2026-06-15T23:45:13.5495891Z Establishing network if not established already.
+2026-06-15T23:45:13.5496884Z Mounting volumes.
+2026-06-15T23:45:13.5499783Z Nested mountpoint 
+2026-06-15T23:45:13.5560864Z Nested mountpoint volatile/logs
+2026-06-15T23:45:13.5715799Z Nested mountpoint 
+2026-06-15T23:45:13.5723824Z Nested mountpoint 
+2026-06-15T23:45:13.5923614Z Nested mountpoint 
+2026-06-15T23:45:13.6876036Z State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Finished pulling container image and mounting volumes for fmc-booking-app. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-06-15T23:45:13.6916906Z Creating container.
+2026-06-15T23:45:13.6918184Z Creating pipes for streaming container io.
+2026-06-15T23:45:13.6919316Z Creating stdout named pipe at /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945.
+2026-06-15T23:45:13.6921699Z Successfully created stdout named pipe at: /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945.
+2026-06-15T23:45:13.6924883Z Opening named pipe /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945 for reading in non-blocking mode.
+2026-06-15T23:45:13.6926266Z Successfully opened named pipe: /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945.
+2026-06-15T23:45:13.6927471Z Successfully removed non-blocking flag from /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stdout_343d9418be9e4c9eb38b5ff277f56945.
+2026-06-15T23:45:13.6929099Z Creating stderr named pipe at /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69.
+2026-06-15T23:45:13.6930803Z Successfully created stderr named pipe at: /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69.
+2026-06-15T23:45:13.6933272Z Opening named pipe /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69 for reading in non-blocking mode.
+2026-06-15T23:45:13.6934856Z Successfully opened named pipe: /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69.
+2026-06-15T23:45:13.6936067Z Successfully removed non-blocking flag from /podr/container/pipe/22ebb2da9d41_fmc-booking-app/stderr_0456b9f11942485db6cb9463d6248f69.
+2026-06-15T23:45:13.6937562Z Creating container with image: appsvc/node:24-lts_20260504.4.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod
+2026-06-15T23:45:13.9389417Z Starting container: 22ebb2da9d41_fmc-booking-app.
+2026-06-15T23:45:13.9662131Z Starting watchers and probes.
+2026-06-15T23:45:13.9667133Z Starting metrics collection.
+2026-06-15T23:45:13.9670152Z Container is running.
+2026-06-15T23:45:13.9672808Z State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:45:13.9887938Z Container start method finished after 1980 ms.
+2026-06-15T23:45:13.9889812Z State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:45:13.9890059Z State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-06-15T23:45:22.8724405Z Container has finished running with exit code: 1.
+2026-06-15T23:45:22.8730949Z Container is terminating. Grace period: 5 seconds.
+2026-06-15T23:45:22.8746271Z Stop and delete container. Retry count = 0
+2026-06-15T23:45:22.8751191Z Stopping container: 22ebb2da9d41_fmc-booking-app.
+2026-06-15T23:45:22.9112699Z Deleting container: 22ebb2da9d41_fmc-booking-app. Retry count = 0
+2026-06-15T23:45:22.9975754Z Container spec TerminationMessagePolicy  path 
+2026-06-15T23:45:22.9991023Z Container is terminated. Total time elapsed: 125 ms.
+2026-06-15T23:45:23.0000177Z Site container: fmc-booking-app terminated during site startup.
+2026-06-15T23:45:23.0011677Z State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:44:09, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.0082630Z Site startup probe failed after 9.0169641 seconds.
+2026-06-15T23:45:23.1021264Z State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.1045888Z Failed to start site. Revert by stopping site.
+2026-06-15T23:45:23.1047465Z State: Stopping, Action: StoppingSite, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.1049797Z State: Stopping, Action: StoppingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.1050267Z Site: fmc-booking-app stopped.
+2026-06-15T23:45:23.1109486Z State: Stopping, Action: UnmountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.2165126Z State: Stopping, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:45:23.2788132Z Site: fmc-booking-app will be blocked for 1 minutes till 06/15/2026 23:46:23
+2026-06-15T23:45:23.2789922Z State: Blocked, Action: StoppingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site: fmc-booking-app will be blocked for 1 minutes till 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:23.2792779Z State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:45:23 (UTC), DetailsLevel: WARN
+2026-06-15T23:45:23.4885564Z State: Stopped, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site stopped at 06/15/2026 23:45:23 (UTC), DetailsLevel: WARN
+2026-06-15T23:45:28.5931159Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:28.5931699Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:33.6840663Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:33.6841298Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:38.7398084Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:38.7398369Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:43.7949904Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:43.7950155Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:48.8619087Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:48.8619381Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:53.9099880Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:53.9100142Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:45:58.9983310Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:45:58.9984504Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:04.2797557Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:04.2798334Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:09.3351988Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:09.3352262Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:14.3867455Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:14.3867724Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:19.4449507Z State: Blocked, Action: None, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:19.4449763Z Start site prohibitted because the site is being blocked.
+2026-06-15T23:46:23.2810076Z Site: fmc-booking-app is unblocked.
+2026-06-15T23:46:24.5185350Z State: Starting, Action: EstablishingSiteNetworks, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:25.0479451Z State: Starting, Action: StartingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site is blocked due to multiple, consecutive cold start failures. Site scheduled to be unblocked at 06/15/2026 23:46:23, DetailsLevel: WARN
+2026-06-15T23:46:25.0487853Z Container start method called.
+2026-06-15T23:46:25.0488519Z State: Starting, Action: PullingImage, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pulling image 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:46:25.0491355Z Establishing network.
+2026-06-15T23:46:25.0492846Z Pulling image: appsvc/node:24-lts_20260504.4.tuxprod.
+2026-06-15T23:46:26.8362145Z Container is starting.
+2026-06-15T23:46:26.8363667Z State: Starting, Action: MountingVolumes, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Mounting volumes for fmc-booking-app., DetailsLevel: INFO
+2026-06-15T23:46:26.8365050Z Establishing user namespace if not established already.
+2026-06-15T23:46:26.8377804Z Establishing network if not established already.
+2026-06-15T23:46:26.8381398Z Mounting volumes.
+2026-06-15T23:46:26.8389463Z Nested mountpoint 
+2026-06-15T23:46:26.8471225Z Nested mountpoint volatile/logs
+2026-06-15T23:46:26.8560469Z Nested mountpoint 
+2026-06-15T23:46:26.8609281Z Nested mountpoint 
+2026-06-15T23:46:26.8616925Z Nested mountpoint 
+2026-06-15T23:46:26.9734846Z State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Finished pulling container image and mounting volumes for fmc-booking-app. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-06-15T23:46:26.9741599Z Creating container.
+2026-06-15T23:46:26.9747040Z Creating pipes for streaming container io.
+2026-06-15T23:46:26.9748847Z Creating stdout named pipe at /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005.
+2026-06-15T23:46:26.9751352Z Successfully created stdout named pipe at: /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005.
+2026-06-15T23:46:26.9752935Z Opening named pipe /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005 for reading in non-blocking mode.
+2026-06-15T23:46:26.9754769Z Successfully opened named pipe: /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005.
+2026-06-15T23:46:26.9759030Z Successfully removed non-blocking flag from /podr/container/pipe/609d125386d5_fmc-booking-app/stdout_b7bf9b35dc164822b2183094e3078005.
+2026-06-15T23:46:26.9761112Z Creating stderr named pipe at /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4.
+2026-06-15T23:46:26.9762880Z Successfully created stderr named pipe at: /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4.
+2026-06-15T23:46:26.9764039Z Opening named pipe /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4 for reading in non-blocking mode.
+2026-06-15T23:46:26.9765302Z Successfully opened named pipe: /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4.
+2026-06-15T23:46:26.9767170Z Successfully removed non-blocking flag from /podr/container/pipe/609d125386d5_fmc-booking-app/stderr_998fe99ba36647f2a9d305cbefa531f4.
+2026-06-15T23:46:26.9771657Z Creating container with image: appsvc/node:24-lts_20260504.4.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/node:24-lts_20260504.4.tuxprod
+2026-06-15T23:46:27.2173757Z Starting container: 609d125386d5_fmc-booking-app.
+2026-06-15T23:46:27.2444493Z Starting watchers and probes.
+2026-06-15T23:46:27.2446945Z Starting metrics collection.
+2026-06-15T23:46:27.2466755Z Container is running.
+2026-06-15T23:46:27.2481428Z State: Starting, Action: CreatingContainer, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:46:27.2870407Z Container start method finished after 2237 ms.
+2026-06-15T23:46:27.2872677Z State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Container fmc-booking-app successfully created and is running., DetailsLevel: INFO
+2026-06-15T23:46:27.2872980Z State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-06-15T23:46:40.5598549Z Container has finished running with exit code: 1.
+2026-06-15T23:46:40.5600252Z Container is terminating. Grace period: 5 seconds.
+2026-06-15T23:46:40.5610808Z Stop and delete container. Retry count = 0
+2026-06-15T23:46:40.5614123Z Stopping container: 609d125386d5_fmc-booking-app.
+2026-06-15T23:46:40.6186382Z Deleting container: 609d125386d5_fmc-booking-app. Retry count = 0
+2026-06-15T23:46:40.7494503Z Container spec TerminationMessagePolicy  path 
+2026-06-15T23:46:40.7728181Z Container is terminated. Total time elapsed: 212 ms.
+2026-06-15T23:46:40.7729915Z Site container: fmc-booking-app terminated during site startup.
+2026-06-15T23:46:40.8002461Z State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:45:23, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:46:40.8133598Z Site startup probe failed after 13.5245018 seconds.
+2026-06-15T23:46:40.9357269Z State: Stopping, Action: CancellingStartup, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:46:40, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:46:40.9564858Z Failed to start site. Revert by stopping site.
+2026-06-15T23:46:40.9566508Z State: Stopping, Action: StoppingSite, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:46:40, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:46:40.9568961Z State: Stopping, Action: StoppingSiteContainers, LastError: ContainerTimeout, LastErrorTimestamp: 06/15/2026 23:46:40, LastErrorDetails: Container did not start within expected time limit of 230s. Please inspect your container logs for more details., Details: Site container: fmc-booking-app terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-06-15T23:46:40.9569168Z Site: fmc-booking-app stopped.
