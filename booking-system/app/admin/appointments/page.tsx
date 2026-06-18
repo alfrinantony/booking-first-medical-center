@@ -693,7 +693,7 @@ export default function AdminAppointmentsPage() {
                 let errorMsg = 'Unknown error';
                 try {
                     const errorObj = await res.json();
-                    errorMsg = errorObj.error || errorObj.message || JSON.stringify(errorObj);
+                    errorMsg = errorObj.details || errorObj.error || errorObj.message || JSON.stringify(errorObj);
                 } catch {
                     errorMsg = await res.text();
                 }

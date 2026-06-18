@@ -218,7 +218,8 @@ export async function PATCH(
         }
 
         return NextResponse.json(updatedBooking);
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to update booking' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Update failed:', error);
+        return NextResponse.json({ error: 'Failed to update booking', details: error.message || String(error) }, { status: 500 });
     }
 }
