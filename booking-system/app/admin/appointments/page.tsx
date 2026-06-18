@@ -690,7 +690,14 @@ export default function AdminAppointmentsPage() {
                     handleGenerateReceipt(editingBooking.id, sbInvNum, (editingBooking as any).sbId);
                 }
             } else {
-                alert('Failed to update booking');
+                let errorMsg = 'Unknown error';
+                try {
+                    const errorObj = await res.json();
+                    errorMsg = errorObj.error || errorObj.message || JSON.stringify(errorObj);
+                } catch {
+                    errorMsg = await res.text();
+                }
+                alert(`Failed to update booking: ${res.status} - ${errorMsg}`);
             }
         } catch (error) {
             console.error('Update failed', error);
