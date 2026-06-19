@@ -513,13 +513,14 @@ export default function AdminAppointmentsPage() {
         date: string;
         slot: string;
         clinicId: string;
+        deptId: string;
         serviceId: string;
         doctorId: string;
         duration: number;
         patientName: string;
         whatsappNumber: string;
         email: string;
-    }>({ status: 'booked', date: '', slot: '', clinicId: '', serviceId: '', doctorId: '', duration: 30, patientName: '', whatsappNumber: '', email: '' });
+    }>({ status: 'booked', date: '', slot: '', clinicId: '', deptId: '', serviceId: '', doctorId: '', duration: 30, patientName: '', whatsappNumber: '', email: '' });
     const [availableToRescheduleSlots, setAvailableToRescheduleSlots] = useState<string[]>([]);
     const [isLoadingRescheduleSlots, setIsLoadingRescheduleSlots] = useState(false);
 
@@ -605,6 +606,7 @@ export default function AdminAppointmentsPage() {
             date: booking.date,
             slot: booking.slot,
             clinicId: booking.clinicId || '',
+            deptId: booking.deptId || '',
             serviceId: booking.serviceId || '',
             doctorId: booking.doctorId,
             duration: booking.duration || 30,
@@ -650,6 +652,7 @@ export default function AdminAppointmentsPage() {
                     date: editForm.date,
                     slot: editForm.slot,
                     clinicId: editForm.clinicId,
+                    deptId: editForm.deptId,
                     serviceId: editForm.serviceId,
                     doctorId: editForm.doctorId,
                     duration: editForm.duration,

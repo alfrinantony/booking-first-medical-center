@@ -52,6 +52,7 @@ export async function PATCH(
                 id: id, // Retain the sb- ID in our DB
                 doctorId: body.doctorId,
                 clinicId: body.clinicId || 'simplybook-import',
+                deptId: body.deptId || 'dept-unknown',
                 serviceId: body.serviceId || 'srv-unknown',
                 date: body.date || sbRecord.startDate,
                 slot: body.slot || sbRecord.time,
@@ -62,7 +63,7 @@ export async function PATCH(
                 email: body.email || sbRecord.clientEmail || '',
                 source: 'simplybook',
                 sbId: sbId
-            });
+            } as any);
 
             await SimplybookStore.upsert({
                 ...sbRecord,
@@ -174,7 +175,17 @@ export async function PATCH(
 
         const updatedBooking = await BookingsStore.update(id, { ...body, statusHistory: history });
         if (!updatedBooking) {
-            return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+            try {
+                await (await import('@/lib/logs-store')).LogsStore.add({
+                    userId: 'system',
+                    userName: 'System API Error',
+                    action: 'ERROR_BOOKING_UPDATE',
+                    details: `BookingsStore.update returned null for id: ${id}`,
+                    entityId: String(id),
+                    entityType: 'Booking'
+                });
+            } catch (logErr) { /* ignore */ }
+            return NextResponse.json({ error: 'Failed to update booking', details: `BookingsStore.update returned null for id: ${id}` }, { status: 500 });
         }
 
         // ── Auto-apply loyalty penalties ──
