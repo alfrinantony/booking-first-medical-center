@@ -1,24 +1,18 @@
 async function test() {
     try {
-        console.log('Querying recent logs for errors...');
-        const { PrismaClient } = require('@prisma/client');
-        const prisma = new PrismaClient();
+        console.log('Fetching logs from live server...');
+        const res = await fetch('https://ai.dubaifmc.com/api/admin/logs');
+        const logs = await res.json();
         
-        // Let's see if there are any System errors logged in the last hour
-        const logs = await prisma.log.findMany({
-            where: {
-                timestamp: { gte: new Date(Date.now() - 3600000).toISOString() }
-            },
-            orderBy: { timestamp: 'desc' },
-            take: 20
-        });
-        
+        let count = 0;
         for (const log of logs) {
-            if (log.action.includes('ERROR') || log.details.includes('Failed') || log.details.includes('Error')) {
+            if (log.action === 'ERROR_BOOKING_UPDATE' || log.action.includes('ERROR')) {
                 console.log(log.timestamp, log.action, log.details);
+                count++;
+                if (count > 5) break;
             }
         }
-        console.log('Done checking logs.');
+        if (count === 0) console.log('No error logs found.');
     } catch(e) { console.error(e); }
 }
 test();

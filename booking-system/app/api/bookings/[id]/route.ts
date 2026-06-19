@@ -50,15 +50,15 @@ export async function PATCH(
 
             const newBooking = await BookingsStore.add({
                 id: id, // Retain the sb- ID in our DB
-                doctorId: body.doctorId,
-                clinicId: body.clinicId || 'simplybook-import',
-                deptId: body.deptId || 'dept-unknown',
+                doctorId: body.doctorId || sbRecord.matchedDoctorId || 'sb-unmatched',
+                clinicId: body.clinicId || sbRecord.matchedClinicId || 'simplybook-import',
+                deptId: body.deptId || sbRecord.matchedDeptId || 'dept-unknown',
                 serviceId: body.serviceId || 'srv-unknown',
-                date: body.date || sbRecord.startDate,
+                date: body.date || sbRecord.date,
                 slot: body.slot || sbRecord.time,
                 duration: body.duration || 30,
                 status: body.status || 'booked',
-                patientName: body.patientName || sbRecord.clientName,
+                patientName: body.patientName || sbRecord.clientName || 'Unknown Patient',
                 whatsappNumber: body.whatsappNumber || sbRecord.clientPhone || '',
                 email: body.email || sbRecord.clientEmail || '',
                 source: 'simplybook',
