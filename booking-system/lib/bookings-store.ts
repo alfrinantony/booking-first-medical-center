@@ -228,7 +228,7 @@ export const BookingsStore = {
         const incomingSbIds = incoming.map(b => b.sbId).filter(Boolean) as string[];
         const existing = await prisma.booking.findMany({
             where: { sbId: { in: incomingSbIds } },
-            select: { sbId: true, doctorId: true, clinicId: true, deptId: true }
+            select: { sbId: true, doctorId: true, clinicId: true, deptId: true, statusHistory: true }
         });
         const existingMap = new Map(existing.map(e => [e.sbId, e]));
         
@@ -241,7 +241,16 @@ export const BookingsStore = {
 
         for (const updateInfo of toUpdate) {
             const ext = existingMap.get(updateInfo.sbId as string);
-            if (ext && (ext.doctorId !== updateInfo.doctorId || ext.clinicId !== updateInfo.clinicId || ext.deptId !== updateInfo.deptId)) {
+            
+            // Check if booking was locally modified
+            let isLocallyModified = false;
+            if (ext && Array.isArray(ext.statusHistory)) {
+                isLocallyModified = ext.statusHistory.some((h: any) => h.isLocalModified === true);
+            }
+
+            // Skip updating if it has been locally modified, fulfilling the requirement that 
+            // the new app becomes the master record after any manual change.
+            if (ext && !isLocallyModified && (ext.doctorId !== updateInfo.doctorId || ext.clinicId !== updateInfo.clinicId || ext.deptId !== updateInfo.deptId)) {
                 await prisma.booking.updateMany({
                     where: { sbId: updateInfo.sbId },
                     data: {

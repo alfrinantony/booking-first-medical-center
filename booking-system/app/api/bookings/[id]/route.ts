@@ -65,13 +65,11 @@ export async function PATCH(
                 sbId: sbId
             } as any);
 
-            await SimplybookStore.upsert({
-                ...sbRecord,
-                matchStatus: 'matched',
-                matchedDoctorId: body.doctorId,
-                syncedToBookingsId: newBooking.id
-            });
-
+            // We skip synchronous SimplybookStore.upsert here because writing to the 50MB Blob 
+            // inside a Next.js API route blocks the response and causes a 504 Gateway Timeout.
+            // The SimplyBook sync batch job will eventually catch up, and the UI already filters
+            // out migrated bookings from the unmatched list via migratedSbIds.
+            
             return NextResponse.json(newBooking);
         }
 
