@@ -114,6 +114,7 @@ export const BookingsStore = {
                 oldStatus: '',
                 newStatus: booking.status || 'booked',
                 changedBy: (booking as any).staffName || 'System',
+                isLocalModified: true
             }]
         };
 
@@ -358,6 +359,7 @@ export const BookingsStore = {
                 newStatus: cleanUpdates.status,
                 changedBy: staffName,
                 action: 'Status Changed',
+                isLocalModified: true
             });
             historyChanged = true;
         }
@@ -376,7 +378,8 @@ export const BookingsStore = {
                 newStatus: cleanUpdates.status || oldBooking.status,
                 changedBy: staffName,
                 action: 'Appointment Edited',
-                details: details.join(', ')
+                details: details.join(', '),
+                isLocalModified: true
             });
             historyChanged = true;
         }
@@ -428,6 +431,7 @@ export const BookingsStore = {
                 oldStatus,
                 newStatus: status,
                 changedBy: staffName || 'Admin',
+                isLocalModified: true
             });
             
             const dataToUpdate: any = { status, statusHistory: history };
