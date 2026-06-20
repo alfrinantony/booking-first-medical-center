@@ -27,7 +27,7 @@ jobs:
         env:
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: "postgresql://postgres.fqphlhchebygaevttmzd:vIa3LbgQItyl8efo@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"
 
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
