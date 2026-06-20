@@ -261,7 +261,7 @@ export default function AdminAppointmentsPage() {
             const defaultFrom = new Date(); defaultFrom.setMonth(defaultFrom.getMonth() - 1);
             const defaultTo   = new Date(); defaultTo.setMonth(defaultTo.getMonth() + 3);
             const url = `/api/admin/simplybook?from=${from ?? fmt(defaultFrom)}&to=${to ?? fmt(defaultTo)}`;
-            const res = await fetch(url);
+            const res = await fetch(url, { cache: 'no-store' });
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) setSbBookings(data);
@@ -391,7 +391,7 @@ export default function AdminAppointmentsPage() {
             if (selectedDoctorId) params.append('doctorId', selectedDoctorId);
             if (searchQuery) params.append('search', searchQuery);
 
-            const res = await fetch(`/api/admin/bookings?${params.toString()}`);
+            const res = await fetch(`/api/admin/bookings?${params.toString()}`, { cache: 'no-store' });
             if (res.ok) {
                 const data = await res.json();
                 setBookings(data);
