@@ -62,7 +62,15 @@ export async function PATCH(
                 whatsappNumber: body.whatsappNumber || sbRecord.clientPhone || '',
                 email: body.email || sbRecord.clientEmail || '',
                 source: 'simplybook',
-                sbId: sbId
+                sbId: sbId,
+                isModifiedAfterMigration: true,
+                statusHistory: [{
+                    timestamp: new Date().toISOString(),
+                    oldStatus: sbRecord.status || 'confirmed',
+                    newStatus: body.status || 'booked',
+                    changedBy: body.staffName || 'Admin',
+                    isLocalModified: true
+                }]
             } as any);
 
             // We skip synchronous SimplybookStore.upsert here because writing to the 50MB Blob 

@@ -206,7 +206,7 @@ export const BookingsStore = {
             'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
             'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
             'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
-            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor'
+            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor', 'isModifiedAfterMigration'
         ]);
 
         const filteredBooking: any = {};
@@ -228,7 +228,7 @@ export const BookingsStore = {
         const incomingSbIds = incoming.map(b => b.sbId).filter(Boolean) as string[];
         const existing = await prisma.booking.findMany({
             where: { sbId: { in: incomingSbIds } },
-            select: { sbId: true, doctorId: true, clinicId: true, deptId: true, statusHistory: true }
+            select: { sbId: true, doctorId: true, clinicId: true, deptId: true, statusHistory: true, isModifiedAfterMigration: true }
         });
         const existingMap = new Map(existing.map(e => [e.sbId, e]));
         
@@ -244,7 +244,9 @@ export const BookingsStore = {
             
             // Check if booking was locally modified
             let isLocallyModified = false;
-            if (ext && Array.isArray(ext.statusHistory)) {
+            if (ext?.isModifiedAfterMigration) {
+                isLocallyModified = true;
+            } else if (ext && Array.isArray(ext.statusHistory)) {
                 isLocallyModified = ext.statusHistory.some((h: any) => h.isLocalModified === true);
             }
 
@@ -273,7 +275,7 @@ export const BookingsStore = {
                 'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
                 'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
                 'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
-                'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor'
+                'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor', 'isModifiedAfterMigration'
             ]);
 
             const dataToInsert = toCreate.map(booking => {
@@ -395,6 +397,7 @@ export const BookingsStore = {
 
         if (historyChanged) {
             (cleanUpdates as any).statusHistory = history;
+            (cleanUpdates as any).isModifiedAfterMigration = true;
         }
 
         const allowedFields = new Set([
@@ -402,7 +405,7 @@ export const BookingsStore = {
             'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
             'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
             'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
-            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor'
+            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor', 'isModifiedAfterMigration'
         ]);
 
         const filteredUpdates: any = {};
@@ -443,7 +446,7 @@ export const BookingsStore = {
                 isLocalModified: true
             });
             
-            const dataToUpdate: any = { status, statusHistory: history };
+            const dataToUpdate: any = { status, statusHistory: history, isModifiedAfterMigration: true };
             if (status === 'completed' && booking.billingStatus !== 'billed') {
                 dataToUpdate.billingStatus = 'pending_bill';
             }

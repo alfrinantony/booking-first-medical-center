@@ -678,6 +678,14 @@ export default function BillingPage() {
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div className="space-y-3">
+                                        {linkedBookingId && (
+                                            <div>
+                                                <label className="block text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">Appointment Number</label>
+                                                <div className="w-full p-2 border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-lg text-sm text-indigo-900 dark:text-indigo-200 font-mono">
+                                                    {linkedBookingId}
+                                                </div>
+                                            </div>
+                                        )}
                                         <div>
                                             <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Patient Name *</label>
                                             <input type="text" required className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={clientName} onChange={(e) => setClientName(e.target.value)} />

@@ -591,7 +591,7 @@ export default function AdminAppointmentsPage() {
         const params = new URLSearchParams({ bookId: bookingId });
         if (sbRef) params.set('sbRef', sbRef);
         if (sbId)  params.set('sbId',  sbId);
-        window.location.href = `/admin/billing?${params.toString()}`;
+        window.open(`/admin/billing?${params.toString()}`, '_blank');
     };
 
     const handleEditClick = (booking: Booking) => {
@@ -673,6 +673,10 @@ export default function AdminAppointmentsPage() {
                 
                 // Also check if this was a SimplyBook booking and update the SB cache
                 const updatedBooking = await res.json();
+                
+                // Optimistic UI Update for instant reflection without full reload
+                setBookings(prev => prev.map(b => b.id === updatedBooking.id ? { ...b, ...updatedBooking } : b));
+
                 if (updatedBooking.sbId && (updatedBooking.patientName || updatedBooking.whatsappNumber || updatedBooking.email)) {
                     await fetch(`/api/admin/simplybook/${updatedBooking.sbId}`, {
                         method: 'PATCH',
@@ -1333,18 +1337,22 @@ export default function AdminAppointmentsPage() {
                                                                     
                                                                     if (b.anyDoctor && ['booked', 'confirmed', 'rescheduled', 'arrived'].includes(b.status)) {
                                                                         statusColor = 'bg-pink-200 border-pink-500 text-pink-900 dark:bg-pink-900/60 dark:border-pink-600 dark:text-pink-200';
-                                                                    } else if (b.status === 'booked' || b.status === 'rescheduled') {
+                                                                    } else if (b.status === 'booked') {
                                                                         statusColor = 'bg-yellow-200 border-yellow-500 text-yellow-900 dark:bg-yellow-900/60 dark:border-yellow-600 dark:text-yellow-200';
+                                                                    } else if (b.status === 'rescheduled') {
+                                                                        statusColor = 'bg-yellow-400 border-yellow-600 text-yellow-900 dark:bg-yellow-700/60 dark:border-yellow-500 dark:text-yellow-100';
                                                                     } else if (b.status === 'confirmed') {
                                                                         statusColor = 'bg-blue-200 border-blue-500 text-blue-900 dark:bg-blue-900/60 dark:border-blue-600 dark:text-blue-200';
                                                                     } else if (b.status === 'arrived') {
-                                                                        statusColor = 'bg-gray-900 border-black text-white dark:bg-black dark:border-gray-800 dark:text-gray-200';
+                                                                        statusColor = 'bg-gray-700 border-black text-white dark:bg-gray-800 dark:border-gray-900 dark:text-gray-200';
                                                                     } else if (b.status === 'in_service') {
                                                                         statusColor = 'bg-green-200 border-green-500 text-green-900 dark:bg-green-900/60 dark:border-green-600 dark:text-green-200';
                                                                     } else if (b.status === 'completed') {
                                                                         statusColor = 'bg-[#8B4513] border-[#5C2E0B] text-white dark:bg-[#A0522D] dark:border-[#8B4513]'; // Brown
-                                                                    } else if (b.status === 'cancelled' || b.status === 'no_show') {
+                                                                    } else if (b.status === 'cancelled') {
                                                                         statusColor = 'bg-red-200 border-red-500 text-red-900 dark:bg-red-900/60 dark:border-red-600 dark:text-red-200';
+                                                                    } else if (b.status === 'no_show') {
+                                                                        statusColor = 'bg-orange-400 border-orange-600 text-white dark:bg-orange-600/80 dark:border-orange-500 dark:text-orange-100';
                                                                     }
                                                                     
                                                                     return (

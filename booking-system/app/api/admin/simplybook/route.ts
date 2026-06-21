@@ -713,6 +713,10 @@ export async function GET(request: NextRequest) {
 
                 if (matchResult) matchedCount++; else unmatchedCount++;
 
+                if (!sbRecord.clientName || !sbRecord.clientPhone) {
+                    console.warn(`[SimplyBook Import] Missing critical data for booking ${sbRecord.sbId} (Client Name: ${sbRecord.clientName}, Phone: ${sbRecord.clientPhone})`);
+                }
+
                 batchForBookings.push({
                     clinicId,
                     deptId,

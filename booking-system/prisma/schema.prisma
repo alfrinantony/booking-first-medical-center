@@ -41,8 +41,9 @@ model Booking {
   sbPaymentStatus     String?
   sbProviderName      String?
   sbServiceName       String?
-  createdAt           String
-  anyDoctor           Boolean? @default(false)
+  createdAt                String
+  anyDoctor                Boolean? @default(false)
+  isModifiedAfterMigration Boolean? @default(false)
 
   @@index([date])
   @@index([clinicId, deptId, doctorId])
