@@ -568,16 +568,17 @@ export default function AdminAppointmentsPage() {
             'arrived': ['in_service', 'completed'],
             'in_service': ['completed'],
             'rescheduled': ['confirmed', 'arrived', 'in_service', 'completed'],
-            'completed': [],
-            'cancelled': [],
-            'no_show': []
+            'completed': ['arrived', 'in_service', 'cancelled', 'no_show', 'rescheduled', 'booked'],
+            'cancelled': ['booked', 'confirmed'],
+            'no_show': ['booked', 'confirmed', 'rescheduled']
         };
 
         let allowed = forward[currentStatus] || [];
 
-        if (['booked', 'confirmed', 'arrived', 'in_service', 'rescheduled'].includes(currentStatus)) {
+        if (['booked', 'confirmed', 'arrived', 'in_service', 'rescheduled', 'completed'].includes(currentStatus)) {
             if (!pastApt) {
-                allowed.push('cancelled', 'rescheduled');
+                if (!allowed.includes('cancelled')) allowed.push('cancelled');
+                if (!allowed.includes('rescheduled')) allowed.push('rescheduled');
             }
             if (pastApt) {
                 allowed.push('no_show');
@@ -901,8 +902,8 @@ export default function AdminAppointmentsPage() {
     })();
 
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-    const isCompletedLock = editingBooking?.status === 'completed' && !isSuperAdmin;
-    const canChangeDetails = (canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import') && !isCompletedLock;
+    const isCompletedLock = false; // Allow changes to completed bookings for everyone
+    const canChangeDetails = (canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import');
 
     // Quick Client Registration
     const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
@@ -1947,6 +1948,9 @@ export default function AdminAppointmentsPage() {
                                     >
                                         <option value="" disabled>Select Branch</option>
                                         <option value="simplybook-import" disabled className="hidden">SimplyBook Import</option>
+                                        {editForm.clinicId && editForm.clinicId !== 'simplybook-import' && !clinics.some(c => c.id === editForm.clinicId) && (
+                                            <option value={editForm.clinicId}>{editingBooking?.clinicName || 'Unknown Branch'}</option>
+                                        )}
                                         {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
                                 </div>
@@ -1959,8 +1963,8 @@ export default function AdminAppointmentsPage() {
                                         disabled={!canChangeDetails || !editForm.clinicId || editForm.clinicId === 'simplybook-import'}
                                     >
                                         <option value="" disabled>Select Procedure</option>
-                                        {editForm.serviceId && !availableServicesForEdit.some(s => s.id === editForm.serviceId) && (editingBooking?.sbServiceName || editingBooking?.serviceName) && (
-                                            <option value={editForm.serviceId}>{editingBooking.sbServiceName || editingBooking.serviceName}</option>
+                                        {editForm.serviceId && !availableServicesForEdit.some(s => s.id === editForm.serviceId) && (
+                                            <option value={editForm.serviceId}>{editingBooking?.sbServiceName || editingBooking?.serviceName || 'Unknown Service'}</option>
                                         )}
                                         {availableServicesForEdit.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
@@ -1985,8 +1989,8 @@ export default function AdminAppointmentsPage() {
                                                 ? `Any Doctor (Booked: ${editingBooking.sbProviderName})` 
                                                 : 'Any Available Doctor'}
                                         </option>
-                                        {editForm.doctorId && editForm.doctorId !== 'any-doctor' && !availableDocsForEdit.some(d => d.id === editForm.doctorId) && editingBooking?.sbProviderName && (
-                                            <option value={editForm.doctorId}>{editingBooking.sbProviderName}</option>
+                                        {editForm.doctorId && editForm.doctorId !== 'any-doctor' && editForm.doctorId !== 'sb-unmatched' && !availableDocsForEdit.some(d => d.id === editForm.doctorId) && (
+                                            <option value={editForm.doctorId}>{editingBooking?.sbProviderName || editingBooking?.doctorName || 'Unknown Doctor'}</option>
                                         )}
                                         {availableDocsForEdit.map(doc => (
                                             <option key={doc.id} value={doc.id}>{doc.name}</option>
