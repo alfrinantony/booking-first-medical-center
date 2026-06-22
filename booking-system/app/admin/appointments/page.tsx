@@ -2,6 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clinic, Booking, timeSlots, Medicine } from '@/lib/data';
+import {
+    VALID_BOOKING_STATUSES,
+    canEditCompletedBilledBooking,
+    EDIT_COMPLETED_BILLED_PASSWORD,
+    getAllNextBookingStatuses,
+    getBookingStatusClasses,
+    getBookingStatusLabel,
+    isCompletedAndBilledLocked,
+    isValidBookingStatus,
+    normalizeBookingStatus,
+    parseStatusHistory
+} from '@/lib/booking-status-rules';
+import {
+    hasRequiredSimplyBookBookingDetails
+} from '@/lib/simplybook-booking-rules';
 import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, Pill, UserPlus, X, History, Sparkles, ExternalLink, Phone, CreditCard, Package, CheckCircle, Pencil, Mail } from 'lucide-react';
 import Link from 'next/link';
 import type { SimplybookRecord } from '@/lib/simplybook-store';
@@ -38,6 +53,16 @@ const parseTimeMins = (slotStr: string) => {
         return parseInt(match24[1], 10) * 60 + parseInt(match24[2], 10);
     }
     return 0;
+};
+
+const formatSimplyBookSlot = (timeStr: string) => {
+    const [hStr = '10', mStr = '00'] = timeStr.split(':');
+    const h = parseInt(hStr, 10);
+    const m = (mStr || '00').substring(0, 2);
+    if (Number.isNaN(h)) return '10:00 AM';
+    const period = h >= 12 ? 'PM' : 'AM';
+    const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+    return `${String(displayH).padStart(2, '0')}:${m.padStart(2, '0')} ${period}`;
 };
 
 const calculateOverlaps = (bookings: any[]) => {
@@ -89,6 +114,63 @@ const calculateOverlaps = (bookings: any[]) => {
     return positioned;
 };
 
+const getStatusCounts = (items: Array<{ status?: string }>) => {
+    const counts: Record<string, number> = {};
+    for (const item of items) {
+        const normalized = normalizeBookingStatus(item.status);
+        const key = isValidBookingStatus(normalized) ? normalized : 'unknown';
+        counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+};
+
+const getBookingSimplyBookId = (booking: Partial<Booking> & { id?: string; sbId?: string }) => {
+    if (booking.sbId) return String(booking.sbId);
+    const id = String(booking.id || '');
+    return id.startsWith('sb-') ? id.slice(3) : '';
+};
+
+const formatAuditTime = (timestamp: unknown) => {
+    if (!timestamp) return '';
+    const date = new Date(String(timestamp));
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
+const getStatusAuditTrail = (booking: Partial<Booking>) =>
+    parseStatusHistory((booking as any).statusHistory)
+        .filter(entry => entry && entry.newStatus && entry.action !== 'Appointment Edited');
+
+const getLatestStatusAudit = (booking: Partial<Booking>) => {
+    const history = getStatusAuditTrail(booking);
+    return history.length > 0 ? history[history.length - 1] : null;
+};
+
+const getMinutesBetweenStatuses = (booking: Partial<Booking>, fromStatus: string, toStatus: string) => {
+    const history = getStatusAuditTrail(booking);
+    const fromIndex = history.findIndex(entry => normalizeBookingStatus(entry.newStatus) === fromStatus);
+    if (fromIndex === -1) return null;
+    const toEntry = history.slice(fromIndex + 1).find(entry => normalizeBookingStatus(entry.newStatus) === toStatus);
+    if (!toEntry) return null;
+    const fromMs = new Date(String(history[fromIndex].timestamp)).getTime();
+    const toMs = new Date(String(toEntry.timestamp)).getTime();
+    if (Number.isNaN(fromMs) || Number.isNaN(toMs) || toMs < fromMs) return null;
+    return Math.round((toMs - fromMs) / 60000);
+};
+
+const formatDurationMinutes = (minutes: number | null) => {
+    if (minutes == null) return '';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+};
+
 export default function AdminAppointmentsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
 
@@ -114,17 +196,36 @@ export default function AdminAppointmentsPage() {
 
 
     // ── Edit SB Client Info ──
-    const [editClientModal, setEditClientModal] = useState<false | { sbId: string; name: string; phone: string; email: string }>(false);
+    const [editClientModal, setEditClientModal] = useState<false | { sbId: string; name: string; phone: string; email: string; editPassword?: string }>(false);
     const [editClientSaving, setEditClientSaving] = useState(false);
 
     const handleSaveClientEdit = async () => {
         if (!editClientModal) return;
+        const linkedBooking = bookings.find((booking: any) => booking.sbId === editClientModal.sbId);
+        let editPassword = editClientModal.editPassword || '';
+        if (linkedBooking && isCompletedAndBilledLocked(linkedBooking)) {
+            if (!editPassword) {
+                const requestedPassword = requestCompletedBilledEditPassword(linkedBooking);
+                if (requestedPassword === null) return;
+                editPassword = requestedPassword;
+            }
+            if (!canEditCompletedBilledBooking(linkedBooking, currentUser?.role, editPassword)) {
+                alert('Incorrect password. Completed and billed appointments remain locked.');
+                return;
+            }
+        }
         setEditClientSaving(true);
         try {
             const res = await fetch(`/api/admin/simplybook/${editClientModal.sbId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clientName: editClientModal.name, clientPhone: editClientModal.phone, clientEmail: editClientModal.email }),
+                body: JSON.stringify({
+                    clientName: editClientModal.name,
+                    clientPhone: editClientModal.phone,
+                    clientEmail: editClientModal.email,
+                    editorRole: currentUser?.role,
+                    editPassword,
+                }),
             });
             if (res.ok) {
                 // Refresh SB bookings so the updated name/phone shows immediately
@@ -208,12 +309,12 @@ export default function AdminAppointmentsPage() {
     })();
 
     useEffect(() => {
-        // Debounce search
+        // Debounce search and keep the fetched bookings aligned with the visible calendar window.
         const timeoutId = setTimeout(() => {
             fetchBookings();
         }, 300);
         return () => clearTimeout(timeoutId);
-    }, [selectedClinicId, selectedDeptId, selectedDoctorId, searchQuery]);
+    }, [selectedClinicId, selectedDeptId, selectedDoctorId, searchQuery, currentDate]);
 
     // Fetch HR shifts for resource calendar
     useEffect(() => {
@@ -258,13 +359,13 @@ export default function AdminAppointmentsPage() {
     const fetchSbBookings = async (from?: string, to?: string) => {
         try {
             const fmt = (d: Date) => d.toISOString().split('T')[0];
-            const defaultFrom = new Date(); defaultFrom.setMonth(defaultFrom.getMonth() - 1);
+            const defaultFrom = new Date();
             const defaultTo   = new Date(); defaultTo.setMonth(defaultTo.getMonth() + 3);
-            const url = `/api/admin/simplybook?from=${from ?? fmt(defaultFrom)}&to=${to ?? fmt(defaultTo)}`;
+            const url = `/api/admin/simplybook?from=${from ?? fmt(defaultFrom)}&to=${to ?? fmt(defaultTo)}&completeOnly=true&excludeCancelled=true&excludeAppManaged=true`;
             const res = await fetch(url, { cache: 'no-store' });
             if (res.ok) {
                 const data = await res.json();
-                if (Array.isArray(data)) setSbBookings(data);
+                if (Array.isArray(data)) setSbBookings(data.filter(hasRequiredSimplyBookBookingDetails));
             }
         } catch { /* ignore */ }
     };
@@ -382,10 +483,14 @@ export default function AdminAppointmentsPage() {
         }).catch(() => { });
     }, []);
 
-    const fetchBookings = async () => {
+    const fetchBookings = async (preserveBooking?: Booking | null) => {
         setIsLoading(true);
         try {
             const params = new URLSearchParams();
+            const rangeStart = startOfMonth(subMonths(currentDate, 1));
+            const rangeEnd = endOfMonth(addMonths(currentDate, 3));
+            params.append('startDate', format(rangeStart, 'yyyy-MM-dd'));
+            params.append('endDate', format(rangeEnd, 'yyyy-MM-dd'));
             if (selectedClinicId) params.append('clinicId', selectedClinicId);
             if (selectedDeptId) params.append('deptId', selectedDeptId);
             if (selectedDoctorId) params.append('doctorId', selectedDoctorId);
@@ -394,10 +499,26 @@ export default function AdminAppointmentsPage() {
             const res = await fetch(`/api/admin/bookings?${params.toString()}`, { cache: 'no-store' });
             if (res.ok) {
                 const data = await res.json();
-                setBookings(data);
+                let nextBookings = Array.isArray(data) ? data as Booking[] : [];
+                if (preserveBooking && preserveBooking.status !== 'cancelled') {
+                    const preserveSbId = getBookingSimplyBookId(preserveBooking);
+                    const existingIndex = nextBookings.findIndex(booking =>
+                        booking.id === preserveBooking.id ||
+                        (preserveSbId && getBookingSimplyBookId(booking) === preserveSbId)
+                    );
+                    nextBookings = existingIndex === -1
+                        ? [...nextBookings, preserveBooking]
+                        : nextBookings.map((booking, index) =>
+                            index === existingIndex ? { ...booking, ...preserveBooking } : booking
+                        );
+                }
+                setBookings(nextBookings);
+                return nextBookings;
             }
+            return [];
         } catch (error) {
             console.error('Failed to fetch bookings', error);
+            return [];
         } finally {
             setIsLoading(false);
         }
@@ -405,13 +526,17 @@ export default function AdminAppointmentsPage() {
 
     const getBookingsForDate = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        return bookings.filter(b => b.date === dateStr && b.status !== 'cancelled');
+        return bookings.filter(b =>
+            b.date === dateStr &&
+            b.status !== 'cancelled'
+        );
     };
 
     const getSbBookingsForDate = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         return sbBookings.filter(b => {
             if (b.date !== dateStr || b.status === 'cancelled') return false;
+            if (!hasRequiredSimplyBookBookingDetails(b)) return false;
             if (selectedDoctorId && b.matchedDoctorId !== selectedDoctorId) return false;
             if (searchQuery) {
                 const q = searchQuery.toLowerCase();
@@ -426,8 +551,41 @@ export default function AdminAppointmentsPage() {
 
     const selectedDayBookings = getBookingsForDate(selectedDate);
     // Exclude SB bookings that have been migrated (already shown in selectedDayBookings)
-    const migratedSbIds = new Set(bookings.filter(b => !!b.sbId).map(b => b.sbId as string).filter(Boolean));
+    const migratedSbIds = new Set(bookings.map(getBookingSimplyBookId).filter(Boolean));
     const selectedDaySbBookings = getSbBookingsForDate(selectedDate).filter(sb => !migratedSbIds.has(sb.sbId));
+
+    const getEditableStatus = (status: unknown): Booking['status'] => {
+        const normalized = normalizeBookingStatus(status);
+        return isValidBookingStatus(normalized) ? normalized as Booking['status'] : 'booked';
+    };
+
+    const buildBookingFromSbRecord = (sb: SimplybookRecord): Booking => ({
+        id: `sb-${sb.sbId}`,
+        clinicId: sb.matchedClinicId || 'simplybook-import',
+        deptId: sb.matchedDeptId || 'simplybook-import',
+        doctorId: sb.matchedDoctorId || 'sb-unmatched',
+        serviceId: `sb-${sb.eventId || sb.sbId}`,
+        serviceName: sb.serviceName,
+        date: sb.date,
+        slot: formatSimplyBookSlot(sb.time || sb.startDateTime?.split(' ')[1]?.substring(0, 5) || '10:00'),
+        duration: 30,
+        patientName: sb.clientName || 'Unknown Patient',
+        whatsappNumber: sb.clientPhone || '',
+        email: sb.clientEmail || '',
+        status: getEditableStatus(sb.status),
+        billingStatus: undefined,
+        createdAt: sb.receivedAt || new Date().toISOString(),
+        sbId: sb.sbId,
+        sbHash: sb.sbHash,
+        sbInvoiceId: sb.invoiceId,
+        sbInvoiceNumber: sb.invoiceNumber,
+        sbInvoiceAmount: sb.invoiceAmount,
+        sbInvoiceCurrency: sb.invoiceCurrency,
+        sbPaymentStatus: sb.paymentStatus,
+        sbPaymentProcessor: sb.paymentProcessor,
+        sbProviderName: sb.providerName,
+        sbServiceName: sb.serviceName,
+    } as Booking);
 
     const getServiceName = (booking: Booking) => {
         if (booking.serviceName) return booking.serviceName;
@@ -508,6 +666,7 @@ export default function AdminAppointmentsPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [showJourney, setShowJourney] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+    const [completedBilledEditPassword, setCompletedBilledEditPassword] = useState('');
     const [editForm, setEditForm] = useState<{
         status: Booking['status'];
         date: string;
@@ -555,37 +714,7 @@ export default function AdminAppointmentsPage() {
     };
 
     const getNextStatusOptions = (currentStatus: Booking['status']) => {
-        const pastApt = isPastAppointment();
-
-        if (isSuperAdmin) {
-            return ['booked', 'confirmed', 'arrived', 'in_service', 'completed', 'cancelled', 'no_show', 'rescheduled']
-                .filter(s => s !== currentStatus) as Booking['status'][];
-        }
-
-        const forward: Record<string, Booking['status'][]> = {
-            'booked': ['confirmed', 'arrived', 'in_service', 'completed'],
-            'confirmed': ['arrived', 'in_service', 'completed'],
-            'arrived': ['in_service', 'completed'],
-            'in_service': ['completed'],
-            'rescheduled': ['confirmed', 'arrived', 'in_service', 'completed'],
-            'completed': ['arrived', 'in_service', 'cancelled', 'no_show', 'rescheduled', 'booked'],
-            'cancelled': ['booked', 'confirmed'],
-            'no_show': ['booked', 'confirmed', 'rescheduled']
-        };
-
-        let allowed = forward[currentStatus] || [];
-
-        if (['booked', 'confirmed', 'arrived', 'in_service', 'rescheduled', 'completed'].includes(currentStatus)) {
-            if (!pastApt) {
-                if (!allowed.includes('cancelled')) allowed.push('cancelled');
-                if (!allowed.includes('rescheduled')) allowed.push('rescheduled');
-            }
-            if (pastApt) {
-                allowed.push('no_show');
-            }
-        }
-
-        return Array.from(new Set(allowed)).filter(s => s !== currentStatus);
+        return getAllNextBookingStatuses(currentStatus) as Booking['status'][];
     };
 
     const handleGenerateReceipt = (bookingId: string, sbRef?: string, sbId?: string) => {
@@ -595,15 +724,50 @@ export default function AdminAppointmentsPage() {
         window.open(`/admin/billing?${params.toString()}`, '_blank');
     };
 
+    const requestCompletedBilledEditPassword = (booking: Booking): string | null => {
+        if (!isCompletedAndBilledLocked(booking)) return '';
+        if (currentUser?.role !== 'SUPER_ADMIN') {
+            alert('Completed and billed appointments are locked. Only Super Admin can unlock editing.');
+            return null;
+        }
+        const password = window.prompt('Super Admin password required to edit this completed and billed appointment.');
+        if (!canEditCompletedBilledBooking(booking, currentUser?.role, password)) {
+            alert('Incorrect password. Completed and billed appointments remain locked.');
+            return null;
+        }
+        return EDIT_COMPLETED_BILLED_PASSWORD;
+    };
+
+    const closeEditModal = () => {
+        setIsEditModalOpen(false);
+        setCompletedBilledEditPassword('');
+    };
+
+    const openEditClientModal = (booking: Booking | null, sbId: string, name: string, phone: string, email: string) => {
+        let editPassword = '';
+        if (booking && isCompletedAndBilledLocked(booking)) {
+            const requestedPassword = requestCompletedBilledEditPassword(booking);
+            if (requestedPassword === null) return;
+            editPassword = requestedPassword;
+        }
+        setEditClientModal({ sbId, name, phone, email, editPassword });
+    };
+
     const handleEditClick = (booking: Booking) => {
-        if (booking.billingStatus === 'billed') {
+        let editPassword = '';
+        if (isCompletedAndBilledLocked(booking)) {
+            const requestedPassword = requestCompletedBilledEditPassword(booking);
+            if (requestedPassword === null) return;
+            editPassword = requestedPassword;
+        } else if (booking.billingStatus === 'billed') {
             const confirmed = window.confirm("This appointment has already been billed. Are you sure you want to edit it?");
             if (!confirmed) return;
         }
         setShowJourney(false);
         setEditingBooking(booking);
+        setCompletedBilledEditPassword(editPassword);
         setEditForm({
-            status: booking.status,
+            status: getEditableStatus(booking.status),
             date: booking.date,
             slot: booking.slot,
             clinicId: booking.clinicId || '',
@@ -649,18 +813,21 @@ export default function AdminAppointmentsPage() {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    status: editForm.status,
+                    status: getEditableStatus(editForm.status),
                     date: editForm.date || editingBooking.date,
                     slot: editForm.slot || editingBooking.slot,
                     clinicId: editForm.clinicId || editingBooking.clinicId,
                     deptId: editForm.deptId || editingBooking.deptId,
                     serviceId: editForm.serviceId || editingBooking.serviceId,
+                    serviceName: editingBooking.serviceName || (editingBooking as any).sbServiceName,
                     doctorId: editForm.doctorId || editingBooking.doctorId,
                     duration: editForm.duration || editingBooking.duration || 30,
                     patientName: editForm.patientName || editingBooking.patientName,
                     whatsappNumber: editForm.whatsappNumber || editingBooking.whatsappNumber,
                     email: editForm.email || editingBooking.email,
                     staffName: getStaffName(),
+                    editorRole: currentUser?.role,
+                    editPassword: completedBilledEditPassword,
                     ...(editForm.status === 'completed' && editingBooking.status !== 'completed' ? { billingStatus: 'pending_bill' } : {})
                 })
             });
@@ -672,30 +839,26 @@ export default function AdminAppointmentsPage() {
                     fetch('/api/admin/restrictions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'recordNoShow', clientId }) });
                 }
                 
-                // Also check if this was a SimplyBook booking and update the SB cache
                 const updatedBooking = await res.json();
                 
                 // Optimistic UI Update for instant reflection without full reload
-                setBookings(prev => prev.map(b => b.id === updatedBooking.id ? { ...b, ...updatedBooking } : b));
-
-                if (updatedBooking.sbId && (updatedBooking.patientName || updatedBooking.whatsappNumber || updatedBooking.email)) {
-                    await fetch(`/api/admin/simplybook/${updatedBooking.sbId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            clientName: updatedBooking.patientName,
-                            clientPhone: updatedBooking.whatsappNumber,
-                            clientEmail: updatedBooking.email
-                        })
-                    }).catch(err => console.warn('Failed to sync to SB:', err));
+                setBookings(prev => {
+                    const exists = prev.some(b => b.id === updatedBooking.id);
+                    return exists
+                        ? prev.map(b => b.id === updatedBooking.id ? { ...b, ...updatedBooking } : b)
+                        : [...prev, updatedBooking];
+                });
+                if ((updatedBooking as any).sbId) {
+                    setSbBookings(prev => prev.filter(sb => sb.sbId !== (updatedBooking as any).sbId));
                 }
+                setEditingBooking(updatedBooking);
 
-                setIsEditModalOpen(false);
-                fetchBookings(); // Refresh list
+                closeEditModal();
+                await fetchBookings(updatedBooking); // Refresh list without dropping the locally updated migrated booking
                 
                 if (navigateToBilling === true || (editForm.status === 'completed' && editingBooking.status !== 'completed')) {
-                    const sbInvNum = (editingBooking as any).sbInvoiceNumber || invoiceFetchMap[(editingBooking as any).sbId || '']?.invoiceNumber;
-                    handleGenerateReceipt(editingBooking.id, sbInvNum, (editingBooking as any).sbId);
+                    const sbInvNum = (updatedBooking as any).sbInvoiceNumber || invoiceFetchMap[(updatedBooking as any).sbId || '']?.invoiceNumber;
+                    handleGenerateReceipt(updatedBooking.id, sbInvNum, (updatedBooking as any).sbId);
                 }
             } else {
                 let errorMsg = 'Unknown error';
@@ -741,10 +904,10 @@ export default function AdminAppointmentsPage() {
 
         // Allow dragging sb- records to assign them to a doctor
 
-        let booking = bookings.find(b => b.id === bookingId) || dayBookings.find(b => b.id === bookingId);
+        let booking = bookings.find(b => b.id === bookingId);
         if (!booking && bookingId.startsWith('sb-')) {
             const rawSbId = bookingId.replace('sb-', '');
-            const sbBooking = daySbBookings.find(sb => sb.sbId === rawSbId);
+            const sbBooking = sbBookings.find(sb => sb.sbId === rawSbId);
             if (sbBooking) {
                 let duration = 30;
                 if (sbBooking.startDateTime && sbBooking.endDateTime) {
@@ -755,7 +918,7 @@ export default function AdminAppointmentsPage() {
                 booking = {
                     id: bookingId,
                     status: 'booked',
-                    date: sbBooking.startDate,
+                    date: sbBooking.date,
                     slot: sbBooking.time,
                     serviceId: '', // Bypass service check
                     duration: duration,
@@ -768,7 +931,7 @@ export default function AdminAppointmentsPage() {
         if (!booking) return;
 
         if (['completed', 'cancelled', 'no_show'].includes(booking.status) && !isSuperAdmin) {
-            alert(`Cannot reschedule a ${booking.status.replace('_', ' ')} appointment.`);
+            alert(`Cannot reschedule a ${getBookingStatusLabel(booking.status)} appointment.`);
             return;
         }
 
@@ -837,7 +1000,8 @@ export default function AdminAppointmentsPage() {
                     })
                 });
                 if (res.ok) {
-                    fetchBookings();
+                    const updatedBooking = await res.json();
+                    await fetchBookings(updatedBooking);
                 } else {
                     alert('Failed to reschedule');
                 }
@@ -902,7 +1066,10 @@ export default function AdminAppointmentsPage() {
     })();
 
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-    const isCompletedLock = false; // Allow changes to completed bookings for everyone
+    const isCompletedLock = editingBooking
+        ? isCompletedAndBilledLocked(editingBooking) &&
+          !canEditCompletedBilledBooking(editingBooking, currentUser?.role, completedBilledEditPassword)
+        : false;
     const canChangeDetails = (canReassignDoctor || editingBooking?.doctorId === 'sb-unmatched' || editingBooking?.clinicId === 'simplybook-import');
 
     // Quick Client Registration
@@ -1128,6 +1295,14 @@ export default function AdminAppointmentsPage() {
                         {calendarDays.map((day) => {
                             const dayBookings = getBookingsForDate(day);
                             const daySbBookings = getSbBookingsForDate(day);
+                            const dayStatusCounts = getStatusCounts([
+                                ...dayBookings,
+                                ...daySbBookings.map(buildBookingFromSbRecord)
+                            ]);
+                            const dayStatusEntries = [
+                                ...VALID_BOOKING_STATUSES,
+                                ...(dayStatusCounts.unknown ? ['unknown'] : [])
+                            ].filter(status => dayStatusCounts[status]);
                             const isSelected = isSameDay(day, selectedDate);
                             const isTodayDate = isToday(day);
                             const isCurrentMonth = isSameMonth(day, currentDate);
@@ -1162,16 +1337,10 @@ export default function AdminAppointmentsPage() {
                                             const endMs = new Date(sb.endDateTime.replace(' ', 'T')).getTime();
                                             duration = Math.max(15, (endMs - startMs) / 60000);
                                         }
+                                        const bookingFromSb = buildBookingFromSbRecord(sb);
                                         return {
-                                            id: 'sb-' + sb.sbId,
-                                            slot: sb.time,
+                                            ...bookingFromSb,
                                             _duration: duration,
-                                            patientName: sb.clientName,
-                                            whatsappNumber: sb.clientPhone,
-                                            email: sb.clientEmail,
-                                            deptId: sb.matchedDeptId || '',
-                                            doctorId: sb.matchedDoctorId || '',
-                                            status: sb.status,
                                             anyDoctor: false,
                                             isSbOnly: true,
                                             _rawSb: sb,
@@ -1333,28 +1502,7 @@ export default function AdminAppointmentsPage() {
                                                                     const heightPx = (b._duration / MIN_PER_ROW) * ROW_HEIGHT;
                                                                     const widthPct = 100 / b._groupCols;
                                                                     const leftPct = (b._colIndex / b._groupCols) * 100;
-                                                                    
-                                                                    let statusColor = 'bg-gray-100 border-gray-400 text-gray-900 dark:bg-gray-800 dark:text-gray-100'; // Default
-                                                                    
-                                                                    if (b.anyDoctor && ['booked', 'confirmed', 'rescheduled', 'arrived'].includes(b.status)) {
-                                                                        statusColor = 'bg-pink-200 border-pink-500 text-pink-900 dark:bg-pink-900/60 dark:border-pink-600 dark:text-pink-200';
-                                                                    } else if (b.status === 'booked') {
-                                                                        statusColor = 'bg-yellow-200 border-yellow-500 text-yellow-900 dark:bg-yellow-900/60 dark:border-yellow-600 dark:text-yellow-200';
-                                                                    } else if (b.status === 'rescheduled') {
-                                                                        statusColor = 'bg-yellow-400 border-yellow-600 text-yellow-900 dark:bg-yellow-700/60 dark:border-yellow-500 dark:text-yellow-100';
-                                                                    } else if (b.status === 'confirmed') {
-                                                                        statusColor = 'bg-blue-200 border-blue-500 text-blue-900 dark:bg-blue-900/60 dark:border-blue-600 dark:text-blue-200';
-                                                                    } else if (b.status === 'arrived') {
-                                                                        statusColor = 'bg-gray-700 border-black text-white dark:bg-gray-800 dark:border-gray-900 dark:text-gray-200';
-                                                                    } else if (b.status === 'in_service') {
-                                                                        statusColor = 'bg-green-200 border-green-500 text-green-900 dark:bg-green-900/60 dark:border-green-600 dark:text-green-200';
-                                                                    } else if (b.status === 'completed') {
-                                                                        statusColor = 'bg-[#8B4513] border-[#5C2E0B] text-white dark:bg-[#A0522D] dark:border-[#8B4513]'; // Brown
-                                                                    } else if (b.status === 'cancelled') {
-                                                                        statusColor = 'bg-red-200 border-red-500 text-red-900 dark:bg-red-900/60 dark:border-red-600 dark:text-red-200';
-                                                                    } else if (b.status === 'no_show') {
-                                                                        statusColor = 'bg-orange-400 border-orange-600 text-white dark:bg-orange-600/80 dark:border-orange-500 dark:text-orange-100';
-                                                                    }
+                                                                    const statusColor = getBookingStatusClasses(b.status).block;
                                                                     
                                                                     return (
                                                                         <div
@@ -1379,7 +1527,7 @@ export default function AdminAppointmentsPage() {
                                                                                 </div>
                                                                                 <div className="mt-auto flex justify-between items-end">
                                                                                     <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
-                                                                                        {b.status.replace('_', ' ')}
+                                                                                        {getBookingStatusLabel(b.status)}
                                                                                     </span>
                                                                                     {b.isSbOnly && (
                                                                                         <span className="text-[9px] font-bold uppercase tracking-wider opacity-60">
@@ -1416,20 +1564,21 @@ export default function AdminAppointmentsPage() {
                                     }`}>
                                         {format(day, 'd')}
                                     </span>
-                                    {(dayBookings.length > 0 || daySbBookings.length > 0) && (
-                                        <div className="flex flex-col gap-0.5 w-full">
-                                            {dayBookings.length > 0 && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40 px-1.5 py-0.5 rounded-full w-fit">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block" />
-                                                    {dayBookings.length}
-                                                </span>
-                                            )}
-                                            {daySbBookings.length > 0 && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 px-1.5 py-0.5 rounded-full w-fit">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-violet-500 inline-block" />
-                                                    +{daySbBookings.length} SB
-                                                </span>
-                                            )}
+                                    {dayStatusEntries.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 w-full">
+                                            {dayStatusEntries.map(status => {
+                                                const statusClasses = getBookingStatusClasses(status);
+                                                return (
+                                                    <span
+                                                        key={status}
+                                                        title={`${getBookingStatusLabel(status)}: ${dayStatusCounts[status]}`}
+                                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded-full"
+                                                    >
+                                                        <span className={`w-1.5 h-1.5 rounded-full inline-block ${statusClasses.dot}`} />
+                                                        {dayStatusCounts[status]}
+                                                    </span>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </button>
@@ -1474,34 +1623,15 @@ export default function AdminAppointmentsPage() {
 
                     <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
                         {selectedDayBookings.map((booking) => {
-                            const statusBorder = ({
-                                'booked': 'border-l-blue-400',
-                                'confirmed': 'border-l-green-500',
-                                'arrived': 'border-l-teal-500',
-                                'in_service': 'border-l-purple-500',
-                                'completed': 'border-l-emerald-600',
-                                'cancelled': 'border-l-red-400',
-                                'no_show': 'border-l-red-600',
-                                'rescheduled': 'border-l-amber-400',
-                            } as Record<string, string>)[booking.status] ?? 'border-l-gray-300';
-
-                            const statusBadge = ({
-                                'booked': 'bg-blue-100 text-blue-700',
-                                'confirmed': 'bg-green-100 text-green-700',
-                                'arrived': 'bg-teal-100 text-teal-700',
-                                'in_service': 'bg-purple-100 text-purple-700',
-                                'completed': 'bg-emerald-100 text-emerald-700',
-                                'cancelled': 'bg-red-100 text-red-600',
-                                'no_show': 'bg-red-200 text-red-800',
-                                'rescheduled': 'bg-amber-100 text-amber-700',
-                            } as Record<string, string>)[booking.status] ?? 'bg-gray-100 text-gray-600';
-
-                            const isSb = (booking as any).source === 'simplybook';
+                            const statusClasses = getBookingStatusClasses(booking.status);
+                            const isSb = (booking as any).source === 'simplybook' || !!(booking as any).sbId;
+                            const completedBilled = isCompletedAndBilledLocked(booking);
+                            const latestStatusAudit = getLatestStatusAudit(booking);
+                            const waitingTime = getMinutesBetweenStatuses(booking, 'arrived', 'in_service');
+                            const procedureDuration = getMinutesBetweenStatuses(booking, 'in_service', 'completed');
 
                             return (
-                                <div key={booking.id} className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 border-l-4 ${
-                                    isSb ? 'border-l-violet-500' : statusBorder
-                                } shadow-sm overflow-hidden`}>
+                                <div key={booking.id} className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 border-l-4 ${statusClasses.border} shadow-sm overflow-hidden`}>
                                     <div className="px-3 pt-3 pb-2">
                                         {/* Time + status */}
                                         <div className="flex items-center justify-between mb-2">
@@ -1516,8 +1646,8 @@ export default function AdminAppointmentsPage() {
                                                         <ExternalLink className="w-2.5 h-2.5" /> SB
                                                     </span>
                                                 )}
-                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full capitalize ${statusBadge}`}>
-                                                    {booking.status.replace('_', ' ')}
+                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${statusClasses.badge}`}>
+                                                    {getBookingStatusLabel(booking.status)}
                                                 </span>
                                             </div>
                                         </div>
@@ -1548,6 +1678,30 @@ export default function AdminAppointmentsPage() {
                                             </div>
                                         </div>
                                         {/* ── Payment Info Block ── */}
+                                        {latestStatusAudit && (
+                                            <div className="mt-1.5 pt-1.5 border-t border-gray-50 dark:border-gray-700/60 space-y-1">
+                                                <div className="flex items-center gap-1.5 text-[11px] text-gray-500 min-w-0">
+                                                    <History className="w-3 h-3 shrink-0" />
+                                                    <span className="truncate">
+                                                        {getBookingStatusLabel(latestStatusAudit.newStatus)} by {String(latestStatusAudit.changedBy || 'Unknown')} · {formatAuditTime(latestStatusAudit.timestamp)}
+                                                    </span>
+                                                </div>
+                                                {(waitingTime != null || procedureDuration != null) && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {waitingTime != null && (
+                                                            <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
+                                                                Wait {formatDurationMinutes(waitingTime)}
+                                                            </span>
+                                                        )}
+                                                        {procedureDuration != null && (
+                                                            <span className="text-[10px] font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded">
+                                                                Procedure {formatDurationMinutes(procedureDuration)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                         <div className="mt-1.5 pt-1.5 border-t border-gray-50 dark:border-gray-700/60 space-y-1">
                                             {(() => {
                                                 const sbId     = (booking as any).sbId as string | undefined;
@@ -1643,7 +1797,7 @@ export default function AdminAppointmentsPage() {
 
                                                 /* ── Pay at clinic (default) ── */
                                                 /* For SB bookings with no payment data yet, show Get Invoice # button */
-                                                if (isSb && sbId && !booking.isFollowUp && booking.paymentMethod !== 'package') {
+                                                if (isSb && sbId && !booking.isFollowUp && (booking as any).paymentMethod !== 'package') {
                                                     if (isFetchingThis) return (
                                                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-600 animate-pulse">
                                                             <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin inline-block" />
@@ -1694,20 +1848,28 @@ export default function AdminAppointmentsPage() {
                                         <button
                                             onClick={() => handleEditClick(booking)}
                                             className={`flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
-                                                booking.status === 'completed' && currentUser?.role !== 'SUPER_ADMIN'
-                                                    ? 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
-                                                    : booking.billingStatus === 'billed'
-                                                        ? 'text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
-                                                        : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                                                completedBilled && currentUser?.role !== 'SUPER_ADMIN'
+                                                    ? 'text-gray-400 cursor-not-allowed hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-gray-800'
+                                                    : completedBilled
+                                                        ? 'text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-900/20'
+                                                        : booking.billingStatus === 'billed'
+                                                            ? 'text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                                                            : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
                                             }`}
                                         >
-                                            {booking.status === 'completed' && currentUser?.role !== 'SUPER_ADMIN' ? '🔒 Locked (Completed)' : booking.billingStatus === 'billed' ? '✏️ Edit (Billed)' : '✏️ Edit'}
+                                            {completedBilled && currentUser?.role !== 'SUPER_ADMIN'
+                                                ? 'Locked (Billed)'
+                                                : completedBilled
+                                                    ? 'Unlock Edit'
+                                                    : booking.billingStatus === 'billed'
+                                                        ? 'Edit (Billed)'
+                                                        : 'Edit'}
                                         </button>
                                         {isSb && (booking as any).sbId && (
                                             <>
                                                 <div className="w-px bg-gray-100 dark:bg-gray-700" />
                                                 <button
-                                                    onClick={() => setEditClientModal({ sbId: (booking as any).sbId, name: booking.patientName || '', phone: booking.whatsappNumber || '', email: booking.email || '' })}
+                                                    onClick={() => openEditClientModal(booking, (booking as any).sbId, booking.patientName || '', booking.whatsappNumber || '', booking.email || '')}
                                                     className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
                                                     title="Edit patient name, phone, email"
                                                 >
@@ -1756,8 +1918,10 @@ export default function AdminAppointmentsPage() {
                             const amt = sb.invoiceAmount || fetched?.invoiceAmount;
                             const cur = sb.invoiceCurrency || fetched?.invoiceCurrency || 'AED';
                             const isFetching = fetchingInvoices[sb.sbId];
+                            const sbDisplayStatus = getEditableStatus(sb.status);
+                            const statusClasses = getBookingStatusClasses(sbDisplayStatus);
                             return (
-                                <div key={`sb-${sb.sbId}`} className="bg-white dark:bg-gray-800 rounded-xl border border-violet-100 dark:border-violet-800 border-l-4 border-l-violet-500 shadow-sm overflow-hidden">
+                                <div key={`sb-${sb.sbId}`} className={`bg-white dark:bg-gray-800 rounded-xl border border-violet-100 dark:border-violet-800 border-l-4 ${statusClasses.border} shadow-sm overflow-hidden`}>
                                     <div className="px-3 pt-3 pb-2">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-1.5 text-sm font-bold text-gray-900 dark:text-white">
@@ -1768,12 +1932,9 @@ export default function AdminAppointmentsPage() {
                                                 <span className="text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full flex items-center gap-1">
                                                     <ExternalLink className="w-2.5 h-2.5" /> SimplyBook
                                                 </span>
-                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                                    sb.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                                    sb.status === 'cancelled' ? 'bg-red-100 text-red-600' :
-                                                    sb.status === 'pending'   ? 'bg-amber-100 text-amber-700' :
-                                                    'bg-gray-100 text-gray-600'
-                                                }`}>{sb.status}</span>
+                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${statusClasses.badge}`}>
+                                                    {getBookingStatusLabel(sbDisplayStatus)}
+                                                </span>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-1.5 mb-1">
@@ -1822,7 +1983,14 @@ export default function AdminAppointmentsPage() {
                                     </div>
                                     <div className="border-t border-violet-100 dark:border-violet-800/40 bg-violet-50/30 dark:bg-violet-900/10 flex">
                                         <button
-                                            onClick={() => setEditClientModal({ sbId: sb.sbId, name: sb.clientName || '', phone: sb.clientPhone || '', email: sb.clientEmail || '' })}
+                                            onClick={() => handleEditClick(buildBookingFromSbRecord(sb))}
+                                            className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-violet-600 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors border-r border-violet-100 dark:border-violet-800/40"
+                                            title="Edit appointment status"
+                                        >
+                                            <CheckCircle className="w-3 h-3" /> Edit Status
+                                        </button>
+                                        <button
+                                            onClick={() => openEditClientModal(null, sb.sbId, sb.clientName || '', sb.clientPhone || '', sb.clientEmail || '')}
                                             className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-violet-600 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors border-r border-violet-100 dark:border-violet-800/40"
                                             title="Edit patient name, phone, email"
                                         >
@@ -1861,7 +2029,7 @@ export default function AdminAppointmentsPage() {
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-5">
                             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Edit Appointment</h2>
-                            <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="w-5 h-5" /></button>
+                            <button onClick={closeEditModal} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="w-5 h-5" /></button>
                         </div>
 
                         <div className="space-y-4">
@@ -1903,12 +2071,8 @@ export default function AdminAppointmentsPage() {
                             <div>
                                 <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Status</label>
                                 <div className="flex items-center gap-2">
-                                    <span className={`px-2.5 py-1 rounded-lg text-sm font-bold capitalize ${
-                                        editForm.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                        editForm.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                        'bg-gray-100 text-gray-800'
-                                    }`}>
-                                        {editForm.status.replace('_', ' ')}
+                                    <span className={`px-2.5 py-1 rounded-lg text-sm font-bold ${getBookingStatusClasses(editForm.status).badge}`}>
+                                        {getBookingStatusLabel(editForm.status)}
                                     </span>
                                     {getNextStatusOptions(editForm.status).length > 0 && (
                                         <select
@@ -1918,7 +2082,7 @@ export default function AdminAppointmentsPage() {
                                         >
                                             <option value="" disabled>Change to…</option>
                                             {getNextStatusOptions(editForm.status).map(s => (
-                                                <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                                                <option key={s} value={s}>{getBookingStatusLabel(s)}</option>
                                             ))}
                                         </select>
                                     )}
@@ -1949,7 +2113,7 @@ export default function AdminAppointmentsPage() {
                                         <option value="" disabled>Select Branch</option>
                                         <option value="simplybook-import" disabled className="hidden">SimplyBook Import</option>
                                         {editForm.clinicId && editForm.clinicId !== 'simplybook-import' && !clinics.some(c => c.id === editForm.clinicId) && (
-                                            <option value={editForm.clinicId}>{editingBooking?.clinicName || 'Unknown Branch'}</option>
+                                            <option value={editForm.clinicId}>{(editingBooking as any)?.clinicName || 'Unknown Branch'}</option>
                                         )}
                                         {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
@@ -1990,7 +2154,7 @@ export default function AdminAppointmentsPage() {
                                                 : 'Any Available Doctor'}
                                         </option>
                                         {editForm.doctorId && editForm.doctorId !== 'any-doctor' && editForm.doctorId !== 'sb-unmatched' && !availableDocsForEdit.some(d => d.id === editForm.doctorId) && (
-                                            <option value={editForm.doctorId}>{editingBooking?.sbProviderName || editingBooking?.doctorName || 'Unknown Doctor'}</option>
+                                            <option value={editForm.doctorId}>{editingBooking?.sbProviderName || (editingBooking as any)?.doctorName || 'Unknown Doctor'}</option>
                                         )}
                                         {availableDocsForEdit.map(doc => (
                                             <option key={doc.id} value={doc.id}>{doc.name}</option>
@@ -2053,7 +2217,7 @@ export default function AdminAppointmentsPage() {
                             </button>
                             <div className="flex gap-3">
                                 <button
-                                    onClick={() => setIsEditModalOpen(false)}
+                                    onClick={closeEditModal}
                                     className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                                 >
                                     {isCompletedLock ? 'Close' : 'Cancel'}
@@ -2162,27 +2326,9 @@ export default function AdminAppointmentsPage() {
                                             const isFirst = idx === 0;
                                             const isLast = idx === historyBooking.statusHistory!.length - 1;
                                             const isEdited = entry.action === 'Appointment Edited';
-                                            const dotColor = isEdited ? 'bg-indigo-500' : ({
-                                                'booked': 'bg-blue-500',
-                                                'confirmed': 'bg-green-500',
-                                                'arrived': 'bg-teal-500',
-                                                'in_service': 'bg-purple-500',
-                                                'completed': 'bg-emerald-600',
-                                                'cancelled': 'bg-red-500',
-                                                'no_show': 'bg-red-700',
-                                                'rescheduled': 'bg-amber-500',
-                                            } as Record<string,string>)[entry.newStatus] || 'bg-gray-500';
-
-                                            const badgeColor = ({
-                                                'booked': 'bg-blue-100 text-blue-700',
-                                                'confirmed': 'bg-green-100 text-green-700',
-                                                'arrived': 'bg-teal-100 text-teal-700',
-                                                'in_service': 'bg-purple-100 text-purple-700',
-                                                'completed': 'bg-emerald-100 text-emerald-700',
-                                                'cancelled': 'bg-red-100 text-red-700',
-                                                'no_show': 'bg-red-200 text-red-800',
-                                                'rescheduled': 'bg-amber-100 text-amber-700',
-                                            } as Record<string,string>)[entry.newStatus] || 'bg-gray-100 text-gray-700';
+                                            const statusClasses = getBookingStatusClasses(entry.newStatus);
+                                            const dotColor = isEdited ? 'bg-indigo-500' : statusClasses.dot;
+                                            const badgeColor = statusClasses.badge;
 
                                             return (
                                                 <div key={idx} className="relative flex items-start gap-4 pb-6">
@@ -2202,9 +2348,9 @@ export default function AdminAppointmentsPage() {
                                                                 <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${badgeColor}`}>Booking Created</span>
                                                             ) : (
                                                                 <>
-                                                                    <span className="text-xs text-gray-400 line-through capitalize">{entry.oldStatus.replace('_', ' ')}</span>
+                                                                    <span className="text-xs text-gray-400 line-through">{getBookingStatusLabel(entry.oldStatus)}</span>
                                                                     <span className="text-gray-400">→</span>
-                                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold capitalize ${badgeColor}`}>{entry.newStatus.replace('_', ' ')}</span>
+                                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${badgeColor}`}>{getBookingStatusLabel(entry.newStatus)}</span>
                                                                 </>
                                                             )}
                                                         </div>

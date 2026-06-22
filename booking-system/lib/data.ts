@@ -435,6 +435,9 @@ export interface Booking {
         oldStatus: string;
         newStatus: string;
         changedBy: string; // Staff name or 'System' or 'Customer'
+        action?: string;
+        details?: string;
+        isLocalModified?: boolean;
     }[];
     createdAt: string;
 
@@ -450,6 +453,7 @@ export interface Booking {
     sbPaymentProcessor?: string;     // e.g. "Stripe", "PayPal", "manual"
     sbProviderName?: string;         // Original SB provider name (for audit / reassignment)
     sbServiceName?: string;          // Original SB service name (for audit)
+    isModifiedAfterMigration?: boolean; // Prevent future SimplyBook sync from overwriting local edits
 }
 
 // Specific services for Dermatology & Aesthetics

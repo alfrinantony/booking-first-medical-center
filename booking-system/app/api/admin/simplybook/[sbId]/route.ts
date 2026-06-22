@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { SimplybookStore } from '@/lib/simplybook-store';
 import { ClientsStore } from '@/lib/clients-store';
 import { BookingsStore } from '@/lib/bookings-store';
+import { canEditCompletedBilledBooking } from '@/lib/booking-status-rules';
 
 /** PATCH /api/admin/simplybook/[sbId]  — update client info on a SimplyBook record */
 export async function PATCH(
@@ -11,9 +12,34 @@ export async function PATCH(
 ) {
     try {
         const { sbId } = await params;
-        const body = await req.json() as { clientName?: string; clientPhone?: string; clientEmail?: string };
+        const body = await req.json() as {
+            clientName?: string;
+            clientPhone?: string;
+            clientEmail?: string;
+            editorRole?: string;
+            editPassword?: string;
+        };
         const record = await SimplybookStore.getById(sbId);
         if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+
+        let syncedBookingId = record.syncedToBookingsId;
+        let linkedBooking: any = null;
+        try {
+            const appBookings = await BookingsStore.getAll();
+            linkedBooking = appBookings.find((b: any) => b.sbId === sbId);
+            syncedBookingId = syncedBookingId || linkedBooking?.id;
+            if (!linkedBooking && syncedBookingId) {
+                linkedBooking = await BookingsStore.getById(syncedBookingId);
+            }
+        } catch (lookupErr) {
+            console.warn('[SB PATCH] BookingsStore lookup failed (non-fatal):', lookupErr);
+        }
+
+        if (linkedBooking && !canEditCompletedBilledBooking(linkedBooking, body.editorRole, body.editPassword)) {
+            return NextResponse.json({
+                error: 'Completed and billed appointments are locked. Super Admin password is required to edit.'
+            }, { status: 403 });
+        }
 
         // ── 1. Update the SimplyBook record ──
         const newName  = body.clientName  !== undefined ? body.clientName.trim()  : record.clientName;
@@ -47,9 +73,11 @@ export async function PATCH(
         }
 
         // ── 3. If booking was migrated into BookingsStore, propagate the edits ──
-        if (updated.syncedToBookingsId) {
+        syncedBookingId = updated.syncedToBookingsId || syncedBookingId;
+
+        if (syncedBookingId) {
             try {
-                await BookingsStore.update(updated.syncedToBookingsId, {
+                await BookingsStore.update(syncedBookingId, {
                     patientName:    newName  || undefined,
                     whatsappNumber: newPhone || undefined,
                     email:          newEmail || undefined,

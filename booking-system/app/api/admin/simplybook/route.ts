@@ -17,6 +17,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SimplybookStore, SimplybookRecord } from '@/lib/simplybook-store';
 import { BookingsStore } from '@/lib/bookings-store';
 import { ServicesStore } from '@/lib/services-store';
+import { LogsStore } from '@/lib/logs-store';
+import { isBookingLocallyModified } from '@/lib/booking-status-rules';
+import {
+    getMissingSimplyBookBookingFields,
+    hasRequiredSimplyBookBookingDetails
+} from '@/lib/simplybook-booking-rules';
 import {
     getAdminBookings,
     getServiceList,
@@ -160,6 +166,17 @@ function toBookingStatus(sbStatus: string): 'booked' | 'confirmed' | 'cancelled'
     return 'booked';
 }
 
+function isMissingMappedValue(value: unknown, placeholders: RegExp[] = []) {
+    const text = String(value || '').trim();
+    return !text || placeholders.some(pattern => pattern.test(text));
+}
+
+function getAppBookingSimplyBookId(booking: Partial<Booking> & { id?: string; sbId?: string }) {
+    if (booking.sbId) return String(booking.sbId);
+    const id = String(booking.id || '');
+    return id.startsWith('sb-') ? id.slice(3) : '';
+}
+
 // ── Map a SimplyBook admin booking to our stored record ──
 function mapAdminBooking(
     b: SBBooking,
@@ -168,14 +185,14 @@ function mapAdminBooking(
     clientMap: Map<string, { name: string; email: string; phone: string }>,
     matchResult: DoctorEntry | null
 ): SimplybookRecord {
-    let startDT = b.start_date_time || '';
+    let startDT = String(b.start_date_time || '');
     if (!startDT && b.start_date) {
-        startDT = b.start_time ? `${b.start_date} ${b.start_time}` : b.start_date;
+        startDT = b.start_time ? `${String(b.start_date)} ${String(b.start_time)}` : String(b.start_date);
     }
     
-    let endDT = b.end_date_time || '';
+    let endDT = String(b.end_date_time || '');
     if (!endDT && b.end_date) {
-        endDT = b.end_time ? `${b.end_date} ${b.end_time}` : b.end_date;
+        endDT = b.end_time ? `${String(b.end_date)} ${String(b.end_time)}` : String(b.end_date);
     }
     
     const [dateStr = '', timeStr = ''] = startDT.split(' ');
@@ -475,13 +492,14 @@ export async function GET(request: NextRequest) {
 
         try {
             // Fetch SimplyBook data + app config in parallel
-            const [sbBookings, services, providers, clinics, existingRecords] = await Promise.all([
+            const [sbBookings, services, providers, clinics, existingRecords, appBookings] = await Promise.all([
                 getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
                 ServicesStore.getClinics() as Promise<Clinic[]>,
                 // Only load records for this date range (not ALL history)
                 SimplybookStore.getByDateRange(dateFrom, effectiveTo),
+                BookingsStore.getByFilters({ startDate: dateFrom, endDate: effectiveTo }),
             ]);
 
             console.log(`[SimplyBook sync] ${sbBookings.length} bookings from ${dateFrom} to ${effectiveTo}`);
@@ -509,11 +527,17 @@ export async function GET(request: NextRequest) {
             const existingMap = new Map<string, SimplybookRecord>(
                 existingRecords.map(r => [r.sbId, r])
             );
+            const appBookingBySbId = new Map<string, Booking>();
+            for (const appBooking of appBookings as Booking[]) {
+                const appSbId = getAppBookingSimplyBookId(appBooking);
+                if (appSbId) appBookingBySbId.set(appSbId, appBooking);
+            }
 
             // Build doctor index
             const doctorIndex = buildDoctorIndex(clinics);
 
-            let synced = 0, matched = 0, unmatched = 0;
+            let synced = 0, matched = 0, unmatched = 0, skippedIncomplete = 0, skippedProtected = 0;
+            const incompleteWarnings: string[] = [];
             const upsertBatch: SimplybookRecord[] = [];
 
             for (const booking of sbBookings as SBBooking[]) {
@@ -526,6 +550,10 @@ export async function GET(request: NextRequest) {
             // Build empty clientMap (we already have names directly from booking)
             const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
                 const record = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
+                const appManagedBooking = appBookingBySbId.get(record.sbId);
+                if (appManagedBooking?.id) {
+                    record.syncedToBookingsId = appManagedBooking.id;
+                }
 
                 // Carry over syncedToBookingsId from existing record if present
                 const existing = existingMap.get(record.sbId);
@@ -558,8 +586,26 @@ export async function GET(request: NextRequest) {
                     if (raw.invoice_currency) record.invoiceCurrency = String(raw.invoice_currency);
                 }
 
+                if (!record.paymentStatus) {
+                    record.paymentStatus = 'unpaid';
+                }
+
                 if (record.paymentStatus === 'error') {
                     continue; // Skip failed/abandoned bookings
+                }
+
+                if (appManagedBooking && isBookingLocallyModified(appManagedBooking)) {
+                    skippedProtected++;
+                    continue;
+                }
+
+                const missingFields = getMissingSimplyBookBookingFields(record);
+                if (missingFields.length > 0) {
+                    const warning = `SB#${record.sbId}: missing ${missingFields.join(', ')}`;
+                    incompleteWarnings.push(warning);
+                    skippedIncomplete++;
+                    console.warn(`[SimplyBook Sync] Skipped incomplete booking: ${warning}`);
+                    continue;
                 }
 
                 if (matchResult && record.status !== 'cancelled' && record.status !== 'noshow') {
@@ -574,12 +620,23 @@ export async function GET(request: NextRequest) {
 
             // Save ALL records in ONE blob write (upsertMany)
             await SimplybookStore.upsertMany(upsertBatch);
+            if (incompleteWarnings.length > 0) {
+                await LogsStore.add({
+                    userId: 'system',
+                    userName: 'SimplyBook Sync',
+                    action: 'SIMPLYBOOK_SYNC_SKIPPED_INCOMPLETE',
+                    details: `${incompleteWarnings.length} booking(s) skipped because client name, email, or booking details were missing. First records: ${incompleteWarnings.slice(0, 20).join(' | ')}`,
+                    entityType: 'Booking'
+                });
+            }
 
             return NextResponse.json({
                 ok: true,
                 synced,
                 matched,
                 unmatched,
+                skippedIncomplete,
+                skippedProtected,
                 dateFrom,
                 dateTo: effectiveTo,
                 syncedAt: new Date().toISOString(),
@@ -614,12 +671,13 @@ export async function GET(request: NextRequest) {
         try {
             const skipInvoices = sp.get('skip_invoices') === 'true';
 
-            const [sbBookings, services, providers, clinics, invoices] = await Promise.all([
+            const [sbBookings, services, providers, clinics, invoices, appBookings] = await Promise.all([
                 getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
                 ServicesStore.getClinics() as Promise<Clinic[]>,
                 skipInvoices ? Promise.resolve([]) : getInvoiceList(dateFrom, effectiveTo),
+                BookingsStore.getByFilters({ startDate: dateFrom, endDate: effectiveTo }),
             ]);
 
             // Build invoice map: booking_id → invoice
@@ -632,10 +690,16 @@ export async function GET(request: NextRequest) {
             const serviceMap  = new Map<string, string>(services.map(s  => [String(s.id), s.name]));
             const providerMap = new Map<string, string>(providers.map(p => [String(p.id), p.name]));
             const doctorIndex = buildDoctorIndex(clinics);
+            const appBookingBySbId = new Map<string, Booking>();
+            for (const appBooking of appBookings as Booking[]) {
+                const appSbId = getAppBookingSimplyBookId(appBooking);
+                if (appSbId) appBookingBySbId.set(appSbId, appBooking);
+            }
 
             const batchForBookings: Array<Omit<Booking, 'id' | 'createdAt'> & { sbId?: string }> = [];
             const sbUpsertBatch: SimplybookRecord[] = [];
-            let matchedCount = 0, unmatchedCount = 0;
+            const missingDataWarnings: string[] = [];
+            let matchedCount = 0, unmatchedCount = 0, skippedIncomplete = 0, skippedProtected = 0;
 
             for (const booking of sbBookings as SBBooking[]) {
                 const rawProviderName =
@@ -646,6 +710,10 @@ export async function GET(request: NextRequest) {
 
                 const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
                 const sbRecord = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
+                const appManagedBooking = appBookingBySbId.get(sbRecord.sbId);
+                if (appManagedBooking?.id) {
+                    sbRecord.syncedToBookingsId = appManagedBooking.id;
+                }
 
                 // Extract billing info using multi-variant helper
                 const raw = booking as Record<string, unknown>;
@@ -656,7 +724,7 @@ export async function GET(request: NextRequest) {
                 const invoiceAmount    = f?.invoiceAmount ?? (typeof raw.invoice_amount === 'number' ? raw.invoice_amount : undefined);
                 const invoiceCurrency  = f?.invoiceCurrency ?? (typeof raw.invoice_currency === 'string' ? raw.invoice_currency : 'AED');
                 const paidAmount       = f?.paidAmount;
-                const paymentStatus    = f?.paymentStatus ?? (raw.payment_status ? String(raw.payment_status) as any : undefined);
+                const paymentStatus    = f?.paymentStatus ?? (raw.payment_status ? String(raw.payment_status) as any : 'unpaid');
                 const paymentType      = f?.paymentType;
                 const paymentProcessor = f?.paymentProcessor;
                 const paymentDate      = f?.paymentDate;
@@ -675,8 +743,6 @@ export async function GET(request: NextRequest) {
                 if (paymentStatus === 'error') {
                     continue; // Skip failed/abandoned bookings entirely
                 }
-
-                sbUpsertBatch.push(sbRecord);
 
                 // Map SB status to Booking status
                 const bookingStatus = toBookingStatus(String(booking.status || ''));
@@ -713,9 +779,29 @@ export async function GET(request: NextRequest) {
 
                 if (matchResult) matchedCount++; else unmatchedCount++;
 
-                if (!sbRecord.clientName || !sbRecord.clientPhone) {
-                    console.warn(`[SimplyBook Import] Missing critical data for booking ${sbRecord.sbId} (Client Name: ${sbRecord.clientName}, Phone: ${sbRecord.clientPhone})`);
+                const missingFields = [
+                    ...getMissingSimplyBookBookingFields(sbRecord),
+                    isMissingMappedValue(sbRecord.clientPhone) ? 'phone' : '',
+                    !clinicId || clinicId === 'simplybook-import' ? 'branch' : '',
+                    isMissingMappedValue(paymentStatus) ? 'paymentStatus' : '',
+                ].filter(Boolean);
+                if (missingFields.length > 0) {
+                    const warning = `SB#${sbRecord.sbId}: missing ${missingFields.join(', ')}`;
+                    missingDataWarnings.push(warning);
+                    console.warn(`[SimplyBook Import] ${warning}`);
                 }
+
+                if (!hasRequiredSimplyBookBookingDetails(sbRecord)) {
+                    skippedIncomplete++;
+                    continue;
+                }
+
+                if (appManagedBooking && isBookingLocallyModified(appManagedBooking)) {
+                    skippedProtected++;
+                    continue;
+                }
+
+                sbUpsertBatch.push(sbRecord);
 
                 batchForBookings.push({
                     clinicId,
@@ -751,6 +837,15 @@ export async function GET(request: NextRequest) {
             }
 
             const { added, skipped, updated } = await BookingsStore.addSimplyBookBatch(batchForBookings as any);
+            if (missingDataWarnings.length > 0) {
+                await LogsStore.add({
+                    userId: 'system',
+                    userName: 'SimplyBook Import',
+                    action: 'SIMPLYBOOK_IMPORT_MISSING_DATA',
+                    details: `${missingDataWarnings.length} imported booking(s) had missing fields. First records: ${missingDataWarnings.slice(0, 20).join(' | ')}`,
+                    entityType: 'Booking'
+                });
+            }
 
             return NextResponse.json({
                 ok: true,
@@ -758,6 +853,9 @@ export async function GET(request: NextRequest) {
                 migrated: added,
                 skipped,
                 updated,
+                skippedIncomplete,
+                skippedProtected,
+                missingData: missingDataWarnings.length,
                 matched: matchedCount,
                 unmatched: unmatchedCount,
                 dateFrom,
@@ -779,6 +877,7 @@ export async function GET(request: NextRequest) {
         const dateTo   = sp.get('to')   || today;
         try {
             const invoices = await getInvoiceList(dateFrom, dateTo);
+            const appBookings = await BookingsStore.getAll();
             let updated = 0;
 
             for (const inv of invoices) {
@@ -804,9 +903,11 @@ export async function GET(request: NextRequest) {
                 }
 
                 // Update BookingsStore via sbId
-                const appBookings = await BookingsStore.getAll();
                 const appBooking = appBookings.find((b: any) => b.sbId === bookingId);
                 if (appBooking) {
+                    if (isBookingLocallyModified(appBooking)) {
+                        continue;
+                    }
                     await BookingsStore.update(appBooking.id, {
                         sbPaymentStatus:    f.paymentStatus,
                         sbInvoiceId:        f.invoiceId,
@@ -933,6 +1034,9 @@ export async function GET(request: NextRequest) {
     const status = sp.get('status') || '';
     const search = (sp.get('search') || '').toLowerCase();
     const matchFilter = sp.get('match') || ''; // 'matched' | 'unmatched'
+    const completeOnly = sp.get('completeOnly') === 'true';
+    const excludeCancelled = sp.get('excludeCancelled') === 'true';
+    const excludeAppManaged = sp.get('excludeAppManaged') === 'true';
 
     let bookings = dateFrom && dateTo
         ? await SimplybookStore.getByDateRange(dateFrom, dateTo)
@@ -941,6 +1045,17 @@ export async function GET(request: NextRequest) {
             : await SimplybookStore.getAll();
 
     if (status) bookings = bookings.filter(b => b.status === status);
+    if (excludeCancelled) bookings = bookings.filter(b => b.status !== 'cancelled');
+    if (completeOnly) bookings = bookings.filter(hasRequiredSimplyBookBookingDetails);
+    if (excludeAppManaged) {
+        const appBookings = dateFrom && dateTo
+            ? await BookingsStore.getByFilters({ startDate: dateFrom, endDate: dateTo })
+            : await BookingsStore.getAll();
+        const appManagedSbIds = new Set(
+            (appBookings as Booking[]).map(getAppBookingSimplyBookId).filter(Boolean)
+        );
+        bookings = bookings.filter(b => !appManagedSbIds.has(b.sbId));
+    }
     if (matchFilter) bookings = bookings.filter(b => b.matchStatus === matchFilter);
 
     if (search) {

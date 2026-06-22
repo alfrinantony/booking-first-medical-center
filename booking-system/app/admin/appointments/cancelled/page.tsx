@@ -38,10 +38,12 @@ export default function CancelledAppointmentsPage() {
         try {
             // Fetch normal bookings
             const resBookings = await fetch('/api/admin/bookings?limit=10000');
+            let allAppBookings: Booking[] = [];
             let appBookings: Booking[] = [];
             if (resBookings.ok) {
                 const data = await resBookings.json();
-                appBookings = (Array.isArray(data) ? data : data.data || []).filter((b: Booking) => b.status === 'cancelled');
+                allAppBookings = Array.isArray(data) ? data : data.data || [];
+                appBookings = allAppBookings.filter((b: Booking) => b.status === 'cancelled');
             }
 
             // Fetch SB bookings
@@ -91,7 +93,7 @@ export default function CancelledAppointmentsPage() {
 
             // Process SimplyBook Bookings
             // Avoid adding SB bookings that are already imported into app bookings
-            const importedSbIds = new Set(appBookings.map(b => b.sbId).filter(Boolean));
+            const importedSbIds = new Set(allAppBookings.map(b => b.sbId).filter(Boolean));
             sbBookings.forEach(sb => {
                 if (importedSbIds.has(sb.sbId)) return;
                 

@@ -4,7 +4,28 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Invoice, InvoiceLineItem } from '@/lib/billing-store';
 import { Booking, Clinic, Medicine, InventoryBatch } from '@/lib/data';
 import type { AddonService } from '@/lib/addon-services-store';
+import {
+    buildServiceConsumptions,
+    getBatchAvailableQuantity,
+    pickBestBatchForMedicine,
+    validateInvoiceStockDeductions
+} from '@/lib/billing-inventory-rules';
 import { Receipt, Search, Plus, FileText, Printer, Calendar, Clock, User, MapPin, Package, AlertTriangle, CreditCard, Scissors, Zap, RefreshCw, X } from 'lucide-react';
+
+type BillingConsumption = { medicineId: string; batchId?: string; quantity: number };
+type BillingItem = {
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    regularPrice?: number;
+    discountAmount?: number;
+    maxDiscountPercentage?: number;
+    medicineId?: string;
+    batchId?: string;
+    consumptions?: BillingConsumption[];
+    packagePayload?: any;
+    isCustom?: boolean;
+};
 
 export default function BillingPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -28,10 +49,11 @@ export default function BillingPage() {
     const [clientPhone, setClientPhone] = useState('');
     const [clientEmail, setClientEmail] = useState('');
     const [invoiceCategory, setInvoiceCategory] = useState('clinic_single');
-    const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number; regularPrice?: number; discountAmount?: number; maxDiscountPercentage?: number; medicineId?: string; batchId?: string; consumptions?: { medicineId: string; batchId?: string; quantity: number }[]; packagePayload?: any; isCustom?: boolean }[]>([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
+    const [items, setItems] = useState<BillingItem[]>([{ description: '', quantity: 1, unitPrice: 0, regularPrice: 0, discountAmount: 0, maxDiscountPercentage: 0, consumptions: [] }]);
     const [packageDetails, setPackageDetails] = useState('');
     const [taxPercentage, setTaxPercentage] = useState(5);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'online'>('card');
+    const [clinicId, setClinicId] = useState('');
     const [clinicName, setClinicName] = useState('');
     const [generatedBy, setGeneratedBy] = useState('');
     const [notes, setNotes] = useState('');
@@ -55,15 +77,8 @@ export default function BillingPage() {
 
     /** Returns the FIFO-best batch for a medicine: oldest non-expired with available stock */
     const pickBestBatch = useCallback((medicineId: string): string | undefined => {
-        const batches = (batchesMap[medicineId] || []).filter(b => {
-            const expired = b.expiryDate && new Date(b.expiryDate) < new Date();
-            return !expired && b.quantity > 0;
-        }).sort((a, b) =>
-            // Oldest expiry first (FIFO), fallback to batch number sort
-            (a.expiryDate || '9999') < (b.expiryDate || '9999') ? -1 : 1
-        );
-        return batches[0]?.id;
-    }, [batchesMap]);
+        return pickBestBatchForMedicine(batchesMap[medicineId] || [], clinicId || undefined)?.id;
+    }, [batchesMap, clinicId]);
 
     const toggleAddon = useCallback(async (addon: AddonService) => {
         const desc = `[Add-on] ${addon.name}`;
@@ -97,11 +112,8 @@ export default function BillingPage() {
                 const consumptions = (Array.isArray(addon.linkedConsumables) ? addon.linkedConsumables : [])
                     .filter(c => c.medicineId)
                     .map(c => {
-                        const available = (localMap[c.medicineId] || []).filter(b => {
-                            const expired = b.expiryDate && new Date(b.expiryDate) < new Date();
-                            return !expired && b.quantity > 0;
-                        }).sort((a, b) => (a.expiryDate || '9999') < (b.expiryDate || '9999') ? -1 : 1);
-                        return { medicineId: c.medicineId, batchId: available[0]?.id, quantity: c.quantityPerService };
+                        const batch = pickBestBatchForMedicine(localMap[c.medicineId] || [], clinicId || undefined, c.quantityPerService);
+                        return { medicineId: c.medicineId, batchId: batch?.id, quantity: c.quantityPerService };
                     });
 
                 const price = Number(addonPrices[addon.id] ?? addon.defaultPrice ?? 0);
@@ -211,13 +223,48 @@ export default function BillingPage() {
     }, [bookings, clinics, selectedBooking]);
 
     // Fetch active batches when a medicine is selected
-    const fetchBatchesForMedicine = async (medicineId: string) => {
-        if (batchesMap[medicineId]) return;
+    const fetchBatchesForMedicine = async (medicineId: string): Promise<InventoryBatch[]> => {
+        if (batchesMap[medicineId]) return batchesMap[medicineId];
         try {
             const res = await fetch(`/api/admin/inventory-batches?medicineId=${medicineId}&active=true`);
             const data = await res.json();
-            setBatchesMap(prev => ({ ...prev, [medicineId]: Array.isArray(data) ? data : [] }));
-        } catch { /* silent */ }
+            const batches = Array.isArray(data) ? data : [];
+            setBatchesMap(prev => ({ ...prev, [medicineId]: batches }));
+            return batches;
+        } catch {
+            return [];
+        }
+    };
+
+    const loadServiceConsumptions = async (service: any, targetClinicId?: string) => {
+        const consumableIds = Array.isArray(service?.consumableIds) ? service.consumableIds.filter(Boolean) : [];
+        if (consumableIds.length === 0) return [];
+
+        const localBatchesMap: Record<string, InventoryBatch[]> = { ...batchesMap };
+        const missing = consumableIds.filter((medicineId: string) => !localBatchesMap[medicineId]);
+        if (missing.length > 0) {
+            const fetched = await Promise.all(missing.map(async (medicineId: string) => ({
+                medicineId,
+                batches: await fetchBatchesForMedicine(medicineId),
+            })));
+            fetched.forEach(entry => { localBatchesMap[entry.medicineId] = entry.batches; });
+        }
+
+        return buildServiceConsumptions(service, localBatchesMap, targetClinicId || clinicId || undefined);
+    };
+
+    const hydrateServiceConsumptionsForItem = async (
+        service: any,
+        itemIndex: number,
+        targetClinicId?: string,
+        expectedDescription?: string
+    ) => {
+        const consumptions = await loadServiceConsumptions(service, targetClinicId);
+        setItems(prev => prev.map((item, index) => {
+            if (index !== itemIndex) return item;
+            if (expectedDescription && item.description !== expectedDescription) return item;
+            return { ...item, consumptions };
+        }));
     };
 
     // Resolve names from IDs
@@ -281,6 +328,7 @@ export default function BillingPage() {
         setShowBookingDropdown(false);
 
         const { svcName, docName, clnName, svcPrice, matchedService } = resolveNames(booking);
+        const resolvedClinicId = booking.clinicId || clinics.find(c => c.name === clnName)?.id || '';
 
         // Auto-fill all fields
         setClientName(booking.patientName || '');
@@ -318,8 +366,14 @@ export default function BillingPage() {
             regularPrice: finalRegPrice,
             discountAmount: finalDiscAmount,
             maxDiscountPercentage: matchedService?.maxDiscountPercentage || 0,
-            consumptions: []
+            consumptions: matchedService
+                ? buildServiceConsumptions(matchedService, batchesMap, resolvedClinicId || undefined)
+                : []
         }]);
+        if (matchedService) {
+            void hydrateServiceConsumptionsForItem(matchedService, 0, resolvedClinicId, svcName);
+        }
+        setClinicId(resolvedClinicId);
         setClinicName(clnName);
         setDoctorName(docName);
         setBookingDate(booking.date || '');
@@ -332,21 +386,32 @@ export default function BillingPage() {
 
         // Duplicate bill detection — check if this booking is already billed
         setAllowDuplicate(false);
-        if ((booking as any).billingStatus === 'billed') {
-            // Try to find the existing invoice for this booking
-            fetch(`/api/admin/billing?bookingId=${booking.id}`)
-                .then(r => r.json())
-                .then((existingInvoices: Array<{ id: string; invoiceNumber: string }>) => {
-                    if (Array.isArray(existingInvoices) && existingInvoices.length > 0) {
-                        setAlreadyBilledInvoice({ id: existingInvoices[0].id, invoiceNumber: existingInvoices[0].invoiceNumber });
-                    } else {
-                        setAlreadyBilledInvoice({ id: '', invoiceNumber: 'a previous invoice' });
-                    }
-                })
-                .catch(() => setAlreadyBilledInvoice({ id: '', invoiceNumber: 'a previous invoice' }));
-        } else {
-            setAlreadyBilledInvoice(null);
-        }
+        setAlreadyBilledInvoice(null);
+        void (async () => {
+            const findInvoice = async (query: string) => {
+                const existingRes = await fetch(`/api/admin/billing?${query}`);
+                if (!existingRes.ok) return null;
+                const existingInvoices: Array<{ id: string; invoiceNumber: string }> = await existingRes.json();
+                return Array.isArray(existingInvoices) && existingInvoices.length > 0 ? existingInvoices[0] : null;
+            };
+
+            try {
+                const invoiceByBooking = await findInvoice(`bookingId=${encodeURIComponent(booking.id)}`);
+                const invoiceBySbId = !invoiceByBooking && sbIdVal
+                    ? await findInvoice(`sbId=${encodeURIComponent(sbIdVal)}`)
+                    : null;
+                const existingInvoice = invoiceByBooking || invoiceBySbId;
+                if (existingInvoice) {
+                    setAlreadyBilledInvoice({ id: existingInvoice.id, invoiceNumber: existingInvoice.invoiceNumber });
+                } else if ((booking as any).billingStatus === 'billed') {
+                    setAlreadyBilledInvoice({ id: '', invoiceNumber: 'a previous invoice' });
+                }
+            } catch {
+                if ((booking as any).billingStatus === 'billed') {
+                    setAlreadyBilledInvoice({ id: '', invoiceNumber: 'a previous invoice' });
+                }
+            }
+        })();
 
         // Auto-set payment method
         const bkPaymentMethod = (booking as any).paymentMethod;
@@ -397,31 +462,8 @@ export default function BillingPage() {
 
     // Validate batch selections before submission
     const validateBatches = () => {
-        const errors: string[] = [];
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-            const consArray = item.consumptions || [];
-            
-            for (let c = 0; c < consArray.length; c++) {
-                const cons = consArray[c];
-                if (cons.batchId && cons.medicineId) {
-                    const batches = batchesMap[cons.medicineId] || [];
-                    const batch = batches.find(b => b.id === cons.batchId);
-                    if (!batch) {
-                        errors.push(`Item ${i + 1} (Resource ${c + 1}): Selected batch not found`);
-                    } else {
-                        if (batch.expiryDate && new Date(batch.expiryDate) < new Date()) {
-                            errors.push(`Item ${i + 1} (Resource ${c + 1}): Batch ${batch.batchNumber} is expired`);
-                        }
-                        const totalNeeded = cons.quantity * item.quantity;
-                        if (batch.quantity < totalNeeded) {
-                            errors.push(`Item ${i + 1} (Resource ${c + 1}): ${batch.batchNumber} has ${batch.quantity} units (need ${totalNeeded})`);
-                        }
-                    }
-                }
-            }
-        }
-        return errors;
+        const allBatches = Object.values(batchesMap).flat();
+        return validateInvoiceStockDeductions(items as InvoiceLineItem[], allBatches, clinicId || undefined);
     };
 
     const handleCreateInvoice = async () => {
@@ -485,6 +527,7 @@ export default function BillingPage() {
                     totalAmount,
                     paymentMethod,
                     paymentConfirmed: true,
+                    clinicId: clinicId || clinics.find(c => c.name === clinicName)?.id || undefined,
                     clinicName: clinicName || undefined,
                     generatedBy,
                     date: new Date().toISOString().split('T')[0],
@@ -494,29 +537,32 @@ export default function BillingPage() {
                     sbId: linkedSbId || undefined,
                     // Online reference (SB invoice number or Stripe ref)
                     onlineReference: onlineReference || undefined,
+                    allowDuplicate,
                 }),
             });
-            if (res.ok) {
-                await loadInvoices();
-                // Mark the booking as billed
-                if (selectedBooking) {
-                    try {
-                        await fetch(`/api/bookings/${selectedBooking.id}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ billingStatus: 'billed' })
-                        });
-                        // Refresh bookings list
-                        fetch('/api/admin/bookings').then(res => res.json()).then(data => setBookings(Array.isArray(data) ? data : [])).catch(() => {});
-                    } catch { /* silent */ }
+            const payload = await res.json().catch(() => null);
+            if (!res.ok) {
+                if (res.status === 409 && payload?.duplicateInvoice) {
+                    setAlreadyBilledInvoice(payload.duplicateInvoice);
+                    setAllowDuplicate(false);
+                    alert(`An invoice already exists for this booking: ${payload.duplicateInvoice.invoiceNumber}`);
+                    return;
                 }
+                alert(payload?.error || 'Failed to create invoice');
+                return;
             }
-        } catch { /* silent */ } finally {
+
+            await loadInvoices();
+            // The billing API marks linked appointments as billed; refresh the picker data.
+            fetch('/api/admin/bookings').then(res => res.json()).then(data => setBookings(Array.isArray(data) ? data : [])).catch(() => {});
+            resetForm();
+            setIsCreateModalOpen(false);
+        } catch (error) {
+            console.error('Failed to create invoice', error);
+            alert('Failed to create invoice');
+        } finally {
             setSubmitting(false);
         }
-
-        resetForm();
-        setIsCreateModalOpen(false);
     };
 
     return (
@@ -716,9 +762,17 @@ export default function BillingPage() {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-indigo-400" /> Clinic Branch</label>
-                                            <select className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={clinicName} onChange={(e) => setClinicName(e.target.value)}>
+                                            <select
+                                                className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                value={clinicId || clinics.find(c => c.name === clinicName)?.id || ''}
+                                                onChange={(e) => {
+                                                    const selectedClinic = clinics.find(c => c.id === e.target.value);
+                                                    setClinicId(selectedClinic?.id || '');
+                                                    setClinicName(selectedClinic?.name || '');
+                                                }}
+                                            >
                                                 <option value="">— Select branch —</option>
-                                                {clinics.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                                {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                             </select>
                                         </div>
                                     </div>
@@ -812,6 +866,7 @@ export default function BillingPage() {
                                                                 u[idx].maxDiscountPercentage = matchedService.maxDiscountPercentage || 0;
                                                                 u[idx].unitPrice = svcFinalInc;
                                                                 u[idx].discountAmount = svcReg - svcFinalInc;
+                                                                const targetClinicId = matchedClinic?.id || clinicId || undefined;
 
                                                                 if (isPackageMode && pkgMatchData) {
                                                                     u[idx].packagePayload = {
@@ -821,11 +876,15 @@ export default function BillingPage() {
                                                                         validity: pkgMatchData.validity || (sessionCount === 3 ? 90 : 180),
                                                                         price: svcFinalInc
                                                                     };
+                                                                    u[idx].consumptions = [];
                                                                 } else {
                                                                     u[idx].packagePayload = undefined;
+                                                                    u[idx].consumptions = buildServiceConsumptions(matchedService, batchesMap, targetClinicId);
+                                                                    void hydrateServiceConsumptionsForItem(matchedService, idx, targetClinicId, val);
                                                                 }
                                                                 
                                                                 if (!clinicName && matchedClinic) {
+                                                                    setClinicId(matchedClinic.id);
                                                                     setClinicName(matchedClinic.name);
                                                                 }
                                                             }
@@ -1003,12 +1062,7 @@ export default function BillingPage() {
                                 </h3>
                                 <p className="text-xs text-gray-500">Physical lot batches will deduct automatically from pharmacy inventory upon billing posting.</p>
                                 
-                                {items.every(i => !(i.consumptions && i.consumptions.length > 0)) ? (
-                                    <div className="text-xs text-gray-400 italic bg-gray-50 dark:bg-gray-850 p-4 text-center rounded-xl border border-dashed dark:border-gray-850">
-                                        No consumable items are linked to the selected services yet. Click "+ Add Resource Link" below to track physical lots manually if needed.
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
+                                <div className="space-y-4">
                                         {items.map((item, idx) => (
                                             <div key={idx} className="bg-gray-50 dark:bg-gray-850/50 rounded-xl p-3 border border-gray-150 dark:border-gray-850 space-y-2">
                                                 <div className="flex items-center justify-between pb-1 border-b dark:border-gray-800">
@@ -1019,6 +1073,12 @@ export default function BillingPage() {
                                                         setItems(u);
                                                     }} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-850 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded-md">+ Add Resource Link</button>
                                                 </div>
+
+                                                {(item.consumptions || []).length === 0 && (
+                                                    <div className="text-xs text-gray-400 italic bg-white dark:bg-gray-900/60 p-3 rounded-lg border border-dashed dark:border-gray-800">
+                                                        No stock linked for this invoice item yet. Add a resource link if staff used a consumable during billing.
+                                                    </div>
+                                                )}
 
                                                 <div className="space-y-2 pt-1">
                                                     {(item.consumptions || []).map((cons, cIdx) => (
@@ -1034,15 +1094,19 @@ export default function BillingPage() {
                                                                     <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Medicine/Consumable</label>
                                                                     <select className="w-full p-1.5 border dark:border-gray-700 rounded text-[10px] bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-250 focus:outline-none"
                                                                         value={cons.medicineId || ''}
-                                                                        onChange={e => {
+                                                                        onChange={async e => {
+                                                                            const medicineId = e.target.value;
+                                                                            const fetchedBatches = medicineId ? await fetchBatchesForMedicine(medicineId) : [];
+                                                                            const bestBatch = medicineId
+                                                                                ? pickBestBatchForMedicine(fetchedBatches, clinicId || undefined, cons.quantity || 1)
+                                                                                : undefined;
                                                                             const u = [...items];
-                                                                            u[idx].consumptions![cIdx] = { ...cons, medicineId: e.target.value, batchId: undefined };
+                                                                            u[idx].consumptions![cIdx] = { ...cons, medicineId, batchId: bestBatch?.id };
                                                                             setItems(u);
-                                                                            if (e.target.value) fetchBatchesForMedicine(e.target.value);
                                                                         }}>
                                                                         <option value="">— Select Medicine —</option>
                                                                         {medicines.map(m => (
-                                                                            <option key={m.id} value={m.id}>{m.name} (Stock: {m.centralStock})</option>
+                                                                            <option key={m.id} value={m.id}>{m.name} (Stock: {clinicId ? (m.branchStock?.find(b => b.clinicId === clinicId)?.quantity ?? 0) : m.centralStock})</option>
                                                                         ))}
                                                                     </select>
                                                                 </div>
@@ -1059,9 +1123,10 @@ export default function BillingPage() {
                                                                         <option value="">— Select physical lot —</option>
                                                                         {(batchesMap[cons.medicineId] || []).map(b => {
                                                                             const isExp = b.expiryDate && new Date(b.expiryDate) < new Date();
+                                                                            const availableQty = getBatchAvailableQuantity(b, clinicId || undefined);
                                                                             return (
-                                                                                <option key={b.id} value={b.id} disabled={!!isExp || b.quantity <= 0}>
-                                                                                    {b.batchNumber} (Qty: {b.quantity}) {isExp ? 'EXPIRED' : ''}
+                                                                                <option key={b.id} value={b.id} disabled={!!isExp || availableQty <= 0}>
+                                                                                    {b.batchNumber} (Qty: {availableQty}) {isExp ? 'EXPIRED' : ''}
                                                                                 </option>
                                                                             );
                                                                         })}
@@ -1084,18 +1149,19 @@ export default function BillingPage() {
                                                                 if (!batch) return null;
                                                                 const isExp = batch.expiryDate && new Date(batch.expiryDate) < new Date();
                                                                 const totalNeeded = cons.quantity * item.quantity;
-                                                                const insufficient = batch.quantity < totalNeeded;
+                                                                const availableQty = getBatchAvailableQuantity(batch, clinicId || undefined);
+                                                                const insufficient = availableQty < totalNeeded;
                                                                 if (isExp || insufficient) {
                                                                     return (
                                                                         <div className="flex items-center gap-1.5 text-[10px] text-red-600 dark:text-red-400 mt-1.5 bg-red-50 dark:bg-red-950/20 p-1.5 rounded border border-red-100 dark:border-red-950/30">
                                                                             <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                                                                            {isExp ? 'This physical lot has EXPIRED!' : `Needs ${totalNeeded} units total (${cons.quantity} × ${item.quantity} services). Only ${batch.quantity} available!`}
+                                                                            {isExp ? 'This physical lot has EXPIRED!' : `Needs ${totalNeeded} units total (${cons.quantity} × ${item.quantity} services). Only ${availableQty} available!`}
                                                                         </div>
                                                                     );
                                                                 }
                                                                 return (
                                                                     <div className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5">
-                                                                        ✓ {batch.quantity} units available · Processing a {totalNeeded}-unit deduction
+                                                                        ✓ {availableQty} units available · Processing a {totalNeeded}-unit deduction
                                                                     </div>
                                                                 );
                                                             })()}
@@ -1104,8 +1170,7 @@ export default function BillingPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                    </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Card 5: Invoice Settings & Configurations */}
@@ -1202,6 +1267,8 @@ export default function BillingPage() {
                                                         setItems(u);
                                                         setInvoiceCategory("clinic_package");
                                                         if (!clinicName && matchedClinicName) {
+                                                            const matchedClinic = clinics.find(c => c.name === matchedClinicName);
+                                                            setClinicId(matchedClinic?.id || '');
                                                             setClinicName(matchedClinicName);
                                                         }
                                                     }
@@ -1237,7 +1304,8 @@ export default function BillingPage() {
                                 {/* Duplicate Warning */}
                                 {alreadyBilledInvoice && (
                                     <div className="bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-900/50 rounded-xl p-4">
-                                        <div className="flex items-start gap-3">
+                                        <div className="flex items-start gap-3 [&>span]:hidden">
+                                            <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                                             <span className="text-red-500 text-lg mt-0.5">⚠</span>
                                             <div className="flex-1">
                                                 <p className="text-xs font-bold text-red-700 dark:text-red-300">

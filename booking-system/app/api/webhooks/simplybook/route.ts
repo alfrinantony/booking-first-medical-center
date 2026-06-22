@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBookingDetailsByHash, getAdminBooking, getServiceList, getProviderList } from '@/lib/simplybook-client';
 import { SimplybookStore, SimplybookRecord } from '@/lib/simplybook-store';
 import { BookingsStore } from '@/lib/bookings-store';
+import { isBookingLocallyModified } from '@/lib/booking-status-rules';
 
 const EXPECTED_COMPANY = process.env.SIMPLYBOOK_COMPANY_LOGIN || 'firstmedicalcenter';
 
@@ -79,6 +80,20 @@ export async function POST(request: NextRequest) {
         if (String(payload.payment_status || '').toLowerCase() === 'error') {
             console.log(`[SimplyBook webhook] Ignoring booking ${bookingId} due to payment_status: error`);
             return NextResponse.json({ ok: true, action: 'ignored', reason: 'payment error' });
+        }
+
+        const appBookings = await BookingsStore.getAll().catch(() => []);
+        const appManagedBooking = appBookings.find((booking: any) =>
+            String(booking.sbId || '') === bookingId || String(booking.id || '') === `sb-${bookingId}`
+        );
+        if (appManagedBooking && isBookingLocallyModified(appManagedBooking)) {
+            console.log(`[SimplyBook webhook] Ignored booking ${bookingId}; app-managed booking has local changes.`);
+            return NextResponse.json({
+                ok: true,
+                action: 'ignored',
+                reason: 'app_managed_local_changes',
+                bookingId
+            });
         }
 
         // ── Handle cancel immediately ──

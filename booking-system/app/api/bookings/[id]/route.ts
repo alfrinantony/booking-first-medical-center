@@ -2,6 +2,11 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { BookingsStore } from '@/lib/bookings-store';
 import { LoyaltyStore } from '@/lib/loyalty-store';
+import {
+    canEditCompletedBilledBooking,
+    isValidBookingStatus,
+    normalizeBookingStatus
+} from '@/lib/booking-status-rules';
 
 export async function GET(
     request: NextRequest,
@@ -31,9 +36,22 @@ export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    let bookingId = 'unknown';
     try {
         const { id } = await params;
+        bookingId = id;
         const body = await request.json();
+        const editorRole = body.editorRole;
+        const editPassword = body.editPassword;
+        delete body.editorRole;
+        delete body.editPassword;
+        if (body.status !== undefined) {
+            const normalizedStatus = normalizeBookingStatus(body.status);
+            if (!isValidBookingStatus(normalizedStatus)) {
+                return NextResponse.json({ error: `Invalid booking status: ${body.status}` }, { status: 400 });
+            }
+            body.status = normalizedStatus;
+        }
 
         // Get existing booking BEFORE update for penalty logic
         const existingBooking = await BookingsStore.getById(id);
@@ -52,8 +70,9 @@ export async function PATCH(
                 id: id, // Retain the sb- ID in our DB
                 doctorId: body.doctorId || sbRecord.matchedDoctorId || 'sb-unmatched',
                 clinicId: body.clinicId || sbRecord.matchedClinicId || 'simplybook-import',
-                deptId: body.deptId || sbRecord.matchedDeptId || 'dept-unknown',
-                serviceId: body.serviceId || 'srv-unknown',
+                deptId: body.deptId || sbRecord.matchedDeptId || 'simplybook-import',
+                serviceId: body.serviceId || `sb-${sbRecord.eventId || sbId}`,
+                serviceName: body.serviceName || sbRecord.serviceName || 'Unknown Service',
                 date: body.date || sbRecord.date,
                 slot: body.slot || sbRecord.time,
                 duration: body.duration || 30,
@@ -63,6 +82,13 @@ export async function PATCH(
                 email: body.email || sbRecord.clientEmail || '',
                 source: 'simplybook',
                 sbId: sbId,
+                sbInvoiceNumber: sbRecord.invoiceNumber,
+                sbInvoiceAmount: sbRecord.invoiceAmount,
+                sbInvoiceCurrency: sbRecord.invoiceCurrency,
+                sbPaymentStatus: sbRecord.paymentStatus,
+                sbPaymentProcessor: sbRecord.paymentProcessor,
+                sbProviderName: sbRecord.providerName,
+                sbServiceName: sbRecord.serviceName,
                 isModifiedAfterMigration: true,
                 statusHistory: [{
                     timestamp: new Date().toISOString(),
@@ -83,6 +109,12 @@ export async function PATCH(
 
         if (!existingBooking) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+        }
+
+        if (!canEditCompletedBilledBooking(existingBooking, editorRole, editPassword)) {
+            return NextResponse.json({
+                error: 'Completed and billed appointments are locked. Super Admin password is required to edit.'
+            }, { status: 403 });
         }
 
         const oldStatus = existingBooking.status;
@@ -171,15 +203,11 @@ export async function PATCH(
         }
         // --- END DOCTOR OVERLAP LOGIC ---
 
-        // Append a flag to statusHistory indicating it was locally modified
-        let history = existingBooking.statusHistory as any;
-        if (typeof history === 'string') {
-            try { history = JSON.parse(history); } catch { history = []; }
+        if (body.status === 'completed' && existingBooking.billingStatus !== 'billed') {
+            body.billingStatus = 'pending_bill';
         }
-        if (!Array.isArray(history)) history = [];
-        history.push({ isLocalModified: true, timestamp: new Date().toISOString() });
 
-        const updatedBooking = await BookingsStore.update(id, { ...body, statusHistory: history });
+        const updatedBooking = await BookingsStore.update(id, body);
         if (!updatedBooking) {
             try {
                 await (await import('@/lib/logs-store')).LogsStore.add({
@@ -243,7 +271,7 @@ export async function PATCH(
                 userName: 'System API Error',
                 action: 'ERROR_BOOKING_UPDATE',
                 details: error.message || String(error),
-                entityId: String(id),
+                entityId: String(bookingId),
                 entityType: 'Booking'
             });
         } catch (logErr) { /* ignore */ }

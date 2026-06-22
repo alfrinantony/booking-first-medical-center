@@ -3,6 +3,7 @@ import { loadFromBlob, saveToBlob } from './blob-persistence';
 import { LogsStore } from './logs-store';
 import { MedicineStore, ServicesStore } from './services-store';
 import { PrismaClient } from '@prisma/client';
+import { isBookingLocallyModified, parseStatusHistory } from './booking-status-rules';
 
 let dbUrl = process.env.DATABASE_URL || '';
 if (dbUrl.includes(':6543')) {
@@ -15,6 +16,45 @@ const prisma = new PrismaClient({
         }
     }
 });
+
+const BOOKING_DB_FIELDS = new Set([
+    'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot',
+    'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes',
+    'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId',
+    'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor',
+    'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor',
+    'isModifiedAfterMigration'
+]);
+
+const LOCAL_EDIT_FIELDS = [
+    'status', 'date', 'slot', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'duration',
+    'patientName', 'whatsappNumber', 'email', 'billingStatus'
+];
+
+function pickBookingDbFields(source: Record<string, any>) {
+    const picked: Record<string, any> = {};
+    for (const key of Object.keys(source)) {
+        if (BOOKING_DB_FIELDS.has(key) && source[key] !== undefined) {
+            picked[key] = source[key];
+        }
+    }
+    return picked;
+}
+
+function didLocalEditableFieldChange(oldBooking: Record<string, any>, updates: Record<string, any>) {
+    return LOCAL_EDIT_FIELDS.some(field =>
+        Object.prototype.hasOwnProperty.call(updates, field) &&
+        updates[field] !== undefined &&
+        updates[field] !== oldBooking[field]
+    );
+}
+
+function getSimplyBookIdFromBooking(booking: Record<string, any> | null | undefined) {
+    if (!booking) return undefined;
+    if (booking.sbId) return String(booking.sbId);
+    const id = String(booking.id || '');
+    return id.startsWith('sb-') ? id.slice(3) : undefined;
+}
 
 export const BookingsStore = {
     getAll: async () => {
@@ -101,7 +141,7 @@ export const BookingsStore = {
 
 
     add: async (booking: Omit<Booking, 'id' | 'createdAt'>) => {
-        const id = Math.random().toString(36).substr(2, 9);
+        const id = (booking as any).id || Math.random().toString(36).substr(2, 9);
         
         const fullBooking: any = {
             ...booking,
@@ -118,23 +158,10 @@ export const BookingsStore = {
             }]
         };
 
-        const allowedFields = new Set([
-            'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
-            'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
-            'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
-            'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
-            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor'
-        ]);
-
-        const filteredBooking: any = {};
-        for (const key of Object.keys(fullBooking)) {
-            if (allowedFields.has(key)) {
-                filteredBooking[key] = fullBooking[key];
-            }
-        }
+        const filteredBooking = pickBookingDbFields(fullBooking);
 
         const newBooking = await prisma.booking.create({
-            data: filteredBooking
+            data: filteredBooking as any
         });
 
         const medicineIds = newBooking.selectedMedicineIds as any as string[];
@@ -201,23 +228,10 @@ export const BookingsStore = {
             }]
         };
 
-        const allowedFields = new Set([
-            'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
-            'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
-            'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
-            'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
-            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor', 'isModifiedAfterMigration'
-        ]);
-
-        const filteredBooking: any = {};
-        for (const key of Object.keys(fullBooking)) {
-            if (allowedFields.has(key)) {
-                filteredBooking[key] = fullBooking[key];
-            }
-        }
+        const filteredBooking = pickBookingDbFields(fullBooking);
 
         const newBooking = await prisma.booking.create({
-            data: filteredBooking
+            data: filteredBooking as any
         });
         return newBooking as any as Booking;
     },
@@ -227,56 +241,66 @@ export const BookingsStore = {
     ): Promise<{ added: number; skipped: number; updated: number }> => {
         const incomingSbIds = incoming.map(b => b.sbId).filter(Boolean) as string[];
         const existing = await prisma.booking.findMany({
-            where: { sbId: { in: incomingSbIds } },
-            select: { sbId: true, doctorId: true, clinicId: true, deptId: true, statusHistory: true, isModifiedAfterMigration: true }
+            where: {
+                OR: [
+                    { sbId: { in: incomingSbIds } },
+                    { id: { in: incomingSbIds.map(id => `sb-${id}`) } },
+                ]
+            }
         });
-        const existingMap = new Map(existing.map(e => [e.sbId, e]));
+        const existingMap = new Map<string, any>();
+        for (const record of existing) {
+            const recordSbId = getSimplyBookIdFromBooking(record as any);
+            if (recordSbId) existingMap.set(recordSbId, record);
+        }
         
-        const toCreate = incoming.filter(b => !b.sbId || !existingMap.has(b.sbId));
-        const toUpdate = incoming.filter(b => b.sbId && existingMap.has(b.sbId));
+        const toCreate = incoming.filter(b => !b.sbId || !existingMap.has(String(b.sbId)));
+        const toUpdate = incoming.filter(b => b.sbId && existingMap.has(String(b.sbId)));
         
         let skipped = 0;
         let added = 0;
         let updated = 0;
 
         for (const updateInfo of toUpdate) {
-            const ext = existingMap.get(updateInfo.sbId as string);
-            
-            // Check if booking was locally modified
-            let isLocallyModified = false;
-            if (ext?.isModifiedAfterMigration) {
-                isLocallyModified = true;
-            } else if (ext && Array.isArray(ext.statusHistory)) {
-                isLocallyModified = ext.statusHistory.some((h: any) => h.isLocalModified === true);
+            const ext = existingMap.get(String(updateInfo.sbId));
+
+            if (!ext || isBookingLocallyModified(ext)) {
+                skipped++;
+                continue;
             }
 
-            // Skip updating if it has been locally modified, fulfilling the requirement that 
-            // the new app becomes the master record after any manual change.
-            if (ext && !isLocallyModified && (ext.doctorId !== updateInfo.doctorId || ext.clinicId !== updateInfo.clinicId || ext.deptId !== updateInfo.deptId)) {
-                await prisma.booking.updateMany({
-                    where: { sbId: updateInfo.sbId },
-                    data: {
-                        doctorId: updateInfo.doctorId,
-                        clinicId: updateInfo.clinicId,
-                        deptId: updateInfo.deptId,
-                    }
+            const history = parseStatusHistory(ext.statusHistory);
+            const updatePayload = pickBookingDbFields(updateInfo as any);
+            delete updatePayload.id;
+            delete updatePayload.createdAt;
+            delete updatePayload.statusHistory;
+            delete updatePayload.isModifiedAfterMigration;
+
+            if (updatePayload.status && updatePayload.status !== ext.status) {
+                history.push({
+                    timestamp: new Date().toISOString(),
+                    oldStatus: ext.status,
+                    newStatus: updatePayload.status,
+                    changedBy: 'SimplyBook Sync',
                 });
-                updated++;
-            } else {
-                skipped++;
+                updatePayload.statusHistory = history;
             }
+
+            const changed = Object.keys(updatePayload).some(key => (ext as any)[key] !== updatePayload[key]);
+            if (!changed) {
+                skipped++;
+                continue;
+            }
+
+            await prisma.booking.updateMany({
+                where: { sbId: updateInfo.sbId },
+                data: updatePayload
+            });
+            updated++;
         }
         
         if (toCreate.length > 0) {
             const now = new Date().toISOString();
-            
-            const allowedFields = new Set([
-                'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
-                'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
-                'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
-                'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
-                'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor', 'isModifiedAfterMigration'
-            ]);
 
             const dataToInsert = toCreate.map(booking => {
                 const { sbId, ...rest } = booking as any;
@@ -293,23 +317,17 @@ export const BookingsStore = {
                     }]
                 };
 
-                const filteredObject: any = {};
-                for (const key of Object.keys(fullObject)) {
-                    if (allowedFields.has(key)) {
-                        filteredObject[key] = fullObject[key];
-                    }
-                }
-                return filteredObject;
+                return pickBookingDbFields(fullObject);
             });
             
             const result = await prisma.booking.createMany({
-                data: dataToInsert,
+                data: dataToInsert as any,
                 skipDuplicates: true
             });
             added = result.count;
         }
         
-        return { added, skipped, updated: 0 };
+        return { added, skipped, updated };
     },
 
     /**
@@ -320,16 +338,10 @@ export const BookingsStore = {
         if (!booking) return false;
         
         const oldStatus = booking.status;
-        let history = booking.statusHistory as any;
-        if (typeof history === 'string') {
-            try { history = JSON.parse(history); } catch { history = []; }
-        }
-        if (!Array.isArray(history)) {
-            history = [];
-        }
+        let history = parseStatusHistory(booking.statusHistory);
 
         // If the booking has been locally modified, ignore SimplyBook webhooks to prevent overwriting
-        if (history.some((h: any) => h.isLocalModified)) {
+        if (isBookingLocallyModified(booking)) {
             return false;
         }
         history.push({
@@ -341,7 +353,7 @@ export const BookingsStore = {
         
         await prisma.booking.update({
             where: { id: booking.id },
-            data: { status, statusHistory: history }
+            data: { status, statusHistory: history as any }
         });
         return true;
     },
@@ -353,17 +365,12 @@ export const BookingsStore = {
         const staffName = updates.staffName || 'Admin';
         const { staffName: _, ...cleanUpdates } = updates;
 
-        let history = oldBooking.statusHistory as any;
-        if (typeof history === 'string') {
-            try { history = JSON.parse(history); } catch { history = []; }
-        }
-        if (!Array.isArray(history)) {
-            history = [];
-        }
+        let history = parseStatusHistory(oldBooking.statusHistory);
 
         let historyChanged = false;
+        const statusChanged = !!cleanUpdates.status && cleanUpdates.status !== oldBooking.status;
 
-        if (cleanUpdates.status && cleanUpdates.status !== oldBooking.status) {
+        if (statusChanged) {
             history.push({
                 timestamp: new Date().toISOString(),
                 oldStatus: oldBooking.status,
@@ -381,6 +388,9 @@ export const BookingsStore = {
         if (cleanUpdates.doctorId && cleanUpdates.doctorId !== oldBooking.doctorId) details.push(`Doctor changed`);
         if (cleanUpdates.clinicId && cleanUpdates.clinicId !== oldBooking.clinicId) details.push(`Branch changed`);
         if (cleanUpdates.serviceId && cleanUpdates.serviceId !== oldBooking.serviceId) details.push(`Procedure changed`);
+        if (cleanUpdates.patientName && cleanUpdates.patientName !== oldBooking.patientName) details.push(`Patient from ${oldBooking.patientName} to ${cleanUpdates.patientName}`);
+        if (cleanUpdates.whatsappNumber && cleanUpdates.whatsappNumber !== oldBooking.whatsappNumber) details.push(`Phone changed`);
+        if (cleanUpdates.email && cleanUpdates.email !== oldBooking.email) details.push(`Email changed`);
 
         if (details.length > 0) {
             history.push({
@@ -395,25 +405,21 @@ export const BookingsStore = {
             historyChanged = true;
         }
 
+        const locallyChanged = didLocalEditableFieldChange(oldBooking as any, cleanUpdates as any);
+        const migratedSbId = getSimplyBookIdFromBooking(oldBooking as any);
+        if (migratedSbId && !(cleanUpdates as any).sbId) {
+            (cleanUpdates as any).sbId = migratedSbId;
+        }
         if (historyChanged) {
             (cleanUpdates as any).statusHistory = history;
+        }
+        if (locallyChanged && migratedSbId) {
             (cleanUpdates as any).isModifiedAfterMigration = true;
         }
 
-        const allowedFields = new Set([
-            'id', 'clinicId', 'deptId', 'doctorId', 'serviceId', 'serviceName', 'date', 'slot', 
-            'duration', 'patientName', 'whatsappNumber', 'email', 'status', 'amount', 'notes', 
-            'selectedMedicineIds', 'statusHistory', 'linkedPackageId', 'billingStatus', 'sbId', 
-            'sbInvoiceNumber', 'sbInvoiceAmount', 'sbInvoiceCurrency', 'sbPaymentProcessor', 
-            'sbPaymentStatus', 'sbProviderName', 'sbServiceName', 'createdAt', 'anyDoctor', 'isModifiedAfterMigration'
-        ]);
-
-        const filteredUpdates: any = {};
-        for (const key of Object.keys(cleanUpdates)) {
-            if (allowedFields.has(key)) {
-                filteredUpdates[key] = (cleanUpdates as any)[key];
-            }
-        }
+        const filteredUpdates = pickBookingDbFields(cleanUpdates as any);
+        delete filteredUpdates.id;
+        delete filteredUpdates.createdAt;
 
         const updated = await prisma.booking.update({
             where: { id },
@@ -421,11 +427,21 @@ export const BookingsStore = {
         });
 
         const user = typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('adminUser') || '{}') : {};
+        if (statusChanged) {
+            await LogsStore.add({
+                userId: user.id || 'admin',
+                userName: staffName || user.name || 'Admin',
+                action: 'UPDATE_BOOKING_STATUS',
+                details: `Changed booking ${id} status from ${oldBooking.status} to ${cleanUpdates.status}`,
+                entityId: id,
+                entityType: 'Booking'
+            });
+        }
         await LogsStore.add({
             userId: user.id || 'admin',
-            userName: user.name || 'Admin',
+            userName: staffName || user.name || 'Admin',
             action: 'UPDATE_BOOKING',
-            details: `Updated booking ${id}. Changes: ${Object.keys(cleanUpdates).join(', ')}`,
+            details: `Updated booking ${id}. Changes: ${Object.keys(filteredUpdates).join(', ')}`,
             entityId: id,
             entityType: 'Booking'
         });

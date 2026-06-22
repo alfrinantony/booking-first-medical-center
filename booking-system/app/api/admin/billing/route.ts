@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { BillingStore } from '@/lib/billing-store';
+import { BillingStore, DuplicateInvoiceError } from '@/lib/billing-store';
+import { BookingsStore } from '@/lib/bookings-store';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -33,24 +34,47 @@ export async function GET(req: NextRequest) {
 
 
 export async function POST(req: NextRequest) {
-    const data = await req.json();
+    try {
+        const data = await req.json();
 
-    // Handle refund action
-    if (data.action === 'refund') {
-        const { invoiceId, refundedBy, refundAmount, refundReason, refundAccountName, refundIban, refundBankName } = data;
-        if (!invoiceId || !refundedBy || refundAmount === undefined || !refundReason) {
-            return NextResponse.json({ error: 'Missing required refund fields' }, { status: 400 });
+        // Handle refund action
+        if (data.action === 'refund') {
+            const { invoiceId, refundedBy, refundAmount, refundReason, refundAccountName, refundIban, refundBankName } = data;
+            if (!invoiceId || !refundedBy || refundAmount === undefined || !refundReason) {
+                return NextResponse.json({ error: 'Missing required refund fields' }, { status: 400 });
+            }
+            const result = await BillingStore.refundInvoice(invoiceId, {
+                refundedBy, refundAmount, refundReason, refundAccountName, refundIban, refundBankName,
+            });
+            if (!result.success) {
+                return NextResponse.json({ error: result.message }, { status: 400 });
+            }
+            return NextResponse.json(result);
         }
-        const result = await BillingStore.refundInvoice(invoiceId, {
-            refundedBy, refundAmount, refundReason, refundAccountName, refundIban, refundBankName,
-        });
-        if (!result.success) {
-            return NextResponse.json({ error: result.message }, { status: 400 });
+
+        // Default: create invoice
+        const invoice = await BillingStore.createInvoice(data);
+        if (data.bookingId) {
+            await BookingsStore.update(data.bookingId, {
+                billingStatus: 'billed',
+                staffName: data.generatedBy || 'Billing'
+            } as any);
         }
-        return NextResponse.json(result);
+        return NextResponse.json(invoice);
+    } catch (error: any) {
+        if (error instanceof DuplicateInvoiceError) {
+            return NextResponse.json({
+                error: error.message,
+                duplicateInvoice: {
+                    id: error.invoice.id,
+                    invoiceNumber: error.invoice.invoiceNumber,
+                }
+            }, { status: 409 });
+        }
+        if (typeof error?.message === 'string' && error.message.startsWith('Stock deduction')) {
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+        console.error('[Billing] Failed to create/update invoice:', error);
+        return NextResponse.json({ error: error.message || 'Failed to process invoice' }, { status: 500 });
     }
-
-    // Default: create invoice
-    const invoice = await BillingStore.createInvoice(data);
-    return NextResponse.json(invoice);
 }

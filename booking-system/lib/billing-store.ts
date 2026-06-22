@@ -5,6 +5,21 @@
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 import { InventoryBatchStore } from './services-store';
 import { PackagesStore } from './packages-store';
+import { LogsStore } from './logs-store';
+import {
+    collectInvoiceStockDeductions,
+    validateInvoiceStockDeductions
+} from './billing-inventory-rules';
+
+export class DuplicateInvoiceError extends Error {
+    invoice: Invoice;
+
+    constructor(invoice: Invoice) {
+        super(`Invoice already exists for this booking: ${invoice.invoiceNumber}`);
+        this.name = 'DuplicateInvoiceError';
+        this.invoice = invoice;
+    }
+}
 
 export interface InvoiceLineItemConsumption {
     medicineId: string;
@@ -158,6 +173,21 @@ function generatePaymentRef(mode: 'cash' | 'card' | 'bank_transfer' | 'online'):
 export const BillingStore = {
     createInvoice: async (data: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt' | 'refundStatus' | 'payments'>): Promise<Invoice> => {
         await ensureBillingLoaded();
+        const allowDuplicate = (data as any).allowDuplicate === true;
+        if (!allowDuplicate) {
+            const duplicate = invoices.find(inv =>
+                !inv.isVoid &&
+                inv.refundStatus !== 'refunded' &&
+                (
+                    (!!data.bookingId && inv.bookingId === data.bookingId) ||
+                    (!!data.sbId && inv.sbId === data.sbId) ||
+                    (!!data.onlineReference && inv.onlineReference === data.onlineReference)
+                )
+            );
+            if (duplicate) {
+                throw new DuplicateInvoiceError(duplicate);
+            }
+        }
         
         let docType: 'PKG' | 'SIV' | 'PIV' = 'SIV';
         if (data.invoiceCategory === 'online_package' || data.invoiceCategory === 'clinic_package') docType = 'PKG';
@@ -193,8 +223,42 @@ export const BillingStore = {
             refundStatus: 'none',
         };
 
+        const hasStockLinks = invoice.items.some(item =>
+            item.batchId ||
+            (Array.isArray(item.consumptions) && item.consumptions.some(consumption =>
+                consumption && (consumption.medicineId || consumption.batchId)
+            ))
+        );
+        const stockDeductions = collectInvoiceStockDeductions(invoice.items);
+        if (hasStockLinks) {
+            const batches = await InventoryBatchStore.getAll();
+            const stockErrors = validateInvoiceStockDeductions(invoice.items, batches, invoice.clinicId);
+            if (stockErrors.length > 0) {
+                throw new Error(`Stock deduction blocked:\n${stockErrors.join('\n')}`);
+            }
+
+            for (const deduction of stockDeductions) {
+                const result = await InventoryBatchStore.deductFromBatch(
+                    deduction.batchId,
+                    deduction.quantity,
+                    invoice.clinicId
+                );
+                if (!result.success) {
+                    throw new Error(`Stock deduction failed for batch ${deduction.batchId}: ${result.message}`);
+                }
+            }
+        }
+
         invoices.push(invoice);
         await saveBilling();
+        await LogsStore.add({
+            userId: 'system',
+            userName: invoice.generatedBy || 'Billing',
+            action: 'INVOICE_GENERATED',
+            details: `Generated invoice ${invoice.invoiceNumber} for ${invoice.clientName}${invoice.bookingId ? ` (booking ${invoice.bookingId})` : ''}`,
+            entityId: invoice.id,
+            entityType: 'Invoice'
+        });
 
         // Auto-deduct inventory batches for items that reference a batchId
         for (const item of invoice.items) {
@@ -225,26 +289,7 @@ export const BillingStore = {
                 }
             }
 
-            // New multi-consumption logic
-            if (item.consumptions && item.consumptions.length > 0) {
-                for (const consumption of item.consumptions) {
-                    if (consumption.batchId && consumption.quantity > 0) {
-                        try {
-                            await InventoryBatchStore.deductFromBatch(consumption.batchId, consumption.quantity);
-                        } catch (e) {
-                            console.error(`Failed to deduct batch ${consumption.batchId}:`, e);
-                        }
-                    }
-                }
-            } 
-            // Legacy single-consumption logic
-            else if (item.batchId && item.quantity > 0) {
-                try {
-                    await InventoryBatchStore.deductFromBatch(item.batchId, item.quantity);
-                } catch (e) {
-                    console.error(`Failed to deduct batch ${item.batchId}:`, e);
-                }
-            }
+            // Physical stock deductions are validated and posted before invoice persistence.
         }
 
         return invoice;
