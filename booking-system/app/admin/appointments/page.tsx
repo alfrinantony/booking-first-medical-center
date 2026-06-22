@@ -1042,6 +1042,36 @@ export default function AdminAppointmentsPage() {
         const newSlot = `${hh.toString().padStart(2, '0')}:${mm} ${period}`;
 
         const docName = targetDoctorId === 'any-doctor' ? 'Any Available Doctor' : allDoctors.find(d => d.id === targetDoctorId)?.name;
+
+        // Verify doctor schedule availability
+        const hasAnyScheduleConfigured = clinicianSchedules.length > 0 || shifts.length > 0;
+        let isAvailable = true;
+        
+        if (targetDoctorId !== 'any-doctor') {
+            const docSchedule = clinicianSchedules.find(s => s.doctorId === targetDoctorId);
+            const hasClinicianSchedule = docSchedule && docSchedule.slots && docSchedule.slots.length > 0;
+            const docShifts = shifts.filter(s => s.employeeId === targetDoctorId);
+            const hasShift = docShifts.length > 0;
+
+            if (hasClinicianSchedule) {
+                const slotNormalized = newSlot.replace(/^0/, '');
+                isAvailable = docSchedule.slots.some((schedSlot: string) => schedSlot.replace(/^0/, '') === slotNormalized);
+            } else if (hasShift) {
+                isAvailable = docShifts.some(s => {
+                    const sStart = parseTimeMins(s.startTime);
+                    const sEnd = parseTimeMins(s.endTime);
+                    return droppedMinutes >= sStart && droppedMinutes < sEnd;
+                });
+            } else {
+                isAvailable = !hasAnyScheduleConfigured;
+            }
+        }
+
+        if (!isAvailable && !isSuperAdmin) {
+            alert(`Dr. ${docName} is not scheduled to work at ${newSlot}.`);
+            return;
+        }
+
         if (confirm(`Reschedule appointment to ${docName} at ${newSlot}?`)) {
             try {
                 const res = await fetch(`/api/bookings/${bookingId}`, {
