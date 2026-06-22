@@ -134,9 +134,13 @@ const initialUsers: User[] = [
 let users: User[] = [...initialUsers];
 let loaded = false;
 
-async function ensureLoaded() {
-    if (!loaded) {
-        users = await loadFromBlob<User[]>('users', initialUsers);
+function normalizeUsername(username: string): string {
+    return username.trim().toLowerCase();
+}
+
+async function ensureLoaded(options: { refresh?: boolean } = {}) {
+    if (!loaded || options.refresh) {
+        users = await loadFromBlob<User[]>('users', initialUsers, { bypassCache: options.refresh });
         loaded = true;
     }
 }
@@ -154,7 +158,8 @@ export const UsersStore = {
 
     getUserByUsername: async (username: string) => {
         await ensureLoaded();
-        return users.find(u => u.username === username);
+        const normalizedUsername = normalizeUsername(username);
+        return users.find(u => normalizeUsername(u.username) === normalizedUsername);
     },
 
     addUser: async (user: Omit<User, 'id'>) => {
@@ -193,7 +198,8 @@ export const UsersStore = {
     // Simple mock authentication — generates a session token for single-device enforcement
     login: async (username: string, password: string): Promise<User | null> => {
         await ensureLoaded();
-        const index = users.findIndex(u => u.username === username && u.password === password);
+        const normalizedUsername = normalizeUsername(username);
+        const index = users.findIndex(u => normalizeUsername(u.username) === normalizedUsername && u.password === password);
         if (index === -1) return null;
         if (!users[index].isActive) return null;
 
@@ -208,9 +214,15 @@ export const UsersStore = {
     // Validate that a session token is still the active session for this user
     validateSession: async (userId: string, token: string): Promise<boolean> => {
         await ensureLoaded();
-        const user = users.find(u => u.id === userId);
-        if (!user) return false;
-        return user.sessionToken === token;
+        const hasMatchingSession = () => {
+            const user = users.find(u => u.id === userId);
+            return user?.sessionToken === token;
+        };
+
+        if (hasMatchingSession()) return true;
+
+        await ensureLoaded({ refresh: true });
+        return hasMatchingSession();
     },
 
     // Permission helpers

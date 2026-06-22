@@ -41,7 +41,7 @@ function LoginForm() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    username,
+                    username: username.trim(),
                     password,
                     ...(geo ? { latitude: geo.latitude, longitude: geo.longitude } : {}),
                 }),
