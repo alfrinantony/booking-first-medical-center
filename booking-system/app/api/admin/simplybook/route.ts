@@ -18,9 +18,10 @@ import { SimplybookStore, SimplybookRecord } from '@/lib/simplybook-store';
 import { BookingsStore } from '@/lib/bookings-store';
 import { ServicesStore } from '@/lib/services-store';
 import { LogsStore } from '@/lib/logs-store';
-import { isBookingLocallyModified } from '@/lib/booking-status-rules';
+import { isBookingLocallyModified, normalizeBookingStatus } from '@/lib/booking-status-rules';
 import {
     getMissingSimplyBookBookingFields,
+    hasRequiredAppBookingDetails,
     hasRequiredSimplyBookBookingDetails
 } from '@/lib/simplybook-booking-rules';
 import {
@@ -175,6 +176,12 @@ function getAppBookingSimplyBookId(booking: Partial<Booking> & { id?: string; sb
     if (booking.sbId) return String(booking.sbId);
     const id = String(booking.id || '');
     return id.startsWith('sb-') ? id.slice(3) : '';
+}
+
+function shouldAppBookingSuppressSimplyBookRecord(booking: Booking) {
+    if (normalizeBookingStatus(booking.status) === 'cancelled') return true;
+    if (isBookingLocallyModified(booking)) return true;
+    return hasRequiredAppBookingDetails(booking);
 }
 
 // ── Map a SimplyBook admin booking to our stored record ──
@@ -1052,7 +1059,10 @@ export async function GET(request: NextRequest) {
             ? await BookingsStore.getByFilters({ startDate: dateFrom, endDate: dateTo })
             : await BookingsStore.getAll();
         const appManagedSbIds = new Set(
-            (appBookings as Booking[]).map(getAppBookingSimplyBookId).filter(Boolean)
+            (appBookings as Booking[])
+                .filter(shouldAppBookingSuppressSimplyBookRecord)
+                .map(getAppBookingSimplyBookId)
+                .filter(Boolean)
         );
         bookings = bookings.filter(b => !appManagedSbIds.has(b.sbId));
     }

@@ -15,6 +15,7 @@ import {
     parseStatusHistory
 } from '@/lib/booking-status-rules';
 import {
+    hasRequiredAppBookingDetails,
     hasRequiredSimplyBookBookingDetails
 } from '@/lib/simplybook-booking-rules';
 import { Calendar, Filter, User, MapPin, Stethoscope, Clock, FileText, Plus, Pill, UserPlus, X, History, Sparkles, ExternalLink, Phone, CreditCard, Package, CheckCircle, Pencil, Mail } from 'lucide-react';
@@ -128,6 +129,49 @@ const getBookingSimplyBookId = (booking: Partial<Booking> & { id?: string; sbId?
     if (booking.sbId) return String(booking.sbId);
     const id = String(booking.id || '');
     return id.startsWith('sb-') ? id.slice(3) : '';
+};
+
+type BookingDisplayMeta = Partial<Booking> & {
+    isModifiedAfterMigration?: boolean;
+    statusHistory?: unknown;
+};
+
+const isLocallyModifiedAppBooking = (booking: BookingDisplayMeta) =>
+    booking.isModifiedAfterMigration === true ||
+    parseStatusHistory(booking.statusHistory).some(entry => entry?.isLocalModified === true);
+
+const shouldAppBookingSuppressSimplyBookRecord = (booking: Booking) => {
+    if (normalizeBookingStatus(booking.status) === 'cancelled') return true;
+    if (isLocallyModifiedAppBooking(booking)) return true;
+    return hasRequiredAppBookingDetails(booking);
+};
+
+const chooseDisplayBooking = (current: Booking, candidate: Booking) => {
+    const currentModified = isLocallyModifiedAppBooking(current);
+    const candidateModified = isLocallyModifiedAppBooking(candidate);
+    if (candidateModified && !currentModified) return candidate;
+    if (currentModified && !candidateModified) return current;
+
+    const currentHistory = parseStatusHistory((current as BookingDisplayMeta).statusHistory);
+    const candidateHistory = parseStatusHistory((candidate as BookingDisplayMeta).statusHistory);
+    const currentLatest = currentHistory[currentHistory.length - 1]?.timestamp;
+    const candidateLatest = candidateHistory[candidateHistory.length - 1]?.timestamp;
+    const currentTime = new Date(String(currentLatest || current.createdAt || '')).getTime();
+    const candidateTime = new Date(String(candidateLatest || candidate.createdAt || '')).getTime();
+    if (!Number.isNaN(candidateTime) && (Number.isNaN(currentTime) || candidateTime > currentTime)) {
+        return candidate;
+    }
+    return current;
+};
+
+const getDedupedDisplayBookings = (items: Booking[]) => {
+    const byKey = new Map<string, Booking>();
+    for (const booking of items) {
+        const key = getBookingSimplyBookId(booking) || booking.id;
+        const existing = byKey.get(key);
+        byKey.set(key, existing ? chooseDisplayBooking(existing, booking) : booking);
+    }
+    return [...byKey.values()];
 };
 
 const formatAuditTime = (timestamp: unknown) => {
@@ -526,10 +570,11 @@ export default function AdminAppointmentsPage() {
 
     const getBookingsForDate = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        return bookings.filter(b =>
+        return getDedupedDisplayBookings(bookings.filter(b =>
             b.date === dateStr &&
-            b.status !== 'cancelled'
-        );
+            b.status !== 'cancelled' &&
+            hasRequiredAppBookingDetails(b)
+        ));
     };
 
     const getSbBookingsForDate = (date: Date) => {
@@ -551,8 +596,19 @@ export default function AdminAppointmentsPage() {
 
     const selectedDayBookings = getBookingsForDate(selectedDate);
     // Exclude SB bookings that have been migrated (already shown in selectedDayBookings)
-    const migratedSbIds = new Set(bookings.map(getBookingSimplyBookId).filter(Boolean));
+    const migratedSbIds = new Set(
+        bookings
+            .filter(shouldAppBookingSuppressSimplyBookRecord)
+            .map(getBookingSimplyBookId)
+            .filter(Boolean)
+    );
     const selectedDaySbBookings = getSbBookingsForDate(selectedDate).filter(sb => !migratedSbIds.has(sb.sbId));
+    const todayBookings = getBookingsForDate(new Date());
+    const todaySbBookings = getSbBookingsForDate(new Date()).filter(sb => !migratedSbIds.has(sb.sbId));
+    const todayAllBookings = [
+        ...todayBookings,
+        ...todaySbBookings.map(sb => ({ status: normalizeBookingStatus(sb.status) })),
+    ];
 
     const getEditableStatus = (status: unknown): Booking['status'] => {
         const normalized = normalizeBookingStatus(status);
@@ -1122,13 +1178,13 @@ export default function AdminAppointmentsPage() {
                         <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-[11px] text-indigo-300 font-medium">Today:</span>
                             <span className="text-[11px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
-                                {getBookingsForDate(new Date()).filter(b => b.status !== 'cancelled').length + getSbBookingsForDate(new Date()).filter(b => b.status !== 'cancelled').length} Total
+                                {todayAllBookings.length} Total
                             </span>
                             <span className="text-[11px] font-bold bg-green-400/30 text-green-100 px-2 py-0.5 rounded-full">
-                                {getBookingsForDate(new Date()).filter(b => ['confirmed','arrived','in_service'].includes(b.status)).length} Active
+                                {todayAllBookings.filter(b => ['confirmed','arrived','in_service'].includes(normalizeBookingStatus(b.status))).length} Active
                             </span>
                             <span className="text-[11px] font-bold bg-amber-400/30 text-amber-100 px-2 py-0.5 rounded-full">
-                                {getBookingsForDate(new Date()).filter(b => b.status === 'booked').length} Pending
+                                {todayAllBookings.filter(b => normalizeBookingStatus(b.status) === 'booked').length} Pending
                             </span>
                         </div>
                     </div>
@@ -1294,7 +1350,7 @@ export default function AdminAppointmentsPage() {
                     >
                         {calendarDays.map((day) => {
                             const dayBookings = getBookingsForDate(day);
-                            const daySbBookings = getSbBookingsForDate(day);
+                            const daySbBookings = getSbBookingsForDate(day).filter(sb => !migratedSbIds.has(sb.sbId));
                             const dayStatusCounts = getStatusCounts([
                                 ...dayBookings,
                                 ...daySbBookings.map(buildBookingFromSbRecord)
@@ -1329,7 +1385,6 @@ export default function AdminAppointmentsPage() {
                                         _duration: b.duration || 30,
                                     })),
                                     ...daySbBookings
-                                        .filter(sb => !migratedSbIds.has(sb.sbId))
                                         .map(sb => {
                                         let duration = 30;
                                         if (sb.startDateTime && sb.endDateTime) {
