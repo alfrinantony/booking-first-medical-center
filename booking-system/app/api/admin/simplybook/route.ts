@@ -499,7 +499,7 @@ export async function GET(request: NextRequest) {
 
         try {
             // Fetch SimplyBook data + app config in parallel
-            const [sbBookings, services, providers, clinics, existingRecords, appBookings] = await Promise.all([
+            const [sbBookings, services, providers, clinics, existingRecords, appBookings, sbClients] = await Promise.all([
                 getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
@@ -507,6 +507,7 @@ export async function GET(request: NextRequest) {
                 // Only load records for this date range (not ALL history)
                 SimplybookStore.getByDateRange(dateFrom, effectiveTo),
                 BookingsStore.getByFilters({ startDate: dateFrom, endDate: effectiveTo }),
+                getAdminClientList(),
             ]);
 
             console.log(`[SimplyBook sync] ${sbBookings.length} bookings from ${dateFrom} to ${effectiveTo}`);
@@ -545,7 +546,17 @@ export async function GET(request: NextRequest) {
 
             let synced = 0, matched = 0, unmatched = 0, skippedIncomplete = 0, skippedProtected = 0;
             const incompleteWarnings: string[] = [];
-            const upsertBatch: SimplybookRecord[] = [];
+            // Build clientMap
+            const clientMap = new Map<string, { name: string; email: string; phone: string }>();
+            for (const c of sbClients) {
+                if (c.id) {
+                    clientMap.set(String(c.id), {
+                        name: String(c.name || c.fname || ''),
+                        email: String(c.email || ''),
+                        phone: String(c.phone || '')
+                    });
+                }
+            }
 
             for (const booking of sbBookings as SBBooking[]) {
                 const rawProviderName =
@@ -554,9 +565,7 @@ export async function GET(request: NextRequest) {
 
                 const matchResult = rawProviderName ? matchDoctor(rawProviderName, doctorIndex) : null;
 
-            // Build empty clientMap (we already have names directly from booking)
-            const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
-                const record = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
+                const record = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, clientMap, matchResult);
                 const appManagedBooking = appBookingBySbId.get(record.sbId);
                 if (appManagedBooking?.id) {
                     record.syncedToBookingsId = appManagedBooking.id;
@@ -678,13 +687,14 @@ export async function GET(request: NextRequest) {
         try {
             const skipInvoices = sp.get('skip_invoices') === 'true';
 
-            const [sbBookings, services, providers, clinics, invoices, appBookings] = await Promise.all([
+            const [sbBookings, services, providers, clinics, invoices, appBookings, sbClients] = await Promise.all([
                 getAdminBookings(dateFrom, effectiveTo),
                 getServiceList(),
                 getProviderList(),
                 ServicesStore.getClinics() as Promise<Clinic[]>,
                 skipInvoices ? Promise.resolve([]) : getInvoiceList(dateFrom, effectiveTo),
                 BookingsStore.getByFilters({ startDate: dateFrom, endDate: effectiveTo }),
+                getAdminClientList(),
             ]);
 
             // Build invoice map: booking_id → invoice
@@ -708,6 +718,17 @@ export async function GET(request: NextRequest) {
             const missingDataWarnings: string[] = [];
             let matchedCount = 0, unmatchedCount = 0, skippedIncomplete = 0, skippedProtected = 0;
 
+            const clientMap = new Map<string, { name: string; email: string; phone: string }>();
+            for (const c of sbClients) {
+                if (c.id) {
+                    clientMap.set(String(c.id), {
+                        name: String(c.name || c.fname || ''),
+                        email: String(c.email || ''),
+                        phone: String(c.phone || '')
+                    });
+                }
+            }
+
             for (const booking of sbBookings as SBBooking[]) {
                 const rawProviderName =
                     booking.unit || booking.unit_name ||
@@ -715,8 +736,7 @@ export async function GET(request: NextRequest) {
 
                 const matchResult = rawProviderName ? matchDoctor(rawProviderName, doctorIndex) : null;
 
-                const emptyClientMap = new Map<string, { name: string; email: string; phone: string }>();
-                const sbRecord = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, emptyClientMap, matchResult);
+                const sbRecord = mapAdminBooking(booking as SBBooking, serviceMap, providerMap, clientMap, matchResult);
                 const appManagedBooking = appBookingBySbId.get(sbRecord.sbId);
                 if (appManagedBooking?.id) {
                     sbRecord.syncedToBookingsId = appManagedBooking.id;
