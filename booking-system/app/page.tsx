@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import LiveAvatarBubble from "@/components/LiveAvatarBubble";
 import { 
   MapPin, 
@@ -79,7 +80,7 @@ export default function Home() {
               <div className="mt-8 flex flex-wrap gap-4 justify-center lg:justify-start">
                 <Link
                   href="/booking"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-500/30"
+                  className="hover-lift inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl shadow-lg shadow-indigo-500/25 transition-all hover:shadow-xl hover:shadow-indigo-500/30"
                 >
                   <Calendar className="w-5 h-5" />
                   Book Appointment
@@ -88,7 +89,7 @@ export default function Home() {
                   href="https://wa.me/971564343999"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-green-50 dark:bg-transparent text-green-700 dark:text-green-400 font-semibold rounded-2xl border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-all hover:shadow-md"
+                  className="hover-lift inline-flex items-center justify-center gap-2 px-8 py-4 bg-green-50 dark:bg-transparent text-green-700 dark:text-green-400 font-semibold rounded-2xl border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-all hover:shadow-md"
                 >
                   <MessageCircle className="w-5 h-5" />
                   WhatsApp
@@ -164,13 +165,15 @@ export default function Home() {
             ].map((branch) => (
               <div
                 key={branch.name}
-                className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-300"
+                className="group hover-lift bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-300"
               >
-                <div className="relative h-40 overflow-hidden">
-                  <img
+                <div className="relative h-40 overflow-hidden bg-gray-200 dark:bg-gray-700">
+                  <Image
                     src={branch.image}
                     alt={branch.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                   <div className="absolute bottom-3 left-4">
@@ -213,14 +216,14 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
               href="/booking"
-              className="inline-flex items-center gap-2 px-10 py-4 bg-white text-indigo-700 font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02]"
+              className="hover-lift inline-flex items-center gap-2 px-10 py-4 bg-white text-indigo-700 font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all"
             >
               <Calendar className="w-5 h-5" />
               Book Now
             </Link>
             <a
               href="tel:+97142506262"
-              className="inline-flex items-center gap-2 px-10 py-4 bg-transparent border-2 border-white text-white font-bold rounded-2xl hover:bg-white/10 transition-all hover:scale-[1.02]"
+              className="hover-lift inline-flex items-center gap-2 px-10 py-4 bg-transparent border-2 border-white text-white font-bold rounded-2xl hover:bg-white/10 transition-all"
             >
               <PhoneCall className="w-5 h-5" />
               Call Us
