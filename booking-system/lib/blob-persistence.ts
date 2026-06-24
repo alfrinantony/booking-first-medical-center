@@ -24,6 +24,7 @@ function getContainerClient(): ContainerClient {
 }
 
 const memoryCache = new Map<string, { data: unknown; timestamp: number }>();
+const pendingPromises = new Map<string, Promise<any>>();
 const CACHE_TTL = 30000; // 30 seconds
 
 function getErrorStatusCode(err: unknown): number | undefined {
@@ -49,14 +50,30 @@ export async function loadFromBlob<T>(
             return cached.data as T;
         }
 
-        const blobName = key.endsWith('.json') ? key : `${key}.json`;
-        const blobClient = getContainerClient().getBlobClient(blobName);
-        const buffer = await blobClient.downloadToBuffer();
-        const data = JSON.parse(buffer.toString('utf-8'));
-        console.log(`[BlobPersist] Loaded "${key}" from Azure Blob`);
+        // Return the existing pending promise if one is already downloading this key
+        if (!options.bypassCache && pendingPromises.has(key)) {
+            console.log(`[BlobPersist] Joining existing download for "${key}"`);
+            return pendingPromises.get(key) as Promise<T>;
+        }
+
+        const downloadPromise = (async () => {
+            const blobName = key.endsWith('.json') ? key : `${key}.json`;
+            const blobClient = getContainerClient().getBlobClient(blobName);
+            const buffer = await blobClient.downloadToBuffer();
+            const data = JSON.parse(buffer.toString('utf-8'));
+            console.log(`[BlobPersist] Loaded "${key}" from Azure Blob`);
+            
+            memoryCache.set(key, { data, timestamp: Date.now() });
+            return data as T;
+        })();
+
+        pendingPromises.set(key, downloadPromise);
         
-        memoryCache.set(key, { data, timestamp: now });
-        return data as T;
+        try {
+            return await downloadPromise;
+        } finally {
+            pendingPromises.delete(key);
+        }
     } catch (err: unknown) {
         if (getErrorStatusCode(err) === 404) {
             console.log(`[BlobPersist] Blob "${key}" not found in Azure — using fallback`);
