@@ -64,25 +64,6 @@ export async function POST(req: NextRequest) {
                 req.headers.get('x-real-ip') ||
                 'unknown';
 
-            // 1. Country restriction
-            if (r.allowedCountries && r.allowedCountries.length > 0) {
-                try {
-                    const geoRes = await fetch(`http://ip-api.com/json/${clientIP}?fields=countryCode`, {
-                        signal: AbortSignal.timeout(3000),
-                    });
-                    if (geoRes.ok) {
-                        const geo = await geoRes.json();
-                        if (geo.countryCode && !r.allowedCountries.includes(geo.countryCode)) {
-                            return NextResponse.json(
-                                { error: `Login restricted: your country (${geo.countryCode}) is not allowed` },
-                                { status: 403 }
-                            );
-                        }
-                    }
-                } catch {
-                    // IP lookup failed — skip country check on error
-                }
-            }
 
             // 2. IP Address restriction
             if (r.allowedIPs && r.allowedIPs.length > 0) {
@@ -94,25 +75,7 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // 3. Geofence restriction
-            if (r.geofence && r.geofence.enabled) {
-                if (latitude == null || longitude == null) {
-                    return NextResponse.json(
-                        { error: 'Login restricted: location access is required. Please enable location services and try again.' },
-                        { status: 403 }
-                    );
-                }
-                const branch = CLINICS.find(c => c.id === r.geofence!.branchId);
-                if (branch) {
-                    const distance = haversineDistance(latitude, longitude, branch.lat, branch.lng);
-                    if (distance > r.geofence.radiusMeters) {
-                        return NextResponse.json(
-                            { error: `Login restricted: you are ${Math.round(distance)}m from ${branch.name} (max ${r.geofence.radiusMeters}m)` },
-                            { status: 403 }
-                        );
-                    }
-                }
-            }
+
 
             // 4. Time window restriction
             if (r.timeWindow && r.timeWindow.enabled) {

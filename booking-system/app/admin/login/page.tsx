@@ -14,36 +14,18 @@ function LoginForm() {
     const searchParams = useSearchParams();
     const wasKicked = searchParams.get('kicked') === '1';
 
-    const getGeolocation = (): Promise<{ latitude: number; longitude: number } | null> => {
-        return new Promise((resolve) => {
-            if (!navigator.geolocation) {
-                resolve(null);
-                return;
-            }
-            navigator.geolocation.getCurrentPosition(
-                (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-                () => resolve(null), // Denied or error — resolve null
-                { timeout: 5000, maximumAge: 60000 }
-            );
-        });
-    };
-
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
 
         try {
-            // Try to get geolocation for geofence validation
-            const geo = await getGeolocation();
-
             const res = await fetch('/api/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     username: username.trim(),
                     password,
-                    ...(geo ? { latitude: geo.latitude, longitude: geo.longitude } : {}),
                 }),
             });
 
