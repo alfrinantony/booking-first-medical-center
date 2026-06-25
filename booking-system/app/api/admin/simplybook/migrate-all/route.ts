@@ -80,7 +80,6 @@ export async function POST(request: Request) {
                 const { SimplybookStore } = await import('@/lib/simplybook-store');
                 const { BookingsStore } = await import('@/lib/bookings-store');
                 const { ServicesStore } = await import('@/lib/services-store');
-                const { Clinic } = await import('@/lib/data');
 
                 console.log(`[MigrateAll] Chunk ${chunk.from} → ${chunk.to}`);
 

@@ -30,6 +30,7 @@ import {
     getProviderList,
     getInvoiceList,
     getInvoiceListDebug,
+    getAdminClientList,
     SimplyBookAdminBooking,
 } from '@/lib/simplybook-client';
 
@@ -545,6 +546,7 @@ export async function GET(request: NextRequest) {
             const doctorIndex = buildDoctorIndex(clinics);
 
             let synced = 0, matched = 0, unmatched = 0, skippedIncomplete = 0, skippedProtected = 0;
+            const upsertBatch: SimplybookRecord[] = [];
             const incompleteWarnings: string[] = [];
             // Build clientMap
             const clientMap = new Map<string, { name: string; email: string; phone: string }>();
