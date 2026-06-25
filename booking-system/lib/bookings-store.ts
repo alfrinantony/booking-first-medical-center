@@ -92,7 +92,26 @@ export const BookingsStore = {
         const bookings = await prisma.booking.findMany({ 
             where, 
             orderBy: { date: 'desc' },
-            take: 2000 // Safety limit to prevent memory crashes
+            take: 2000,
+            select: {
+                id: true,
+                sbId: true,
+                patientName: true,
+                whatsappNumber: true,
+                email: true,
+                slot: true,
+                date: true,
+                doctorId: true,
+                clinicId: true,
+                serviceName: true,
+                status: true,
+                anyDoctor: true,
+                billingStatus: true,
+                duration: true,
+                createdAt: true,
+                deptId: true,
+                serviceId: true
+            }
         });
         return bookings as any as Booking[];
     },

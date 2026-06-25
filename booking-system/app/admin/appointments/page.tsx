@@ -531,8 +531,8 @@ export default function AdminAppointmentsPage() {
         setIsLoading(true);
         try {
             const params = new URLSearchParams();
-            const rangeStart = startOfMonth(subMonths(currentDate, 1));
-            const rangeEnd = endOfMonth(addMonths(currentDate, 3));
+            const rangeStart = startOfWeek(startOfMonth(currentDate));
+            const rangeEnd = endOfWeek(endOfMonth(currentDate));
             params.append('startDate', format(rangeStart, 'yyyy-MM-dd'));
             params.append('endDate', format(rangeEnd, 'yyyy-MM-dd'));
             if (selectedClinicId) params.append('clinicId', selectedClinicId);
@@ -809,7 +809,7 @@ export default function AdminAppointmentsPage() {
         setEditClientModal({ sbId, name, phone, email, editPassword });
     };
 
-    const handleEditClick = (booking: Booking) => {
+    const handleEditClick = async (booking: Booking) => {
         let editPassword = '';
         if (isCompletedAndBilledLocked(booking)) {
             const requestedPassword = requestCompletedBilledEditPassword(booking);
@@ -838,6 +838,35 @@ export default function AdminAppointmentsPage() {
         setIsEditModalOpen(true);
         // Initial fetch for slots if dates are different or just to populate
         fetchRescheduleSlots(booking.doctorId, booking.date, booking.serviceId);
+
+        // Fetch full details (including email and audit trails) in the background
+        try {
+            const res = await fetch(`/api/bookings/${booking.id}`);
+            if (res.ok) {
+                const fullBooking = await res.json();
+                setEditingBooking(fullBooking);
+                setEditForm(prev => ({
+                    ...prev,
+                    email: prev.email || fullBooking.email || '',
+                }));
+            }
+        } catch (e) {
+            console.error('Failed to fetch full booking details:', e);
+        }
+    };
+
+    const handleHistoryClick = async (booking: Booking) => {
+        setIsHistoryOpen(true);
+        setHistoryBooking(booking);
+        try {
+            const res = await fetch(`/api/bookings/${booking.id}`);
+            if (res.ok) {
+                const fullBooking = await res.json();
+                setHistoryBooking(fullBooking);
+            }
+        } catch (e) {
+            console.error('Failed to fetch booking history:', e);
+        }
     };
 
     const fetchRescheduleSlots = async (doctorId: string, date: string, serviceId: string) => {
@@ -1985,7 +2014,7 @@ export default function AdminAppointmentsPage() {
                                         })()}
                                         <div className="w-px bg-gray-100 dark:bg-gray-700" />
                                         <button
-                                            onClick={() => { setHistoryBooking(booking); setIsHistoryOpen(true); }}
+                                            onClick={() => handleHistoryClick(booking)}
                                             className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
                                         >
                                             <History className="w-3 h-3" /> History
