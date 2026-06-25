@@ -40,6 +40,7 @@ async function rpcCall(
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
         cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) throw new Error(`SimplyBook HTTP ${res.status}: ${await res.text()}`);
     const json = await res.json() as { result?: unknown; error?: { message: string; code: number } };
