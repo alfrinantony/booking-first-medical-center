@@ -4,7 +4,17 @@ import { LogsStore } from './logs-store';
 import { loadFromBlob, saveToBlob } from './blob-persistence';
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+let dbUrl = process.env.DATABASE_URL || '';
+if (dbUrl.includes(':6543')) {
+    dbUrl = dbUrl.replace(':6543', ':5432').replace('?pgbouncer=true', '').replace('&pgbouncer=true', '');
+}
+const prisma = new PrismaClient({
+    datasources: {
+        db: {
+            url: dbUrl
+        }
+    }
+});
 
 export interface Client {
     id: string;
