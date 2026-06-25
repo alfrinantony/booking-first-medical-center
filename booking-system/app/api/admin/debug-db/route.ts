@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
-async function testConnection(url: string) {
+async function testBookingQuery(url: string) {
     const start = Date.now();
     const prisma = new PrismaClient({
         datasources: {
@@ -13,10 +13,26 @@ async function testConnection(url: string) {
     });
     try {
         await prisma.$connect();
-        const count = await prisma.client.count();
-        return { ok: true, count, elapsedMs: Date.now() - start };
+        const startQuery = Date.now();
+        const bookings = await prisma.booking.findMany({
+            where: {
+                date: {
+                    gte: '2026-06-25',
+                    lte: '2026-06-25'
+                }
+            },
+            orderBy: { date: 'desc' },
+            take: 2000
+        });
+        return { 
+            ok: true, 
+            count: bookings.length, 
+            connectMs: startQuery - start,
+            queryMs: Date.now() - startQuery,
+            totalMs: Date.now() - start
+        };
     } catch (err: any) {
-        return { ok: false, error: err.message, elapsedMs: Date.now() - start };
+        return { ok: false, error: err.message, totalMs: Date.now() - start };
     } finally {
         await prisma.$disconnect();
     }
@@ -44,13 +60,13 @@ export async function GET() {
     }
     url5432 = addTimeout(url5432);
 
-    const result6543 = await testConnection(url6543);
-    const result5432 = await testConnection(url5432);
+    const queryResult6543 = await testBookingQuery(url6543);
+    const queryResult5432 = await testBookingQuery(url5432);
 
     return NextResponse.json({
         dbUrl6543_hidden: url6543.replace(/:[^:@]+@/, ':***@'),
         dbUrl5432_hidden: url5432.replace(/:[^:@]+@/, ':***@'),
-        result6543,
-        result5432
+        queryResult6543,
+        queryResult5432
     });
 }
