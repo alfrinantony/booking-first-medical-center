@@ -57,7 +57,7 @@ function getMissingSimplyBookBookingFields(record) {
 }
 
 function hasRequiredSimplyBookBookingDetails(record) {
-    return getMissingSimplyBookBookingFields(record).length === 0;
+    return getMissingSimplyBookBookingFields(record).filter(f => f !== 'clientEmail').length === 0;
 }
 
 function getMissingAppBookingFields(booking) {
@@ -86,7 +86,7 @@ function getMissingAppBookingFields(booking) {
 }
 
 function hasRequiredAppBookingDetails(booking) {
-    return getMissingAppBookingFields(booking).length === 0;
+    return getMissingAppBookingFields(booking).filter(f => f !== 'email').length === 0;
 }
 
 module.exports = {

@@ -107,9 +107,28 @@ test('requires app bookings shown on the active page to have client and booking 
         slot: '10:00 AM',
     }), true);
 
+    // Empty email is valid (optional)
     assert.equal(hasRequiredAppBookingDetails({
-        patientName: 'Client #22',
+        patientName: 'Aisha Khan',
+        email: '',
+        serviceName: 'Hydrafacial',
+        date: '2026-06-22',
+        slot: '10:00 AM',
+    }), true);
+
+    // Invalid email is also allowed for display
+    assert.equal(hasRequiredAppBookingDetails({
+        patientName: 'Aisha Khan',
         email: 'missing',
+        serviceName: 'Hydrafacial',
+        date: '2026-06-22',
+        slot: '10:00 AM',
+    }), true);
+
+    // Missing patientName should fail
+    assert.equal(hasRequiredAppBookingDetails({
+        patientName: '',
+        email: 'aisha@example.com',
         serviceName: 'Hydrafacial',
         date: '2026-06-22',
         slot: '10:00 AM',
