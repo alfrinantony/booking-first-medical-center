@@ -2,39 +2,13 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
-async function testBookingQuery(url: string) {
+async function runStep(label: string, fn: () => Promise<any>) {
     const start = Date.now();
-    const prisma = new PrismaClient({
-        datasources: {
-            db: {
-                url: url
-            }
-        }
-    });
     try {
-        await prisma.$connect();
-        const startQuery = Date.now();
-        const bookings = await prisma.booking.findMany({
-            where: {
-                date: {
-                    gte: '2026-06-25',
-                    lte: '2026-06-25'
-                }
-            },
-            orderBy: { date: 'desc' },
-            take: 2000
-        });
-        return { 
-            ok: true, 
-            count: bookings.length, 
-            connectMs: startQuery - start,
-            queryMs: Date.now() - startQuery,
-            totalMs: Date.now() - start
-        };
+        const result = await fn();
+        return { ok: true, elapsedMs: Date.now() - start, summary: JSON.stringify(result).substring(0, 200) };
     } catch (err: any) {
-        return { ok: false, error: err.message, totalMs: Date.now() - start };
-    } finally {
-        await prisma.$disconnect();
+        return { ok: false, elapsedMs: Date.now() - start, error: err.message };
     }
 }
 
@@ -44,29 +18,37 @@ export async function GET() {
         return NextResponse.json({ ok: false, error: 'DATABASE_URL is not set' });
     }
 
-    // Add connect_timeout=5 to prevent hanging
-    const addTimeout = (url: string) => {
-        const separator = url.includes('?') ? '&' : '?';
-        return `${url}${separator}connect_timeout=5`;
-    };
-
-    // 1. Port 6543 (as configured in prod)
-    const url6543 = addTimeout(baseDbUrl);
-
-    // 2. Port 5432 (rewritten)
+    // Rewrite to port 5432 for testing
     let url5432 = baseDbUrl;
     if (url5432.includes(':6543')) {
         url5432 = url5432.replace(':6543', ':5432').replace('?pgbouncer=true', '').replace('&pgbouncer=true', '');
     }
-    url5432 = addTimeout(url5432);
+    const separator = url5432.includes('?') ? '&' : '?';
+    const testUrl = `${url5432}${separator}connect_timeout=5`;
 
-    const queryResult6543 = await testBookingQuery(url6543);
-    const queryResult5432 = await testBookingQuery(url5432);
+    const prisma = new PrismaClient({
+        datasources: {
+            db: {
+                url: testUrl
+            }
+        }
+    });
+
+    const step1 = await runStep('1. count()', () => prisma.booking.count());
+    const step2 = await runStep('2. findMany(select id, take 1)', () => prisma.booking.findMany({ select: { id: true }, take: 1 }));
+    const step3 = await runStep('3. findMany(take 1)', () => prisma.booking.findMany({ take: 1 }));
+    const step4 = await runStep('4. findMany(date filter, take 5)', () => prisma.booking.findMany({
+        where: { date: '2026-06-25' },
+        take: 5
+    }));
+
+    await prisma.$disconnect();
 
     return NextResponse.json({
-        dbUrl6543_hidden: url6543.replace(/:[^:@]+@/, ':***@'),
-        dbUrl5432_hidden: url5432.replace(/:[^:@]+@/, ':***@'),
-        queryResult6543,
-        queryResult5432
+        dbUrl_hidden: testUrl.replace(/:[^:@]+@/, ':***@'),
+        step1,
+        step2,
+        step3,
+        step4
     });
 }
