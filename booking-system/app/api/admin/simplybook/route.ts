@@ -508,7 +508,7 @@ export async function GET(request: NextRequest) {
                 // Only load records for this date range (not ALL history)
                 SimplybookStore.getByDateRange(dateFrom, effectiveTo),
                 BookingsStore.getByFilters({ startDate: dateFrom, endDate: effectiveTo }),
-                getAdminClientList(),
+                Promise.resolve([]),
             ]);
 
             console.log(`[SimplyBook sync] ${sbBookings.length} bookings from ${dateFrom} to ${effectiveTo}`);
@@ -696,7 +696,7 @@ export async function GET(request: NextRequest) {
                 ServicesStore.getClinics() as Promise<Clinic[]>,
                 skipInvoices ? Promise.resolve([]) : getInvoiceList(dateFrom, effectiveTo),
                 BookingsStore.getByFilters({ startDate: dateFrom, endDate: effectiveTo }),
-                getAdminClientList(),
+                Promise.resolve([]),
             ]);
 
             // Build invoice map: booking_id → invoice
