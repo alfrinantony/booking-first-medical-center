@@ -37,9 +37,6 @@ function getMissingSimplyBookBookingFields(record) {
     if (!hasMeaningfulValue(record && record.clientName, PLACEHOLDER_PATIENT_PATTERNS)) {
         missing.push('clientName');
     }
-    if (!hasValidEmail(record && record.clientEmail)) {
-        missing.push('clientEmail');
-    }
     if (!hasMeaningfulValue(record && record.serviceName, PLACEHOLDER_SERVICE_PATTERNS)) {
         missing.push('service');
     }
@@ -57,7 +54,7 @@ function getMissingSimplyBookBookingFields(record) {
 }
 
 function hasRequiredSimplyBookBookingDetails(record) {
-    return getMissingSimplyBookBookingFields(record).filter(f => f !== 'clientEmail').length === 0;
+    return getMissingSimplyBookBookingFields(record).length === 0;
 }
 
 function getMissingAppBookingFields(booking) {
@@ -65,9 +62,6 @@ function getMissingAppBookingFields(booking) {
 
     if (!hasMeaningfulValue(booking && booking.patientName, PLACEHOLDER_PATIENT_PATTERNS)) {
         missing.push('patientName');
-    }
-    if (!hasValidEmail(booking && booking.email)) {
-        missing.push('email');
     }
     if (!hasMeaningfulValue(
         booking && (booking.serviceName || booking.sbServiceName || booking.serviceId),
@@ -86,7 +80,7 @@ function getMissingAppBookingFields(booking) {
 }
 
 function hasRequiredAppBookingDetails(booking) {
-    return getMissingAppBookingFields(booking).filter(f => f !== 'email').length === 0;
+    return getMissingAppBookingFields(booking).length === 0;
 }
 
 module.exports = {

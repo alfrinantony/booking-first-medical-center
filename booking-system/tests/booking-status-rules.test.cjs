@@ -88,6 +88,16 @@ test('requires SimplyBook records to have client email and booking details', () 
         time: '10:00',
     }), true);
 
+    // Empty email is valid (optional)
+    assert.equal(hasRequiredSimplyBookBookingDetails({
+        clientName: 'Aisha Khan',
+        clientEmail: '',
+        serviceName: 'Hydrafacial',
+        providerName: 'Dr. Sara',
+        date: '2026-06-22',
+        time: '10:00',
+    }), true);
+
     assert.deepEqual(getMissingSimplyBookBookingFields({
         clientName: 'Unknown Client',
         clientEmail: '',
@@ -95,7 +105,7 @@ test('requires SimplyBook records to have client email and booking details', () 
         providerName: 'Provider #9',
         date: '',
         time: '',
-    }), ['clientName', 'clientEmail', 'service', 'doctor', 'appointmentDate', 'appointmentTime']);
+    }), ['clientName', 'service', 'doctor', 'appointmentDate', 'appointmentTime']);
 });
 
 test('requires app bookings shown on the active page to have client and booking details', () => {
