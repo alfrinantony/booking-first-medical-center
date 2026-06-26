@@ -14,33 +14,33 @@ model BlobStore {
 }
 
 model Booking {
-  id                  String   @id
-  clinicId            String
-  deptId              String
-  doctorId            String
-  serviceId           String
-  serviceName         String?
-  date                String
-  slot                String
-  duration            Int?     @default(30)
-  patientName         String
-  whatsappNumber      String?
-  email               String?
-  status              String
-  amount              Float?
-  notes               String?
-  selectedMedicineIds Json?
-  statusHistory       Json?
-  linkedPackageId     String?
-  billingStatus       String?
-  sbId                String?
-  sbInvoiceNumber     String?
-  sbInvoiceAmount     Float?
-  sbInvoiceCurrency   String?
-  sbPaymentProcessor  String?
-  sbPaymentStatus     String?
-  sbProviderName      String?
-  sbServiceName       String?
+  id                       String   @id
+  clinicId                 String
+  deptId                   String
+  doctorId                 String
+  serviceId                String
+  serviceName              String?
+  date                     String
+  slot                     String
+  duration                 Int?     @default(30)
+  patientName              String
+  whatsappNumber           String?
+  email                    String?
+  status                   String
+  amount                   Float?
+  notes                    String?
+  selectedMedicineIds      Json?
+  statusHistory            Json?
+  linkedPackageId          String?
+  billingStatus            String?
+  sbId                     String?
+  sbInvoiceNumber          String?
+  sbInvoiceAmount          Float?
+  sbInvoiceCurrency        String?
+  sbPaymentProcessor       String?
+  sbPaymentStatus          String?
+  sbProviderName           String?
+  sbServiceName            String?
   createdAt                String
   anyDoctor                Boolean? @default(false)
   isModifiedAfterMigration Boolean? @default(false)
