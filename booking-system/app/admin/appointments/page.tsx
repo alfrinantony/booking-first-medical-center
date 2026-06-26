@@ -405,11 +405,11 @@ export default function AdminAppointmentsPage() {
             const fmt = (d: Date) => d.toISOString().split('T')[0];
             const defaultFrom = new Date();
             const defaultTo   = new Date(); defaultTo.setMonth(defaultTo.getMonth() + 3);
-            const url = `/api/admin/simplybook?from=${from ?? fmt(defaultFrom)}&to=${to ?? fmt(defaultTo)}&completeOnly=true&excludeCancelled=true&excludeAppManaged=true`;
+            const url = `/api/admin/simplybook?from=${from ?? fmt(defaultFrom)}&to=${to ?? fmt(defaultTo)}&excludeCancelled=true&excludeAppManaged=true`;
             const res = await fetch(url, { cache: 'no-store' });
             if (res.ok) {
                 const data = await res.json();
-                if (Array.isArray(data)) setSbBookings(data.filter(hasRequiredSimplyBookBookingDetails));
+                if (Array.isArray(data)) setSbBookings(data);
             }
         } catch { /* ignore */ }
     };
@@ -581,7 +581,7 @@ export default function AdminAppointmentsPage() {
         const dateStr = format(date, 'yyyy-MM-dd');
         return sbBookings.filter(b => {
             if (b.date !== dateStr || b.status === 'cancelled') return false;
-            if (!hasRequiredSimplyBookBookingDetails(b)) return false;
+            // Removed hasRequiredSimplyBookBookingDetails check to show all bookings
             if (selectedDoctorId && b.matchedDoctorId !== selectedDoctorId) return false;
             if (searchQuery) {
                 const q = searchQuery.toLowerCase();

@@ -9,6 +9,10 @@ let dbUrl = process.env.DATABASE_URL || '';
 if (dbUrl.includes(':6543')) {
     dbUrl = dbUrl.replace(':6543', ':5432').replace('?pgbouncer=true', '').replace('&pgbouncer=true', '');
 }
+// Add pool_timeout to prevent Prisma from hanging forever on idle SNAT dropped connections
+if (dbUrl && !dbUrl.includes('pool_timeout')) {
+    dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'pool_timeout=10';
+}
 const prisma = new PrismaClient({
     datasources: {
         db: {
