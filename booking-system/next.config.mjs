@@ -11,7 +11,7 @@ const nextConfig = {
     outputFileTracingExcludes: {
         '*': [
             'node_modules/@prisma/engines/**/*.node',
-            'node_modules/@prisma/client/libquery_engine-debian-openssl-3.0.x.so.node',
+            'node_modules/@prisma/client/libquery_engine-debian-openssl-1.1.x.so.node',
             'node_modules/@prisma/client/query_engine-windows.exe.node',
         ],
     },
