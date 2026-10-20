@@ -46,7 +46,7 @@ const BRANCHES: Branch[] = [
 
 const CATEGORIES = [
     'Medical Device', 'Laser Equipment', 'Diagnostic', 'Surgical Instrument',
-    'Infection Control', 'Furniture', 'IT Equipment', 'Other'
+    'Infection Control', 'IT Equipment', 'Other'
 ];
 
 const STATUS_OPTIONS: { value: EquipmentItem['status']; label: string; color: string }[] = [

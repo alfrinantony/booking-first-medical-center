@@ -948,10 +948,15 @@ export default function AdminAppointmentsPage() {
             } else {
                 let errorMsg = 'Unknown error';
                 try {
-                    const errorObj = await res.json();
-                    errorMsg = errorObj.details || errorObj.error || errorObj.message || JSON.stringify(errorObj);
+                    const text = await res.text();
+                    try {
+                        const errorObj = JSON.parse(text);
+                        errorMsg = errorObj.details || errorObj.error || errorObj.message || text;
+                    } catch {
+                        errorMsg = text;
+                    }
                 } catch {
-                    errorMsg = await res.text();
+                    errorMsg = 'Failed to read response body';
                 }
                 alert(`Failed to update booking: ${res.status} - ${errorMsg}`);
             }

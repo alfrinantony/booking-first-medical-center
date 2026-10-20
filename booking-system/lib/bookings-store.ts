@@ -227,6 +227,14 @@ export const BookingsStore = {
         return b as any as Booking | undefined;
     },
 
+    getByDate: async (date: string) => {
+        const bookings = await prisma.booking.findMany({
+            where: { date },
+            orderBy: { slot: 'asc' }
+        });
+        return bookings as any as Booking[];
+    },
+
     /**
      * Lightweight insert for a single SimplyBook-sourced booking.
      * Skips medicine/consumable stock deduction.

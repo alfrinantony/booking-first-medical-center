@@ -131,7 +131,7 @@ export async function PATCH(
             (body.date && body.date !== existingBooking.date) || 
             (body.slot && body.slot !== existingBooking.slot)) {
             
-            const existingBookings = await BookingsStore.getAll();
+            const existingBookings = await BookingsStore.getByDate(targetDate);
             const newStart = slotToMinutes(targetSlot);
             const newEnd = newStart + targetDuration;
 
