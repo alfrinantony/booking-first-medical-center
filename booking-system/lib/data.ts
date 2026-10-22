@@ -429,6 +429,7 @@ export interface Booking {
     packageName?: string;          // Package name for display
     restrictedDeducted?: number;   // Wallet/restricted balance amount deducted
     isFollowUp?: boolean; // New field to indicate if booking is a free follow-up
+    notes?: string; // Additional booking notes (e.g. booked via AI agent, channel details)
 
     statusHistory?: {
         timestamp: string;

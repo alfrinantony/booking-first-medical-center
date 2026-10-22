@@ -56,10 +56,28 @@ export async function POST(req: NextRequest) {
             // Facebook Messenger messages
             for (const entry of body.entry || []) {
                 for (const event of entry.messaging || []) {
-                    if (event.message) {
+                    if (event.message && event.message.text) {
+                        // Try to get sender's name from Graph API
+                        let senderName: string | undefined;
+                        const token = process.env.META_PAGE_ACCESS_TOKEN;
+                        if (token && event.sender?.id) {
+                            try {
+                                const profileRes = await fetch(
+                                    `https://graph.facebook.com/v21.0/${event.sender.id}?fields=name&access_token=${token}`
+                                );
+                                if (profileRes.ok) {
+                                    const profile = await profileRes.json();
+                                    senderName = profile.name || undefined;
+                                }
+                            } catch (err) {
+                                console.warn('[MetaWebhook] Could not fetch FB sender name:', err);
+                            }
+                        }
+
                         const msg: StoredWebhookMessage = {
                             id: event.message.mid || `fb-${Date.now()}`,
                             senderId: event.sender?.id || '',
+                            senderName,
                             recipientId: event.recipient?.id || '',
                             message: event.message.text || '[Attachment]',
                             timestamp: new Date(event.timestamp || Date.now()).toISOString(),
@@ -67,11 +85,22 @@ export async function POST(req: NextRequest) {
                             read: false,
                         };
                         await storeWebhookMessage(msg);
+
+                        // Trigger Facebook Messenger bot
+                        try {
+                            const { processFacebookMessage } = await import('@/lib/facebook-bot');
+                            await processFacebookMessage(msg.senderId, event.message.text, senderName).catch(err => {
+                                console.error('[MetaWebhook] FB bot processing error:', err);
+                            });
+                        } catch (err) {
+                            console.error('[MetaWebhook] Failed to import/run fb-bot:', err);
+                        }
                     }
                 }
             }
             return new NextResponse('EVENT_RECEIVED', { status: 200 });
         }
+
 
         if (body.object === 'instagram') {
             // Instagram DM messages
@@ -80,18 +109,26 @@ export async function POST(req: NextRequest) {
                     if (event.message) {
                         let senderName = '';
                         if (event.sender?.id) {
-                            // Fetch IG user info
-                            const token = process.env.META_IG_ACCESS_TOKEN || process.env.META_PAGE_ACCESS_TOKEN;
-                            if (token) {
-                                try {
-                                    const userInfoRes = await fetch(`https://graph.facebook.com/v19.0/${event.sender.id}?fields=name,username&access_token=${token}`);
+                            try {
+                                const { SettingsStore } = await import('@/lib/settings-store');
+                                const settings = await SettingsStore.getSettings();
+                                const token = process.env.META_IG_ACCESS_TOKEN || settings.messengerAccessToken || '';
+                                const appSecret = process.env.META_APP_SECRET || settings.metaAppSecret || '';
+                                if (token) {
+                                    let uUrl = `https://graph.facebook.com/v21.0/${event.sender.id}?fields=name,username&access_token=${token}`;
+                                    if (appSecret) {
+                                        const crypto = await import('crypto');
+                                        const proof = crypto.createHmac('sha256', appSecret).update(token).digest('hex');
+                                        uUrl += `&appsecret_proof=${proof}`;
+                                    }
+                                    const userInfoRes = await fetch(uUrl);
                                     if (userInfoRes.ok) {
                                         const userInfo = await userInfoRes.json();
-                                        senderName = userInfo.name || userInfo.username || '';
+                                        senderName = userInfo.username || userInfo.name || '';
                                     }
-                                } catch (err) {
-                                    console.error('[MetaWebhook] Failed to fetch IG user profile:', err);
                                 }
+                            } catch (err) {
+                                console.error('[MetaWebhook] Failed to fetch IG user profile:', err);
                             }
                         }
 
@@ -112,7 +149,7 @@ export async function POST(req: NextRequest) {
                         if (event.message.text) {
                             try {
                                 const { processInstagramMessage } = await import('@/lib/instagram-bot');
-                                await processInstagramMessage(msg.senderId, event.message.text).catch(err => {
+                                await processInstagramMessage(msg.senderId, event.message.text, senderName || undefined).catch(err => {
                                     console.error('[MetaWebhook] Background processing error:', err);
                                 });
                             } catch (err) {

@@ -114,10 +114,8 @@ export async function GET() {
     const { token, userId, blogId } = await getMetricoolCreds();
 
     if (!token || !userId || !blogId) {
-        return NextResponse.json(
-            { error: 'Metricool credentials not configured. Set them in Settings → Social Media & Marketing → Metricool.' },
-            { status: 500 },
-        );
+        // Metricool optional: return empty conversations without throwing a 500 error
+        return NextResponse.json({ conversations: [], messages: {} });
     }
 
     const { start, end } = getDates90d();
@@ -274,39 +272,102 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'content is required' }, { status: 400 });
         }
 
-        const { token, userId, blogId } = await getMetricoolCreds();
-        if (!token || !userId) {
-            return NextResponse.json({ error: 'Metricool credentials not configured' }, { status: 500 });
+        let replyPosted = false;
+        let replyChannel = '';
+
+        // ── 1. Direct Meta Graph API for Instagram & Facebook Comments (No Metricool Required) ──
+        if (platform === 'instagram' || platform === 'facebook') {
+            try {
+                const settings = await SettingsStore.getSettings().catch(() => ({} as any));
+                const metaPageToken = process.env.META_PAGE_ACCESS_TOKEN || settings.messengerAccessToken || '';
+                const metaIgToken = process.env.META_IG_ACCESS_TOKEN || metaPageToken;
+                const tokenToUse = platform === 'instagram' ? metaIgToken : metaPageToken;
+
+                if (tokenToUse && conversationId) {
+                    let endpoint = platform === 'instagram'
+                        ? `https://graph.facebook.com/v19.0/${conversationId}/replies`
+                        : `https://graph.facebook.com/v19.0/${conversationId}/comments`;
+
+                    const appSecret = settings.metaAppSecret || process.env.META_APP_SECRET;
+                    if (appSecret) {
+                        const crypto = await import('crypto');
+                        const proof = crypto.createHmac('sha256', appSecret).update(tokenToUse).digest('hex');
+                        endpoint += `?appsecret_proof=${proof}`;
+                    }
+
+                    const metaRes = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${tokenToUse}`,
+                        },
+                        body: JSON.stringify({ message: content }),
+                    });
+
+                    if (metaRes.ok) {
+                        replyPosted = true;
+                        replyChannel = 'direct_meta_api';
+                        console.log(`[SocialInbox] Reply posted directly to ${platform} via Meta Graph API without Metricool.`);
+                    } else {
+                        const errData = await metaRes.json().catch(() => ({}));
+                        console.warn(`[SocialInbox] Direct Meta API reply attempt to ${platform} failed:`, errData);
+                    }
+                }
+            } catch (metaErr) {
+                console.warn(`[SocialInbox] Direct Meta reply error (${platform}):`, metaErr);
+            }
         }
 
-        let replyPosted = false;
+        // ── 2. Fallback to Metricool (or for Google Reviews) ──
+        if (!replyPosted) {
+            const { token, userId, blogId } = await getMetricoolCreds();
 
-        if (platform === 'google_reviews') {
-            const reviewId = reviewname || conversationId;
-            for (const branch of GMB_BRANCHES) {
-                try {
-                    const params = new URLSearchParams({ blogId: branch.blogId, userId, reviewname: reviewId, end: content });
-                    const res = await fetch(`${METRICOOL_BASE}/stats/gmb/review/reply?${params}`, { headers: { 'X-Mc-Auth': token } });
-                    if (res.ok) { replyPosted = true; console.log(`[SocialInbox] GMB reply posted (${branch.name})`); break; }
-                } catch (err) { console.error(`[SocialInbox] GMB reply error (${branch.name}):`, err); }
+            if (token && userId) {
+                if (platform === 'google_reviews') {
+                    const reviewId = reviewname || conversationId;
+                    for (const branch of GMB_BRANCHES) {
+                        try {
+                            const params = new URLSearchParams({ blogId: branch.blogId, userId, reviewname: reviewId, end: content });
+                            const res = await fetch(`${METRICOOL_BASE}/stats/gmb/review/reply?${params}`, { headers: { 'X-Mc-Auth': token } });
+                            if (res.ok) {
+                                replyPosted = true;
+                                replyChannel = 'metricool_gmb';
+                                console.log(`[SocialInbox] GMB reply posted (${branch.name})`);
+                                break;
+                            }
+                        } catch (err) {
+                            console.error(`[SocialInbox] GMB reply error (${branch.name}):`, err);
+                        }
+                    }
+                } else if (platform === 'instagram' && blogId) {
+                    const params = new URLSearchParams({ blogId, userId, conversationid: conversationId, text: content });
+                    try {
+                        const res = await fetch(`${METRICOOL_BASE}/stats/postmessage/igComments?${params}`, { headers: { 'X-Mc-Auth': token } });
+                        replyPosted = res.ok;
+                        if (res.ok) replyChannel = 'metricool_ig';
+                    } catch (err) {
+                        console.error('[SocialInbox] IG reply error:', err);
+                    }
+                } else if (platform === 'facebook' && blogId) {
+                    const params = new URLSearchParams({ blogId, userId, conversationid: conversationId, text: content });
+                    try {
+                        const res = await fetch(`${METRICOOL_BASE}/stats/postmessage/fbComments?${params}`, { headers: { 'X-Mc-Auth': token } });
+                        replyPosted = res.ok;
+                        if (res.ok) replyChannel = 'metricool_fb';
+                    } catch (err) {
+                        console.error('[SocialInbox] FB reply error:', err);
+                    }
+                }
             }
-        } else if (platform === 'instagram') {
-            const params = new URLSearchParams({ blogId, userId, conversationid: conversationId, text: content });
-            try {
-                const res = await fetch(`${METRICOOL_BASE}/stats/postmessage/igComments?${params}`, { headers: { 'X-Mc-Auth': token } });
-                replyPosted = res.ok;
-            } catch (err) { console.error('[SocialInbox] IG reply error:', err); }
-        } else if (platform === 'facebook') {
-            const params = new URLSearchParams({ blogId, userId, conversationid: conversationId, text: content });
-            try {
-                const res = await fetch(`${METRICOOL_BASE}/stats/postmessage/fbComments?${params}`, { headers: { 'X-Mc-Auth': token } });
-                replyPosted = res.ok;
-            } catch (err) { console.error('[SocialInbox] FB reply error:', err); }
         }
 
         return NextResponse.json({
-            success: true, replyPosted,
-            message: replyPosted ? 'Reply posted to platform' : 'Reply saved locally (could not post to platform)',
+            success: true,
+            replyPosted,
+            replyChannel: replyChannel || 'saved_locally',
+            message: replyPosted
+                ? `Reply posted directly to ${platform} ${replyChannel.includes('meta') ? '(via direct Meta Graph API)' : '(via Metricool)'}`
+                : 'Reply saved locally in inbox buffer',
         });
     } catch (error) {
         console.error('[SocialInbox] POST error:', error);

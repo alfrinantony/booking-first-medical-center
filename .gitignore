@@ -26,3 +26,9 @@ Thumbs.db
 # Build artifacts
 *.tsbuildinfo
 next-env.d.ts
+webapp_logs/
+logs_extracted/
+*.zip
+booking-system/webapp_logs/
+booking-system/*.zip
+

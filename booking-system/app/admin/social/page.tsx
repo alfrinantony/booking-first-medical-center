@@ -234,6 +234,54 @@ export default function SocialAnalyticsPage() {
                             </div>
                         )}
                     </div>
+
+                    {/* Omnichannel Integration & Booking Bot Status */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <MessageCircle className="w-5 h-5 text-indigo-500" />
+                                    Omnichannel Messaging &amp; Sofia AI Booking Channels
+                                </h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Live integrations automatically route customer messages to the Unified Inbox and allow Sofia AI to check schedules and complete bookings.
+                                </p>
+                            </div>
+                            <div className="flex gap-2">
+                                <a
+                                    href="/admin/inbox"
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors"
+                                >
+                                    Open Unified Inbox →
+                                </a>
+                                <a
+                                    href="/admin/settings"
+                                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-semibold transition-colors"
+                                >
+                                    Settings
+                                </a>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {[
+                                { name: 'WhatsApp Business', badge: 'Active (AI Auto-Booking)', color: 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200', desc: 'Direct patient messaging, schedule lookup & automated appointment creation.' },
+                                { name: 'Instagram Direct', badge: 'Connected (Sofia Agent)', color: 'text-pink-600 bg-pink-50 dark:bg-pink-900/20 border-pink-200', desc: 'Direct messages & post comments with automated appointment booking.' },
+                                { name: 'Facebook Messenger', badge: 'Connected (Sofia Agent)', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-200', desc: 'Messenger chats & page post comments with doctor availability checks.' },
+                                { name: 'Google Reviews', badge: 'Reputation & AI Reply', color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-200', desc: 'Real-time review monitoring with 1-click Sofia AI public reply generation.' },
+                                { name: 'LinkedIn Messaging', badge: 'Connected (B2B & Patients)', color: 'text-sky-700 bg-sky-50 dark:bg-sky-900/20 border-sky-200', desc: 'Executive consultations, B2B wellness packages & candidate inquiries.' },
+                                { name: 'TikTok Messaging', badge: 'Connected (DMs & Leads)', color: 'text-gray-900 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:text-gray-100', desc: 'TikTok direct messaging, video comments, and lead form capture with AI booking.' },
+                            ].map(ch => (
+                                <div key={ch.name} className="p-3.5 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-750">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-sm font-semibold text-gray-900 dark:text-white">{ch.name}</span>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ch.color}`}>{ch.badge}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{ch.desc}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </>
             )}
         </div>

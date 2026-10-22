@@ -64,20 +64,21 @@ export const useInboxStore = create<InboxState>((set, get) => ({
         ) {
             // Extract the Graph API conversation ID from the store ID (e.g., "fb-dm-t_123" -> "t_123")
             const graphConvId = (conversation as any).graphConversationId;
+            const participantId = conversation.participants[0]?.id?.replace('participant-', '') || '';
             if (graphConvId) {
-                fetch(`/api/admin/meta-dms?conversationId=${graphConvId}&platform=${conversation.platform}`)
+                fetch(`/api/admin/meta-dms?conversationId=${encodeURIComponent(graphConvId)}&platform=${conversation.platform}&participantId=${encodeURIComponent(participantId)}`)
                     .then(res => res.json())
                     .then(data => {
                         if (data.messages && data.messages.length > 0) {
                             const mapped = data.messages.map((m: any) => ({
                                 id: m.id,
                                 conversationId,
-                                senderId: m.from || `user-${conversationId}`,
+                                senderId: (m.isFromStaff || m.isFromPage) ? 'staff_1' : (m.from || `user-${conversationId}`),
                                 senderName: m.fromName || conversation.participants[0]?.name || 'Unknown',
                                 content: m.message,
                                 timestamp: m.timestamp,
                                 platform: conversation.platform,
-                                isFromStaff: m.isFromPage,
+                                isFromStaff: Boolean(m.isFromStaff || m.isFromPage),
                                 status: 'read' as const,
                             }));
                             set((s) => ({
@@ -134,11 +135,33 @@ export const useInboxStore = create<InboxState>((set, get) => ({
             };
         });
 
-        // Route DM replies through Meta DMs API, comments through Metricool
+        // Route DM replies through Meta DMs API, LinkedIn API, TikTok API, or Metricool comments
         const isDM = conversation.messageType === 'dm';
 
-        if (isDM) {
-            // DM reply via Meta Graph API
+        if (isDM && conversation.platform === 'linkedin') {
+            // LinkedIn DM reply
+            const graphConvId = (conversation as any).graphConversationId;
+            fetch('/api/admin/linkedin-inbox', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ conversationId: graphConvId, content }),
+            })
+                .then(res => res.json())
+                .then(data => console.log('[Inbox] LinkedIn reply sent:', data))
+                .catch(err => console.error('[Inbox] Error sending LinkedIn reply:', err));
+        } else if (isDM && conversation.platform === 'tiktok') {
+            // TikTok DM reply
+            const graphConvId = (conversation as any).graphConversationId || conversation.participants[0]?.id?.replace('participant-', '') || conversation.id;
+            fetch('/api/admin/tiktok-inbox', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ conversationId: graphConvId, content }),
+            })
+                .then(res => res.json())
+                .then(data => console.log('[Inbox] TikTok reply sent:', data))
+                .catch(err => console.error('[Inbox] Error sending TikTok reply:', err));
+        } else if (isDM) {
+            // DM reply via Meta Graph API (Messenger, Instagram, or WhatsApp)
             const participantId = conversation.participants[0]?.id?.replace('participant-', '') || '';
             fetch('/api/admin/meta-dms', {
                 method: 'POST',
@@ -147,6 +170,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                     platform: conversation.platform,
                     recipientId: participantId,
                     content,
+                    waPhoneNumberId: (conversation as any).waPhoneNumberId,
                 }),
             })
                 .then(res => res.json())
@@ -221,6 +245,19 @@ export const useInboxStore = create<InboxState>((set, get) => ({
         const conv = get().conversations.find(c => c.id === reviewId);
         const googleReviewId = (conv && 'googleReviewId' in conv) ? (conv as GoogleReviewConversation).googleReviewId : reviewId;
 
+        // 1. Post to Google Reviews Inbox store (persists in blob & marks replied locally)
+        fetch('/api/admin/google-reviews-inbox', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                reviewId: googleReviewId || reviewId,
+                content,
+                repliedByUserId: currentUser.id,
+                repliedByUserName: currentUser.name,
+            }),
+        }).catch(err => console.warn('[Inbox] Error submitting to google-reviews-inbox:', err));
+
+        // 2. Post to Metricool GMB review reply API (for live sync with Google)
         try {
             await fetch('/api/admin/social-inbox', {
                 method: 'POST',
@@ -233,7 +270,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                 }),
             });
         } catch (err) {
-            console.error('[Inbox] Error replying to Google review:', err);
+            console.error('[Inbox] Error replying to Google review via Metricool:', err);
         }
     },
 
@@ -248,6 +285,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
      * Fetches all inbox data from:
      * 1. Metricool (post comments + Google Reviews) via /api/admin/social-inbox
      * 2. Meta Graph API (FB Messenger + IG DMs) via /api/admin/meta-dms
+     * 3. LinkedIn inbox via /api/admin/linkedin-inbox
      */
     fetchSocialInbox: async () => {
         if (get().socialInboxLoaded || get().socialInboxLoading) return;
@@ -255,11 +293,15 @@ export const useInboxStore = create<InboxState>((set, get) => ({
         set({ socialInboxLoading: true });
 
         try {
-            // Fetch both APIs in parallel
-            const [socialRes, dmsRes] = await Promise.allSettled([
+            // Fetch all APIs in parallel
+            const [socialRes, dmsRes, liRes, ttRes, grRes] = await Promise.allSettled([
                 fetch('/api/admin/social-inbox'),
                 fetch('/api/admin/meta-dms'),
+                fetch('/api/admin/linkedin-inbox'),
+                fetch('/api/admin/tiktok-inbox'),
+                fetch('/api/admin/google-reviews-inbox'),
             ]);
+
 
             let allConversations: Conversation[] = [];
             let allMessages: Record<string, Message[]> = {};
@@ -329,7 +371,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                 }
             }
 
-            // ── 2. Process Meta DMs (FB Messenger + IG DMs) ──
+            // ── 2. Process Meta DMs (FB Messenger + IG DMs + WhatsApp) ──
             let dmFbNextCursor: string | null = null;
             let dmIgNextCursor: string | null = null;
             if (dmsRes.status === 'fulfilled' && dmsRes.value.ok) {
@@ -364,9 +406,59 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                         unreadCount: c.unreadCount || 0,
                         updatedAt: c.lastMessageTimestamp,
                         graphConversationId: c.graphConversationId,
+                        waPhoneNumberId: c.waPhoneNumberId,
                     } as any);
 
-                    // Convert DM messages (if any were pre-loaded — now mostly empty for lazy loading)
+                    // Convert DM messages (if any were pre-loaded)
+                    if (c.messages && c.messages.length > 0) {
+                        allMessages[c.id] = c.messages.map((m: any) => ({
+                            id: m.id,
+                            conversationId: c.id,
+                            senderId: (m.isFromStaff || m.isFromPage) ? 'staff_1' : (m.from || `user-${c.id}`),
+                            senderName: m.fromName || c.participantName,
+                            content: m.message,
+                            timestamp: m.timestamp,
+                            platform: c.platform,
+                            isFromStaff: Boolean(m.isFromStaff || m.isFromPage),
+                            status: 'read',
+                        }));
+                    }
+                }
+            }
+
+            // ── 3. Process LinkedIn DMs ──
+            if (liRes.status === 'fulfilled' && liRes.value.ok) {
+                const liData = await liRes.value.json();
+                const liConversations = liData.conversations || [];
+
+                for (const c of liConversations) {
+                    const lastMsg: Message = {
+                        id: `last-${c.id}`,
+                        conversationId: c.id,
+                        senderId: c.participantId || `user-${c.id}`,
+                        senderName: c.participantName,
+                        content: c.lastMessageContent,
+                        timestamp: c.lastMessageTimestamp,
+                        platform: 'linkedin',
+                        isFromStaff: false,
+                        status: 'read',
+                    };
+
+                    allConversations.push({
+                        id: c.id,
+                        platform: 'linkedin',
+                        messageType: 'dm',
+                        participants: [{
+                            id: c.participantId || `participant-${c.id}`,
+                            name: c.participantName,
+                            avatar: c.participantAvatar,
+                        }],
+                        lastMessage: lastMsg,
+                        unreadCount: c.unreadCount || 0,
+                        updatedAt: c.lastMessageTimestamp,
+                        graphConversationId: c.graphConversationId,
+                    } as any);
+
                     if (c.messages && c.messages.length > 0) {
                         allMessages[c.id] = c.messages.map((m: any) => ({
                             id: m.id,
@@ -375,10 +467,84 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                             senderName: m.fromName || c.participantName,
                             content: m.message,
                             timestamp: m.timestamp,
-                            platform: c.platform,
-                            isFromStaff: m.isFromPage,
+                            platform: 'linkedin',
+                            isFromStaff: m.isFromPage || false,
                             status: 'read',
                         }));
+                    }
+                }
+            }
+
+            // ── 4. Process TikTok Messages ──
+            if (ttRes.status === 'fulfilled' && ttRes.value.ok) {
+                const ttData = await ttRes.value.json();
+                const ttConversations = ttData.conversations || [];
+
+                for (const c of ttConversations) {
+                    const lastMsg: Message = {
+                        id: `last-${c.id}`,
+                        conversationId: c.id,
+                        senderId: c.participantId || `user-${c.id}`,
+                        senderName: c.participantName,
+                        content: c.lastMessageContent,
+                        timestamp: c.lastMessageTimestamp,
+                        platform: 'tiktok',
+                        isFromStaff: false,
+                        status: 'read',
+                    };
+
+                    allConversations.push({
+                        id: c.id,
+                        platform: 'tiktok',
+                        messageType: 'dm',
+                        participants: [{
+                            id: c.participantId || `participant-${c.id}`,
+                            name: c.participantName,
+                            avatar: c.participantAvatar,
+                        }],
+                        lastMessage: lastMsg,
+                        unreadCount: c.unreadCount || 0,
+                        updatedAt: c.lastMessageTimestamp,
+                        graphConversationId: c.graphConversationId,
+                    } as any);
+
+                    if (c.messages && c.messages.length > 0) {
+                        allMessages[c.id] = c.messages.map((m: any) => ({
+                            id: m.id,
+                            conversationId: c.id,
+                            senderId: m.from || `user-${c.id}`,
+                            senderName: m.fromName || c.participantName,
+                            content: m.message,
+                            timestamp: m.timestamp,
+                            platform: 'tiktok',
+                            isFromStaff: m.isFromPage || false,
+                            status: 'read',
+                        }));
+                    }
+                }
+            }
+
+            // ── 5. Process Google Reviews from GoogleReviewsInboxStore ──
+            if (grRes.status === 'fulfilled' && grRes.value.ok) {
+                const grData = await grRes.value.json();
+                const grConvs: GoogleReviewConversation[] = grData.conversations || [];
+                const grMsgs: Record<string, Message[]> = grData.messages || {};
+
+                for (const gc of grConvs) {
+                    const existingIdx = allConversations.findIndex(
+                        c => c.id === gc.id || (gc.googleReviewId && (c as any).googleReviewId === gc.googleReviewId)
+                    );
+                    if (existingIdx === -1) {
+                        allConversations.push(gc);
+                    } else if (gc.replyStatus === 'replied' || gc.replyStatus === 'auto_replied') {
+                        // If local store has confirmed reply status, prioritize it
+                        allConversations[existingIdx] = gc;
+                    }
+                }
+
+                for (const [convId, msgs] of Object.entries(grMsgs)) {
+                    if (!allMessages[convId] || allMessages[convId].length <= msgs.length) {
+                        allMessages[convId] = msgs;
                     }
                 }
             }
@@ -401,6 +567,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
             set({ socialInboxLoading: false });
         }
     },
+
 
     loadMoreConversations: async () => {
         const state = get();

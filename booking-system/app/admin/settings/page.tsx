@@ -11,14 +11,14 @@ const DEFAULT_SETTINGS: AppSettings = {
     companyName: 'First Medical Center LLC', contactEmail: 'admin@bookingfirst.com',
     emailHost: 'smtp.gmail.com', emailPort: 587, emailUser: '', emailPass: '',
     twilioSid: '', twilioAuthToken: '', twilioFrom: '',
-    metaAppId: '', metaAppSecret: '', metaPhoneId: '', metaPageId: '', metaIgUserId: '', messengerAccessToken: '', whatsappAccessToken: '', verifyToken: 'my_secure_verify_token',
+    metaAppId: '1956787038259952', metaAppSecret: '91cec59e71b9a9c95636a491e71c6762', metaPhoneId: '', metaPageId: '449855885371740', metaIgUserId: '17841406116856119', messengerAccessToken: 'EAAbzrZCxRCvABS8l2YHQom8ZBZAlwMwuX3aaEfZA5abbAvkh5u9TeyJZBoUW4vBNgJ7mtl2yEOYgshDm71GyaAFBKmNzQ2ZADbCHlHnBiFqG2IH0RcHpJnGQGNbgUsc9UhYFDUkvczT6wo3xZAamyIfXZCyP9QcTZAsnwQmN11qsx3yRvd4LZByeoSZBaX35cHuPbvBSfPCNO2n', whatsappAccessToken: 'EAAbzrZCxRCvABRkjFsvTM5ZAuqtFcfpGskzt4GIlmwZCX62gfhHKBnY2NSYSzgFxnQbQuXQZC9HaWRle7Qw8COLOZAGZA9ZCaDUEZBuQZAuy2jHLhwcApP59N1aGi1WUyMzLlCoRxtz8ZBcKJnYZAe1R78fSun5dkL1hy22qUbbFPiwLZCZA4LNL3njFyUd7ZBESZBZBsz2TRQZDZD', verifyToken: 'my_secure_verify_token',
     stripePublishableKey: '', stripeSecretKey: '', openaiApiKey: '',
     crmApiKey: '', crmEndpoint: '', googleMapsApiKey: '',
     zktecoHost: '192.168.1.200', zktecoPort: 4370, zktecoUsername: 'admin', zktecoPassword: '', zktecoDeviceSn: 'SFVL-2024-00001',
     workStartTime: '09:00', lateThresholdMinutes: 15, halfDayHours: 4, fullDayHours: 8,
     googleReviewUrls: {},
     // New fields
-    metricoolApiToken: '', metricoolUserId: '', metricoolBlogId: '',
+    metricoolApiToken: 'BLBKXAKDYUAOUPBETXFMQPGIWMCWMOHXWQFLGJHSMVCMNTMGQABGKQQHELUJJGRS', metricoolUserId: '4487241', metricoolBlogId: '5795096',
     livekitApiKey: '', livekitApiSecret: '', livekitUrl: '',
     liveAvatarApiKey: '', liveAvatarAvatarId: '', liveAvatarMode: 'LITE',
     azureOpenaiEndpoint: '', azureOpenaiApiKey: '', azureOpenaiDeployment: 'gpt-4o-mini',
@@ -26,6 +26,10 @@ const DEFAULT_SETTINGS: AppSettings = {
     googleAdsCustomerId: '',
     metaAdsAccountId: '', metaAdsAccessToken: '',
     openaiCallCenterApiKey: '', callAgentApiKey: '',
+    // LinkedIn
+    linkedinClientId: '', linkedinClientSecret: '', linkedinAccessToken: '', linkedinOrganizationId: '', linkedinWebhookToken: '',
+    // TikTok
+    tiktokAppId: '', tiktokAppSecret: '', tiktokAccessToken: '', tiktokBusinessId: '', tiktokWebhookSecret: '',
 };
 
 export default function SettingsPage() {
@@ -254,7 +258,7 @@ export default function SettingsPage() {
                             </div>
                         </SubSection>
 
-                        <SubSection label="📱 Meta / Facebook (Messenger, DMs & Webhooks)">
+                        <SubSection label="📱 Meta / Facebook & Instagram (Messenger, DMs & Webhooks)">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {renderInput('App ID', 'metaAppId')}
                                 {renderInput('App Secret', 'metaAppSecret', 'password')}
@@ -264,7 +268,43 @@ export default function SettingsPage() {
                                 {renderInput('Webhook Verify Token', 'verifyToken')}
                             </div>
                             <p className="text-xs text-gray-400 mt-2">
-                                Page ID and IG User ID are required for Facebook Messenger & Instagram DMs in the inbox.
+                                Webhook Endpoint: <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400">https://fmc-booking-app.azurewebsites.net/api/webhooks/meta</code>
+                            </p>
+                        </SubSection>
+
+                        <SubSection label="💬 WhatsApp Business Cloud API">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('WhatsApp Phone Number ID', 'metaPhoneId', 'text', 'e.g. 518094511384485')}
+                                {renderInput('WhatsApp Access Token (Permanent / System User)', 'whatsappAccessToken', 'password')}
+                            </div>
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-xs text-green-800 dark:text-green-300">
+                                <strong>WhatsApp Live Integration:</strong> Incoming messages are received at the Meta Webhook, auto-replied by Sofia AI agent, and can be replied to manually from the Unified Inbox.
+                            </div>
+                        </SubSection>
+
+                        <SubSection label="💼 LinkedIn Integration (Messaging & Leads)">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('Client ID (App ID)', 'linkedinClientId')}
+                                {renderInput('Client Secret', 'linkedinClientSecret', 'password')}
+                                {renderInput('Organization ID (URN or Number)', 'linkedinOrganizationId', 'text', 'e.g. 12345678')}
+                                {renderInput('Access Token (r_messaging + w_member_social)', 'linkedinAccessToken', 'password')}
+                                {renderInput('Webhook Challenge Token', 'linkedinWebhookToken', 'text')}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">
+                                LinkedIn Webhook URL: <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400">https://fmc-booking-app.azurewebsites.net/api/webhooks/linkedin</code>
+                            </p>
+                        </SubSection>
+
+                        <SubSection label="🎵 TikTok Integration (DMs, Comments & Leads)">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {renderInput('TikTok App ID', 'tiktokAppId')}
+                                {renderInput('TikTok App Secret', 'tiktokAppSecret', 'password')}
+                                {renderInput('Business Account ID', 'tiktokBusinessId', 'text', 'Your TikTok Business ID')}
+                                {renderInput('Access Token', 'tiktokAccessToken', 'password')}
+                                {renderInput('Webhook Secret', 'tiktokWebhookSecret', 'password')}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">
+                                TikTok Webhook URL: <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400">https://fmc-booking-app.azurewebsites.net/api/webhooks/tiktok</code>
                             </p>
                         </SubSection>
 

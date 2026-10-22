@@ -97,6 +97,20 @@ export interface AppSettings {
 
     // External Call Agent API
     callAgentApiKey: string;
+
+    // LinkedIn Integration
+    linkedinClientId: string;
+    linkedinClientSecret: string;
+    linkedinAccessToken: string;
+    linkedinOrganizationId: string;
+    linkedinWebhookToken: string;
+
+    // TikTok Integration
+    tiktokAppId: string;
+    tiktokAppSecret: string;
+    tiktokAccessToken: string;
+    tiktokBusinessId: string;
+    tiktokWebhookSecret: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -112,13 +126,13 @@ const DEFAULT_SETTINGS: AppSettings = {
     twilioAuthToken: '',
     twilioFrom: '',
 
-    metaAppId: '',
-    metaAppSecret: '',
+    metaAppId: '1956787038259952',
+    metaAppSecret: '91cec59e71b9a9c95636a491e71c6762',
     metaPhoneId: '',
-    metaPageId: '',
-    metaIgUserId: '',
-    messengerAccessToken: '',
-    whatsappAccessToken: '',
+    metaPageId: '449855885371740',
+    metaIgUserId: '17841406116856119',
+    messengerAccessToken: 'EAAbzrZCxRCvABRgKD4QBCe0CTPZA4lUuANQDqYfD9YOMz2jxXPrVJjZCdDwGWPouEtQU69Pm51X69rH1kBT7c6c3aKNs0c2qVX1mxV346aKKy884GAbZBlbdmHZALo3fOfBSH9XGxPwIgrW07BgZARERwYQqwB0nv6qztlZBM9K7IAJlJCZCZCVLZAVWenYdASwZBSY7wZDZD',
+    whatsappAccessToken: 'EAAbzrZCxRCvABRkjFsvTM5ZAuqtFcfpGskzt4GIlmwZCX62gfhHKBnY2NSYSzgFxnQbQuXQZC9HaWRle7Qw8COLOZAGZA9ZCaDUEZBuQZAuy2jHLhwcApP59N1aGi1WUyMzLlCoRxtz8ZBcKJnYZAe1R78fSun5dkL1hy22qUbbFPiwLZCZA4LNL3njFyUd7ZBESZBZBsz2TRQZDZD',
     verifyToken: 'my_secure_verify_token',
 
     stripePublishableKey: '',
@@ -149,9 +163,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
 
     // New defaults
-    metricoolApiToken: '',
-    metricoolUserId: '',
-    metricoolBlogId: '',
+    metricoolApiToken: 'BLBKXAKDYUAOUPBETXFMQPGIWMCWMOHXWQFLGJHSMVCMNTMGQABGKQQHELUJJGRS',
+    metricoolUserId: '4487241',
+    metricoolBlogId: '5795096',
 
     livekitApiKey: '',
     livekitApiSecret: '',
@@ -176,6 +190,20 @@ const DEFAULT_SETTINGS: AppSettings = {
     openaiCallCenterApiKey: '',
 
     callAgentApiKey: '',
+
+    // LinkedIn Defaults
+    linkedinClientId: '',
+    linkedinClientSecret: '',
+    linkedinAccessToken: '',
+    linkedinOrganizationId: '',
+    linkedinWebhookToken: '',
+
+    // TikTok Defaults
+    tiktokAppId: '',
+    tiktokAppSecret: '',
+    tiktokAccessToken: '',
+    tiktokBusinessId: '',
+    tiktokWebhookSecret: '',
 };
 
 // ── In-memory store ──
