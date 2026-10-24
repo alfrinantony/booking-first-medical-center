@@ -13,12 +13,19 @@ interface InboxState {
     igNextCursor: string | null;
     loadingMore: boolean;
 
+    // Realtime sync state
+    lastSyncTimestamp: string | null;
+    lastSyncedAt: Date | null;
+    isSyncing: boolean;
+
     // Actions
     setFilter: (filter: Platform | 'all') => void;
     setActiveConversation: (conversationId: string) => void;
     sendMessage: (conversationId: string, content: string) => void;
     receiveMessage: (message: Message) => void;
-    fetchSocialInbox: () => Promise<void>;
+    fetchSocialInbox: (force?: boolean) => Promise<void>;
+    pollSync: () => Promise<void>;
+    pollActiveConversation: () => Promise<void>;
     loadMoreConversations: () => Promise<void>;
     // Legacy — kept for backward compat
     fetchGoogleReviewConversations: () => Promise<void>;
@@ -48,6 +55,9 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     fbNextCursor: null,
     igNextCursor: null,
     loadingMore: false,
+    lastSyncTimestamp: null,
+    lastSyncedAt: null,
+    isSyncing: false,
 
     setFilter: (filter) => set({ filter }),
 
@@ -70,7 +80,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                     .then(res => res.json())
                     .then(data => {
                         if (data.messages && data.messages.length > 0) {
-                            const mapped = data.messages.map((m: any) => ({
+                            const mapped: Message[] = data.messages.map((m: any) => ({
                                 id: m.id,
                                 conversationId,
                                 senderId: (m.isFromStaff || m.isFromPage) ? 'staff_1' : (m.from || `user-${conversationId}`),
@@ -80,6 +90,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                                 platform: conversation.platform,
                                 isFromStaff: Boolean(m.isFromStaff || m.isFromPage),
                                 status: 'read' as const,
+                                attachments: m.attachments || undefined,
                             }));
                             set((s) => ({
                                 messages: { ...s.messages, [conversationId]: mapped },
@@ -179,11 +190,21 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                         console.log('[Inbox] DM reply sent:', data);
                     } else {
                         console.warn('[Inbox] DM reply not delivered:', data.message);
+                        set((state) => {
+                            const cur = state.messages[conversationId] || [];
+                            const updated = cur.map(m => m.id === newMessage.id ? { ...m, status: 'failed' as const } : m);
+                            return { messages: { ...state.messages, [conversationId]: updated } };
+                        });
                         alert(data.message || 'Could not send message. Please try again.');
                     }
                 })
                 .catch(err => {
                     console.error('[Inbox] Error sending DM reply:', err);
+                    set((state) => {
+                        const cur = state.messages[conversationId] || [];
+                        const updated = cur.map(m => m.id === newMessage.id ? { ...m, status: 'failed' as const } : m);
+                        return { messages: { ...state.messages, [conversationId]: updated } };
+                    });
                     alert('Network error — could not send message.');
                 });
         } else {
@@ -287,8 +308,8 @@ export const useInboxStore = create<InboxState>((set, get) => ({
      * 2. Meta Graph API (FB Messenger + IG DMs) via /api/admin/meta-dms
      * 3. LinkedIn inbox via /api/admin/linkedin-inbox
      */
-    fetchSocialInbox: async () => {
-        if (get().socialInboxLoaded || get().socialInboxLoading) return;
+    fetchSocialInbox: async (force = false) => {
+        if (!force && (get().socialInboxLoaded || get().socialInboxLoading)) return;
 
         set({ socialInboxLoading: true });
 
@@ -421,6 +442,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
                             platform: c.platform,
                             isFromStaff: Boolean(m.isFromStaff || m.isFromPage),
                             status: 'read',
+                            attachments: m.attachments || undefined,
                         }));
                     }
                 }
@@ -633,5 +655,164 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     // Legacy method
     fetchGoogleReviewConversations: async () => {
         await get().fetchSocialInbox();
+    },
+
+    /**
+     * Real-time polling across all channels:
+     * Fast check of webhooks + active thread messages without full reload.
+     */
+    pollSync: async () => {
+        const state = get();
+        if (state.isSyncing) return;
+        set({ isSyncing: true });
+
+        try {
+            const activeId = state.activeConversationId;
+            const activeConv = activeId ? state.conversations.find(c => c.id === activeId) : null;
+            const graphConvId = activeConv ? (activeConv as any).graphConversationId : null;
+            const participantId = activeConv?.participants[0]?.id?.replace('participant-', '') || '';
+
+            const params = new URLSearchParams();
+            if (state.lastSyncTimestamp) {
+                params.set('since', state.lastSyncTimestamp);
+            }
+            if (activeId) {
+                params.set('activeConversationId', activeId);
+                if (graphConvId) params.set('graphConversationId', graphConvId);
+                if (activeConv) params.set('platform', activeConv.platform);
+                if (participantId) params.set('participantId', participantId);
+            }
+
+            const res = await fetch(`/api/admin/inbox/sync?${params}`);
+            if (res.ok) {
+                const data = await res.json();
+                const newMsgs: Message[] = data.newMessages || [];
+                const latestTs = data.timestamp || new Date().toISOString();
+
+                if (newMsgs.length > 0) {
+                    set((cur) => {
+                        const updatedMessages = { ...cur.messages };
+                        let conversationsUpdated = false;
+                        const updatedConversations = [...cur.conversations];
+
+                        for (const msg of newMsgs) {
+                            let convId = msg.conversationId;
+                            // Match by conversation ID, graphConversationId, or participant ID
+                            let convIdx = updatedConversations.findIndex(c => 
+                                c.id === convId || 
+                                (c as any).graphConversationId === convId ||
+                                c.participants.some(p => p.id.includes(msg.senderId) || p.id.includes(msg.conversationId))
+                            );
+
+                            const targetConvId = convIdx !== -1 ? updatedConversations[convIdx].id : convId;
+
+                            const existing = updatedMessages[targetConvId] || [];
+                            const alreadyExists = existing.some(m => 
+                                m.id === msg.id || 
+                                (m.content === msg.content && Math.abs(new Date(m.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 4000)
+                            );
+
+                            if (!alreadyExists) {
+                                updatedMessages[targetConvId] = [...existing, { ...msg, conversationId: targetConvId }];
+
+                                if (convIdx !== -1) {
+                                    const conv = updatedConversations[convIdx];
+                                    const isCurrentActive = cur.activeConversationId === conv.id;
+                                    updatedConversations[convIdx] = {
+                                        ...conv,
+                                        lastMessage: { ...msg, conversationId: targetConvId },
+                                        updatedAt: msg.timestamp,
+                                        unreadCount: isCurrentActive ? 0 : (conv.unreadCount + 1),
+                                    };
+                                    conversationsUpdated = true;
+                                }
+                            }
+                        }
+
+                        if (conversationsUpdated) {
+                            updatedConversations.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+                        }
+
+                        return {
+                            messages: updatedMessages,
+                            conversations: conversationsUpdated ? updatedConversations : cur.conversations,
+                            lastSyncTimestamp: latestTs,
+                            lastSyncedAt: new Date(),
+                            isSyncing: false,
+                        };
+                    });
+                } else {
+                    set({
+                        lastSyncTimestamp: latestTs,
+                        lastSyncedAt: new Date(),
+                        isSyncing: false,
+                    });
+                }
+            } else {
+                set({ isSyncing: false });
+            }
+        } catch (err) {
+            console.warn('[InboxStore] pollSync error:', err);
+            set({ isSyncing: false });
+        }
+    },
+
+    /**
+     * Poll active conversation directly for immediate feedback when actively chatting.
+     */
+    pollActiveConversation: async () => {
+        const state = get();
+        const activeId = state.activeConversationId;
+        if (!activeId) return;
+        const conv = state.conversations.find(c => c.id === activeId);
+        if (!conv) return;
+
+        const graphConvId = (conv as any).graphConversationId;
+        const participantId = conv.participants[0]?.id?.replace('participant-', '') || '';
+
+        try {
+            const res = await fetch(`/api/admin/meta-dms?conversationId=${encodeURIComponent(graphConvId || activeId)}&platform=${conv.platform}&participantId=${encodeURIComponent(participantId)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.messages && data.messages.length > 0) {
+                    const mapped: Message[] = data.messages.map((m: any) => ({
+                        id: m.id,
+                        conversationId: activeId,
+                        senderId: (m.isFromStaff || m.isFromPage) ? 'staff_1' : (m.from || `user-${activeId}`),
+                        senderName: m.fromName || conv.participants[0]?.name || 'Unknown',
+                        content: m.message,
+                        timestamp: m.timestamp,
+                        platform: conv.platform,
+                        isFromStaff: Boolean(m.isFromStaff || m.isFromPage),
+                        status: 'read' as const,
+                        attachments: m.attachments || undefined,
+                    }));
+
+                    set((cur) => {
+                        const curMsgs = cur.messages[activeId] || [];
+                        if (mapped.length !== curMsgs.length || mapped[mapped.length - 1]?.id !== curMsgs[curMsgs.length - 1]?.id) {
+                            const lastMsg = mapped[mapped.length - 1];
+                            const updatedConversations = cur.conversations.map(c => {
+                                if (c.id === activeId && lastMsg) {
+                                    return {
+                                        ...c,
+                                        lastMessage: lastMsg,
+                                        updatedAt: lastMsg.timestamp,
+                                    };
+                                }
+                                return c;
+                            });
+                            return {
+                                messages: { ...cur.messages, [activeId]: mapped },
+                                conversations: updatedConversations,
+                            };
+                        }
+                        return cur;
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('[InboxStore] pollActiveConversation error:', e);
+        }
     },
 }));

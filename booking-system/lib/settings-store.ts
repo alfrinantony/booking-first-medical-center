@@ -22,7 +22,8 @@ export interface AppSettings {
     // Meta / Facebook
     metaAppId: string;
     metaAppSecret: string;
-    metaPhoneId: string;
+    metaPhoneId: string;         // WhatsApp Phone Number ID (e.g. 1085224931341556)
+    metaWabaId: string;          // WhatsApp Business Account ID (e.g. 518094511384485)
     metaPageId: string;          // Facebook Page ID for Messenger DMs
     metaIgUserId: string;        // Instagram Business User ID for IG DMs
     messengerAccessToken: string;
@@ -128,11 +129,12 @@ const DEFAULT_SETTINGS: AppSettings = {
 
     metaAppId: '1956787038259952',
     metaAppSecret: '91cec59e71b9a9c95636a491e71c6762',
-    metaPhoneId: '',
+    metaPhoneId: '1085224931341556',
+    metaWabaId: '1059480356695707',
     metaPageId: '449855885371740',
     metaIgUserId: '17841406116856119',
     messengerAccessToken: 'EAAbzrZCxRCvABRgKD4QBCe0CTPZA4lUuANQDqYfD9YOMz2jxXPrVJjZCdDwGWPouEtQU69Pm51X69rH1kBT7c6c3aKNs0c2qVX1mxV346aKKy884GAbZBlbdmHZALo3fOfBSH9XGxPwIgrW07BgZARERwYQqwB0nv6qztlZBM9K7IAJlJCZCZCVLZAVWenYdASwZBSY7wZDZD',
-    whatsappAccessToken: 'EAAbzrZCxRCvABRkjFsvTM5ZAuqtFcfpGskzt4GIlmwZCX62gfhHKBnY2NSYSzgFxnQbQuXQZC9HaWRle7Qw8COLOZAGZA9ZCaDUEZBuQZAuy2jHLhwcApP59N1aGi1WUyMzLlCoRxtz8ZBcKJnYZAe1R78fSun5dkL1hy22qUbbFPiwLZCZA4LNL3njFyUd7ZBESZBZBsz2TRQZDZD',
+    whatsappAccessToken: 'EAAbzrZCxRCvABRgKD4QBCe0CTPZA4lUuANQDqYfD9YOMz2jxXPrVJjZCdDwGWPouEtQU69Pm51X69rH1kBT7c6c3aKNs0c2qVX1mxV346aKKy884GAbZBlbdmHZALo3fOfBSH9XGxPwIgrW07BgZARERwYQqwB0nv6qztlZBM9K7IAJlJCZCZCVLZAVWenYdASwZBSY7wZDZD',
     verifyToken: 'my_secure_verify_token',
 
     stripePublishableKey: '',
@@ -209,10 +211,8 @@ const DEFAULT_SETTINGS: AppSettings = {
 // ── In-memory store ──
 let settings: AppSettings = { ...DEFAULT_SETTINGS };
 async function ensureSettingsLoaded() {
-    
-        const data = await loadFromBlob<{ settings: AppSettings }>('settings', { settings: DEFAULT_SETTINGS });
-        settings = data.settings;
-        
+    const data = await loadFromBlob<any>('settings', { settings: DEFAULT_SETTINGS });
+    settings = data?.settings || data || DEFAULT_SETTINGS;
 }
 
 async function saveSettings() {

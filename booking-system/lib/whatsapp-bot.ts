@@ -89,7 +89,11 @@ export async function processWhatsAppMessage(
     }
 }
 
-export async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId: string, text: string) {
+export async function sendWhatsAppMessage(
+    recipientPhone: string,
+    phoneNumberId: string,
+    text: string
+): Promise<{ success: boolean; error?: string }> {
     const { SettingsStore } = await import('@/lib/settings-store');
     const settings = await SettingsStore.getSettings();
     
@@ -100,14 +104,16 @@ export async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId:
     
     if (!token) {
         console.warn('[WaBot] No WhatsApp Access Token configured. Cannot send reply.');
-        return;
+        return { success: false, error: 'No WhatsApp Access Token configured in Settings' };
     }
 
-    // Use provided phoneNumberId, fall back to settings, then env var
-    const resolvedPhoneNumberId = phoneNumberId || settings.metaPhoneId || process.env.META_WA_PHONE_NUMBER_ID;
-    if (!resolvedPhoneNumberId) {
-        console.warn('[WaBot] No WhatsApp Phone Number ID available. Cannot send reply.');
-        return;
+    // Resolve phoneNumberId, prioritizing settings.metaPhoneId, with fallback to First Medical Center's production Phone Number ID
+    let resolvedPhoneNumberId = phoneNumberId || settings.metaPhoneId || process.env.META_WA_PHONE_NUMBER_ID || '1085224931341556';
+    
+    // Safety check: 518094511384485 is the WhatsApp Business Account (WABA) ID, not the Phone Number ID!
+    // If the WABA ID was passed, auto-map to the actual Phone Number ID (1085224931341556)
+    if (resolvedPhoneNumberId === '518094511384485' || resolvedPhoneNumberId === '1059480356695707' || resolvedPhoneNumberId === '2177289126457948' || resolvedPhoneNumberId === 'fmc-clinic') {
+        resolvedPhoneNumberId = '1085224931341556';
     }
 
     let url = `https://graph.facebook.com/v21.0/${resolvedPhoneNumberId}/messages`;
@@ -141,10 +147,18 @@ export async function sendWhatsAppMessage(recipientPhone: string, phoneNumberId:
         if (!res.ok) {
             const errBody = await res.text();
             console.error(`[WaBot] WhatsApp Graph API Error (${res.status}):`, errBody);
+            let userMessage = errBody;
+            try {
+                const parsed = JSON.parse(errBody);
+                userMessage = parsed.error?.message || errBody;
+            } catch {}
+            return { success: false, error: `Meta API (${res.status}): ${userMessage}` };
         } else {
             console.log(`[WaBot] Message successfully sent to ${cleanPhone}`);
+            return { success: true };
         }
-    } catch (e) {
+    } catch (e: any) {
         console.error('[WaBot] Failed to send WhatsApp Graph API request:', e);
+        return { success: false, error: e.message || 'Network exception sending WhatsApp message' };
     }
 }

@@ -11,7 +11,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     companyName: 'First Medical Center LLC', contactEmail: 'admin@bookingfirst.com',
     emailHost: 'smtp.gmail.com', emailPort: 587, emailUser: '', emailPass: '',
     twilioSid: '', twilioAuthToken: '', twilioFrom: '',
-    metaAppId: '1956787038259952', metaAppSecret: '91cec59e71b9a9c95636a491e71c6762', metaPhoneId: '', metaPageId: '449855885371740', metaIgUserId: '17841406116856119', messengerAccessToken: 'EAAbzrZCxRCvABS8l2YHQom8ZBZAlwMwuX3aaEfZA5abbAvkh5u9TeyJZBoUW4vBNgJ7mtl2yEOYgshDm71GyaAFBKmNzQ2ZADbCHlHnBiFqG2IH0RcHpJnGQGNbgUsc9UhYFDUkvczT6wo3xZAamyIfXZCyP9QcTZAsnwQmN11qsx3yRvd4LZByeoSZBaX35cHuPbvBSfPCNO2n', whatsappAccessToken: 'EAAbzrZCxRCvABRkjFsvTM5ZAuqtFcfpGskzt4GIlmwZCX62gfhHKBnY2NSYSzgFxnQbQuXQZC9HaWRle7Qw8COLOZAGZA9ZCaDUEZBuQZAuy2jHLhwcApP59N1aGi1WUyMzLlCoRxtz8ZBcKJnYZAe1R78fSun5dkL1hy22qUbbFPiwLZCZA4LNL3njFyUd7ZBESZBZBsz2TRQZDZD', verifyToken: 'my_secure_verify_token',
+    metaAppId: '1956787038259952', metaAppSecret: '91cec59e71b9a9c95636a491e71c6762', metaPhoneId: '1085224931341556', metaWabaId: '1059480356695707', metaPageId: '449855885371740', metaIgUserId: '17841406116856119', messengerAccessToken: 'EAAbzrZCxRCvABRgKD4QBCe0CTPZA4lUuANQDqYfD9YOMz2jxXPrVJjZCdDwGWPouEtQU69Pm51X69rH1kBT7c6c3aKNs0c2qVX1mxV346aKKy884GAbZBlbdmHZALo3fOfBSH9XGxPwIgrW07BgZARERwYQqwB0nv6qztlZBM9K7IAJlJCZCZCVLZAVWenYdASwZBSY7wZDZD', whatsappAccessToken: 'EAAbzrZCxRCvABRgKD4QBCe0CTPZA4lUuANQDqYfD9YOMz2jxXPrVJjZCdDwGWPouEtQU69Pm51X69rH1kBT7c6c3aKNs0c2qVX1mxV346aKKy884GAbZBlbdmHZALo3fOfBSH9XGxPwIgrW07BgZARERwYQqwB0nv6qztlZBM9K7IAJlJCZCZCVLZAVWenYdASwZBSY7wZDZD', verifyToken: 'my_secure_verify_token',
     stripePublishableKey: '', stripeSecretKey: '', openaiApiKey: '',
     crmApiKey: '', crmEndpoint: '', googleMapsApiKey: '',
     zktecoHost: '192.168.1.200', zktecoPort: 4370, zktecoUsername: 'admin', zktecoPassword: '', zktecoDeviceSn: 'SFVL-2024-00001',
@@ -274,11 +274,17 @@ export default function SettingsPage() {
 
                         <SubSection label="💬 WhatsApp Business Cloud API">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {renderInput('WhatsApp Phone Number ID', 'metaPhoneId', 'text', 'e.g. 518094511384485')}
+                                {renderInput('WhatsApp Phone Number ID', 'metaPhoneId', 'text', 'e.g. 1085224931341556 (+971564343999)')}
+                                {renderInput('WhatsApp Business Account (WABA) ID', 'metaWabaId', 'text', 'e.g. 518094511384485')}
                                 {renderInput('WhatsApp Access Token (Permanent / System User)', 'whatsappAccessToken', 'password')}
+                                {renderInput('Webhook Verify Token', 'verifyToken')}
                             </div>
-                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-xs text-green-800 dark:text-green-300">
-                                <strong>WhatsApp Live Integration:</strong> Incoming messages are received at the Meta Webhook, auto-replied by Sofia AI agent, and can be replied to manually from the Unified Inbox.
+                            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-xs text-emerald-800 dark:text-emerald-300 mt-2 space-y-1">
+                                <p className="font-semibold">WhatsApp Cloud API Live Connection:</p>
+                                <p>• <strong>Phone Number ID:</strong> <code className="bg-white/60 dark:bg-black/30 px-1 py-0.5 rounded">1085224931341556</code> (targets FMC mobile +971 56 434 3999 to send messages)</p>
+                                <p>• <strong>WABA ID:</strong> <code className="bg-white/60 dark:bg-black/30 px-1 py-0.5 rounded">1059480356695707</code> (WhatsApp Business Account)</p>
+                                <p>• <strong>Meta Webhook URL:</strong> <code className="bg-white/60 dark:bg-black/30 px-1 py-0.5 rounded">https://fmc-booking-app.azurewebsites.net/api/webhooks/meta</code></p>
+                                <p>• <strong>Webhook Verify Token:</strong> <code className="bg-white/60 dark:bg-black/30 px-1 py-0.5 rounded">my_secure_verify_token</code></p>
                             </div>
                         </SubSection>
 

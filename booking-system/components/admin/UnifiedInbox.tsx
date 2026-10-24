@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useInboxStore } from '@/lib/inbox-store';
 import { Platform, GoogleReviewConversation, Conversation } from '@/types/inbox';
-import { Send, Search, Facebook, Instagram, Phone, MoreVertical, Star, Clock, Bot, MapPin, Linkedin, MessageCircle, MessageSquare, Lock, Sparkles, Loader2 } from 'lucide-react';
+import { Send, Search, Facebook, Instagram, Phone, MoreVertical, Star, Clock, Bot, MapPin, Linkedin, MessageCircle, MessageSquare, Lock, Sparkles, Loader2, RotateCw, Image as ImageIcon, ExternalLink, X, ZoomIn } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
 // Platforms not yet connected (All channels: WhatsApp, Instagram, Facebook, LinkedIn, TikTok, Google Reviews are active!)
@@ -74,6 +74,10 @@ export default function UnifiedInbox() {
         sendMessage,
         fetchSocialInbox,
         socialInboxLoading,
+        isSyncing,
+        lastSyncedAt,
+        pollSync,
+        pollActiveConversation,
     } = useInboxStore();
     const { loadMoreConversations, fbNextCursor, igNextCursor, loadingMore } = useInboxStore();
 
@@ -81,12 +85,29 @@ export default function UnifiedInbox() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isClient, setIsClient] = useState(false);
     const [draftingAI, setDraftingAI] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         setIsClient(true);
-        // Load all social inbox conversations from Metricool
+        // Load all social inbox conversations initially
         fetchSocialInbox();
-    }, [fetchSocialInbox]);
+
+        // Real-time auto-polling every 5 seconds so new messages appear without page refresh
+        const interval = setInterval(() => {
+            pollSync();
+            if (activeConversationId) {
+                pollActiveConversation();
+            }
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [fetchSocialInbox, pollSync, pollActiveConversation, activeConversationId]);
+
+    // Auto-scroll to bottom of chat when new messages arrive or conversation changes
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [activeConversationId, (messages[activeConversationId || ''] || []).length]);
 
     if (!isClient) return <div className="p-8">Loading inbox...</div>;
 
@@ -234,6 +255,29 @@ export default function UnifiedInbox() {
                         </button>
                     );
                 })}
+
+                {/* Real-time Live Sync Indicator & Manual Force Refresh */}
+                <div className="ml-auto flex items-center gap-2 pl-3 border-l border-gray-200 dark:border-gray-700 shrink-0">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span className="hidden md:inline font-medium text-[11px] text-emerald-600 dark:text-emerald-400">
+                            Live Sync
+                        </span>
+                    </div>
+
+                    <button
+                        onClick={() => fetchSocialInbox(true)}
+                        disabled={socialInboxLoading || isSyncing}
+                        title={lastSyncedAt ? `Last synced: ${format(new Date(lastSyncedAt), 'h:mm:ss a')} • Click to sync now` : 'Click to sync now'}
+                        className="flex items-center gap-1 px-2.5 py-1 text-xs text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-700 disabled:opacity-50"
+                    >
+                        <RotateCw className={`w-3 h-3 ${socialInboxLoading || isSyncing ? 'animate-spin text-indigo-600' : ''}`} />
+                        <span className="hidden sm:inline">Refresh</span>
+                    </button>
+                </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
@@ -308,7 +352,7 @@ export default function UnifiedInbox() {
                                                 </div>
                                             )}
 
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
                                                 {conversation.messageType === 'dm' && (
                                                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 shrink-0">
                                                         <MessageSquare className="w-2.5 h-2.5" /> DM
@@ -319,7 +363,11 @@ export default function UnifiedInbox() {
                                                         Comment
                                                     </span>
                                                 )}
-                                                <span className="truncate">{conversation.lastMessage.content}</span>
+                                                <span className="truncate">
+                                                    {conversation.lastMessage.attachments && conversation.lastMessage.attachments.some(a => a.type === 'image')
+                                                        ? '📷 Photo'
+                                                        : (conversation.lastMessage.content || '📷 Photo')}
+                                                </span>
                                             </p>
 
                                             {/* Google Review: auto-reply status badge */}
@@ -455,15 +503,28 @@ export default function UnifiedInbox() {
                                     </div>
                                 )}
 
+                                {(!messages[activeConversationId]) ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 text-sm py-16">
+                                        <Loader2 className="w-6 h-6 animate-spin mb-2 text-indigo-500" />
+                                        <span>Loading messages...</span>
+                                    </div>
+                                ) : sortedMessages.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 text-sm py-16">
+                                        <span>No messages in this conversation yet.</span>
+                                    </div>
+                                ) : null}
+
                                 {sortedMessages.map((msg) => {
                                     const isStaff = msg.isFromStaff;
                                     return (
                                         <div key={msg.id} className={`flex ${isStaff ? 'justify-end' : 'justify-start'}`}>
                                             <div
                                                 className={`max-w-[70%] rounded-lg px-4 py-2 text-sm ${isStaff
-                                                    ? msg.isAutoReply
-                                                        ? 'bg-purple-600 text-white rounded-br-none'
-                                                        : 'bg-indigo-600 text-white rounded-br-none'
+                                                    ? msg.status === 'failed'
+                                                        ? 'bg-red-600 text-white rounded-br-none'
+                                                        : msg.isAutoReply
+                                                            ? 'bg-purple-600 text-white rounded-br-none'
+                                                            : 'bg-indigo-600 text-white rounded-br-none'
                                                     : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-bl-none shadow-sm'
                                                     }`}
                                             >
@@ -480,15 +541,83 @@ export default function UnifiedInbox() {
                                                         AI Auto-Reply
                                                     </div>
                                                 )}
-                                                <p className="break-words whitespace-pre-wrap">{msg.content}</p>
-                                                <div className={`text-[10px] mt-1 text-right ${isStaff ? (msg.isAutoReply ? 'text-purple-200' : 'text-indigo-200') : 'text-gray-400'}`}>
+                                                {/* Image / Media Attachments rendering */}
+                                                {msg.attachments && msg.attachments.length > 0 && (
+                                                    <div className="space-y-2 mb-2">
+                                                        {msg.attachments.map((att, attIdx) => {
+                                                            if (att.type === 'image' && att.url) {
+                                                                return (
+                                                                    <div key={attIdx} className="relative group rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20">
+                                                                        <img
+                                                                            src={att.url}
+                                                                            alt="Instagram picture"
+                                                                            referrerPolicy="no-referrer"
+                                                                            className="max-h-72 w-auto max-w-full rounded-lg object-contain cursor-pointer transition-transform duration-200 group-hover:scale-[1.01]"
+                                                                            onClick={() => setSelectedImage(att.url || null)}
+                                                                            onError={(e) => {
+                                                                                const target = e.currentTarget;
+                                                                                if (att.url && !target.src.includes('/api/admin/image-proxy')) {
+                                                                                    target.src = `/api/admin/image-proxy?url=${encodeURIComponent(att.url)}`;
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setSelectedImage(att.url || null)}
+                                                                            className="absolute bottom-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[11px]"
+                                                                        >
+                                                                            <ZoomIn className="w-3.5 h-3.5" />
+                                                                            <span>Enlarge</span>
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                            if (att.type === 'share' && att.url) {
+                                                                return (
+                                                                    <a
+                                                                        key={attIdx}
+                                                                        href={att.url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex items-center gap-2 p-2.5 rounded-lg bg-pink-50 hover:bg-pink-100 dark:bg-pink-900/30 dark:hover:bg-pink-900/50 border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 text-xs font-medium transition-colors"
+                                                                    >
+                                                                        <Instagram className="w-4 h-4 text-pink-600 shrink-0" />
+                                                                        <span className="truncate flex-1">View Shared Instagram Post/Reel</span>
+                                                                        <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                                                                    </a>
+                                                                );
+                                                            }
+
+                                                            if (att.type === 'unsupported') {
+                                                                return (
+                                                                    <div key={attIdx} className="text-xs italic opacity-80 py-1 flex items-center gap-1.5">
+                                                                        <Instagram className="w-3.5 h-3.5 text-pink-500" />
+                                                                        <span>{att.text || 'Shared Instagram Story / Media'}</span>
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                            return null;
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* Text content (hide if it's just '📷 Photo' when attachment is already displayed) */}
+                                                {!(msg.content === '📷 Photo' && msg.attachments && msg.attachments.length > 0) && (
+                                                    <p className="break-words whitespace-pre-wrap">{msg.content}</p>
+                                                )}
+
+                                                <div className={`text-[10px] mt-1 text-right ${isStaff ? (msg.status === 'failed' ? 'text-red-200' : msg.isAutoReply ? 'text-purple-200' : 'text-indigo-200') : 'text-gray-400'}`}>
                                                     {format(new Date(msg.timestamp), 'h:mm a')}
                                                     {isStaff && msg.repliedByUserName && !msg.isAutoReply && (
                                                         <span className="ml-1 opacity-70">• {msg.repliedByUserName}</span>
                                                     )}
                                                     {isStaff && (
                                                         <span className="ml-1 opacity-70">
-                                                            {msg.status === 'read' ? '✓✓' : '✓'}
+                                                            {msg.status === 'failed' ? (
+                                                                 <span className="text-white font-bold bg-red-700/60 px-1 py-0.5 rounded text-[9px]">⚠️ Not Delivered</span>
+                                                            ) : msg.status === 'read' ? '✓✓' : '✓'}
                                                         </span>
                                                     )}
                                                 </div>
@@ -497,6 +626,7 @@ export default function UnifiedInbox() {
                                     );
                                 })}
 
+                                <div ref={messagesEndRef} />
                             </div>
 
                             {/* Input Area */}
@@ -574,6 +704,50 @@ export default function UnifiedInbox() {
                     )}
                 </div>
             </div>
+
+            {/* Fullscreen Image Lightbox Modal */}
+            {selectedImage && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div
+                        className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="absolute -top-12 right-0 flex items-center gap-3">
+                            <a
+                                href={selectedImage}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-medium backdrop-blur transition-colors"
+                            >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span>Open Original</span>
+                            </a>
+                            <button
+                                onClick={() => setSelectedImage(null)}
+                                className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg backdrop-blur transition-colors"
+                                title="Close"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <img
+                            src={selectedImage}
+                            alt="Instagram full preview"
+                            referrerPolicy="no-referrer"
+                            className="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl border border-white/10"
+                            onError={(e) => {
+                                const target = e.currentTarget;
+                                if (selectedImage && !target.src.includes('/api/admin/image-proxy')) {
+                                    target.src = `/api/admin/image-proxy?url=${encodeURIComponent(selectedImage)}`;
+                                }
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

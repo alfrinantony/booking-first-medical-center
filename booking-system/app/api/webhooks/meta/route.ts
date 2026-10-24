@@ -18,6 +18,7 @@ interface StoredWebhookMessage {
     timestamp: string;
     platform: 'facebook' | 'instagram' | 'whatsapp';
     read: boolean;
+    attachments?: { type: string; url: string; previewUrl?: string }[];
 }
 
 /**
@@ -56,7 +57,21 @@ export async function POST(req: NextRequest) {
             // Facebook Messenger messages
             for (const entry of body.entry || []) {
                 for (const event of entry.messaging || []) {
-                    if (event.message && event.message.text) {
+                    if (event.message) {
+                        // Extract any attachments (photos, videos, files)
+                        const attachments: { type: string; url: string; previewUrl?: string }[] = [];
+                        if (Array.isArray(event.message.attachments)) {
+                            for (const att of event.message.attachments) {
+                                if (att.payload?.url) {
+                                    attachments.push({
+                                        type: att.type || 'image',
+                                        url: att.payload.url,
+                                        previewUrl: att.payload.url,
+                                    });
+                                }
+                            }
+                        }
+
                         // Try to get sender's name from Graph API
                         let senderName: string | undefined;
                         const token = process.env.META_PAGE_ACCESS_TOKEN;
@@ -74,26 +89,38 @@ export async function POST(req: NextRequest) {
                             }
                         }
 
+                        let content = event.message.text || '';
+                        if (!content && attachments.length > 0) {
+                            if (attachments.some(a => a.type === 'image')) content = '📷 Photo';
+                            else if (attachments.some(a => a.type === 'video')) content = '🎥 Video';
+                            else content = '📎 Attachment';
+                        } else if (!content) {
+                            content = '[Attachment]';
+                        }
+
                         const msg: StoredWebhookMessage = {
                             id: event.message.mid || `fb-${Date.now()}`,
                             senderId: event.sender?.id || '',
                             senderName,
                             recipientId: event.recipient?.id || '',
-                            message: event.message.text || '[Attachment]',
+                            message: content,
                             timestamp: new Date(event.timestamp || Date.now()).toISOString(),
                             platform: 'facebook',
                             read: false,
+                            attachments: attachments.length > 0 ? attachments : undefined,
                         };
                         await storeWebhookMessage(msg);
 
-                        // Trigger Facebook Messenger bot
-                        try {
-                            const { processFacebookMessage } = await import('@/lib/facebook-bot');
-                            await processFacebookMessage(msg.senderId, event.message.text, senderName).catch(err => {
-                                console.error('[MetaWebhook] FB bot processing error:', err);
-                            });
-                        } catch (err) {
-                            console.error('[MetaWebhook] Failed to import/run fb-bot:', err);
+                        // Trigger Facebook Messenger bot if text is present
+                        if (event.message.text) {
+                            try {
+                                const { processFacebookMessage } = await import('@/lib/facebook-bot');
+                                await processFacebookMessage(msg.senderId, event.message.text, senderName).catch(err => {
+                                    console.error('[MetaWebhook] FB bot processing error:', err);
+                                });
+                            } catch (err) {
+                                console.error('[MetaWebhook] Failed to import/run fb-bot:', err);
+                            }
                         }
                     }
                 }
@@ -107,6 +134,20 @@ export async function POST(req: NextRequest) {
             for (const entry of body.entry || []) {
                 for (const event of entry.messaging || []) {
                     if (event.message) {
+                        // Extract any photo or media attachments
+                        const attachments: { type: string; url: string; previewUrl?: string }[] = [];
+                        if (Array.isArray(event.message.attachments)) {
+                            for (const att of event.message.attachments) {
+                                if (att.payload?.url) {
+                                    attachments.push({
+                                        type: att.type || 'image',
+                                        url: att.payload.url,
+                                        previewUrl: att.payload.url,
+                                    });
+                                }
+                            }
+                        }
+
                         let senderName = '';
                         if (event.sender?.id) {
                             try {
@@ -132,15 +173,25 @@ export async function POST(req: NextRequest) {
                             }
                         }
 
+                        let content = event.message.text || '';
+                        if (!content && attachments.length > 0) {
+                            if (attachments.some(a => a.type === 'image')) content = '📷 Photo';
+                            else if (attachments.some(a => a.type === 'video')) content = '🎥 Video';
+                            else content = '📎 Attachment';
+                        } else if (!content) {
+                            content = '[Media / Reaction]';
+                        }
+
                         const msg: StoredWebhookMessage = {
                             id: event.message.mid || `ig-${Date.now()}`,
                             senderId: event.sender?.id || '',
                             senderName,
                             recipientId: event.recipient?.id || '',
-                            message: event.message.text || '[Attachment]',
+                            message: content,
                             timestamp: new Date(event.timestamp || Date.now()).toISOString(),
                             platform: 'instagram',
                             read: false,
+                            attachments: attachments.length > 0 ? attachments : undefined,
                         };
                         await storeWebhookMessage(msg);
 

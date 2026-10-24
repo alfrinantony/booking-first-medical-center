@@ -12,7 +12,11 @@ interface StoredWebhookMessage {
     timestamp: string;
     platform: 'facebook' | 'instagram' | 'whatsapp';
     read: boolean;
+    attachments?: { type: string; url: string; previewUrl?: string }[];
 }
+
+// Global cache for resolved message attachments
+const attachmentCache = new Map<string, any>();
 
 // ─────────────────────────────────────────────────────────────
 // Meta DMs API — Fetches Facebook Messenger & Instagram DMs
@@ -69,6 +73,8 @@ async function getPageAccessToken(pageId: string, baseToken: string, appSecret: 
                 cachedPageToken = { token: data.access_token, expires: Date.now() + 3600 * 1000 };
                 return data.access_token;
             }
+        } else {
+            console.error('[MetaDMs] getPageAccessToken error:', res.status, await res.text());
         }
     } catch (e) {
         console.warn('[MetaDMs] Could not resolve Page Access Token from base token:', e);
@@ -122,6 +128,15 @@ interface DMMessage {
     timestamp: string;
     isFromPage: boolean;
     isFromStaff?: boolean;
+    attachments?: {
+        type: string;
+        url?: string;
+        previewUrl?: string;
+        name?: string;
+        width?: number;
+        height?: number;
+        text?: string;
+    }[];
 }
 
 /**
@@ -161,13 +176,17 @@ export async function GET(request: NextRequest) {
                 const session = waSessions.sessions[cleanId] || waSessions.sessions[conversationId];
                 if (session?.history) {
                     session.history.forEach((h: any, idx: number) => {
+                        const isStaff = Boolean(h.isStaff || h.senderName?.toLowerCase().includes('staff'));
                         messages.push({
                             id: `wa-hist-${cleanId}-${idx}`,
                             from: h.role === 'assistant' ? (process.env.META_WA_PHONE_NUMBER_ID || 'fmc-clinic') : cleanId,
-                            fromName: h.role === 'assistant' ? 'Sofia (AI Agent)' : (session.senderName || 'WhatsApp User'),
+                            fromName: h.role === 'assistant' 
+                                ? (isStaff ? 'Staff Member' : 'Sofia (AI Agent)') 
+                                : (session.senderName || 'WhatsApp User'),
                             message: h.content,
                             timestamp: h.timestamp || new Date().toISOString(),
                             isFromPage: h.role === 'assistant',
+                            isFromStaff: isStaff,
                         });
                     });
                 }
@@ -199,13 +218,12 @@ export async function GET(request: NextRequest) {
 
         // Instagram or Facebook lazy load
         try {
-            const accessToken = platform === 'instagram'
-                ? igAccessToken
-                : await getPageAccessToken(pageId, pageAccessToken, appSecret);
+            const targetPageId = pageId || '449855885371740';
+            const accessToken = await getPageAccessToken(targetPageId, pageAccessToken || igAccessToken, appSecret);
 
             const messages: DMMessage[] = [];
 
-            // Strip any platform prefixes if present (e.g., "ig-dm-bmV3...", "fb-dm-t_...")
+            // Strip any platform prefixes if present (e.g., "ig-dm-bmV3...", "fb-dm-t_...", "ig-dm-aWdf...")
             const cleanConvId = conversationId
                 .replace(/^ig-dm-/, '')
                 .replace(/^fb-dm-/, '')
@@ -213,7 +231,7 @@ export async function GET(request: NextRequest) {
                 .replace(/^facebook-dm-/, '');
 
             // If cleanConvId is a Graph API thread ID
-            const isGraphConv = cleanConvId.startsWith('bmV3') || cleanConvId.startsWith('t_') || cleanConvId.includes(':');
+            const isGraphConv = cleanConvId.startsWith('bmV3') || cleanConvId.startsWith('t_') || cleanConvId.includes(':') || cleanConvId.startsWith('aWdf');
             if (isGraphConv) {
                 const msgData = await graphFetch(
                     `/${cleanConvId}/messages`,
@@ -222,15 +240,97 @@ export async function GET(request: NextRequest) {
                     appSecret,
                 );
                 if (msgData?.data) {
+                    // For empty messages (likely photos, reels, or attachments), resolve attachments in parallel
+                    const emptyMsgs = msgData.data.filter((m: any) => !m.message);
+                    await Promise.all(
+                        emptyMsgs.map(async (m: any) => {
+                            if (attachmentCache.has(m.id)) {
+                                m._resolved = attachmentCache.get(m.id);
+                                return;
+                            }
+                            try {
+                                const details = await graphFetch(
+                                    `/${m.id}`,
+                                    accessToken,
+                                    { fields: 'id,message,attachments{id,image_data,mime_type,name,file_url,video_data},shares,is_unsupported' },
+                                    appSecret,
+                                );
+                                if (details) {
+                                    attachmentCache.set(m.id, details);
+                                    m._resolved = details;
+                                }
+                            } catch (e) {
+                                console.warn(`[MetaDMs] Error resolving attachment for ${m.id}:`, e);
+                            }
+                        })
+                    );
+
                     for (const m of msgData.data) {
+                        const isFromUs = m.from?.id === igUserId || m.from?.id === targetPageId || m.from?.username === 'dubaifmc';
+
+                        const attachments: any[] = [];
+                        const resolved = m._resolved;
+                        if (resolved?.attachments?.data) {
+                            for (const att of resolved.attachments.data) {
+                                if (att.image_data?.url) {
+                                    attachments.push({
+                                        type: 'image',
+                                        url: att.image_data.url,
+                                        previewUrl: att.image_data.preview_url || att.image_data.url,
+                                        width: att.image_data.width,
+                                        height: att.image_data.height,
+                                    });
+                                } else if (att.video_data?.url) {
+                                    attachments.push({
+                                        type: 'video',
+                                        url: att.video_data.url,
+                                    });
+                                } else if (att.file_url) {
+                                    attachments.push({
+                                        type: 'file',
+                                        url: att.file_url,
+                                        name: att.name,
+                                    });
+                                }
+                            }
+                        }
+                        if (resolved?.shares?.data) {
+                            for (const sh of resolved.shares.data) {
+                                if (sh.link) {
+                                    attachments.push({
+                                        type: 'share',
+                                        url: sh.link,
+                                    });
+                                }
+                            }
+                        }
+                        if (resolved?.is_unsupported && attachments.length === 0) {
+                            attachments.push({
+                                type: 'unsupported',
+                                text: 'Shared Instagram Story / Reel / Post',
+                            });
+                        }
+
+                        let messageContent = m.message || '';
+                        if (!messageContent) {
+                            if (attachments.some(a => a.type === 'image')) {
+                                messageContent = '📷 Photo';
+                            } else if (attachments.some(a => a.type === 'share')) {
+                                messageContent = '🎬 Instagram Post/Reel';
+                            } else if (attachments.some(a => a.type === 'unsupported')) {
+                                messageContent = '📎 Shared Media';
+                            }
+                        }
+
                         messages.push({
                             id: m.id,
                             from: m.from?.id || '',
-                            fromName: m.from?.username || m.from?.name || (m.from?.id === ownerId ? 'First Medical Center' : 'User'),
-                            message: m.message || '',
+                            fromName: m.from?.username || m.from?.name || (isFromUs ? 'First Medical Center' : 'User'),
+                            message: messageContent,
                             timestamp: m.created_time || new Date().toISOString(),
-                            isFromPage: m.from?.id === ownerId,
-                            isFromStaff: m.from?.id === ownerId,
+                            isFromPage: isFromUs,
+                            isFromStaff: isFromUs,
+                            attachments: attachments.length > 0 ? attachments : undefined,
                         });
                     }
                     messages.reverse(); // oldest first
@@ -280,6 +380,7 @@ export async function GET(request: NextRequest) {
                             message: wm.message,
                             timestamp: wm.timestamp,
                             isFromPage: wm.senderId === ownerId || wm.senderId === pageId || wm.senderId === igUserId,
+                            attachments: (wm as any).attachments || undefined,
                         });
                     }
                 }
@@ -303,18 +404,21 @@ export async function GET(request: NextRequest) {
     const fbCursor = url.searchParams.get('fbCursor') || '';
     const igCursor = url.searchParams.get('igCursor') || '';
 
-    // ── 1. Instagram DM Conversations via /{igUserId}/conversations ──
-    if (igUserId && igAccessToken) {
+    // ── 1. Instagram DM Conversations via /{pageId}/conversations?platform=instagram ──
+    const targetPageId = pageId || '449855885371740';
+    if (targetPageId && (pageAccessToken || igAccessToken)) {
         try {
+            const pageToken = await getPageAccessToken(targetPageId, pageAccessToken || igAccessToken, appSecret);
             const igParams: Record<string, string> = {
+                platform: 'instagram',
                 fields: 'id,updated_time,participants,messages.limit(5){id,message,created_time,from}',
                 limit: '25',
             };
             if (igCursor) igParams.after = igCursor;
 
             const igConvos = await graphFetch(
-                `/${igUserId}/conversations`,
-                igAccessToken,
+                `/${targetPageId}/conversations`,
+                pageToken,
                 igParams,
                 appSecret,
             );
@@ -331,7 +435,7 @@ export async function GET(request: NextRequest) {
                     let participantId = '';
                     if (convo.participants?.data) {
                         const customer = convo.participants.data.find(
-                            (p: any) => p.id !== igUserId,
+                            (p: any) => p.id !== igUserId && p.username !== 'dubaifmc' && p.id !== targetPageId,
                         );
                         if (customer) {
                             participantName = customer.username || customer.name || 'Instagram User';
@@ -343,15 +447,18 @@ export async function GET(request: NextRequest) {
                     const lastMessageContent = lastMsgObj?.message || 'Instagram Message';
                     const lastMessageTimestamp = lastMsgObj?.created_time || convo.updated_time || new Date().toISOString();
 
-                    const initialMessages: DMMessage[] = (convo.messages?.data || []).map((m: any) => ({
-                        id: m.id,
-                        from: m.from?.id || '',
-                        fromName: m.from?.username || m.from?.name || (m.from?.id === igUserId ? 'First Medical Center' : participantName),
-                        message: m.message || '',
-                        timestamp: m.created_time || new Date().toISOString(),
-                        isFromPage: m.from?.id === igUserId,
-                        isFromStaff: m.from?.id === igUserId,
-                    })).reverse();
+                    const initialMessages: DMMessage[] = (convo.messages?.data || []).map((m: any) => {
+                        const isFromUs = m.from?.id === igUserId || m.from?.id === targetPageId || m.from?.username === 'dubaifmc';
+                        return {
+                            id: m.id,
+                            from: m.from?.id || '',
+                            fromName: m.from?.username || m.from?.name || (isFromUs ? 'First Medical Center' : participantName),
+                            message: m.message || '',
+                            timestamp: m.created_time || new Date().toISOString(),
+                            isFromPage: isFromUs,
+                            isFromStaff: isFromUs,
+                        };
+                    }).reverse();
 
                     conversations.push({
                         id: `ig-dm-${convo.id || i}`,
@@ -438,7 +545,15 @@ export async function GET(request: NextRequest) {
             const isClinicSender = 
                 (msg.platform === 'instagram' && msg.senderId === igUserId) || 
                 (msg.platform === 'facebook' && msg.senderId === pageId) ||
-                (msg.platform === 'whatsapp' && msg.senderId === process.env.META_WA_PHONE_NUMBER_ID);
+                (msg.platform === 'whatsapp' && (
+                    msg.senderId === '1085224931341556' ||
+                    msg.senderId === '2177289126457948' ||
+                    msg.senderId === '518094511384485' ||
+                    msg.senderId === 'fmc-clinic' ||
+                    msg.senderId === process.env.META_WA_PHONE_NUMBER_ID ||
+                    msg.senderName === 'Staff Member' ||
+                    msg.senderName?.includes('Sofia')
+                ));
             
             const customerId = isClinicSender ? msg.recipientId : msg.senderId;
             
@@ -464,7 +579,7 @@ export async function GET(request: NextRequest) {
                     messages: []
                 };
                 if (msg.platform === 'whatsapp') {
-                    (existingConvo as any).waPhoneNumberId = msg.recipientId; 
+                    (existingConvo as any).waPhoneNumberId = '1085224931341556'; 
                 }
                 conversations.push(existingConvo);
             } else {
@@ -565,28 +680,33 @@ export async function POST(request: NextRequest) {
             const { SettingsStore } = await import('@/lib/settings-store');
             const settings = await SettingsStore.getSettings();
             
-            let waPhoneNumberId = body.waPhoneNumberId || settings.metaPhoneId || process.env.META_WA_PHONE_NUMBER_ID;
-            if (!waPhoneNumberId) {
-                const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
-                const match = webhookData.messages.find(m => (m.senderId === recipientId || m.recipientId === recipientId) && m.platform === 'whatsapp');
-                waPhoneNumberId = match?.recipientId || '';
+            let waPhoneNumberId = settings.metaPhoneId || process.env.META_WA_PHONE_NUMBER_ID || '1085224931341556';
+            if (!waPhoneNumberId || waPhoneNumberId === '518094511384485' || waPhoneNumberId === '1059480356695707' || waPhoneNumberId === '2177289126457948' || waPhoneNumberId === 'fmc-clinic' || waPhoneNumberId === recipientId) {
+                waPhoneNumberId = '1085224931341556';
             }
 
-            await sendWhatsAppMessage(recipientId, waPhoneNumberId, content);
+            const sendResult = await sendWhatsAppMessage(recipientId, waPhoneNumberId, content);
+            if (!sendResult.success) {
+                return NextResponse.json({
+                    error: sendResult.error || 'Failed to send WhatsApp message via Meta Cloud API',
+                    sent: false,
+                    message: sendResult.error || 'Failed to send WhatsApp message via Meta Cloud API',
+                }, { status: 400 });
+            }
 
             const now = new Date().toISOString();
             try {
                 const waSessions = await loadFromBlob<{ sessions: Record<string, any> }>('wa-sessions', { sessions: {} });
                 let sess = waSessions.sessions[recipientId];
                 if (!sess) sess = { senderPhone: recipientId, history: [] };
-                sess.history.push({ role: 'assistant', content, timestamp: now });
+                sess.history.push({ role: 'assistant', isStaff: true, senderName: 'Staff Member', content, timestamp: now });
                 waSessions.sessions[recipientId] = sess;
                 await saveToBlob('wa-sessions', waSessions);
 
                 const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
                 webhookData.messages.push({
                     id: `wa-staff-${Date.now()}`,
-                    senderId: waPhoneNumberId || 'fmc-clinic',
+                    senderId: waPhoneNumberId || '1085224931341556',
                     senderName: 'Staff Member',
                     recipientId,
                     message: content,
@@ -603,17 +723,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, sent: true, message: 'WhatsApp message sent' });
         }
 
+        // ── 2. Facebook Messenger & Instagram DM Reply ──
         if (!pageAccessToken && !igAccessToken) {
             return NextResponse.json({ error: 'Meta credentials not configured' }, { status: 500 });
         }
 
         const isInstagram = platform === 'instagram';
-        const senderId = isInstagram ? igUserId : (pageId || 'me');
-        const tokenToUse = isInstagram
-            ? igAccessToken
-            : await getPageAccessToken(pageId, pageAccessToken, appSecret);
+        const targetPageId = pageId || '449855885371740';
+        const tokenToUse = await getPageAccessToken(targetPageId, pageAccessToken || igAccessToken, appSecret);
 
-        let sendUrl = `${GRAPH_BASE}/${senderId}/messages?access_token=${tokenToUse}`;
+        let sendUrl = `${GRAPH_BASE}/${targetPageId}/messages?access_token=${tokenToUse}`;
         if (appSecret && tokenToUse) {
             const crypto = await import('crypto');
             const proof = crypto.createHmac('sha256', appSecret).update(tokenToUse).digest('hex');
@@ -624,12 +743,14 @@ export async function POST(request: NextRequest) {
         let errorDetail = '';
 
         try {
-            // ── Attempt 1: Standard RESPONSE (works within 24h window) ──
-            const responsePayload = {
+            // Attempt 1: Standard message (for Facebook with RESPONSE; for Instagram without messaging_type)
+            const responsePayload: Record<string, any> = {
                 recipient: { id: recipientId },
                 message: { text: content },
-                messaging_type: 'RESPONSE',
             };
+            if (!isInstagram) {
+                responsePayload.messaging_type = 'RESPONSE';
+            }
 
             const res1 = await fetch(sendUrl, {
                 method: 'POST',
@@ -642,10 +763,10 @@ export async function POST(request: NextRequest) {
             } else {
                 const err1 = await res1.json().catch(() => ({}));
                 const errCode = err1?.error?.error_subcode;
-                console.error(`[MetaDMs] RESPONSE attempt failed (${platform}):`, JSON.stringify(err1));
+                console.error(`[MetaDMs] Standard attempt failed (${platform}):`, JSON.stringify(err1));
 
-                // If outside the 24-hour messaging window, attempt HUMAN_AGENT tag
-                if ((platform === 'facebook' || platform === 'instagram') && (errCode === 2018278 || err1?.error?.code === 10)) {
+                // If outside 24-hour messaging window, attempt HUMAN_AGENT tag (up to 7 days)
+                if (errCode === 2018278 || err1?.error?.code === 10 || errCode === 2534037) {
                     const tagPayload = {
                         recipient: { id: recipientId },
                         message: { text: content },
@@ -685,15 +806,23 @@ export async function POST(request: NextRequest) {
                         let sess = igSessions.sessions[recipientId];
                         if (!sess) sess = { senderId: recipientId, history: [] };
                         sess.history = sess.history || [];
-                        sess.history.push({ role: 'assistant', content, timestamp: now });
+                        sess.history.push({ role: 'assistant', isStaff: true, content, timestamp: now });
                         igSessions.sessions[recipientId] = sess;
                         await saveToBlob('ig-sessions', igSessions);
+                    } else if (platform === 'facebook') {
+                        const fbSessions = await loadFromBlob<{ sessions: Record<string, any> }>('fb-sessions', { sessions: {} });
+                        let sess = fbSessions.sessions[recipientId];
+                        if (!sess) sess = { senderId: recipientId, history: [] };
+                        sess.history = sess.history || [];
+                        sess.history.push({ role: 'assistant', isStaff: true, content, timestamp: now });
+                        fbSessions.sessions[recipientId] = sess;
+                        await saveToBlob('fb-sessions', fbSessions);
                     }
 
                     const webhookData = await loadFromBlob<{ messages: StoredWebhookMessage[] }>('webhook-messages', { messages: [] });
                     webhookData.messages.push({
                         id: `${platform}-staff-${Date.now()}`,
-                        senderId: senderId,
+                        senderId: isInstagram ? (igUserId || '17841406116856119') : targetPageId,
                         senderName: 'Staff Member',
                         recipientId,
                         message: content,

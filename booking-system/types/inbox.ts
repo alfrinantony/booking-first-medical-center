@@ -2,6 +2,16 @@ export type Platform = 'facebook' | 'instagram' | 'whatsapp' | 'google_reviews' 
 
 export type ReviewReplyStatus = 'unreplied' | 'replied' | 'auto_replied';
 
+export interface MessageAttachment {
+  type: 'image' | 'video' | 'audio' | 'file' | 'share' | 'unsupported';
+  url?: string;
+  previewUrl?: string;
+  name?: string;
+  width?: number;
+  height?: number;
+  text?: string;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -15,6 +25,7 @@ export interface Message {
   repliedByUserId?: string;  // Staff user ID who sent this reply
   repliedByUserName?: string; // Staff display name who sent this reply
   status: 'sent' | 'delivered' | 'read' | 'failed';
+  attachments?: MessageAttachment[];
 }
 
 export interface Conversation {

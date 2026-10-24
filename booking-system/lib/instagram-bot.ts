@@ -94,24 +94,22 @@ export async function sendInstagramMessage(recipientId: string, text: string) {
     const { SettingsStore } = await import('@/lib/settings-store');
     const settings = await SettingsStore.getSettings();
 
-    const token = settings.messengerAccessToken || process.env.META_IG_ACCESS_TOKEN || process.env.META_PAGE_ACCESS_TOKEN;
+    const token = settings.messengerAccessToken || process.env.META_PAGE_ACCESS_TOKEN || process.env.META_IG_ACCESS_TOKEN;
     if (!token) {
-        console.warn('[IgBot] No META_IG_ACCESS_TOKEN or META_PAGE_ACCESS_TOKEN configured. Cannot send reply.');
+        console.warn('[IgBot] No META_PAGE_ACCESS_TOKEN or messengerAccessToken configured. Cannot send reply.');
         return;
     }
 
-    const igUserId = settings.metaIgUserId || process.env.META_IG_USER_ID || '17841406116856119';
-
+    const pageId = settings.metaPageId || process.env.META_PAGE_ID || '449855885371740';
     const appSecret = settings.metaAppSecret || process.env.META_APP_SECRET;
-    let url = `https://graph.facebook.com/v21.0/${igUserId}/messages`;
+    let url = `https://graph.facebook.com/v21.0/${pageId}/messages?access_token=${token}`;
     if (appSecret) {
         const crypto = await import('crypto');
         const proof = crypto.createHmac('sha256', appSecret).update(token).digest('hex');
-        url += `?appsecret_proof=${proof}`;
+        url += `&appsecret_proof=${proof}`;
     }
 
     const payload = {
-        messaging_type: 'RESPONSE',
         recipient: { id: recipientId },
         message: { text }
     };
@@ -121,7 +119,6 @@ export async function sendInstagramMessage(recipientId: string, text: string) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify(payload)
         });
