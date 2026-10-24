@@ -5,7 +5,7 @@ import type { Client } from '@/lib/clients-store';
 import { maskPhone, maskEmail } from '@/lib/mask-utils';
 import type { EMRConfig, EMRPushRecord } from '@/lib/emr-store';
 import type { ClientRestriction } from '@/lib/restrictions-store';
-import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock, Download, Calendar } from 'lucide-react';
+import { Users, Search, Merge, Check, X, AlertTriangle, Upload, FileText, Plus, CreditCard, Phone, UserPlus, ScanLine, Loader2, Link2, Unlink, ShieldAlert, MicOff, Eye, EyeOff, Send, CheckCircle2, XCircle, Clock, Download, Calendar, Crown } from 'lucide-react';
 
 /* ── Form shape ── */
 interface EditForm {
@@ -659,6 +659,12 @@ export default function ClientsPage() {
                                             {pushingEMR.has(client.id) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                                             EMR
                                         </button>
+                                        <a href={`/admin/memberships?phone=${encodeURIComponent(client.phone || client.mobile || '')}`}
+                                            onClick={e => e.stopPropagation()}
+                                            className="flex items-center gap-1 text-amber-600 hover:text-amber-800 text-sm font-medium ml-2" title="View / Assign Membership">
+                                            <Crown className="w-3.5 h-3.5" />
+                                            Membership
+                                        </a>
                                     </div>
                                 </td>
                             </tr>

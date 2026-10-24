@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText, Clock, FileSpreadsheet, Cpu, TrendingUp, BarChart3, Wrench, ExternalLink, Zap, Armchair } from 'lucide-react';
+import { Users, Calendar, Activity, BarChart2, MapPin, Tag, Stethoscope, Lock, Inbox, Settings, Package as PackageIcon, ClipboardList, Bell, Pill, Truck, ShoppingCart, LogOut, Phone, ShieldCheck, Gift, Receipt, Link2, Briefcase, Calculator, UserPlus, Wallet, Menu, X, FileText, Clock, FileSpreadsheet, Cpu, TrendingUp, BarChart3, Wrench, ExternalLink, Zap, Armchair, Crown } from 'lucide-react';
 import { User } from '@/lib/users-types';
 
 export default function AdminSidebar() {
@@ -174,6 +174,13 @@ export default function AdminSidebar() {
                 <Link href="/admin/packages" className={mainLinkClass('/admin/packages')}>
                     <PackageIcon className="w-4 h-4 shrink-0" />
                     Packages
+                </Link>
+            )}
+
+            {hasRead('memberships') && (
+                <Link href="/admin/memberships" className={mainLinkClass('/admin/memberships')}>
+                    <Crown className="w-4 h-4 shrink-0 text-amber-500" />
+                    Membership Privileges
                 </Link>
             )}
 

@@ -16,13 +16,14 @@ interface SummaryForm {
     doctor: string;
     service: string;
     packageDetails: string;
+    membershipDetails: string;
     offerer: string;
 }
 
 const emptyForm: SummaryForm = {
     customerId: '', customerName: '', customerNumber: '',
     timestamp: '', callDuration: '', summary: '', nextSteps: '',
-    branch: '', doctor: '', service: '', packageDetails: '', offerer: '',
+    branch: '', doctor: '', service: '', packageDetails: '', membershipDetails: '', offerer: '',
 };
 
 function formatDuration(seconds: number): string {
@@ -136,7 +137,8 @@ export default function CallAgentSummaryPage() {
                 s.summary.toLowerCase().includes(q) ||
                 (s.doctor || '').toLowerCase().includes(q) ||
                 (s.service || '').toLowerCase().includes(q) ||
-                (s.offerer || '').toLowerCase().includes(q)
+                (s.offerer || '').toLowerCase().includes(q) ||
+                (s.membershipDetails || '').toLowerCase().includes(q)
             );
         }
         return true;
@@ -246,6 +248,12 @@ export default function CallAgentSummaryPage() {
                     <input type="text" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                         value={values.packageDetails || ''} onChange={e => onChange('packageDetails', e.target.value)}
                         placeholder="e.g. Gold Package — 5 sessions" />
+                </div>
+                <div className="mt-3">
+                    <label className="block text-sm font-medium mb-1">Membership / Privilege Details</label>
+                    <input type="text" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        value={values.membershipDetails || ''} onChange={e => onChange('membershipDetails', e.target.value)}
+                        placeholder="e.g. Diamond VIP Care Pass — Valet, Hotline & 15% discount" />
                 </div>
             </div>
         </div>
@@ -496,6 +504,11 @@ export default function CallAgentSummaryPage() {
                                 {viewing.packageDetails && (
                                     <div className="bg-gray-50 dark:bg-gray-750 p-2.5 rounded-lg col-span-2">
                                         <span className="text-gray-500 text-xs">Package:</span> <strong>{viewing.packageDetails}</strong>
+                                    </div>
+                                )}
+                                {viewing.membershipDetails && (
+                                    <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 p-2.5 rounded-lg col-span-2">
+                                        <span className="text-amber-700 dark:text-amber-400 text-xs font-semibold">Membership Privilege:</span> <strong className="text-amber-900 dark:text-amber-200">{viewing.membershipDetails}</strong>
                                     </div>
                                 )}
                             </div>

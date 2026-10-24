@@ -379,6 +379,7 @@ export interface CallAgentSummary {
     doctor?: string; // Doctor discussed
     service?: string; // Service discussed
     packageDetails?: string; // Package info if applicable
+    membershipDetails?: string; // Membership / Privilege details
     offerer?: string; // Person/agent who offered
     createdAt: string; // Record creation timestamp (ISO)
 }

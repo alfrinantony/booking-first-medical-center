@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Package, PackageServiceItem, CustomerPackage } from '@/types/packages';
-import { Plus, Trash2, Package as PackageIcon, X, Search, User, Calendar, Receipt, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Package as PackageIcon, X, Search, User, Calendar, Receipt, CreditCard, Banknote, CheckCircle2, Crown } from 'lucide-react';
+import MembershipsManager from '@/components/admin/MembershipsManager';
 
 // ── Safe helpers ──
 function safeArray<T>(val: unknown): T[] {
@@ -101,7 +102,7 @@ export default function PackagesPage() {
 // ──────────────────────────────────────────────
 function PackagesContent() {
     const [mounted, setMounted] = useState(false);
-    const [activeTab, setActiveTab] = useState<'manage' | 'customers' | 'transfers' | 'extensions'>('manage');
+    const [activeTab, setActiveTab] = useState<'manage' | 'customers' | 'memberships' | 'transfers' | 'extensions'>('manage');
 
     // Data
     const [packages, setPackages] = useState<Package[]>([]);
@@ -622,6 +623,17 @@ function PackagesContent() {
                         }`}
                     >
                         Customer Packages
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('memberships')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                            activeTab === 'memberships'
+                                ? 'bg-white dark:bg-gray-600 text-amber-600 dark:text-amber-400 shadow-sm font-bold'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                        }`}
+                    >
+                        <Crown className="w-4 h-4 text-amber-500" />
+                        Client Memberships
                     </button>
                     <button
                         onClick={() => setActiveTab('transfers')}
@@ -1276,6 +1288,13 @@ function PackagesContent() {
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* ─── CLIENT MEMBERSHIPS TAB ─── */}
+            {activeTab === 'memberships' && (
+                <div className="mt-2">
+                    <MembershipsManager />
                 </div>
             )}
 

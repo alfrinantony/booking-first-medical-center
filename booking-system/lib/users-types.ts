@@ -62,6 +62,7 @@ export const MODULES: ModuleDefinition[] = [
     { key: 'inventory', label: 'Inventory', group: 'Inventory & Supply' },
     { key: 'branches', label: 'Branches & Contracts', group: 'Inventory & Supply' },
     { key: 'packages', label: 'Packages', group: 'Inventory & Supply' },
+    { key: 'memberships', label: 'Membership Privileges', group: 'Inventory & Supply' },
     // Finance
     { key: 'loyalty', label: 'Loyalty Points', group: 'Finance' },
     { key: 'billing', label: 'Billing', group: 'Finance' },

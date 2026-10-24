@@ -129,3 +129,13 @@ export function catalogImagePath(type: string, id: string, fileName: string): st
     const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
     return `images/${type}/${id}/${Date.now()}-${safe}`;
 }
+
+/**
+ * Membership tier picture path:
+ * images/membership/{id}/{timestamp}-{filename}
+ */
+export function membershipImagePath(id: string, fileName: string): string {
+    const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    return `images/membership/${id}/${Date.now()}-${safe}`;
+}
+

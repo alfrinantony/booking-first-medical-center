@@ -5,8 +5,9 @@ import { useAuthStore } from '@/lib/store';
 import { clinics as allClinics } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Package, Calendar, Clock, ChevronRight, User, X, RefreshCw, Plus, AlertCircle, Star, ExternalLink, MapPin, Stethoscope, Activity, Info } from 'lucide-react';
+import { Package, Calendar, Clock, ChevronRight, User, X, RefreshCw, Plus, AlertCircle, Star, ExternalLink, MapPin, Stethoscope, Activity, Info, Crown, Sparkles } from 'lucide-react';
 import type { CustomerPackage } from '@/types/packages';
+import type { CustomerMembership } from '@/types/memberships';
 import type { GoogleReview, ReviewDiscountResult } from '@/lib/review-discount-store';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
 
@@ -29,6 +30,7 @@ export default function CustomerDashboard() {
 
     // API-fetched state
     const [myPackages, setMyPackages] = useState<CustomerPackage[]>([]);
+    const [myMemberships, setMyMemberships] = useState<CustomerMembership[]>([]);
     const [myReviews, setMyReviews] = useState<GoogleReview[]>([]);
     const [reviewDiscount, setReviewDiscount] = useState<ReviewDiscountResult>({ percent: 0, reviewedBranches: 0, totalBranches: allClinics.length, hasSubFiveReview: false });
     const [googleReviewUrls, setGoogleReviewUrls] = useState<Record<string, string>>({});
@@ -79,6 +81,10 @@ export default function CustomerDashboard() {
         // Fetch active packages
         fetch(`/api/admin/packages?type=my&phone=${encodeURIComponent(user.phone)}`)
             .then(r => r.json()).then(setMyPackages).catch(() => {});
+
+        // Fetch active memberships
+        fetch(`/api/admin/memberships?type=my&phone=${encodeURIComponent(user.phone)}`)
+            .then(r => r.json()).then(data => { if (Array.isArray(data)) setMyMemberships(data); }).catch(() => {});
 
         // Fetch dynamic clinics tree for resolving string names
         fetch('/api/admin/clinics')
@@ -427,6 +433,79 @@ export default function CustomerDashboard() {
                                         </div>
                                     );
                                 })}
+                            </div>
+                        )}
+
+                        {/* ── Active Memberships ── */}
+                        {myMemberships.length > 0 && (
+                            <div className="space-y-4 pt-4">
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Crown className="w-5 h-5 text-amber-500" /> VIP Memberships
+                                </h2>
+                                <div className="grid grid-cols-1 gap-6">
+                                    {myMemberships.map(cm => {
+                                        const isExpired = cm.status === 'expired' || (cm.expiryDate && new Date(cm.expiryDate) < new Date());
+                                        const daysLeft = Math.max(0, Math.ceil((new Date(cm.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+                                        return (
+                                            <div key={cm.id} className="bg-white dark:bg-gray-800 rounded-3xl shadow-md border border-amber-200/60 dark:border-amber-900/40 overflow-hidden">
+                                                <div className="relative p-6 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white overflow-hidden">
+                                                    {cm.pictureUrl && (
+                                                        <div className="absolute inset-0 opacity-25 bg-cover bg-center pointer-events-none" style={{ backgroundImage: `url(${cm.pictureUrl})` }} />
+                                                    )}
+                                                    <div className="relative z-10 flex justify-between items-start">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="p-1 rounded-md bg-amber-400/20 text-amber-300">
+                                                                    <Crown className="w-4 h-4" />
+                                                                </span>
+                                                                <span className="text-xs font-mono tracking-widest text-amber-300 uppercase">
+                                                                    {cm.membershipCode}
+                                                                </span>
+                                                            </div>
+                                                            <h3 className="text-2xl font-black text-white">{cm.membershipName}</h3>
+                                                            <p className="text-xs text-indigo-200 mt-1">
+                                                                Valid: {new Date(cm.startDate).toLocaleDateString()} — {new Date(cm.expiryDate).toLocaleDateString()} ({daysLeft} days left)
+                                                            </p>
+                                                        </div>
+                                                        <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${!isExpired && cm.status === 'active' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300'}`}>
+                                                            {isExpired ? 'Expired' : cm.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-6 space-y-4">
+                                                    <div>
+                                                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Included Procedures & Sessions</h4>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                            {cm.allowedProcedures.map((p, idx) => (
+                                                                <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs">
+                                                                    <span className="font-semibold text-gray-800 dark:text-gray-200">{p.serviceName}</span>
+                                                                    <span className="font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">
+                                                                        {p.totalAllowed === -1 ? 'Unlimited' : `${p.remainingCount} / ${p.totalAllowed} Left`}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    {cm.privileges && cm.privileges.length > 0 && (
+                                                        <div>
+                                                            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Member Privileges</h4>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {cm.privileges.map((priv, idx) => (
+                                                                    <span key={idx} className="text-xs bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
+                                                                        <Sparkles className="w-3 h-3 text-amber-500" />
+                                                                        {priv}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
 

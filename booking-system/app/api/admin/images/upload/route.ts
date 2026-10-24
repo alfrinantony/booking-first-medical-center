@@ -22,7 +22,7 @@ export async function POST(request: Request) {
         }
 
         // Validate type
-        const allowedTypes = ['department', 'service', 'doctor', 'category'];
+        const allowedTypes = ['department', 'service', 'doctor', 'category', 'membership'];
         if (!allowedTypes.includes(type)) {
             return NextResponse.json(
                 { error: `Invalid type. Must be one of: ${allowedTypes.join(', ')}` },
